@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" width="1000" height="800">
+  <defs>
+    <!-- Planet gradient -->
+    <radialGradient id="heroCore" cx="30%" cy="30%">
+      <stop offset="0%" stop-color="#b4bfff"/>
+      <stop offset="50%" stop-color="#8b9cf7"/>
+      <stop offset="100%" stop-color="#2a2a4e"/>
+    </radialGradient>
+    <!-- Glow -->
+    <radialGradient id="heroGlow" cx="50%" cy="50%">
+      <stop offset="0%" stop-color="#8b9cf7" stop-opacity="0.4"/>
+      <stop offset="60%" stop-color="#8b9cf7" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#8b9cf7" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Atmosphere -->
+    <radialGradient id="heroAtmo" cx="50%" cy="50%">
+      <stop offset="85%" stop-color="#8b9cf7" stop-opacity="0"/>
+      <stop offset="95%" stop-color="#8b9cf7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#8b9cf7" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="heroBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3"/>
+    </filter>
+    <filter id="starGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background pattern - scattered dots -->
+  <g opacity="0.3">
+    <circle cx="50" cy="100" r="1" fill="#8b9cf7"/>
+    <circle cx="150" cy="50" r="1.5" fill="#8b9cf7"/>
+    <circle cx="250" cy="180" r="1" fill="#a78bfa"/>
+    <circle cx="350" cy="80" r="1.2" fill="#8b9cf7"/>
+    <circle cx="450" cy="150" r="0.8" fill="#8b9cf7"/>
+    <circle cx="550" cy="60" r="1.3" fill="#a78bfa"/>
+    <circle cx="650" cy="120" r="1" fill="#8b9cf7"/>
+    <circle cx="750" cy="40" r="1.5" fill="#8b9cf7"/>
+    <circle cx="850" cy="90" r="1.1" fill="#a78bfa"/>
+    <circle cx="950" cy="140" r="0.9" fill="#8b9cf7"/>
+    <circle cx="100" cy="700" r="1" fill="#8b9cf7"/>
+    <circle cx="200" cy="750" r="1.2" fill="#a78bfa"/>
+    <circle cx="300" cy="680" r="0.8" fill="#8b9cf7"/>
+    <circle cx="400" cy="720" r="1.5" fill="#8b9cf7"/>
+    <circle cx="600" cy="760" r="1" fill="#8b9cf7"/>
+    <circle cx="800" cy="700" r="1.3" fill="#a78bfa"/>
+    <circle cx="900" cy="730" r="1" fill="#8b9cf7"/>
+    <circle cx="80" cy="300" r="0.8" fill="#8b9cf7"/>
+    <circle cx="920" cy="400" r="1.2" fill="#8b9cf7"/>
+    <circle cx="60" cy="500" r="1" fill="#a78bfa"/>
+    <circle cx="940" cy="250" r="0.9" fill="#8b9cf7"/>
+  </g>
+
+  <!-- Background constellation pattern -->
+  <g opacity="0.15" stroke="#8b9cf7" stroke-width="0.5" fill="none">
+    <path d="M100,200 L180,280 L250,240 L320,300"/>
+    <path d="M700,150 L780,200 L850,180 L900,220"/>
+    <path d="M150,550 L220,600 L280,570"/>
+    <path d="M750,600 L820,650 L880,620"/>
+    <circle cx="100" cy="200" r="2" fill="#8b9cf7"/>
+    <circle cx="180" cy="280" r="2" fill="#8b9cf7"/>
+    <circle cx="250" cy="240" r="2" fill="#8b9cf7"/>
+    <circle cx="320" cy="300" r="2" fill="#8b9cf7"/>
+    <circle cx="700" cy="150" r="2" fill="#8b9cf7"/>
+    <circle cx="780" cy="200" r="2" fill="#8b9cf7"/>
+    <circle cx="850" cy="180" r="2" fill="#8b9cf7"/>
+    <circle cx="900" cy="220" r="2" fill="#8b9cf7"/>
+  </g>
+
+  <!-- Radial lines emanating from center -->
+  <g opacity="0.08" stroke="#8b9cf7" stroke-width="0.5">
+    <line x1="500" y1="400" x2="100" y2="100"/>
+    <line x1="500" y1="400" x2="900" y2="100"/>
+    <line x1="500" y1="400" x2="100" y2="700"/>
+    <line x1="500" y1="400" x2="900" y2="700"/>
+    <line x1="500" y1="400" x2="50" y2="400"/>
+    <line x1="500" y1="400" x2="950" y2="400"/>
+    <line x1="500" y1="400" x2="500" y2="50"/>
+    <line x1="500" y1="400" x2="500" y2="750"/>
+  </g>
+
+  <!-- Outer orbital rings -->
+  <g fill="none" stroke="#8b9cf7" opacity="0.2">
+    <ellipse cx="500" cy="400" rx="380" ry="120" stroke-width="0.5" transform="rotate(-15 500 400)"/>
+    <ellipse cx="500" cy="400" rx="340" ry="100" stroke-width="0.5" stroke-dasharray="8 4" transform="rotate(-15 500 400)"/>
+  </g>
+
+  <!-- Spiral energy flow -->
+  <g opacity="0.12" fill="none" stroke="#a78bfa" stroke-width="0.8">
+    <path d="M500,400 Q600,350 650,400 Q700,450 650,500 Q600,550 500,550 Q400,550 350,500 Q300,450 350,400 Q400,350 500,350 Q600,350 680,400 Q760,450 680,520"/>
+  </g>
+
+  <!-- Midground orbital system -->
+  <g fill="none" stroke="#8b9cf7" opacity="0.35">
+    <ellipse cx="500" cy="400" rx="200" ry="65" stroke-width="1" transform="rotate(-15 500 400)"/>
+    <ellipse cx="500" cy="400" rx="250" ry="80" stroke-width="0.8" transform="rotate(-15 500 400)"/>
+    <ellipse cx="500" cy="400" rx="160" ry="52" stroke-width="1.2" transform="rotate(-15 500 400)"/>
+  </g>
+
+  <!-- Orbital nodes -->
+  <g fill="#8b9cf7" opacity="0.6">
+    <circle cx="700" cy="380" r="4"/>
+    <circle cx="300" cy="420" r="3"/>
+    <circle cx="650" cy="340" r="2.5"/>
+    <circle cx="350" cy="460" r="2"/>
+  </g>
+
+  <!-- Planet glow layer -->
+  <circle cx="500" cy="400" r="150" fill="url(#heroGlow)" filter="url(#heroBlur)"/>
+
+  <!-- Main planet -->
+  <circle cx="500" cy="400" r="90" fill="url(#heroCore)"/>
+
+  <!-- Planet atmosphere -->
+  <circle cx="500" cy="400" r="100" fill="url(#heroAtmo)"/>
+
+  <!-- Planet ring (in front) -->
+  <ellipse cx="500" cy="400" rx="140" ry="20" fill="none" stroke="#8b9cf7" stroke-width="3" opacity="0.5" transform="rotate(-15 500 400)"/>
+  <ellipse cx="500" cy="400" rx="140" ry="20" fill="none" stroke="#b4bfff" stroke-width="1" opacity="0.8" transform="rotate(-15 500 400)"/>
+
+  <!-- Accent crosshairs framing -->
+  <g stroke="#8b9cf7" stroke-width="1" opacity="0.4">
+    <!-- Top left -->
+    <line x1="80" y1="80" x2="80" y2="130"/>
+    <line x1="80" y1="80" x2="130" y2="80"/>
+    <!-- Top right -->
+    <line x1="920" y1="80" x2="920" y2="130"/>
+    <line x1="920" y1="80" x2="870" y2="80"/>
+    <!-- Bottom left -->
+    <line x1="80" y1="720" x2="80" y2="670"/>
+    <line x1="80" y1="720" x2="130" y2="720"/>
+    <!-- Bottom right -->
+    <line x1="920" y1="720" x2="920" y2="670"/>
+    <line x1="920" y1="720" x2="870" y2="720"/>
+  </g>
+
+  <!-- Center crosshair on planet -->
+  <g stroke="#8b9cf7" stroke-width="0.5" opacity="0.3">
+    <line x1="500" y1="350" x2="500" y2="320"/>
+    <line x1="500" y1="450" x2="500" y2="480"/>
+    <line x1="450" y1="400" x2="420" y2="400"/>
+    <line x1="550" y1="400" x2="580" y2="400"/>
+  </g>
+
+  <!-- Foreground accent stars -->
+  <g filter="url(#starGlow)">
+    <circle cx="200" cy="300" r="2" fill="#fff"/>
+    <circle cx="780" cy="280" r="2.5" fill="#fff"/>
+    <circle cx="150" cy="500" r="1.8" fill="#fff"/>
+    <circle cx="850" cy="520" r="2" fill="#fff"/>
+  </g>
+</svg>

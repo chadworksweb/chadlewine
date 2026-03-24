@@ -32,6 +32,32 @@ async function getObservation(slug: string) {
   };
 }
 
+async function getAdjacentObservations(publishedAt: string, observationId: string) {
+  const supabase = createPublicClient();
+
+  const { data: newer } = await supabase
+    .from("observations")
+    .select("title, slug")
+    .eq("status", "published")
+    .gt("published_at", publishedAt)
+    .neq("id", observationId)
+    .order("published_at", { ascending: true })
+    .limit(1)
+    .single();
+
+  const { data: older } = await supabase
+    .from("observations")
+    .select("title, slug")
+    .eq("status", "published")
+    .lt("published_at", publishedAt)
+    .neq("id", observationId)
+    .order("published_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  return { newer, older };
+}
+
 async function getRelatedObservations(observationId: string, domainSlugs: string[]) {
   if (domainSlugs.length === 0) return [];
   const supabase = createPublicClient();
@@ -89,7 +115,10 @@ export default async function ObservationPage({
   const obs = await getObservation(slug);
   if (!obs) notFound();
 
-  const related = await getRelatedObservations(obs.id, obs.domains);
+  const [related, { newer, older }] = await Promise.all([
+    getRelatedObservations(obs.id, obs.domains),
+    getAdjacentObservations(obs.published_at || obs.date_captured, obs.id),
+  ]);
 
   return (
     <div id="page-observation" className="page-observation">
@@ -129,6 +158,69 @@ export default async function ObservationPage({
       <article className="observation-body">
         <MarkdownRenderer html={obs.body} />
       </article>
+
+      <div className="obs-celestial-anchor">
+        <div className="obs-celestial-wrap" aria-hidden="true">
+          <svg className="obs-celestial" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="navCore" cx="30%" cy="30%">
+                <stop offset="0%" stopColor="#b4bfff"/>
+                <stop offset="50%" stopColor="#8b9cf7"/>
+                <stop offset="100%" stopColor="#2a2a4e"/>
+              </radialGradient>
+              <radialGradient id="navGlow" cx="50%" cy="50%">
+                <stop offset="0%" stopColor="#8b9cf7" stopOpacity="0.3"/>
+                <stop offset="60%" stopColor="#8b9cf7" stopOpacity="0.05"/>
+                <stop offset="100%" stopColor="#8b9cf7" stopOpacity="0"/>
+              </radialGradient>
+              <filter id="navBlur" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="2"/>
+              </filter>
+            </defs>
+            <g opacity="0.25" stroke="#8b9cf7" strokeWidth="0.5" fill="none">
+              <ellipse cx="200" cy="200" rx="180" ry="60" className="obs-celestial__ring obs-celestial__ring--1"/>
+              <ellipse cx="200" cy="200" rx="140" ry="45" className="obs-celestial__ring obs-celestial__ring--2" strokeDasharray="6 3"/>
+              <ellipse cx="200" cy="200" rx="100" ry="32" className="obs-celestial__ring obs-celestial__ring--3"/>
+            </g>
+            <g opacity="0.5" fill="#8b9cf7">
+              <circle cx="340" cy="185" r="3"/>
+              <circle cx="60" cy="215" r="2.5"/>
+              <circle cx="310" cy="160" r="2"/>
+            </g>
+            <circle cx="200" cy="200" r="70" fill="url(#navGlow)" filter="url(#navBlur)"/>
+            <circle cx="200" cy="200" r="35" fill="url(#navCore)"/>
+            <ellipse cx="200" cy="200" rx="55" ry="10" fill="none" stroke="#8b9cf7" strokeWidth="2" opacity="0.4" className="obs-celestial__ring obs-celestial__ring--front"/>
+            <g opacity="0.2">
+              <circle cx="80" cy="120" r="1" fill="#fff"/>
+              <circle cx="320" cy="100" r="1.2" fill="#fff"/>
+              <circle cx="100" cy="300" r="1" fill="#fff"/>
+              <circle cx="310" cy="290" r="0.8" fill="#fff"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      {(newer || older) && (
+        <nav className="obs-nav">
+          {newer ? (
+            <a href={`/observations/${newer.slug}`} className="obs-nav__card obs-nav__card--newer">
+              <span className="obs-nav__label">← Newer</span>
+              <span className="obs-nav__title">{newer.title}</span>
+            </a>
+          ) : (
+            <span />
+          )}
+          <div className="obs-nav__center" />
+          {older ? (
+            <a href={`/observations/${older.slug}`} className="obs-nav__card obs-nav__card--older">
+              <span className="obs-nav__label">Older →</span>
+              <span className="obs-nav__title">{older.title}</span>
+            </a>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
 
       {related.length > 0 && (
         <section className="synapse-jumper">
