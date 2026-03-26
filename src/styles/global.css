@@ -2806,7 +2806,7 @@ h3.aw-heading {
 
 .synapse-jumper__title {
   font-family: var(--font-display, var(--font-ui));
-  font-size: 1.62em;
+  font-size: 1.8em;
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.3;
