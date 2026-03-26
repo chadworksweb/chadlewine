@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { DomainTag } from "./DomainTag";
 import { formatDate } from "@/lib/utils";
 
 interface FeedEntryProps {
   title: string;
   slug: string;
   dateCaptured: string;
-  domains: string[];
   hookLine: string;
   artImageUrl?: string;
   artAlt?: string;
@@ -16,7 +14,6 @@ export function FeedEntry({
   title,
   slug,
   dateCaptured,
-  domains,
   hookLine,
   artImageUrl,
   artAlt,
@@ -41,9 +38,6 @@ export function FeedEntry({
           <time className="feed-entry__date">
             {formatDate(dateCaptured)}
           </time>
-          {domains.map((d) => (
-            <DomainTag key={d} slug={d} />
-          ))}
         </div>
 
         <h2 className="feed-entry__title">

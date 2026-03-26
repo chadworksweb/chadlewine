@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/styles/global.css";
+import { SiteJsonLd } from "@/components/SiteJsonLd";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chadlewine.com"),
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
   },
   description:
     "Cross-domain observations that connect the invisible patterns between music, money, faith, identity, consciousness, and everything else.",
+  authors: [{ name: "Chad Lewine", url: "https://chadlewine.com/chad-lewine" }],
   openGraph: {
     type: "website",
     siteName: "Chad Lewine",
@@ -16,6 +18,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    "max-image-preview": "large",
+    "max-snippet": -1,
+  },
+  alternates: {
+    canonical: "https://chadlewine.com",
   },
 };
 
@@ -26,7 +37,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <SiteJsonLd />
+        {children}
+      </body>
     </html>
   );
 }

@@ -9,29 +9,13 @@ async function getObservations() {
 
   const { data: observations } = await supabase
     .from("observations")
-    .select("id, title, slug, published_at, date_captured, art_image_path, art_alt, hook_line, status")
+    .select("id, title, slug, date_captured, art_image_path, art_alt, hook_line, status")
     .eq("status", "published")
-    .order("published_at", { ascending: false });
+    .order("date_captured", { ascending: false });
 
   if (!observations || observations.length === 0) return [];
 
-  const ids = observations.map((o) => o.id);
-  const { data: domains } = await supabase
-    .from("observation_domains")
-    .select("observation_id, domain_slug")
-    .in("observation_id", ids);
-
-  const domainMap = new Map<string, string[]>();
-  domains?.forEach((d) => {
-    const existing = domainMap.get(d.observation_id) || [];
-    existing.push(d.domain_slug);
-    domainMap.set(d.observation_id, existing);
-  });
-
-  return observations.map((o) => ({
-    ...o,
-    domains: domainMap.get(o.id) || [],
-  }));
+  return observations;
 }
 
 export default async function HomePage() {
@@ -45,8 +29,7 @@ export default async function HomePage() {
         <CoverHero
           title={latest.title}
           slug={latest.slug}
-          dateCaptured={latest.published_at || latest.date_captured}
-          domains={latest.domains}
+          dateCaptured={latest.date_captured}
           hookLine={latest.hook_line || ""}
           artImageUrl={latest.art_image_path || ""}
           artAlt={latest.art_alt || latest.title}
@@ -60,16 +43,15 @@ export default async function HomePage() {
           </h2>
 
           <div className="archive__feed">
-            {feed.map((obs) => (
+            {feed.map((obsv) => (
               <FeedEntry
-                key={obs.slug}
-                title={obs.title}
-                slug={obs.slug}
-                dateCaptured={obs.published_at || obs.date_captured}
-                domains={obs.domains}
-                hookLine={obs.hook_line || ""}
-                artImageUrl={obs.art_image_path || ""}
-                artAlt={obs.art_alt || obs.title}
+                key={obsv.slug}
+                title={obsv.title}
+                slug={obsv.slug}
+                dateCaptured={obsv.date_captured}
+                hookLine={obsv.hook_line || ""}
+                artImageUrl={obsv.art_image_path || ""}
+                artAlt={obsv.art_alt || obsv.title}
               />
             ))}
           </div>

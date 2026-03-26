@@ -4,6 +4,9 @@ export const metadata: Metadata = {
   title: "Who Is Chad Lewine",
   description:
     "The canonical biographical page for Chad Lewine — architect of Libra Engine, cross-domain observer, super individual.",
+  alternates: {
+    canonical: "https://chadlewine.com/chad-lewine",
+  },
 };
 
 export default function WhoPage() {

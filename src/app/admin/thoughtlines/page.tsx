@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-interface Domain {
+interface Thoughtline {
   id: string;
+  title: string;
   slug: string;
-  label: string;
-  sort_order: number;
+  description: string | null;
 }
 
 function slugify(text: string): string {
@@ -17,83 +17,87 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
-export default function AdminDomainsPage() {
-  const [domains, setDomains] = useState<Domain[]>([]);
+export default function AdminThoughtlinesPage() {
+  const [thoughtlines, setThoughtlines] = useState<Thoughtline[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editLabel, setEditLabel] = useState("");
+  const [editTitle, setEditTitle] = useState("");
   const [editSlug, setEditSlug] = useState("");
-  const [newLabel, setNewLabel] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [newTitle, setNewTitle] = useState("");
   const [newSlug, setNewSlug] = useState("");
+  const [newDescription, setNewDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const fetchDomains = useCallback(async () => {
-    const res = await fetch("/api/admin/domains");
+  const fetchThoughtlines = useCallback(async () => {
+    const res = await fetch("/api/admin/thoughtlines");
     const data = await res.json();
-    setDomains(data);
+    setThoughtlines(data.sort((a: Thoughtline, b: Thoughtline) => a.title.localeCompare(b.title)));
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchDomains();
-  }, [fetchDomains]);
+    fetchThoughtlines();
+  }, [fetchThoughtlines]);
 
   async function handleAdd() {
-    if (!newLabel.trim()) return;
-    const slug = newSlug.trim() || slugify(newLabel);
+    if (!newTitle.trim()) return;
+    const slug = newSlug.trim() || slugify(newTitle);
     setSaving(true);
     setError("");
-    const res = await fetch("/api/admin/domains", {
+    const res = await fetch("/api/admin/thoughtlines", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: newLabel.trim(), slug }),
+      body: JSON.stringify({ title: newTitle.trim(), slug, description: newDescription.trim() || null }),
     });
     if (!res.ok) {
       const { error: msg } = await res.json();
       setError(msg);
     } else {
-      setNewLabel("");
+      setNewTitle("");
       setNewSlug("");
-      await fetchDomains();
+      setNewDescription("");
+      await fetchThoughtlines();
     }
     setSaving(false);
   }
 
-  function startEdit(d: Domain) {
-    setEditingId(d.id);
-    setEditLabel(d.label);
-    setEditSlug(d.slug);
+  function startEdit(t: Thoughtline) {
+    setEditingId(t.id);
+    setEditTitle(t.title);
+    setEditSlug(t.slug);
+    setEditDescription(t.description || "");
   }
 
   async function saveEdit() {
-    if (!editingId || !editLabel.trim() || !editSlug.trim()) return;
+    if (!editingId || !editTitle.trim() || !editSlug.trim()) return;
     setSaving(true);
     setError("");
-    const res = await fetch(`/api/admin/domains/${editingId}`, {
+    const res = await fetch(`/api/admin/thoughtlines/${editingId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: editLabel.trim(), slug: editSlug.trim() }),
+      body: JSON.stringify({ title: editTitle.trim(), slug: editSlug.trim(), description: editDescription.trim() || null }),
     });
     if (!res.ok) {
       const { error: msg } = await res.json();
       setError(msg);
     } else {
       setEditingId(null);
-      await fetchDomains();
+      await fetchThoughtlines();
     }
     setSaving(false);
   }
 
-  async function handleDelete(d: Domain) {
-    if (!confirm(`Delete "${d.label}"? This cannot be undone.`)) return;
+  async function handleDelete(t: Thoughtline) {
+    if (!confirm(`Delete "${t.title}"? This cannot be undone.`)) return;
     setError("");
-    const res = await fetch(`/api/admin/domains/${d.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/thoughtlines/${t.id}`, { method: "DELETE" });
     if (!res.ok) {
       const { error: msg } = await res.json();
       setError(msg);
     } else {
-      await fetchDomains();
+      await fetchThoughtlines();
     }
   }
 
@@ -110,45 +114,52 @@ export default function AdminDomainsPage() {
   return (
     <div className="admin-page">
       <div className="admin-page__header">
-        <h1 className="admin-page__title">Domains</h1>
+        <h1 className="admin-page__title">Thoughtlines</h1>
       </div>
 
       <div className="admin-stats">
         <div className="admin-stats__card">
-          <span className="admin-stats__value">{domains.length}</span>
+          <span className="admin-stats__value">{thoughtlines.length}</span>
           <span className="admin-stats__label">Total</span>
         </div>
       </div>
 
-      {error && <p className="obs-editor__error">{error}</p>}
+      {error && <p className="obsv-editor__error">{error}</p>}
 
-      {/* Add new domain */}
-      <div className="admin-domains__add">
+      <div className="admin-meta-form__add">
         <input
-          className="admin-domains__input"
+          className="admin-meta-form__input"
           type="text"
-          placeholder="Label (e.g. Social Media)"
-          value={newLabel}
+          placeholder="Title (e.g. lack of validation from institutions)"
+          value={newTitle}
           onChange={(e) => {
-            setNewLabel(e.target.value);
-            if (!newSlug || newSlug === slugify(newLabel)) {
+            setNewTitle(e.target.value);
+            if (!newSlug || newSlug === slugify(newTitle)) {
               setNewSlug(slugify(e.target.value));
             }
           }}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
         />
         <input
-          className="admin-domains__input admin-domains__input--slug"
+          className="admin-meta-form__input admin-meta-form__input--slug"
           type="text"
           placeholder="slug"
           value={newSlug}
           onChange={(e) => setNewSlug(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
         />
+        <input
+          className="admin-meta-form__input"
+          type="text"
+          placeholder="Description (optional)"
+          value={newDescription}
+          onChange={(e) => setNewDescription(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+        />
         <button
           className="admin-btn admin-btn--primary"
           onClick={handleAdd}
-          disabled={saving || !newLabel.trim()}
+          disabled={saving || !newTitle.trim()}
         >
           Add
         </button>
@@ -157,38 +168,44 @@ export default function AdminDomainsPage() {
       <table className="admin-table">
         <thead>
           <tr>
-            <th className="admin-table__th">#</th>
-            <th className="admin-table__th">Label</th>
+            <th className="admin-table__th">Title</th>
             <th className="admin-table__th">Slug</th>
-            <th className="admin-table__th" style={{ width: 120 }}>Actions</th>
+            <th className="admin-table__th">Description</th>
+            <th className="admin-table__th" style={{ width: 160 }}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {domains.map((d) => (
-            <tr key={d.id} className="admin-table__row">
-              <td className="admin-table__td" style={{ width: 50, color: "var(--text-tertiary)" }}>
-                {d.sort_order}
-              </td>
-              {editingId === d.id ? (
+          {thoughtlines.map((t) => (
+            <tr key={t.id} className="admin-table__row">
+              {editingId === t.id ? (
                 <>
                   <td className="admin-table__td">
                     <input
-                      className="admin-domains__inline-input"
-                      value={editLabel}
-                      onChange={(e) => setEditLabel(e.target.value)}
+                      className="admin-meta-form__inline-input"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && saveEdit()}
                       autoFocus
                     />
                   </td>
                   <td className="admin-table__td">
                     <input
-                      className="admin-domains__inline-input admin-domains__inline-input--mono"
+                      className="admin-meta-form__inline-input admin-meta-form__inline-input--mono"
                       value={editSlug}
                       onChange={(e) => setEditSlug(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && saveEdit()}
                     />
                   </td>
                   <td className="admin-table__td">
+                    <input
+                      className="admin-meta-form__inline-input"
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                      placeholder="Description (optional)"
+                    />
+                  </td>
+                  <td className="admin-table__td" style={{ whiteSpace: "nowrap" }}>
                     <button
                       className="admin-btn admin-btn--primary"
                       onClick={saveEdit}
@@ -208,24 +225,27 @@ export default function AdminDomainsPage() {
               ) : (
                 <>
                   <td className="admin-table__td">
-                    <span className="admin-table__link" style={{ cursor: "pointer" }} onClick={() => startEdit(d)}>
-                      {d.label}
+                    <span className="admin-table__link" style={{ cursor: "pointer" }} onClick={() => startEdit(t)}>
+                      {t.title}
                     </span>
                   </td>
                   <td className="admin-table__td" style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "0.8rem", color: "var(--text-tertiary)" }}>
-                    {d.slug}
+                    {t.slug}
                   </td>
-                  <td className="admin-table__td">
+                  <td className="admin-table__td" style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>
+                    {t.description || "\u2014"}
+                  </td>
+                  <td className="admin-table__td" style={{ whiteSpace: "nowrap" }}>
                     <button
                       className="admin-btn"
-                      onClick={() => startEdit(d)}
+                      onClick={() => startEdit(t)}
                       style={{ marginRight: 4 }}
                     >
                       Edit
                     </button>
                     <button
                       className="admin-btn admin-btn--danger"
-                      onClick={() => handleDelete(d)}
+                      onClick={() => handleDelete(t)}
                     >
                       Delete
                     </button>

@@ -16,14 +16,14 @@ export default function EditObservationPage() {
         if (!r.ok) throw new Error("Not found");
         return r.json();
       })
-      .then((obs) => setData(obs))
+      .then((obsv) => setData(obsv))
       .catch(() => setError(true));
   }, [id]);
 
   if (error) {
     return (
       <div className="admin-page">
-        <p className="obs-editor__error">Observation not found.</p>
+        <p className="obsv-editor__error">Observation not found.</p>
       </div>
     );
   }
@@ -53,8 +53,18 @@ export default function EditObservationPage() {
         art_alt: (data.art_alt as string) || "",
         seo_title: (data.seo_title as string) || "",
         seo_description: (data.seo_description as string) || "",
-        source: (data.source as string) || "original",
-        domains: (data.domains as string[]) || [],
+        categories: (data.categories as string[]) || [],
+        thoughtlines: (data.thoughtlines as string[]) || [],
+        tags: (data.tags as string[]) || [],
+        focus_keyphrase: (data.focus_keyphrase as string) || "",
+        secondary_keyphrases: (data.secondary_keyphrases as string[]) || [],
+        search_intent: (data.search_intent as string) || "informational",
+        citation_summary: (data.citation_summary as string) || "",
+        first_sentence_extractable: (data.first_sentence_extractable as boolean) || false,
+        paa_pairs: (data.paa_pairs as { question: string; answer: string }[]) || [],
+        entity_tags: (data.entity_tags as string[]) || [],
+        article_type: (data.article_type as string) || "article",
+        published_at: (data.published_at as string) || null,
       }}
     />
   );

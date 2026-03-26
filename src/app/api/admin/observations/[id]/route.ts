@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 
-// GET /api/admin/observations/[id] — get single observation with domains
+// GET /api/admin/observations/[id]
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -18,18 +18,30 @@ export async function GET(
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { data: domains } = await supabase
-    .from("observation_domains")
-    .select("domain_slug")
+  const { data: categoryLinks } = await supabase
+    .from("observation_categories")
+    .select("category_id")
+    .eq("observation_id", id);
+
+  const { data: thoughtlineLinks } = await supabase
+    .from("observation_thoughtlines")
+    .select("thoughtline_id")
+    .eq("observation_id", id);
+
+  const { data: tagLinks } = await supabase
+    .from("observation_tags")
+    .select("tag_id")
     .eq("observation_id", id);
 
   return Response.json({
     ...observation,
-    domains: domains?.map((d) => d.domain_slug) || [],
+    categories: categoryLinks?.map((c) => c.category_id) || [],
+    thoughtlines: thoughtlineLinks?.map((t) => t.thoughtline_id) || [],
+    tags: tagLinks?.map((t) => t.tag_id) || [],
   });
 }
 
-// PUT /api/admin/observations/[id] — update observation
+// PUT /api/admin/observations/[id]
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -50,22 +62,18 @@ export async function PUT(
     art_alt,
     seo_title,
     seo_description,
-    source,
-    domains,
+    categories,
+    thoughtlines,
+    tags,
+    focus_keyphrase,
+    secondary_keyphrases,
+    search_intent,
+    citation_summary,
+    first_sentence_extractable,
+    paa_pairs,
+    entity_tags,
+    article_type,
   } = body;
-
-  // Check if transitioning to published for the first time
-  let publishedAt: string | undefined;
-  if (status === "published") {
-    const { data: existing } = await supabase
-      .from("observations")
-      .select("published_at")
-      .eq("id", id)
-      .single();
-    if (!existing?.published_at) {
-      publishedAt = new Date().toISOString();
-    }
-  }
 
   const updateData: Record<string, unknown> = {
     title,
@@ -79,12 +87,15 @@ export async function PUT(
     art_alt: art_alt || null,
     seo_title: seo_title || null,
     seo_description: seo_description || null,
-    source: source || "original",
+    focus_keyphrase: focus_keyphrase || null,
+    secondary_keyphrases: secondary_keyphrases ?? [],
+    search_intent: search_intent || "informational",
+    citation_summary: citation_summary || null,
+    first_sentence_extractable: first_sentence_extractable ?? false,
+    paa_pairs: paa_pairs ?? [],
+    entity_tags: entity_tags ?? [],
+    article_type: article_type || "article",
   };
-
-  if (publishedAt) {
-    updateData.published_at = publishedAt;
-  }
 
   const { data: observation, error } = await supabase
     .from("observations")
@@ -97,38 +108,51 @@ export async function PUT(
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  // Save revision snapshot
-  const { data: lastRevision } = await supabase
-    .from("observation_revisions")
-    .select("revision_number")
-    .eq("observation_id", id)
-    .order("revision_number", { ascending: false })
-    .limit(1)
-    .single();
-
-  const nextRevisionNumber = (lastRevision?.revision_number || 0) + 1;
-
-  await supabase.from("observation_revisions").insert({
-    observation_id: id,
-    body: obsBody,
-    title,
-    revision_number: nextRevisionNumber,
-    change_summary: body.change_summary || null,
-  });
-
-  // Replace domain mappings
-  if (domains !== undefined) {
+  // Replace category mappings
+  if (categories !== undefined) {
     await supabase
-      .from("observation_domains")
+      .from("observation_categories")
       .delete()
       .eq("observation_id", id);
 
-    if (domains.length > 0) {
-      const domainRows = domains.map((d: string) => ({
+    if (categories.length > 0) {
+      const rows = categories.map((cId: string) => ({
         observation_id: id,
-        domain_slug: d,
+        category_id: cId,
       }));
-      await supabase.from("observation_domains").insert(domainRows);
+      await supabase.from("observation_categories").insert(rows);
+    }
+  }
+
+  // Replace thoughtline mappings
+  if (thoughtlines !== undefined) {
+    await supabase
+      .from("observation_thoughtlines")
+      .delete()
+      .eq("observation_id", id);
+
+    if (thoughtlines.length > 0) {
+      const rows = thoughtlines.map((tId: string) => ({
+        observation_id: id,
+        thoughtline_id: tId,
+      }));
+      await supabase.from("observation_thoughtlines").insert(rows);
+    }
+  }
+
+  // Replace tag mappings
+  if (tags !== undefined) {
+    await supabase
+      .from("observation_tags")
+      .delete()
+      .eq("observation_id", id);
+
+    if (tags.length > 0) {
+      const tagRows = tags.map((t: string) => ({
+        observation_id: id,
+        tag_id: t,
+      }));
+      await supabase.from("observation_tags").insert(tagRows);
     }
   }
 
@@ -142,12 +166,6 @@ export async function DELETE(
 ) {
   const { id } = await params;
   const supabase = createAdminClient();
-
-  // Delete domain mappings first
-  await supabase
-    .from("observation_domains")
-    .delete()
-    .eq("observation_id", id);
 
   const { error } = await supabase
     .from("observations")

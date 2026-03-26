@@ -4,10 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const links = [
+interface NavItem {
+  href: string;
+  label: string;
+  children?: { href: string; label: string }[];
+}
+
+const navItems: NavItem[] = [
   { href: "/", label: "Observations" },
-  { href: "/domains/general", label: "Domains" },
-  { href: "/foundations", label: "Foundations" },
+  {
+    href: "/lyrics",
+    label: "Music",
+    children: [
+      { href: "/lyrics", label: "Lyrics" },
+      { href: "/video", label: "Video" },
+    ],
+  },
+  { href: "/merch", label: "Merch" },
   { href: "/chad-lewine", label: "About" },
 ];
 
@@ -15,7 +28,9 @@ export function Nav() {
   const pathname = usePathname();
   const [hidden, setHidden] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const lastScroll = useRef(0);
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function onScroll() {
@@ -29,7 +44,30 @@ export function Nav() {
 
   useEffect(() => {
     setMenuOpen(false);
+    setExpanded(null);
   }, [pathname]);
+
+  function isActive(href: string) {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
+  }
+
+  function isParentActive(item: NavItem) {
+    if (isActive(item.href)) return true;
+    return item.children?.some((c) => isActive(c.href)) ?? false;
+  }
+
+  function handleParentEnter(label: string) {
+    if (collapseTimer.current) {
+      clearTimeout(collapseTimer.current);
+      collapseTimer.current = null;
+    }
+    setExpanded(label);
+  }
+
+  function handleParentLeave() {
+    collapseTimer.current = setTimeout(() => setExpanded(null), 200);
+  }
 
   return (
     <header
@@ -42,20 +80,46 @@ export function Nav() {
         </Link>
 
         <div className="nav-links">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`nav-links__item ${
-                pathname === link.href ||
-                (link.href !== "/" && pathname.startsWith(link.href))
-                  ? "nav-links__item--active"
-                  : ""
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navItems.map((item) =>
+            item.children ? (
+              <div
+                key={item.label}
+                className="nav-links__parent"
+                onMouseEnter={() => handleParentEnter(item.label)}
+                onMouseLeave={handleParentLeave}
+              >
+                <Link
+                  href={item.href}
+                  className={`nav-links__item${isParentActive(item) ? " nav-links__item--active" : ""}`}
+                >
+                  {item.label}
+                </Link>
+
+                <div
+                  className={`nav-links__dropdown${expanded === item.label ? " nav-links__dropdown--open" : " nav-links__dropdown--closed"}`}
+                >
+                  {item.children.map((child, i) => (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={`nav-links__sub-item${isActive(child.href) ? " nav-links__sub-item--active" : ""}`}
+                      style={{ "--nav-index": i, "--nav-index-rev": item.children!.length - 1 - i } as React.CSSProperties}
+                    >
+                      {child.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-links__item${isActive(item.href) ? " nav-links__item--active" : ""}`}
+              >
+                {item.label}
+              </Link>
+            )
+          )}
         </div>
 
         <button
@@ -69,14 +133,21 @@ export function Nav() {
 
       {menuOpen && (
         <div className="nav-mobile-menu">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="nav-mobile-menu__item"
-            >
-              {link.label}
-            </Link>
+          {navItems.map((item) => (
+            <div key={item.label}>
+              <Link href={item.href} className="nav-mobile-menu__item">
+                {item.label}
+              </Link>
+              {item.children?.map((child) => (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  className="nav-mobile-menu__item nav-mobile-menu__item--sub"
+                >
+                  {child.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </div>
       )}

@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { DomainTag } from "./DomainTag";
 import { formatDate } from "@/lib/utils";
 
 interface CoverHeroProps {
   title: string;
   slug: string;
   dateCaptured: string;
-  domains: string[];
   hookLine: string;
   artImageUrl?: string;
   artAlt?: string;
@@ -16,7 +14,6 @@ export function CoverHero({
   title,
   slug,
   dateCaptured,
-  domains,
   hookLine,
   artImageUrl,
   artAlt,
@@ -54,14 +51,6 @@ export function CoverHero({
           <time className="cover-hero__date">
             {formatDate(dateCaptured)}
           </time>
-          <div className="cover-hero__tags">
-            {domains.map((d, i) => (
-              <span key={d}>
-                <DomainTag slug={d} />
-                {i < domains.length - 1 && <span className="cover-hero__tag-sep">, </span>}
-              </span>
-            ))}
-          </div>
           <Link href={`/observations/${slug}`} className="cover-hero__cta">
             Read the Observation →
           </Link>

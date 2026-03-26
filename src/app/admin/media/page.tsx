@@ -112,7 +112,7 @@ export default function AdminMediaPage() {
         <span>{uploading ? "Uploading..." : "Drop image here or click to upload"}</span>
       </div>
 
-      {error && <p className="obs-editor__error">{error}</p>}
+      {error && <p className="obsv-editor__error">{error}</p>}
 
       <div className="media-page__layout">
         <div className="media-page__grid">
@@ -138,7 +138,7 @@ export default function AdminMediaPage() {
               Alt Text <span style={{ color: "#dc2626" }}>*</span>
             </label>
             <input
-              className="obs-editor__input"
+              className="obsv-editor__input"
               type="text"
               value={editAlt}
               onChange={(e) => setEditAlt(e.target.value)}
@@ -147,7 +147,7 @@ export default function AdminMediaPage() {
 
             <label className="media-page__label">Title</label>
             <input
-              className="obs-editor__input"
+              className="obsv-editor__input"
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
@@ -167,7 +167,7 @@ export default function AdminMediaPage() {
               {selected.name}
             </p>
             <input
-              className="obs-editor__input obs-editor__input--mono"
+              className="obsv-editor__input obsv-editor__input--mono"
               type="text"
               value={selected.url}
               readOnly

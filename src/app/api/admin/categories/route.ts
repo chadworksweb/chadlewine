@@ -1,11 +1,19 @@
 import { createAdminClient } from "@/lib/supabase-server";
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 export async function GET() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from("domains")
-    .select("id, slug, label, sort_order")
-    .order("sort_order");
+    .from("categories")
+    .select("id, title, slug, created_at")
+    .order("title");
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json(data);
@@ -14,25 +22,17 @@ export async function GET() {
 export async function POST(request: Request) {
   const supabase = createAdminClient();
   const body = await request.json();
-  const { label, slug } = body;
+  const { title, slug } = body;
 
-  if (!label || !slug) {
-    return Response.json({ error: "label and slug are required" }, { status: 400 });
+  if (!title) {
+    return Response.json({ error: "title is required" }, { status: 400 });
   }
 
-  // Get next sort_order
-  const { data: last } = await supabase
-    .from("domains")
-    .select("sort_order")
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .single();
-
-  const sort_order = (last?.sort_order ?? 0) + 1;
+  const finalSlug = slug?.trim() || slugify(title);
 
   const { data, error } = await supabase
-    .from("domains")
-    .insert({ label, slug, sort_order })
+    .from("categories")
+    .insert({ title: title.trim(), slug: finalSlug })
     .select()
     .single();
 

@@ -62,6 +62,7 @@ const toolbarButtons = [
 
 interface LinkTooltip {
   url: string;
+  target: string;
   x: number;
   y: number;
   anchor: HTMLAnchorElement;
@@ -73,11 +74,16 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const [linkTooltip, setLinkTooltip] = useState<LinkTooltip | null>(null);
   const [editingLink, setEditingLink] = useState(false);
   const [editLinkUrl, setEditLinkUrl] = useState("");
+  const [editLinkTarget, setEditLinkTarget] = useState("");
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [newLinkTarget, setNewLinkTarget] = useState("");
   const [currentBlock, setCurrentBlock] = useState("p");
   const editorRef = useRef<HTMLDivElement>(null);
   const codeRef = useRef<HTMLTextAreaElement>(null);
   const isInternalUpdate = useRef(false);
   const savedSelection = useRef<Range | null>(null);
+  const tooltipHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function detectBlockType() {
     const sel = window.getSelection();
@@ -154,8 +160,11 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
       const tag = cmdString.split(":")[1];
       document.execCommand("formatBlock", false, tag);
     } else if (cmdString === "createLink") {
-      const url = prompt("Enter URL:");
-      if (url) document.execCommand("createLink", false, url);
+      saveSelection();
+      setNewLinkUrl("");
+      setNewLinkTarget("");
+      setCreatingLink(true);
+      return;
     } else {
       document.execCommand(cmdString, false);
     }
@@ -191,13 +200,30 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     setMode("code");
   }
 
+  function cancelTooltipHide() {
+    if (tooltipHideTimer.current) {
+      clearTimeout(tooltipHideTimer.current);
+      tooltipHideTimer.current = null;
+    }
+  }
+
+  function scheduleTooltipHide() {
+    cancelTooltipHide();
+    tooltipHideTimer.current = setTimeout(() => {
+      setLinkTooltip(null);
+      setEditingLink(false);
+    }, 300);
+  }
+
   function handleEditorMouseOver(e: React.MouseEvent) {
     const target = (e.target as HTMLElement).closest("a") as HTMLAnchorElement | null;
     if (target && editorRef.current?.contains(target)) {
+      cancelTooltipHide();
       const rect = target.getBoundingClientRect();
       const editorRect = editorRef.current.getBoundingClientRect();
       setLinkTooltip({
         url: target.getAttribute("href") || "",
+        target: target.getAttribute("target") || "",
         x: rect.left - editorRect.left,
         y: rect.bottom - editorRect.top + 4,
         anchor: target,
@@ -208,22 +234,53 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   function handleEditorMouseOut(e: React.MouseEvent) {
     const related = e.relatedTarget as HTMLElement | null;
     if (related?.closest(".rte__link-tooltip")) return;
-    if (!related || !(related as HTMLElement).closest("a")) {
-      setLinkTooltip(null);
-      setEditingLink(false);
+    if (related?.closest("a") && editorRef.current?.contains(related)) return;
+    scheduleTooltipHide();
+  }
+
+  function confirmCreateLink() {
+    if (!newLinkUrl) {
+      setCreatingLink(false);
+      return;
+    }
+    restoreSelection();
+    document.execCommand("createLink", false, newLinkUrl);
+    // Apply target to the newly created link
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      let node: Node | null = sel.anchorNode;
+      while (node && node.nodeType !== 1) node = node.parentNode;
+      const anchor = (node as HTMLElement)?.closest("a");
+      if (anchor && newLinkTarget) {
+        anchor.setAttribute("target", newLinkTarget);
+        anchor.setAttribute("rel", "noopener noreferrer");
+      }
+    }
+    setCreatingLink(false);
+    if (editorRef.current) {
+      isInternalUpdate.current = true;
+      onChange(editorRef.current.innerHTML);
     }
   }
 
   function startEditLink() {
     if (!linkTooltip) return;
     setEditLinkUrl(linkTooltip.url);
+    setEditLinkTarget(linkTooltip.target);
     setEditingLink(true);
   }
 
   function saveEditLink() {
     if (!linkTooltip) return;
     linkTooltip.anchor.setAttribute("href", editLinkUrl);
-    setLinkTooltip({ ...linkTooltip, url: editLinkUrl });
+    if (editLinkTarget) {
+      linkTooltip.anchor.setAttribute("target", editLinkTarget);
+      linkTooltip.anchor.setAttribute("rel", "noopener noreferrer");
+    } else {
+      linkTooltip.anchor.removeAttribute("target");
+      linkTooltip.anchor.removeAttribute("rel");
+    }
+    setLinkTooltip({ ...linkTooltip, url: editLinkUrl, target: editLinkTarget });
     setEditingLink(false);
     if (editorRef.current) {
       isInternalUpdate.current = true;
@@ -325,11 +382,12 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
             onMouseOut={handleEditorMouseOut}
             suppressContentEditableWarning
           />
-          {linkTooltip && (
+          {linkTooltip && !creatingLink && (
             <div
               className="rte__link-tooltip"
               style={{ left: linkTooltip.x, top: linkTooltip.y }}
-              onMouseLeave={() => { setLinkTooltip(null); setEditingLink(false); }}
+              onMouseEnter={cancelTooltipHide}
+              onMouseLeave={scheduleTooltipHide}
             >
               {editingLink ? (
                 <div className="rte__link-tooltip-edit">
@@ -341,6 +399,14 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
                     onKeyDown={(e) => e.key === "Enter" && saveEditLink()}
                     autoFocus
                   />
+                  <select
+                    className="rte__link-tooltip-select"
+                    value={editLinkTarget}
+                    onChange={(e) => setEditLinkTarget(e.target.value)}
+                  >
+                    <option value="">Same tab</option>
+                    <option value="_blank">New tab</option>
+                  </select>
                   <button className="rte__link-tooltip-btn" onClick={saveEditLink} type="button">Save</button>
                 </div>
               ) : (
@@ -348,10 +414,38 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
                   <a href={linkTooltip.url} target="_blank" rel="noopener noreferrer" className="rte__link-tooltip-url">
                     {linkTooltip.url}
                   </a>
+                  {linkTooltip.target === "_blank" && (
+                    <span className="rte__link-tooltip-badge">↗</span>
+                  )}
                   <button className="rte__link-tooltip-btn" onClick={startEditLink} type="button">Edit</button>
                   <button className="rte__link-tooltip-btn rte__link-tooltip-btn--danger" onClick={removeLink} type="button">Remove</button>
                 </div>
               )}
+            </div>
+          )}
+          {creatingLink && (
+            <div className="rte__link-tooltip rte__link-tooltip--create">
+              <div className="rte__link-tooltip-edit">
+                <input
+                  className="rte__link-tooltip-input"
+                  type="text"
+                  placeholder="Enter URL"
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && confirmCreateLink()}
+                  autoFocus
+                />
+                <select
+                  className="rte__link-tooltip-select"
+                  value={newLinkTarget}
+                  onChange={(e) => setNewLinkTarget(e.target.value)}
+                >
+                  <option value="">Same tab</option>
+                  <option value="_blank">New tab</option>
+                </select>
+                <button className="rte__link-tooltip-btn" onClick={confirmCreateLink} type="button">Insert</button>
+                <button className="rte__link-tooltip-btn rte__link-tooltip-btn--danger" onClick={() => setCreatingLink(false)} type="button">Cancel</button>
+              </div>
             </div>
           )}
         </div>

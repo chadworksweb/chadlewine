@@ -30,11 +30,12 @@ export async function GET() {
   const metaMap = new Map<string, { alt_text: string; title: string }>();
   metaRows?.forEach((m) => metaMap.set(m.filename, m));
 
+  const cacheBust = Date.now();
   const images = filenames.map((name) => {
     const meta = metaMap.get(name);
     return {
       name,
-      url: `${baseUrl}/${name}`,
+      url: `${baseUrl}/${name}?v=${cacheBust}`,
       alt_text: meta?.alt_text || "",
       title: meta?.title || "",
     };
@@ -61,15 +62,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase();
-  const filename = `${timestamp}-${safeName}`;
+  const filename = safeName;
 
   const { error } = await supabase.storage
     .from(BUCKET)
     .upload(filename, file, {
       contentType: file.type,
-      upsert: false,
+      cacheControl: "0",
+      upsert: true,
     });
 
   if (error) {
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
     title: "",
   });
 
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${filename}`;
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${filename}?v=${Date.now()}`;
 
   return Response.json({ url, name: filename }, { status: 201 });
 }

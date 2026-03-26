@@ -23,7 +23,12 @@ export async function generateMetadata({
   const { slug } = await params;
   const f = await getFoundation(slug);
   if (!f) return {};
-  return { title: f.title };
+  return {
+    title: f.title,
+    alternates: {
+      canonical: `https://chadlewine.com/foundations/${slug}`,
+    },
+  };
 }
 
 export default async function FoundationPage({

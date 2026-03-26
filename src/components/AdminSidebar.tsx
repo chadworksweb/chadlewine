@@ -6,12 +6,14 @@ import { usePathname } from "next/navigation";
 const adminNav = [
   { href: "/admin/observations", label: "Observations" },
   { href: "/admin/tldrs", label: "TLDRs" },
-  { href: "/admin/thoughts", label: "Thoughts" },
+  { href: "/admin/categories", label: "Categories" },
+  { href: "/admin/thoughtlines", label: "Thoughtlines" },
+  { href: "/admin/tags", label: "Tags" },
   { href: "/admin/foundations", label: "Foundations" },
   { href: "/admin/subscribers", label: "Subscribers" },
-  { href: "/admin/domains", label: "Domains" },
   { href: "/admin/media", label: "Media" },
   { href: "/admin/seo", label: "SEO" },
+  { href: "/admin/voice-profile", label: "Voice Profile" },
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/merch", label: "Merch" },
 ];
