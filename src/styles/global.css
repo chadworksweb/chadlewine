@@ -717,6 +717,75 @@ h2, h3, h4, h5, h6 {
   background: rgba(139, 156, 247, 0.08);
 }
 
+/* --- Cursor Tooltip --- */
+
+.cursor-tooltip {
+  pointer-events: none;
+  z-index: 999;
+  padding: 5px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  color: var(--text-accent);
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cursor-ripple {
+  pointer-events: none;
+  z-index: 50;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(192, 132, 252, 0.4);
+  transform: translate(-50%, -50%);
+  animation: ripple-expand 1s ease-out forwards;
+}
+
+@keyframes ripple-expand {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.6;
+    border-width: 2px;
+  }
+  100% {
+    width: 120px;
+    height: 120px;
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+/* --- Admin Edit Button (floating, top-right) --- */
+
+.admin-edit-btn {
+  position: fixed;
+  top: calc(var(--nav-height) + var(--space-sm));
+  right: var(--space-md);
+  z-index: 90;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.08);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-out);
+  backdrop-filter: blur(8px);
+}
+
+.admin-edit-btn:hover {
+  background: rgba(255,255,255,0.15);
+  color: var(--text-accent);
+}
+
 /* --- Title Reveal (comet trail art scrub) --- */
 
 .title-reveal {
@@ -927,7 +996,7 @@ h2, h3, h4, h5, h6 {
 
 .home-split__meditations {
   position: sticky;
-  top: calc(var(--header-height, 60px) + var(--space-md));
+  top: calc(var(--nav-height) + var(--space-md));
   align-self: start;
 }
 

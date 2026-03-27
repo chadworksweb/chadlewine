@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 import { formatDate } from "@/lib/utils";
+import { AdminEditButton } from "@/components/AdminEditButton";
 
 export const revalidate = 60;
 
@@ -93,6 +94,7 @@ export default async function MeditationPermalinkPage({
 
   return (
     <div className="page-meditation-single">
+      <AdminEditButton href={`/admin/meditations/${id}`} />
       <article className="meditation-single">
         <div
           className="meditation-single__body"

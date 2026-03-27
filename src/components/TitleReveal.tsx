@@ -138,7 +138,7 @@ export function TitleReveal({ artImageUrl, children }: TitleRevealProps) {
 
     // Decay
     trailsRef.current = trailsRef.current
-      .map((t) => ({ ...t, opacity: t.opacity - 0.004, radius: t.radius + 0.12 }))
+      .map((t) => ({ ...t, opacity: t.opacity - 0.008, radius: t.radius + 0.12 }))
       .filter((t) => t.opacity > 0);
 
     rafRef.current = requestAnimationFrame(draw);

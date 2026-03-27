@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { TitleReveal } from "@/components/TitleReveal";
+import { CursorTooltip } from "@/components/CursorTooltip";
+import { WaterRipple } from "@/components/WaterRipple";
 
 interface CoverHeroProps {
   title: string;
@@ -22,15 +24,11 @@ export function CoverHero({
   return (
     <section id="cover-hero" className="cover-hero">
       {artImageUrl && (
-        <Link href={`/observations/${slug}`} className="cover-hero__art-link">
-          <div className="cover-hero__art-wrap">
-            <img
-              src={artImageUrl}
-              alt={artAlt || title}
-              className="cover-hero__art"
-            />
-          </div>
-        </Link>
+        <WaterRipple
+          src={artImageUrl}
+          alt={artAlt || title}
+          className="cover-hero__art-wrap"
+        />
       )}
 
       <div className="cover-hero__content">

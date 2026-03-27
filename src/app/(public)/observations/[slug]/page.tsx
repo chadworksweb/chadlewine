@@ -6,6 +6,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { ObservationJsonLd } from "@/components/ObservationJsonLd";
 import { ImageObjectJsonLd } from "@/components/ImageObjectJsonLd";
 import { formatDate } from "@/lib/utils";
+import { AdminEditButton } from "@/components/AdminEditButton";
 
 
 export const revalidate = 60;
@@ -187,6 +188,7 @@ export default async function ObservationPage({
 
   return (
     <div id="page-observation" className="page-observation">
+      <AdminEditButton href={`/admin/observations/${obsv.id}`} />
       <ObservationJsonLd
         title={obsv.title}
         slug={obsv.slug}
