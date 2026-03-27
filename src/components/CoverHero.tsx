@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import { TitleReveal } from "@/components/TitleReveal";
 
 interface CoverHeroProps {
   title: string;
@@ -34,11 +35,13 @@ export function CoverHero({
 
       <div className="cover-hero__content">
         <div className="cover-hero__title-col">
-          <Link href={`/observations/${slug}`} className="cover-hero__title-link">
-            <h1 className="cover-hero__title">
-              {title}
-            </h1>
-          </Link>
+          <TitleReveal artImageUrl={artImageUrl || ""}>
+            <Link href={`/observations/${slug}`} className="cover-hero__title-link">
+              <h1 className="cover-hero__title">
+                {title}
+              </h1>
+            </Link>
+          </TitleReveal>
 
           {hookLine && (
             <p className="cover-hero__hook">
