@@ -12,6 +12,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/", label: "Observations" },
+  { href: "/meditations", label: "Meditations" },
   {
     href: "/lyrics",
     label: "Music",

@@ -13,6 +13,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .eq("status", "published")
     .order("date_captured", { ascending: false });
 
+  // Fetch published meditations
+  const { data: meditations } = await supabase
+    .from("meditations")
+    .select("id, updated_at, published_at")
+    .eq("status", "published")
+    .order("published_at", { ascending: false });
+
   // Fetch foundations
   const { data: foundations } = await supabase
     .from("foundations")
@@ -40,6 +47,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
+      url: `${BASE_URL}/meditations`,
+      changeFrequency: "daily",
+      priority: 0.7,
+    },
+    {
       url: `${BASE_URL}/archive/xanga`,
       changeFrequency: "yearly",
       priority: 0.3,
@@ -58,6 +70,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             : new Date(obs.date_captured),
         changeFrequency: "monthly",
         priority: 0.8,
+      });
+    }
+  }
+
+  // Meditation permalinks
+  if (meditations) {
+    for (const med of meditations) {
+      entries.push({
+        url: `${BASE_URL}/meditations/${med.id}`,
+        lastModified: med.updated_at
+          ? new Date(med.updated_at)
+          : med.published_at
+            ? new Date(med.published_at)
+            : undefined,
+        changeFrequency: "monthly",
+        priority: 0.5,
       });
     }
   }

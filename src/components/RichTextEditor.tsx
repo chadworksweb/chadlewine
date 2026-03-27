@@ -375,6 +375,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
             ref={editorRef}
             className="rte__editor"
             contentEditable
+            spellCheck
             onInput={handleInput}
             onMouseUp={saveSelection}
             onKeyUp={saveSelection}

@@ -62,7 +62,7 @@
   --space-4xl: 10rem;
 
   /* --- Layout --- */
-  --reading-width: 782px;
+  --reading-width: calc((var(--site-width) - var(--space-xl)) * 3 / 4);
   --content-width: 1100px;
   --site-width: 1400px;
   --page-gutter: clamp(1rem, 4vw, 2.5rem);
@@ -881,6 +881,107 @@ h2, h3, h4, h5, h6 {
 }
 
 /* ============================================================
+   HOME SPLIT — OBSERVATIONS + MEDITATIONS
+   ============================================================ */
+
+.home-split {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-xl);
+  max-width: var(--site-width);
+  margin: 0 auto;
+  padding: 0 var(--page-gutter);
+}
+
+.home-split__observations {
+  min-width: 0;
+}
+
+.home-split__meditations {
+  position: sticky;
+  top: calc(var(--header-height, 60px) + var(--space-md));
+  align-self: start;
+}
+
+.home-split__meditations-heading {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-md);
+}
+
+.home-split__meditations-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.home-med-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  letter-spacing: 0.03em;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.home-med-row:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.home-med-row:hover {
+  color: var(--text-accent);
+}
+
+.home-med-row__label {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.home-med-row__date {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.home-med-row__cta {
+  color: var(--text-accent);
+  white-space: nowrap;
+  text-transform: lowercase;
+}
+
+.home-split__meditations-more {
+  display: block;
+  margin-top: var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--text-accent);
+  text-decoration: none;
+  text-align: center;
+}
+
+.home-split__meditations-more:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .home-split {
+    grid-template-columns: 1fr;
+  }
+
+  .home-split__meditations {
+    position: static;
+  }
+}
+
+/* ============================================================
    OBSERVATION PAGE
    ============================================================ */
 
@@ -898,18 +999,16 @@ h2, h3, h4, h5, h6 {
   margin: 0 auto;
   padding-inline: var(--page-gutter);
   color: var(--reading-text);
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: var(--space-xl);
 }
 
-/* Constrain body text to match the 3fr hero title column */
-.observation-body .reading-column > p,
-.observation-body .reading-column > h2,
-.observation-body .reading-column > h3,
-.observation-body .reading-column > blockquote,
-.observation-body .reading-column > ul,
-.observation-body .reading-column > ol,
-.observation-body .reading-column > hr {
-  max-width: calc(var(--site-width) * 0.75 - var(--space-xl));
+.observation-body .reading-column > * {
+  grid-column: 1;
 }
+
+/* Reading column width handles constraint — no additional max-width needed */
 
 .observation-body .reading-column h2,
 .observation-body .reading-column h3 {
@@ -934,14 +1033,7 @@ h2, h3, h4, h5, h6 {
   border-radius: 4px;
 }
 
-/* Shortcode components stay within the reading column */
-.observation-body .aw-contrast,
-.observation-body .aw-track-table,
-.observation-body .aw-stats,
-.observation-body .aw-year-grid,
-.observation-body .aw-rubric {
-  max-width: calc(var(--site-width) * 0.75 - var(--space-xl));
-}
+/* Shortcode components inherit reading column width */
 
 
 /* ============================================================
@@ -1020,6 +1112,155 @@ h2, h3, h4, h5, h6 {
 
 .empty-state__message {
   color: var(--text-tertiary);
+}
+
+/* ============================================================
+   MEDITATIONS — PUBLIC
+   ============================================================ */
+
+/* Full-bleed inverted (light) archive section */
+
+.meditation-archive {
+  background: var(--reading-bg);
+  color: var(--reading-text);
+  padding-top: var(--space-xl);
+  padding-bottom: var(--space-4xl);
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+}
+
+/* Feed entries — text-only, no thumbnails */
+
+.meditation-feed {
+  display: flex;
+  flex-direction: column;
+}
+
+.meditation-entry {
+  display: block;
+  padding: var(--space-lg) 0;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.meditation-entry:first-child {
+  border-top: 1px solid rgba(0,0,0,0.1);
+}
+
+.meditation-entry__content {
+  max-width: var(--site-width);
+  margin: 0 auto;
+  padding: 0 var(--page-gutter);
+  /* Mirror the hero 3fr/1fr grid so text aligns with title */
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: var(--space-xl);
+}
+
+.meditation-entry__content > * {
+  grid-column: 1;
+}
+
+.meditation-entry__date {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--reading-text-tertiary);
+  margin-bottom: var(--space-xs);
+}
+
+.meditation-entry__body {
+  font-family: var(--font-body, Georgia, serif);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--reading-text);
+}
+
+.meditation-entry__body p {
+  margin: 0;
+}
+
+.meditation-entry__meta {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+}
+
+.meditation-card__category {
+  font-weight: 600;
+  color: var(--reading-accent);
+}
+
+.meditation-card__tag {
+  color: var(--reading-text-tertiary);
+}
+
+/* Single meditation permalink */
+
+.page-meditation-single {
+  max-width: var(--reading-width);
+  margin-inline: auto;
+  padding: var(--space-xl) var(--page-gutter);
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.meditation-single {
+  padding: var(--space-xl);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--reading-bg, #fff);
+}
+
+.meditation-single__body {
+  font-family: var(--font-body, Georgia, serif);
+  font-size: 1.4rem;
+  line-height: 1.7;
+  color: var(--reading-text, var(--text-primary));
+}
+
+.meditation-single__body p {
+  margin: 0;
+}
+
+.meditation-single__footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm, 0.875rem);
+}
+
+.meditation-single__date {
+  color: var(--text-tertiary);
+}
+
+.meditation-single__meta {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.meditation-single__nav {
+  margin-top: var(--space-lg);
+  text-align: center;
+}
+
+.meditation-single__back {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--text-accent);
+  text-decoration: none;
+}
+
+.meditation-single__back:hover {
+  text-decoration: underline;
 }
 
 /* ============================================================
@@ -2274,6 +2515,104 @@ h3.aw-heading {
   background: rgba(58, 78, 208, 0.1);
   border-color: var(--text-accent);
   color: var(--text-accent);
+}
+
+/* --- Meditation Composer --- */
+
+.med-composer {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.med-composer__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.med-composer__toolbar {
+  display: flex;
+  gap: 4px;
+  padding: var(--space-xs);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px 6px 0 0;
+  background: var(--surface-elevated, #f9f9f9);
+}
+
+.med-composer__toolbar-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.med-composer__toolbar-btn:hover {
+  background: rgba(0,0,0,0.05);
+  border-color: var(--border);
+}
+
+.med-composer__editor {
+  min-height: 120px;
+  padding: var(--space-md);
+  border: 1px solid var(--border-medium);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  font-family: var(--font-body, Georgia, serif);
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--reading-bg, #fff);
+  outline: none;
+}
+
+.med-composer__editor:focus {
+  border-color: var(--text-accent);
+}
+
+.med-composer__editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.med-composer__counter {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs, 0.75rem);
+  text-align: right;
+}
+
+.med-composer__actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+}
+
+.med-composer__published-note {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--text-tertiary);
+  text-align: right;
+  margin: 0;
+}
+
+.med-composer__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+@media (max-width: 768px) {
+  .med-composer {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* --- Cover Art Panel --- */

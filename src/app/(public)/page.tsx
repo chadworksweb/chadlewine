@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 import { CoverHero } from "@/components/CoverHero";
 import { FeedEntry } from "@/components/FeedEntry";
+import { formatDate } from "@/lib/utils";
 
 export const revalidate = 60;
 
@@ -18,8 +20,25 @@ async function getObservations() {
   return observations;
 }
 
+async function getMeditations() {
+  const supabase = createPublicClient();
+
+  const { data: meditations } = await supabase
+    .from("meditations")
+    .select("id, body, plain_text, published_at, created_at")
+    .eq("status", "published")
+    .order("published_at", { ascending: false })
+    .limit(10);
+
+  return meditations || [];
+}
+
 export default async function HomePage() {
-  const observations = await getObservations();
+  const [observations, meditations] = await Promise.all([
+    getObservations(),
+    getMeditations(),
+  ]);
+
   const latest = observations[0];
   const feed = observations.slice(1);
 
@@ -36,29 +55,55 @@ export default async function HomePage() {
         />
       )}
 
-      {feed.length > 0 && (
-        <section id="archive" className="archive">
-          <h2 className="archive__heading">
-            Archive
-          </h2>
-
-          <div className="archive__feed">
-            {feed.map((obsv) => (
-              <FeedEntry
-                key={obsv.slug}
-                title={obsv.title}
-                slug={obsv.slug}
-                dateCaptured={obsv.date_captured}
-                hookLine={obsv.hook_line || ""}
-                artImageUrl={obsv.art_image_path || ""}
-                artAlt={obsv.art_alt || obsv.title}
-              />
-            ))}
-          </div>
+      <div className="home-split">
+        {/* Left 2/3 — Observation archive */}
+        <section className="home-split__observations">
+          {feed.length > 0 && (
+            <>
+              <div className="archive__feed">
+                {feed.map((obsv) => (
+                  <FeedEntry
+                    key={obsv.slug}
+                    title={obsv.title}
+                    slug={obsv.slug}
+                    dateCaptured={obsv.date_captured}
+                    hookLine={obsv.hook_line || ""}
+                    artImageUrl={obsv.art_image_path || ""}
+                    artAlt={obsv.art_alt || obsv.title}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </section>
-      )}
 
-      {observations.length === 0 && (
+        {/* Right 1/3 — Meditations */}
+        {meditations.length > 0 && (
+          <aside className="home-split__meditations">
+            <h2 className="home-split__meditations-heading">Meditations</h2>
+            <div className="home-split__meditations-feed">
+              {meditations.map((med) => (
+                <Link
+                  key={med.id}
+                  href={`/meditations/${med.id}`}
+                  className="home-med-row"
+                >
+                  <span className="home-med-row__label">new meditation</span>
+                  <span className="home-med-row__date">
+                    {formatDate(med.published_at || med.created_at)}
+                  </span>
+                  <span className="home-med-row__cta">read</span>
+                </Link>
+              ))}
+            </div>
+            <Link href="/meditations" className="home-split__meditations-more">
+              All Meditations
+            </Link>
+          </aside>
+        )}
+      </div>
+
+      {observations.length === 0 && meditations.length === 0 && (
         <section className="empty-state">
           <p className="empty-state__message">No observations published yet.</p>
         </section>
