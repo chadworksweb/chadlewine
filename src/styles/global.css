@@ -761,6 +761,51 @@ h2, h3, h4, h5, h6 {
   }
 }
 
+/* --- Cover Art Playground --- */
+
+.art-playground {
+  position: relative;
+}
+
+.art-playground__menu {
+  position: absolute;
+  bottom: var(--space-sm);
+  right: var(--space-sm);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+
+.art-playground__btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all var(--duration-fast) var(--ease-out);
+  opacity: 0.5;
+}
+
+.art-playground__btn:hover {
+  opacity: 0.8;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.art-playground__btn--active {
+  opacity: 1;
+  border-color: var(--text-accent);
+  background: rgba(192, 132, 252, 0.15);
+}
+
 /* --- Admin Edit Button (floating, top-right) --- */
 
 .admin-edit-btn {
@@ -1252,6 +1297,98 @@ h2, h3, h4, h5, h6 {
   margin-left: calc(-50vw + 50%);
 }
 
+.meditation-archive__layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-xl);
+  max-width: var(--site-width);
+  margin: 0 auto;
+  padding: 0 var(--page-gutter);
+}
+
+/* Sidebar */
+
+.meditation-sidebar {
+  position: sticky;
+  top: calc(var(--nav-height) + var(--space-md));
+  align-self: start;
+  padding-top: var(--space-md);
+}
+
+.meditation-sidebar__section {
+  margin-bottom: var(--space-lg);
+}
+
+.meditation-sidebar__heading {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--reading-text-tertiary);
+  margin: 0 0 var(--space-sm);
+}
+
+.meditation-sidebar__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.meditation-sidebar__month {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--reading-text-secondary);
+  padding: 4px 0;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.meditation-sidebar__month:hover {
+  color: var(--reading-accent);
+}
+
+.meditation-sidebar__count {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.65rem;
+  color: var(--reading-text-tertiary);
+}
+
+.meditation-sidebar__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.meditation-sidebar__filter {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  color: var(--reading-text-secondary);
+  padding: 2px 8px;
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.meditation-sidebar__filter:hover {
+  color: var(--reading-accent);
+  border-color: var(--reading-accent);
+}
+
+@media (max-width: 768px) {
+  .meditation-archive__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .meditation-sidebar {
+    position: static;
+    order: -1;
+  }
+}
+
 /* Feed entries — text-only, no thumbnails */
 
 .meditation-feed {
@@ -1272,17 +1409,7 @@ h2, h3, h4, h5, h6 {
 }
 
 .meditation-entry__content {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
-  /* Mirror the hero 3fr/1fr grid so text aligns with title */
-  display: grid;
-  grid-template-columns: 3fr 1fr;
-  gap: var(--space-xl);
-}
-
-.meditation-entry__content > * {
-  grid-column: 1;
+  padding: 0;
 }
 
 .meditation-entry__date {

@@ -21,7 +21,8 @@ export function WaterRipple({ src, alt, className }: WaterRippleProps) {
   const heightRef = useRef(0);
 
   const damping = 0.972;
-  const resolution = 1;
+  const resolution = 2;
+  const stepsPerFrame = 3; // run simulation multiple times per render
 
   function initBuffers(w: number, h: number) {
     const sw = Math.floor(w / resolution);
@@ -98,7 +99,9 @@ export function WaterRipple({ src, alt, className }: WaterRippleProps) {
       return;
     }
 
-    stepSimulation();
+    for (let s = 0; s < stepsPerFrame; s++) {
+      stepSimulation();
+    }
 
     // Draw base image
     ctx.drawImage(img, 0, 0, cw, ch);

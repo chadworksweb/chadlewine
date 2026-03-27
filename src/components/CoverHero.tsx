@@ -2,7 +2,7 @@ import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { TitleReveal } from "@/components/TitleReveal";
 import { CursorTooltip } from "@/components/CursorTooltip";
-import { WaterRipple } from "@/components/WaterRipple";
+import { CoverArtPlayground } from "@/components/CoverArtPlayground";
 
 interface CoverHeroProps {
   title: string;
@@ -24,7 +24,7 @@ export function CoverHero({
   return (
     <section id="cover-hero" className="cover-hero">
       {artImageUrl && (
-        <WaterRipple
+        <CoverArtPlayground
           src={artImageUrl}
           alt={artAlt || title}
           className="cover-hero__art-wrap"
