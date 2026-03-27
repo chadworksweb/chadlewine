@@ -15,6 +15,7 @@ const TAB_LABELS: Record<StatusTab, string> = {
 
 interface MeditationRow {
   id: string;
+  subtitle: string | null;
   body: string;
   plain_text: string;
   status: string;
@@ -244,6 +245,11 @@ function MeditationsContent() {
                   className="admin-table__link"
                 >
                   {truncate(med.plain_text, 100)}
+                  {med.subtitle && (
+                    <span style={{ display: "block", fontSize: "0.75rem", color: "var(--text-tertiary)", marginTop: 2 }}>
+                      {med.subtitle}
+                    </span>
+                  )}
                 </Link>
               </td>
               <td className="admin-table__td admin-table__td--date">

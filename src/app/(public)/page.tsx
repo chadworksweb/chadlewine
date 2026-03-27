@@ -25,7 +25,7 @@ async function getMeditations() {
 
   const { data: meditations } = await supabase
     .from("meditations")
-    .select("id, body, plain_text, published_at, created_at")
+    .select("id, subtitle, body, plain_text, published_at, created_at")
     .eq("status", "published")
     .order("published_at", { ascending: false })
     .limit(10);
@@ -88,11 +88,8 @@ export default async function HomePage() {
                   href={`/meditations/${med.id}`}
                   className="home-med-row"
                 >
-                  <span className="home-med-row__label">new meditation</span>
-                  <span className="home-med-row__date">
-                    {formatDate(med.published_at || med.created_at)}
-                  </span>
-                  <span className="home-med-row__cta">read</span>
+                  <span className="home-med-row__label">{med.subtitle || "new meditation"}</span>
+                  <span className="home-med-row__date">{new Date(med.published_at || med.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}</span>
                 </Link>
               ))}
             </div>

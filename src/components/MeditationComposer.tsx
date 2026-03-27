@@ -23,6 +23,7 @@ interface TagOption {
 
 interface MeditationData {
   id?: string;
+  subtitle: string;
   body: string;
   plain_text: string;
   status: string;
@@ -33,6 +34,7 @@ interface MeditationData {
 }
 
 const emptyMeditation: MeditationData = {
+  subtitle: "",
   body: "",
   plain_text: "",
   status: "draft",
@@ -80,6 +82,7 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
       .then((data) => {
         setForm({
           id: data.id,
+          subtitle: data.subtitle || "",
           body: data.body,
           plain_text: data.plain_text,
           status: data.status,
@@ -196,6 +199,7 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
     setError("");
 
     const payload = {
+      subtitle: form.subtitle,
       body,
       plain_text: plainText,
       status: statusOverride || form.status,
@@ -285,6 +289,16 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
 
       <div className="med-composer">
         <div className="med-composer__main">
+          {/* Subtitle */}
+          <input
+            type="text"
+            className="obsv-editor__input"
+            placeholder="Subtitle (optional)"
+            value={form.subtitle}
+            onChange={(e) => setForm((prev) => ({ ...prev, subtitle: e.target.value }))}
+            style={{ marginBottom: "var(--space-xs)" }}
+          />
+
           {/* Toolbar */}
           <div className="med-composer__toolbar">
             <button type="button" className="med-composer__toolbar-btn" onClick={() => execCmd("bold")} title="Bold">

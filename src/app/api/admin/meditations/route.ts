@@ -6,7 +6,7 @@ export async function GET() {
 
   const { data: meditations, error } = await supabase
     .from("meditations")
-    .select("id, body, plain_text, status, published_at, created_at, updated_at")
+    .select("id, subtitle, body, plain_text, status, published_at, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -71,6 +71,7 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   const {
+    subtitle,
     body: medBody,
     plain_text,
     status,
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
   }
 
   const insertData: Record<string, unknown> = {
+    subtitle: subtitle || null,
     body: medBody,
     plain_text,
     status: status || "draft",

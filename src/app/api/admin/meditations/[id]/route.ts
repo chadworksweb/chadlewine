@@ -51,6 +51,7 @@ export async function PUT(
   const body = await request.json();
 
   const {
+    subtitle,
     body: medBody,
     plain_text,
     status,
@@ -61,6 +62,7 @@ export async function PUT(
 
   // Check if we need to set published_at
   const updateData: Record<string, unknown> = {
+    subtitle: subtitle || null,
     body: medBody,
     plain_text,
     status,
