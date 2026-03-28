@@ -13,15 +13,17 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/", label: "Observations" },
   { href: "/meditations", label: "Meditations" },
+  { href: "/thoughts", label: "Thoughts" },
   {
-    href: "/lyrics",
+    href: "/music",
     label: "Music",
     children: [
+      { href: "/discography", label: "Discography" },
       { href: "/lyrics", label: "Lyrics" },
       { href: "/video", label: "Video" },
     ],
   },
-  { href: "/merch", label: "Merch" },
+  { href: "/art", label: "Art" },
   { href: "/chad-lewine", label: "About" },
 ];
 

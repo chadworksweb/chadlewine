@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
+import { SynapseDisplay } from "@/components/SynapseDisplay";
 
 export const revalidate = 60;
 
@@ -46,6 +47,7 @@ export default async function FoundationPage({
         {f.title}
       </h1>
       <MarkdownRenderer html={f.body} />
+      <SynapseDisplay sourceType="foundation" sourceId={f.id} />
     </article>
   );
 }

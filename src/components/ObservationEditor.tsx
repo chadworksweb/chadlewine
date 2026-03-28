@@ -21,6 +21,12 @@ interface TagOption {
   label: string;
   slug: string;
 }
+
+interface ThoughtOption {
+  id: string;
+  title: string;
+  slug: string;
+}
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { MediaLibrary } from "@/components/MediaLibrary";
 import { GeoPanel } from "@/components/GeoPanel";
@@ -41,6 +47,7 @@ interface ObservationData {
   categories: string[];
   thoughtlines: string[];
   tags: string[];
+  thoughts: string[];
   // SEO/GEO fields (Phase 5-6)
   focus_keyphrase: string;
   secondary_keyphrases: string[];
@@ -68,6 +75,7 @@ const emptyObservation: ObservationData = {
   categories: [],
   thoughtlines: [],
   tags: [],
+  thoughts: [],
   focus_keyphrase: "",
   secondary_keyphrases: [],
   search_intent: "informational",
@@ -158,9 +166,11 @@ export function ObservationEditor({
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
   const [allThoughtlines, setAllThoughtlines] = useState<ThoughtlineOption[]>([]);
   const [allTags, setAllTags] = useState<TagOption[]>([]);
+  const [allThoughts, setAllThoughts] = useState<ThoughtOption[]>([]);
   const [newCategoryTitle, setNewCategoryTitle] = useState("");
   const [newThoughtlineTitle, setNewThoughtlineTitle] = useState("");
   const [newTagLabel, setNewTagLabel] = useState("");
+  const [newThoughtTitle, setNewThoughtTitle] = useState("");
 
   useEffect(() => {
     fetch("/api/admin/categories")
@@ -172,6 +182,9 @@ export function ObservationEditor({
     fetch("/api/admin/tags")
       .then((r) => r.json())
       .then((data) => setAllTags(data.sort((a: TagOption, b: TagOption) => a.label.localeCompare(b.label))));
+    fetch("/api/admin/thoughts")
+      .then((r) => r.json())
+      .then((data) => setAllThoughts(data.sort((a: ThoughtOption, b: ThoughtOption) => a.title.localeCompare(b.title))));
   }, []);
 
   const set = useCallback(
@@ -300,6 +313,43 @@ export function ObservationEditor({
     }
   }
 
+  function toggleThought(id: string) {
+    setForm((prev) => {
+      const has = prev.thoughts.includes(id);
+      const next = has
+        ? prev.thoughts.filter((t) => t !== id)
+        : [...prev.thoughts, id];
+      return { ...prev, thoughts: next };
+    });
+    setSaved(false);
+  }
+
+  async function handleCreateThought() {
+    const title = newThoughtTitle.trim();
+    if (!title) return;
+    const slug = title
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const res = await fetch("/api/admin/thoughts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, slug }),
+    });
+    if (res.ok) {
+      const created = await res.json();
+      setAllThoughts((prev) =>
+        [...prev, { id: created.id, title: created.title, slug: created.slug }].sort((a, b) =>
+          a.title.localeCompare(b.title)
+        )
+      );
+      setForm((prev) => ({ ...prev, thoughts: [...prev.thoughts, created.id] }));
+      setNewThoughtTitle("");
+      setSaved(false);
+    }
+  }
+
   async function handleSave() {
     setError("");
     setSaving(true);
@@ -319,6 +369,7 @@ export function ObservationEditor({
       categories: form.categories,
       thoughtlines: form.thoughtlines,
       tags: form.tags,
+      thoughts: form.thoughts,
       focus_keyphrase: form.focus_keyphrase,
       secondary_keyphrases: form.secondary_keyphrases,
       search_intent: form.search_intent,
@@ -665,6 +716,63 @@ export function ObservationEditor({
                     if (e.key === "Enter") {
                       e.preventDefault();
                       handleCreateTag();
+                    }
+                  }}
+                  style={{ border: "1px dashed var(--border)", background: "transparent", cursor: "text", textAlign: "left" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">
+              Thoughts
+              <span className="obsv-editor__counter">{form.thoughts.length} selected</span>
+            </h3>
+            {form.thoughts.length > 0 && (
+              <div className="obsv-editor__chip-section">
+                <span className="obsv-editor__chip-label">Selected</span>
+                <div className="obsv-editor__chip-grid">
+                  {allThoughts
+                    .filter((t) => form.thoughts.includes(t.id))
+                    .map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className="obsv-editor__chip obsv-editor__chip--active"
+                        onClick={() => toggleThought(t.id)}
+                      >
+                        {t.title}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+            <div className="obsv-editor__chip-section">
+              <span className="obsv-editor__chip-label">Available</span>
+              <div className="obsv-editor__chip-grid">
+                {allThoughts
+                  .filter((t) => !form.thoughts.includes(t.id))
+                  .map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className="obsv-editor__chip"
+                      onClick={() => toggleThought(t.id)}
+                    >
+                      {t.title}
+                    </button>
+                  ))}
+                <input
+                  type="text"
+                  className="obsv-editor__chip"
+                  placeholder="+ New thought"
+                  value={newThoughtTitle}
+                  onChange={(e) => setNewThoughtTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCreateThought();
                     }
                   }}
                   style={{ border: "1px dashed var(--border)", background: "transparent", cursor: "text", textAlign: "left" }}

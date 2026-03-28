@@ -1,0 +1,140 @@
+"use client";
+
+import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+
+interface Product {
+  id: string;
+  tier: string;
+  title: string;
+  price_cents: number | null;
+  status: string;
+  is_catalog_item: boolean;
+  printify_product_id: string | null;
+  created_at: string;
+}
+
+interface Submission {
+  id: string;
+  buyer_email: string;
+  status: string;
+  created_at: string;
+}
+
+export default function AdminMerchPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    const [prodRes, subRes] = await Promise.all([
+      fetch("/api/admin/products"),
+      fetch("/api/admin/merch-queue"),
+    ]);
+    setProducts(await prodRes.json());
+    setSubmissions(await subRes.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  if (loading) {
+    return (
+      <div className="admin-page">
+        <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>Loading...</p>
+      </div>
+    );
+  }
+
+  const pending = submissions.filter((s) => s.status === "pending");
+  const tierCounts = products.reduce<Record<string, number>>((acc, p) => {
+    acc[p.tier] = (acc[p.tier] || 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <div className="admin-page">
+      <div className="admin-page__header">
+        <h1 className="admin-page__title">Merch</h1>
+        <Link href="/admin/merch/products/new" className="admin-btn admin-btn--primary">
+          New Product
+        </Link>
+      </div>
+
+      <div className="admin-stats">
+        <div className="admin-stats__card">
+          <span className="admin-stats__value">{products.length}</span>
+          <span className="admin-stats__label">Total Products</span>
+        </div>
+        {["art", "line", "fusion", "pick", "diddy"].map((tier) => (
+          <div key={tier} className="admin-stats__card">
+            <span className="admin-stats__value">{tierCounts[tier] || 0}</span>
+            <span className="admin-stats__label">{tier.charAt(0).toUpperCase() + tier.slice(1)}</span>
+          </div>
+        ))}
+        <div className={`admin-stats__card${pending.length > 0 ? " admin-stats__card--warn" : ""}`}>
+          <span className="admin-stats__value">{pending.length}</span>
+          <span className="admin-stats__label">Pending Review</span>
+        </div>
+      </div>
+
+      {/* Quick links */}
+      <div style={{ display: "flex", gap: 8, marginBottom: "var(--space-xl)" }}>
+        <Link href="/admin/merch/queue" className="admin-btn admin-btn--secondary">
+          Review Queue ({pending.length})
+        </Link>
+      </div>
+
+      {/* Products table */}
+      <table className="admin-table">
+        <thead>
+          <tr>
+            <th className="admin-table__th">Title</th>
+            <th className="admin-table__th">Tier</th>
+            <th className="admin-table__th">Price</th>
+            <th className="admin-table__th">Status</th>
+            <th className="admin-table__th">Printify</th>
+            <th className="admin-table__th">Catalog</th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.length === 0 && (
+            <tr>
+              <td className="admin-table__td admin-table__td--empty" colSpan={6}>No products yet.</td>
+            </tr>
+          )}
+          {products.map((p) => (
+            <tr key={p.id} className="admin-table__row">
+              <td className="admin-table__td">
+                <Link href={`/admin/merch/products/${p.id}`} className="admin-table__link">
+                  {p.title}
+                </Link>
+              </td>
+              <td className="admin-table__td">
+                <span className="admin-meta-chip">{p.tier}</span>
+              </td>
+              <td className="admin-table__td">
+                {p.price_cents ? `$${(p.price_cents / 100).toFixed(2)}` : "--"}
+              </td>
+              <td className="admin-table__td">
+                <span className={`admin-status admin-status--${p.status === "active" ? "published" : p.status === "inactive" ? "draft" : "private"}`}>
+                  {p.status}
+                </span>
+              </td>
+              <td className="admin-table__td admin-table__td--indicator">
+                <span className={p.printify_product_id ? "admin-check" : "admin-dash"}>
+                  {p.printify_product_id ? "\u2713" : "\u2014"}
+                </span>
+              </td>
+              <td className="admin-table__td admin-table__td--indicator">
+                <span className={p.is_catalog_item ? "admin-check" : "admin-dash"}>
+                  {p.is_catalog_item ? "\u2713" : "\u2014"}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

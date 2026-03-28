@@ -33,11 +33,17 @@ export async function GET(
     .select("tag_id")
     .eq("observation_id", id);
 
+  const { data: thoughtLinks } = await supabase
+    .from("observation_thoughts")
+    .select("thought_id")
+    .eq("observation_id", id);
+
   return Response.json({
     ...observation,
     categories: categoryLinks?.map((c) => c.category_id) || [],
     thoughtlines: thoughtlineLinks?.map((t) => t.thoughtline_id) || [],
     tags: tagLinks?.map((t) => t.tag_id) || [],
+    thoughts: thoughtLinks?.map((t) => t.thought_id) || [],
   });
 }
 
@@ -65,6 +71,7 @@ export async function PUT(
     categories,
     thoughtlines,
     tags,
+    thoughts,
     focus_keyphrase,
     secondary_keyphrases,
     search_intent,
@@ -153,6 +160,22 @@ export async function PUT(
         tag_id: t,
       }));
       await supabase.from("observation_tags").insert(tagRows);
+    }
+  }
+
+  // Replace thought mappings
+  if (thoughts !== undefined) {
+    await supabase
+      .from("observation_thoughts")
+      .delete()
+      .eq("observation_id", id);
+
+    if (thoughts.length > 0) {
+      const thoughtRows = thoughts.map((t: string) => ({
+        observation_id: id,
+        thought_id: t,
+      }));
+      await supabase.from("observation_thoughts").insert(thoughtRows);
     }
   }
 

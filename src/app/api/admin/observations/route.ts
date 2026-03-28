@@ -88,6 +88,7 @@ export async function POST(request: Request) {
     categories,
     thoughtlines,
     tags,
+    thoughts,
   } = body;
 
   if (!title || !slug || !obsBody || !date_captured) {
@@ -144,6 +145,15 @@ export async function POST(request: Request) {
       tag_id: t,
     }));
     await supabase.from("observation_tags").insert(tagRows);
+  }
+
+  // Insert thought mappings
+  if (thoughts && thoughts.length > 0) {
+    const thoughtRows = thoughts.map((t: string) => ({
+      observation_id: observation.id,
+      thought_id: t,
+    }));
+    await supabase.from("observation_thoughts").insert(thoughtRows);
   }
 
   return Response.json(observation, { status: 201 });

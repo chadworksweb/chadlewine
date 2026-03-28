@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
-import { formatDate } from "@/lib/utils";
+import { MeditationArchive } from "@/components/MeditationArchive";
 
 export const revalidate = 60;
 
@@ -109,103 +108,10 @@ export default async function MeditationsPage() {
         </div>
       </section>
 
-      {/* Feed — inverted (light) reading scheme */}
+      {/* Feed + sidebar with interactive filtering */}
       {meditations.length > 0 && (
         <section className="meditation-archive">
-          <div className="meditation-archive__layout">
-            {/* Feed — left column */}
-            <div className="meditation-feed">
-              {meditations.map((med) => (
-                <Link
-                  key={med.id}
-                  href={`/meditations/${med.id}`}
-                  className="meditation-entry"
-                >
-                  <div className="meditation-entry__content">
-                    <time className="meditation-entry__date">
-                      {new Date(med.published_at || med.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      <span style={{ display: "inline-block", width: "2em" }} />
-                      {new Date(med.published_at || med.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}
-                    </time>
-                    <div
-                      className="meditation-entry__body"
-                      dangerouslySetInnerHTML={{ __html: med.body }}
-                    />
-                    {(med.categories.length > 0 || med.tags.length > 0) && (
-                      <div className="meditation-entry__meta">
-                        {med.categories.map((c) => (
-                          <span key={c.slug} className="meditation-card__category">{c.title}</span>
-                        ))}
-                        {med.tags.map((t) => (
-                          <span key={t.slug} className="meditation-card__tag">#{t.label}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {/* Sidebar — right column, timeline + filters */}
-            <aside className="meditation-sidebar">
-              <div className="meditation-sidebar__section">
-                <h3 className="meditation-sidebar__heading">Timeline</h3>
-                <nav className="meditation-sidebar__timeline">
-                  {(() => {
-                    const months = new Map<string, number>();
-                    meditations.forEach((m) => {
-                      const d = new Date(m.published_at || m.created_at);
-                      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-                      if (!months.has(key)) months.set(key, 0);
-                      months.set(key, months.get(key)! + 1);
-                    });
-                    return Array.from(months.entries()).map(([key, count]) => {
-                      const [year, month] = key.split("-");
-                      const label = new Date(+year, +month - 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-                      return (
-                        <span key={key} className="meditation-sidebar__month">
-                          {label} <span className="meditation-sidebar__count">{count}</span>
-                        </span>
-                      );
-                    });
-                  })()}
-                </nav>
-              </div>
-
-              {(() => {
-                const allCats = new Map<string, string>();
-                const allTags = new Map<string, string>();
-                meditations.forEach((m) => {
-                  m.categories.forEach((c) => allCats.set(c.slug, c.title));
-                  m.tags.forEach((t) => allTags.set(t.slug, t.label));
-                });
-                return (
-                  <>
-                    {allCats.size > 0 && (
-                      <div className="meditation-sidebar__section">
-                        <h3 className="meditation-sidebar__heading">Categories</h3>
-                        <div className="meditation-sidebar__filters">
-                          {Array.from(allCats.entries()).map(([slug, title]) => (
-                            <span key={slug} className="meditation-sidebar__filter">{title}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {allTags.size > 0 && (
-                      <div className="meditation-sidebar__section">
-                        <h3 className="meditation-sidebar__heading">Tags</h3>
-                        <div className="meditation-sidebar__filters">
-                          {Array.from(allTags.entries()).map(([slug, label]) => (
-                            <span key={slug} className="meditation-sidebar__filter">#{label}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </aside>
-          </div>
+          <MeditationArchive meditations={meditations} />
         </section>
       )}
 

@@ -7,6 +7,9 @@ import { ObservationJsonLd } from "@/components/ObservationJsonLd";
 import { ImageObjectJsonLd } from "@/components/ImageObjectJsonLd";
 import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
+import { SynapseDisplay } from "@/components/SynapseDisplay";
+import { MerchSection } from "@/components/MerchSection";
+import { PatronageWidget } from "@/components/PatronageWidget";
 
 
 export const revalidate = 60;
@@ -263,6 +266,10 @@ export default async function ObservationPage({
       <article className="observation-body">
         <MarkdownRenderer html={obsv.body} />
       </article>
+
+      <SynapseDisplay sourceType="observation" sourceId={obsv.id} />
+      <MerchSection observationId={obsv.id} />
+      <PatronageWidget observationId={obsv.id} observationTitle={obsv.title} />
 
       <div className="obsv-celestial-anchor">
         <div className="obsv-celestial-wrap" aria-hidden="true">

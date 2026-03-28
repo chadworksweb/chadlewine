@@ -4,12 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const adminNav = [
+  { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/observations", label: "Observations" },
   { href: "/admin/meditations", label: "Meditations" },
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/thoughtlines", label: "Thoughtlines" },
   { href: "/admin/tags", label: "Tags" },
+  { href: "/admin/thoughts", label: "Thoughts" },
   { href: "/admin/foundations", label: "Foundations" },
+  { href: "/admin/door-pages", label: "Door Pages" },
+  { href: "/admin/art", label: "Art" },
+  { href: "/admin/music", label: "Music" },
+  { href: "/admin/videos", label: "Videos" },
   { href: "/admin/subscribers", label: "Subscribers" },
   { href: "/admin/media", label: "Media" },
   { href: "/admin/seo", label: "SEO" },
@@ -37,7 +43,9 @@ export function AdminSidebar() {
 
       <nav className="admin-sidebar__nav">
         {adminNav.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          const isActive = "exact" in item && item.exact
+            ? pathname === item.href
+            : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}

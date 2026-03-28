@@ -52,6 +52,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
+      url: `${BASE_URL}/thoughts`,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/music`,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/lyrics`,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/video`,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/art`,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
       url: `${BASE_URL}/archive/xanga`,
       changeFrequency: "yearly",
       priority: 0.3,
@@ -98,6 +123,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: f.updated_at ? new Date(f.updated_at) : undefined,
         changeFrequency: "yearly",
         priority: 0.6,
+      });
+    }
+  }
+
+  // Thought pages
+  const { data: thoughts } = await supabase
+    .from("thoughts")
+    .select("slug, updated_at")
+    .eq("status", "published");
+
+  if (thoughts) {
+    for (const t of thoughts) {
+      entries.push({
+        url: `${BASE_URL}/thoughts/${t.slug}`,
+        lastModified: t.updated_at ? new Date(t.updated_at) : undefined,
+        changeFrequency: "weekly",
+        priority: 0.6,
+      });
+    }
+  }
+
+  // Door pages
+  const { data: doorPages } = await supabase
+    .from("door_pages")
+    .select("slug, updated_at, published_at")
+    .eq("status", "published");
+
+  if (doorPages) {
+    for (const dp of doorPages) {
+      entries.push({
+        url: `${BASE_URL}/doors/${dp.slug}`,
+        lastModified: dp.updated_at
+          ? new Date(dp.updated_at)
+          : dp.published_at
+            ? new Date(dp.published_at)
+            : undefined,
+        changeFrequency: "weekly",
+        priority: 0.7,
       });
     }
   }

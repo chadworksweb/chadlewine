@@ -4,6 +4,8 @@ import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
+import { SocialShare } from "@/components/SocialShare";
+import { SynapseDisplay } from "@/components/SynapseDisplay";
 
 export const revalidate = 60;
 
@@ -120,6 +122,13 @@ export default async function MeditationPermalinkPage({
           )}
         </footer>
       </article>
+
+      <SynapseDisplay sourceType="meditation" sourceId={id} />
+
+      <SocialShare
+        url={`https://chadlewine.com/meditations/${id}`}
+        text={meditation.plain_text.length > 200 ? meditation.plain_text.slice(0, 197) + "..." : meditation.plain_text}
+      />
 
       <nav className="meditation-single__nav">
         <Link href="/meditations" className="meditation-single__back">
