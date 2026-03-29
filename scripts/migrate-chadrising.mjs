@@ -293,7 +293,7 @@ async function migrateArt() {
   // Bunny CDN base for art (from the _art_bunny_main paths)
   // These are relative paths like /paintings/35_web.webp
   // Need to determine the CDN base — checking the SFVV settings
-  const ART_CDN = "https://chadrising-sfvv.b-cdn.net";
+  const ART_CDN = "https://chadrising-art.b-cdn.net";
 
   let inserted = 0;
   for (let i = 0; i < artProducts.length; i++) {
