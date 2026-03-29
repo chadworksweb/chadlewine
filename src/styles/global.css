@@ -1100,6 +1100,12 @@ h2, h3, h4, h5, h6 {
   padding: 0 var(--page-gutter);
 }
 
+.observations-archive {
+  max-width: var(--site-width);
+  margin: 0 auto;
+  padding: 0 var(--page-gutter);
+}
+
 .home-split__observations {
   min-width: 0;
 }
