@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { verifyWebhookSignature } from "@/lib/stripe";
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
@@ -8,13 +9,12 @@ export async function POST(request: Request) {
 
   const payload = await request.text();
 
-  // TODO: Verify webhook signature with Stripe SDK
-  // For now, parse the event directly
   let event;
   try {
-    event = JSON.parse(payload);
-  } catch {
-    return Response.json({ error: "Invalid payload" }, { status: 400 });
+    event = verifyWebhookSignature(payload, signature);
+  } catch (err) {
+    console.error("[stripe-webhook] Signature verification failed:", (err as Error).message);
+    return Response.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   const supabase = createAdminClient();
@@ -25,19 +25,39 @@ export async function POST(request: Request) {
       return Response.json({ error: "Missing session data" }, { status: 400 });
     }
 
-    const observationId = session.metadata?.observation_id || null;
+    const itemType = session.metadata?.type;
+    const itemId = session.metadata?.item_id;
 
-    const { error: insertError } = await supabase.from("patrons").insert({
-      email: session.customer_details?.email || null,
-      stripe_payment_intent_id: session.payment_intent || null,
-      amount_cents: session.amount_total || 0,
-      is_recurring: false,
-      source_observation_id: observationId,
-    });
+    if (itemType && itemId && ["song", "album"].includes(itemType)) {
+      // Music purchase
+      const { error: purchaseError } = await supabase.from("purchases").insert({
+        buyer_email: session.customer_details?.email || "unknown",
+        item_type: itemType,
+        item_id: itemId,
+        stripe_payment_intent_id: session.payment_intent || null,
+        amount: (session.amount_total || 0) / 100,
+      });
 
-    if (insertError) {
-      console.error("[stripe-webhook] Failed to insert patron:", insertError.message);
-      return Response.json({ error: "Database insert failed" }, { status: 500 });
+      if (purchaseError) {
+        console.error("[stripe-webhook] Failed to insert purchase:", purchaseError.message);
+        return Response.json({ error: "Database insert failed" }, { status: 500 });
+      }
+    } else {
+      // Patronage
+      const observationId = session.metadata?.observation_id || null;
+
+      const { error: insertError } = await supabase.from("patrons").insert({
+        email: session.customer_details?.email || null,
+        stripe_payment_intent_id: session.payment_intent || null,
+        amount: (session.amount_total || 0) / 100,
+        is_recurring: false,
+        source_observation_id: observationId,
+      });
+
+      if (insertError) {
+        console.error("[stripe-webhook] Failed to insert patron:", insertError.message);
+        return Response.json({ error: "Database insert failed" }, { status: 500 });
+      }
     }
   }
 

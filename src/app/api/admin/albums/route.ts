@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     description: body.description || null,
     display_order: body.display_order || 0,
     status: body.status || "draft",
+    format_id: body.format_id || null,
   }).select().single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });

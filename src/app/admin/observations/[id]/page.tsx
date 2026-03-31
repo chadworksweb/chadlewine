@@ -65,7 +65,7 @@ export default function EditObservationPage() {
         entity_tags: (data.entity_tags as string[]) || [],
         article_type: (data.article_type as string) || "article",
         published_at: (data.published_at as string) || null,
-        thoughts: (data.thoughts as string[]) || [],
+        related_music: (data.related_music as { type: "song" | "album"; id: string }[]) || [],
       }}
     />
   );

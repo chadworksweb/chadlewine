@@ -11,7 +11,7 @@ export default function NewProductPage() {
     title: "",
     tier: "art" as string,
     description: "",
-    price_cents: "",
+    price: "",
     source_observation_id: "",
     printify_product_id: "",
   });
@@ -26,7 +26,7 @@ export default function NewProductPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
-        price_cents: form.price_cents ? parseInt(form.price_cents) : null,
+        price: form.price ? parseFloat(form.price) : null,
         source_observation_id: form.source_observation_id || null,
         printify_product_id: form.printify_product_id || null,
       }),
@@ -70,8 +70,8 @@ export default function NewProductPage() {
       </div>
 
       <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Price (cents)</label>
-        <input className="obsv-editor__input" type="number" value={form.price_cents} onChange={(e) => setForm({ ...form, price_cents: e.target.value })} placeholder="2499" />
+        <label className="obsv-editor__label">Price ($)</label>
+        <input className="obsv-editor__input" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="24.99" />
       </div>
 
       <div className="obsv-editor__field">

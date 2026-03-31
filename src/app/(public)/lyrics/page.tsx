@@ -19,11 +19,23 @@ export default async function LyricsPage() {
     .eq("status", "published")
     .order("display_order");
 
-  const { data: tracks } = await supabase
-    .from("tracks")
-    .select("id, album_id, title, slug, track_number, lyrics")
-    .eq("status", "published")
+  // Get songs with track numbers via junction
+  const { data: junctions } = await supabase
+    .from("album_songs")
+    .select("album_id, track_number, song:songs(id, title, slug, lyrics, status)")
     .order("track_number");
+
+  // Flatten and filter published songs with lyrics
+  const songs = (junctions || [])
+    .filter((j: any) => j.song?.status === "published" && j.song?.lyrics)
+    .map((j: any) => ({
+      id: j.song.id,
+      album_id: j.album_id,
+      title: j.song.title,
+      slug: j.song.slug,
+      track_number: j.track_number,
+      lyrics: j.song.lyrics,
+    }));
 
   return (
     <div id="page-lyrics" className="page-static lyric-book">
@@ -33,19 +45,19 @@ export default async function LyricsPage() {
         {/* TOC — left column */}
         <nav className="lyric-book__toc">
           {(albums || []).map((album) => {
-            const albumTracks = (tracks || []).filter((t) => t.album_id === album.id && t.lyrics);
-            if (albumTracks.length === 0) return null;
+            const albumSongs = songs.filter((s: any) => s.album_id === album.id);
+            if (albumSongs.length === 0) return null;
             return (
               <div key={album.id} className="lyric-book__album-group">
                 <h2 className="lyric-book__album-title">{album.title}</h2>
                 <ul className="lyric-book__track-list">
-                  {albumTracks.map((t) => (
-                    <li key={t.id}>
+                  {albumSongs.map((s: any) => (
+                    <li key={s.id}>
                       <Link
-                        href={`/lyrics/${album.slug}/${t.slug}`}
+                        href={`/lyrics/${album.slug}/${s.slug}`}
                         className="lyric-book__track-link"
                       >
-                        {t.track_number}. {t.title}
+                        {s.track_number}. {s.title}
                       </Link>
                     </li>
                   ))}
@@ -58,7 +70,7 @@ export default async function LyricsPage() {
         {/* Reading pane — right column (placeholder for index) */}
         <div className="lyric-book__pane">
           <p style={{ color: "var(--text-tertiary)" }}>
-            Select a track to read its lyrics.
+            Select a song to read its lyrics.
           </p>
         </div>
       </div>

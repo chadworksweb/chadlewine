@@ -8,7 +8,7 @@ export async function MerchSection({ observationId }: MerchSectionProps) {
   const supabase = createPublicClient();
   const { data: products } = await supabase
     .from("products")
-    .select("id, tier, title, description, price_cents")
+    .select("id, tier, title, description, price")
     .eq("source_observation_id", observationId)
     .eq("status", "active")
     .order("tier");
@@ -26,9 +26,9 @@ export async function MerchSection({ observationId }: MerchSectionProps) {
             {p.description && (
               <p className="merch-section__desc">{p.description}</p>
             )}
-            {p.price_cents && (
+            {p.price && (
               <span className="merch-section__price">
-                ${(p.price_cents / 100).toFixed(2)}
+                ${Number(p.price).toFixed(2)}
               </span>
             )}
           </div>

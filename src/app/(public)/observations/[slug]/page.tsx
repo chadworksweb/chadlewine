@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
 import { MerchSection } from "@/components/MerchSection";
-import { PatronageWidget } from "@/components/PatronageWidget";
+
 
 
 export const revalidate = 60;
@@ -141,9 +141,9 @@ async function getRelatedObservations(
 
   if (!data || data.length === 0) return [];
 
-  // Shuffle and take 3
+  // Shuffle and take 8 (4 cols × 2 rows)
   const shuffled = data.sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 3);
+  return shuffled.slice(0, 8);
 }
 
 export async function generateMetadata({
@@ -269,7 +269,6 @@ export default async function ObservationPage({
 
       <SynapseDisplay sourceType="observation" sourceId={obsv.id} />
       <MerchSection observationId={obsv.id} />
-      <PatronageWidget observationId={obsv.id} observationTitle={obsv.title} />
 
       <div className="obsv-celestial-anchor">
         <div className="obsv-celestial-wrap" aria-hidden="true">

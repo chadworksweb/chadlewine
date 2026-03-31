@@ -13,12 +13,12 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/observations", label: "Observations" },
   { href: "/meditations", label: "Meditations" },
-  { href: "/thoughts", label: "Thoughts" },
   {
     href: "/music",
     label: "Music",
     children: [
       { href: "/discography", label: "Discography" },
+      { href: "/curation", label: "Curation" },
       { href: "/lyrics", label: "Lyrics" },
       { href: "/video", label: "Video" },
     ],

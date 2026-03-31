@@ -5,7 +5,7 @@ import { createPublicClient } from "@/lib/supabase-server";
 
 export const revalidate = 60;
 
-async function getTrackWithAlbum(albumSlug: string, trackSlug: string) {
+async function getSongWithAlbum(albumSlug: string, songSlug: string) {
   const supabase = createPublicClient();
 
   const { data: album } = await supabase
@@ -15,15 +15,23 @@ async function getTrackWithAlbum(albumSlug: string, trackSlug: string) {
     .single();
   if (!album) return null;
 
-  const { data: track } = await supabase
-    .from("tracks")
+  const { data: song } = await supabase
+    .from("songs")
     .select("*")
-    .eq("album_id", album.id)
-    .eq("slug", trackSlug)
+    .eq("slug", songSlug)
     .single();
-  if (!track) return null;
+  if (!song) return null;
 
-  return { album, track };
+  // Get track_number from junction
+  const { data: junction } = await supabase
+    .from("album_songs")
+    .select("track_number")
+    .eq("album_id", album.id)
+    .eq("song_id", song.id)
+    .single();
+  if (!junction) return null;
+
+  return { album, song: { ...song, track_number: junction.track_number } };
 }
 
 export async function generateMetadata({
@@ -32,24 +40,24 @@ export async function generateMetadata({
   params: Promise<{ albumSlug: string; trackSlug: string }>;
 }): Promise<Metadata> {
   const { albumSlug, trackSlug } = await params;
-  const result = await getTrackWithAlbum(albumSlug, trackSlug);
+  const result = await getSongWithAlbum(albumSlug, trackSlug);
   if (!result) return {};
   return {
-    title: `${result.track.title} Lyrics — ${result.album.title} — Chad Lewine`,
+    title: `${result.song.title} Lyrics — ${result.album.title} — Chad Lewine`,
     alternates: { canonical: `https://chadlewine.com/lyrics/${albumSlug}/${trackSlug}` },
   };
 }
 
-export default async function TrackLyricsPage({
+export default async function SongLyricsPage({
   params,
 }: {
   params: Promise<{ albumSlug: string; trackSlug: string }>;
 }) {
   const { albumSlug, trackSlug } = await params;
-  const result = await getTrackWithAlbum(albumSlug, trackSlug);
+  const result = await getSongWithAlbum(albumSlug, trackSlug);
   if (!result) notFound();
 
-  const { album, track } = result;
+  const { album, song } = result;
 
   return (
     <div id="page-lyrics" className="page-static lyric-book">
@@ -61,14 +69,14 @@ export default async function TrackLyricsPage({
         <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)" }}>{album.title}</span>
       </nav>
 
-      <h1 className="page-static__title">{track.title}</h1>
+      <h1 className="page-static__title">{song.title}</h1>
       <p style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "var(--space-xl)" }}>
-        {album.title} &middot; Track {track.track_number}
+        {album.title} &middot; Track {song.track_number}
       </p>
 
-      {track.lyrics ? (
+      {song.lyrics ? (
         <div className="lyric-book__lyrics" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
-          {track.lyrics}
+          {song.lyrics.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n")}
         </div>
       ) : (
         <p style={{ color: "var(--text-tertiary)" }}>Lyrics not yet available.</p>

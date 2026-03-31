@@ -58,6 +58,7 @@ export async function PUT(
     categories,
     thoughtlines,
     tags,
+    related_music,
   } = body;
 
   // Check if we need to set published_at
@@ -66,6 +67,7 @@ export async function PUT(
     body: medBody,
     plain_text,
     status,
+    related_music: related_music ?? [],
   };
 
   if (status === "published") {

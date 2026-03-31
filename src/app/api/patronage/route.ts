@@ -4,14 +4,14 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { amount, observation_id, observation_title } = body;
 
-  if (!amount || amount < 100) {
+  if (!amount || amount < 1) {
     return Response.json({ error: "Minimum $1.00" }, { status: 400 });
   }
 
   try {
     const origin = request.headers.get("origin") || "https://chadlewine.com";
     const session = await createCheckoutSession({
-      amount_cents: amount,
+      amount,
       observation_id,
       observation_title,
       success_url: `${origin}/patronage/thank-you`,

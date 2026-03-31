@@ -52,11 +52,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
-      url: `${BASE_URL}/thoughts`,
-      changeFrequency: "weekly",
-      priority: 0.6,
-    },
-    {
       url: `${BASE_URL}/music`,
       changeFrequency: "monthly",
       priority: 0.6,
@@ -75,6 +70,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${BASE_URL}/art`,
       changeFrequency: "monthly",
       priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/curation`,
+      changeFrequency: "weekly",
+      priority: 0.7,
     },
     {
       url: `${BASE_URL}/archive/xanga`,
@@ -127,23 +127,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  // Thought pages
-  const { data: thoughts } = await supabase
-    .from("thoughts")
-    .select("slug, updated_at")
-    .eq("status", "published");
-
-  if (thoughts) {
-    for (const t of thoughts) {
-      entries.push({
-        url: `${BASE_URL}/thoughts/${t.slug}`,
-        lastModified: t.updated_at ? new Date(t.updated_at) : undefined,
-        changeFrequency: "weekly",
-        priority: 0.6,
-      });
-    }
-  }
-
   // Door pages
   const { data: doorPages } = await supabase
     .from("door_pages")
@@ -160,6 +143,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             ? new Date(dp.published_at)
             : undefined,
         changeFrequency: "weekly",
+        priority: 0.7,
+      });
+    }
+  }
+
+  // Curation entry pages
+  const { data: curatedEntries } = await supabase
+    .from("curated_entries")
+    .select("slug, updated_at, published_at")
+    .eq("status", "published");
+
+  if (curatedEntries) {
+    for (const ce of curatedEntries) {
+      entries.push({
+        url: `${BASE_URL}/curation/${ce.slug}`,
+        lastModified: ce.updated_at
+          ? new Date(ce.updated_at)
+          : ce.published_at
+            ? new Date(ce.published_at)
+            : undefined,
+        changeFrequency: "monthly",
         priority: 0.7,
       });
     }

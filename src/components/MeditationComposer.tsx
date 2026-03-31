@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
+import { RelatedMusicPanel } from "@/components/RelatedMusicPanel";
 
 interface CategoryOption {
   id: string;
@@ -31,6 +33,7 @@ interface MeditationData {
   thoughtlines: string[];
   tags: string[];
   published_at: string | null;
+  related_music: { type: "song" | "album"; id: string }[];
 }
 
 const emptyMeditation: MeditationData = {
@@ -42,6 +45,7 @@ const emptyMeditation: MeditationData = {
   thoughtlines: [],
   tags: [],
   published_at: null,
+  related_music: [],
 };
 
 
@@ -49,9 +53,33 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
   const router = useRouter();
   const editorRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<MeditationData>(emptyMeditation);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(!meditationId);
+  const [currentId, setCurrentId] = useState(meditationId);
+
+  const buildPayload = useCallback((d: MeditationData) => ({
+    subtitle: d.subtitle,
+    body: d.body,
+    plain_text: d.plain_text,
+    status: d.status,
+    categories: d.categories,
+    thoughtlines: d.thoughtlines,
+    tags: d.tags,
+    related_music: d.related_music,
+  }), []);
+
+  const { status: autosaveStatus, flush } = useAutosave({
+    data: form,
+    endpoint: "/api/admin/meditations",
+    id: currentId,
+    buildPayload,
+    onCreated: (newId) => {
+      setCurrentId(newId);
+      setForm((prev) => ({ ...prev, id: newId }));
+      router.replace(`/admin/meditations/${newId}`, { scroll: false });
+    },
+    enabled: loaded && !!form.body && !!form.plain_text?.trim(),
+  });
 
   // Metadata options
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
@@ -90,6 +118,7 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
           thoughtlines: data.thoughtlines || [],
           tags: data.tags || [],
           published_at: data.published_at,
+          related_music: data.related_music || [],
         });
         if (editorRef.current) {
           editorRef.current.innerHTML = data.body;
@@ -186,57 +215,11 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
     }
   }
 
-  async function save(statusOverride?: string) {
-    const body = editorRef.current?.innerHTML || "";
-    const plainText = editorRef.current?.textContent || "";
-
-    if (!plainText.trim()) {
-      setError("Meditation cannot be empty.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-
-    const payload = {
-      subtitle: form.subtitle,
-      body,
-      plain_text: plainText,
-      status: statusOverride || form.status,
-      categories: form.categories,
-      thoughtlines: form.thoughtlines,
-      tags: form.tags,
-    };
-
-    const url = meditationId
-      ? `/api/admin/meditations/${meditationId}`
-      : "/api/admin/meditations";
-
-    const res = await fetch(url, {
-      method: meditationId ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Save failed");
-      setSaving(false);
-      return;
-    }
-
-    const data = await res.json();
-    setSaving(false);
-
-    if (!meditationId) {
-      router.push(`/admin/meditations/${data.id}`);
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        status: data.status,
-        published_at: data.published_at,
-      }));
-    }
+  async function handlePublish() {
+    setForm((prev) => ({ ...prev, status: "published" }));
+    // flush will pick up the status change on next tick
+    await new Promise((r) => setTimeout(r, 0));
+    await flush();
   }
 
   async function handleDelete() {
@@ -324,22 +307,20 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
 
           {/* Actions */}
           <div className="med-composer__actions">
-            <button
-              type="button"
-              className="admin-btn"
-              onClick={() => save("draft")}
-              disabled={saving}
-            >
-              {saving ? "Saving..." : "Save Draft"}
-            </button>
-            <button
-              type="button"
-              className="admin-btn admin-btn--primary"
-              onClick={() => save("published")}
-              disabled={saving}
-            >
-              {form.status === "published" ? "Update" : "Publish"}
-            </button>
+            <span className={`autosave-status autosave-status--${autosaveStatus}`}>
+              {autosaveStatus === "saving" && "Saving..."}
+              {autosaveStatus === "saved" && "Saved"}
+              {autosaveStatus === "error" && "Save failed"}
+            </span>
+            {form.status !== "published" && (
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary"
+                onClick={handlePublish}
+              >
+                Publish
+              </button>
+            )}
           </div>
 
           {form.published_at && (
@@ -537,6 +518,11 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
               </div>
             </div>
           </div>
+
+          <RelatedMusicPanel
+            value={form.related_music}
+            onChange={(val) => setForm((prev) => ({ ...prev, related_music: val }))}
+          />
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { slugify, thumbnailUrl } from "@/lib/utils";
+import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
 
 interface CategoryOption {
   id: string;
@@ -22,14 +23,10 @@ interface TagOption {
   slug: string;
 }
 
-interface ThoughtOption {
-  id: string;
-  title: string;
-  slug: string;
-}
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { MediaLibrary } from "@/components/MediaLibrary";
 import { GeoPanel } from "@/components/GeoPanel";
+import { RelatedMusicPanel } from "@/components/RelatedMusicPanel";
 
 interface ObservationData {
   id?: string;
@@ -47,7 +44,6 @@ interface ObservationData {
   categories: string[];
   thoughtlines: string[];
   tags: string[];
-  thoughts: string[];
   // SEO/GEO fields (Phase 5-6)
   focus_keyphrase: string;
   secondary_keyphrases: string[];
@@ -58,6 +54,7 @@ interface ObservationData {
   entity_tags: string[];
   article_type: string;
   published_at: string | null;
+  related_music: { type: "song" | "album"; id: string }[];
 }
 
 const emptyObservation: ObservationData = {
@@ -75,7 +72,6 @@ const emptyObservation: ObservationData = {
   categories: [],
   thoughtlines: [],
   tags: [],
-  thoughts: [],
   focus_keyphrase: "",
   secondary_keyphrases: [],
   search_intent: "informational",
@@ -85,6 +81,7 @@ const emptyObservation: ObservationData = {
   entity_tags: [],
   article_type: "article",
   published_at: null,
+  related_music: [],
 };
 
 function CoverArtPanel({
@@ -158,19 +155,52 @@ export function ObservationEditor({
   initial?: ObservationData;
 }) {
   const router = useRouter();
-  const isNew = !initial?.id;
   const [form, setForm] = useState<ObservationData>(initial || emptyObservation);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
   const [allThoughtlines, setAllThoughtlines] = useState<ThoughtlineOption[]>([]);
   const [allTags, setAllTags] = useState<TagOption[]>([]);
-  const [allThoughts, setAllThoughts] = useState<ThoughtOption[]>([]);
   const [newCategoryTitle, setNewCategoryTitle] = useState("");
   const [newThoughtlineTitle, setNewThoughtlineTitle] = useState("");
   const [newTagLabel, setNewTagLabel] = useState("");
-  const [newThoughtTitle, setNewThoughtTitle] = useState("");
+
+  const buildPayload = useCallback((d: ObservationData) => ({
+    title: d.title,
+    slug: d.slug,
+    body: d.body,
+    date_captured: d.date_captured,
+    status: d.status,
+    hook_line: d.hook_line,
+    tension_line: d.tension_line,
+    art_image_path: d.art_image_path,
+    art_alt: d.art_alt,
+    seo_title: d.seo_title,
+    seo_description: d.seo_description,
+    categories: d.categories,
+    thoughtlines: d.thoughtlines,
+    tags: d.tags,
+    focus_keyphrase: d.focus_keyphrase,
+    secondary_keyphrases: d.secondary_keyphrases,
+    search_intent: d.search_intent,
+    citation_summary: d.citation_summary,
+    first_sentence_extractable: d.first_sentence_extractable,
+    paa_pairs: d.paa_pairs,
+    entity_tags: d.entity_tags,
+    article_type: d.article_type,
+    related_music: d.related_music,
+  }), []);
+
+  const { status: autosaveStatus, flush } = useAutosave({
+    data: form,
+    endpoint: "/api/admin/observations",
+    id: form.id,
+    buildPayload,
+    onCreated: (newId) => {
+      setForm((prev) => ({ ...prev, id: newId }));
+      router.replace(`/admin/observations/${newId}`, { scroll: false });
+    },
+    enabled: !!form.title && !!form.slug && !!form.body && !!form.date_captured,
+  });
 
   useEffect(() => {
     fetch("/api/admin/categories")
@@ -182,22 +212,18 @@ export function ObservationEditor({
     fetch("/api/admin/tags")
       .then((r) => r.json())
       .then((data) => setAllTags(data.sort((a: TagOption, b: TagOption) => a.label.localeCompare(b.label))));
-    fetch("/api/admin/thoughts")
-      .then((r) => r.json())
-      .then((data) => setAllThoughts(data.sort((a: ThoughtOption, b: ThoughtOption) => a.title.localeCompare(b.title))));
-  }, []);
+}, []);
 
   const set = useCallback(
     (field: keyof ObservationData | string, value: unknown) => {
       setForm((prev) => ({ ...prev, [field]: value }));
-      setSaved(false);
     },
     []
   );
 
   function handleTitleChange(value: string) {
     set("title", value);
-    if (isNew) {
+    if (!form.id) {
       set("slug", slugify(value));
     }
   }
@@ -210,7 +236,6 @@ export function ObservationEditor({
         : [...prev.categories, id];
       return { ...prev, categories: next };
     });
-    setSaved(false);
   }
 
   async function handleCreateCategory() {
@@ -235,7 +260,6 @@ export function ObservationEditor({
       );
       setForm((prev) => ({ ...prev, categories: [...prev.categories, created.id] }));
       setNewCategoryTitle("");
-      setSaved(false);
     }
   }
 
@@ -247,7 +271,6 @@ export function ObservationEditor({
         : [...prev.thoughtlines, id];
       return { ...prev, thoughtlines: next };
     });
-    setSaved(false);
   }
 
   async function handleCreateThoughtline() {
@@ -272,7 +295,6 @@ export function ObservationEditor({
       );
       setForm((prev) => ({ ...prev, thoughtlines: [...prev.thoughtlines, created.id] }));
       setNewThoughtlineTitle("");
-      setSaved(false);
     }
   }
 
@@ -284,7 +306,6 @@ export function ObservationEditor({
         : [...prev.tags, id];
       return { ...prev, tags: next };
     });
-    setSaved(false);
   }
 
   async function handleCreateTag() {
@@ -309,103 +330,6 @@ export function ObservationEditor({
       );
       setForm((prev) => ({ ...prev, tags: [...prev.tags, created.id] }));
       setNewTagLabel("");
-      setSaved(false);
-    }
-  }
-
-  function toggleThought(id: string) {
-    setForm((prev) => {
-      const has = prev.thoughts.includes(id);
-      const next = has
-        ? prev.thoughts.filter((t) => t !== id)
-        : [...prev.thoughts, id];
-      return { ...prev, thoughts: next };
-    });
-    setSaved(false);
-  }
-
-  async function handleCreateThought() {
-    const title = newThoughtTitle.trim();
-    if (!title) return;
-    const slug = title
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-    const res = await fetch("/api/admin/thoughts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, slug }),
-    });
-    if (res.ok) {
-      const created = await res.json();
-      setAllThoughts((prev) =>
-        [...prev, { id: created.id, title: created.title, slug: created.slug }].sort((a, b) =>
-          a.title.localeCompare(b.title)
-        )
-      );
-      setForm((prev) => ({ ...prev, thoughts: [...prev.thoughts, created.id] }));
-      setNewThoughtTitle("");
-      setSaved(false);
-    }
-  }
-
-  async function handleSave() {
-    setError("");
-    setSaving(true);
-
-    const payload = {
-      title: form.title,
-      slug: form.slug,
-      body: form.body,
-      date_captured: form.date_captured,
-      status: form.status,
-      hook_line: form.hook_line,
-      tension_line: form.tension_line,
-      art_image_path: form.art_image_path,
-      art_alt: form.art_alt,
-      seo_title: form.seo_title,
-      seo_description: form.seo_description,
-      categories: form.categories,
-      thoughtlines: form.thoughtlines,
-      tags: form.tags,
-      thoughts: form.thoughts,
-      focus_keyphrase: form.focus_keyphrase,
-      secondary_keyphrases: form.secondary_keyphrases,
-      search_intent: form.search_intent,
-      citation_summary: form.citation_summary,
-      first_sentence_extractable: form.first_sentence_extractable,
-      paa_pairs: form.paa_pairs,
-      entity_tags: form.entity_tags,
-      article_type: form.article_type,
-    };
-
-    const url = isNew
-      ? "/api/admin/observations"
-      : `/api/admin/observations/${form.id}`;
-    const method = isNew ? "POST" : "PUT";
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Save failed");
-      setSaving(false);
-      return;
-    }
-
-    const data = await res.json();
-    setSaving(false);
-    setSaved(true);
-
-    if (isNew) {
-      router.push(`/admin/observations/${data.id}`);
-    } else {
-      router.refresh();
     }
   }
 
@@ -426,10 +350,10 @@ export function ObservationEditor({
     <div className="obsv-editor">
       <div className="obsv-editor__header">
         <h1 className="admin-page__title">
-          {isNew ? "New Observation" : "Edit Observation"}
+          {!form.id ? "New Observation" : "Edit Observation"}
         </h1>
         <div className="obsv-editor__actions">
-          {!isNew && (
+          {form.id && (
             <>
               <a
                 className="admin-btn"
@@ -448,14 +372,11 @@ export function ObservationEditor({
               </button>
             </>
           )}
-          <button
-            className="admin-btn admin-btn--primary"
-            onClick={handleSave}
-            disabled={saving}
-            type="button"
-          >
-            {saving ? "Saving..." : saved ? "Saved" : "Save"}
-          </button>
+          <span className={`autosave-status autosave-status--${autosaveStatus}`}>
+            {autosaveStatus === "saving" && "Saving..."}
+            {autosaveStatus === "saved" && "Saved"}
+            {autosaveStatus === "error" && "Save failed"}
+          </span>
         </div>
       </div>
 
@@ -724,63 +645,6 @@ export function ObservationEditor({
             </div>
           </div>
 
-          <div className="obsv-editor__panel">
-            <h3 className="obsv-editor__panel-title">
-              Thoughts
-              <span className="obsv-editor__counter">{form.thoughts.length} selected</span>
-            </h3>
-            {form.thoughts.length > 0 && (
-              <div className="obsv-editor__chip-section">
-                <span className="obsv-editor__chip-label">Selected</span>
-                <div className="obsv-editor__chip-grid">
-                  {allThoughts
-                    .filter((t) => form.thoughts.includes(t.id))
-                    .map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className="obsv-editor__chip obsv-editor__chip--active"
-                        onClick={() => toggleThought(t.id)}
-                      >
-                        {t.title}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-            <div className="obsv-editor__chip-section">
-              <span className="obsv-editor__chip-label">Available</span>
-              <div className="obsv-editor__chip-grid">
-                {allThoughts
-                  .filter((t) => !form.thoughts.includes(t.id))
-                  .map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className="obsv-editor__chip"
-                      onClick={() => toggleThought(t.id)}
-                    >
-                      {t.title}
-                    </button>
-                  ))}
-                <input
-                  type="text"
-                  className="obsv-editor__chip"
-                  placeholder="+ New thought"
-                  value={newThoughtTitle}
-                  onChange={(e) => setNewThoughtTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleCreateThought();
-                    }
-                  }}
-                  style={{ border: "1px dashed var(--border)", background: "transparent", cursor: "text", textAlign: "left" }}
-                />
-              </div>
-            </div>
-          </div>
-
           <CoverArtPanel
             imagePath={form.art_image_path}
             altText={form.art_alt}
@@ -788,6 +652,10 @@ export function ObservationEditor({
             onAltChange={(alt) => set("art_alt", alt)}
           />
 
+          <RelatedMusicPanel
+            value={form.related_music}
+            onChange={(val) => set("related_music", val)}
+          />
 
         </div>
       </div>

@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       description: body.description || null,
       source_observation_id: body.source_observation_id || null,
       printify_product_id: body.printify_product_id || null,
-      price_cents: body.price_cents || null,
+      price: body.price || null,
       status: body.status || "active",
     })
     .select()

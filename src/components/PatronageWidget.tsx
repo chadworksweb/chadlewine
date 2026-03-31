@@ -7,17 +7,17 @@ interface PatronageWidgetProps {
   observationTitle?: string;
 }
 
-const PRESETS = [500, 1000, 2500, 5000];
+const PRESETS = [5, 10, 25, 50];
 
 export function PatronageWidget({ observationId, observationTitle }: PatronageWidgetProps) {
-  const [amount, setAmount] = useState(1000);
+  const [amount, setAmount] = useState(10);
   const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const effectiveAmount = custom ? Math.round(parseFloat(custom) * 100) : amount;
+  const effectiveAmount = custom ? parseFloat(custom) : amount;
 
   async function handlePatronage() {
-    if (effectiveAmount < 100 || loading) return;
+    if (effectiveAmount < 1 || loading) return;
     setLoading(true);
 
     const res = await fetch("/api/patronage", {
@@ -39,40 +39,41 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
 
   return (
     <div className="patronage">
-      <h3 className="patronage__heading">Support This Work</h3>
+      <div className="patronage__inner">
+        <h3 className="patronage__heading">Sponsor Chad Lewine</h3>
 
-      <div className="patronage__presets">
-        {PRESETS.map((p) => (
-          <button
-            key={p}
-            className={`patronage__preset${amount === p && !custom ? " patronage__preset--active" : ""}`}
-            onClick={() => { setAmount(p); setCustom(""); }}
-          >
-            ${(p / 100).toFixed(0)}
-          </button>
-        ))}
+        <div className="patronage__amounts">
+          {PRESETS.map((p) => (
+            <button
+              key={p}
+              className={`patronage__preset${amount === p && !custom ? " patronage__preset--active" : ""}`}
+              onClick={() => { setAmount(p); setCustom(""); }}
+            >
+              ${p}
+            </button>
+          ))}
+          <div className="patronage__custom">
+            <span className="patronage__dollar">$</span>
+            <input
+              className="patronage__input"
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="Custom"
+              value={custom}
+              onChange={(e) => setCustom(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <button
+          className="patronage__submit"
+          onClick={handlePatronage}
+          disabled={loading || effectiveAmount < 1}
+        >
+          {loading ? "Redirecting..." : `Give $${Number(effectiveAmount).toFixed(2)}`}
+        </button>
       </div>
-
-      <div className="patronage__custom">
-        <span className="patronage__dollar">$</span>
-        <input
-          className="patronage__input"
-          type="number"
-          min="1"
-          step="0.01"
-          placeholder="Custom"
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-        />
-      </div>
-
-      <button
-        className="patronage__submit"
-        onClick={handlePatronage}
-        disabled={loading || effectiveAmount < 100}
-      >
-        {loading ? "Redirecting..." : `Give $${(effectiveAmount / 100).toFixed(2)}`}
-      </button>
     </div>
   );
 }

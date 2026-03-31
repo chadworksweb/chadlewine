@@ -7,7 +7,7 @@ interface Product {
   id: string;
   tier: string;
   title: string;
-  price_cents: number | null;
+  price: number | null;
   status: string;
   is_catalog_item: boolean;
   printify_product_id: string | null;
@@ -114,7 +114,7 @@ export default function AdminMerchPage() {
                 <span className="admin-meta-chip">{p.tier}</span>
               </td>
               <td className="admin-table__td">
-                {p.price_cents ? `$${(p.price_cents / 100).toFixed(2)}` : "--"}
+                {p.price ? `$${Number(p.price).toFixed(2)}` : "--"}
               </td>
               <td className="admin-table__td">
                 <span className={`admin-status admin-status--${p.status === "active" ? "published" : p.status === "inactive" ? "draft" : "private"}`}>

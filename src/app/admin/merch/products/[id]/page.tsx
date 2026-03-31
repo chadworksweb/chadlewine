@@ -91,8 +91,8 @@ export default function EditProductPage() {
       </div>
 
       <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Price (cents)</label>
-        <input className="obsv-editor__input" type="number" value={(form.price_cents as number) || ""} onChange={(e) => setForm({ ...form, price_cents: e.target.value ? parseInt(e.target.value) : null })} />
+        <label className="obsv-editor__label">Price ($)</label>
+        <input className="obsv-editor__input" type="number" step="0.01" value={(form.price as number) || ""} onChange={(e) => setForm({ ...form, price: e.target.value ? parseFloat(e.target.value) : null })} />
       </div>
 
       <div className="obsv-editor__field">

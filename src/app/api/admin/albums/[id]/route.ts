@@ -12,7 +12,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const supabase = createAdminClient();
   const body = await request.json();
-  const fields = ["title", "slug", "release_date", "cover_art_path", "cover_art_alt", "description", "display_order", "status"];
+  const fields = ["title", "slug", "release_date", "cover_art_path", "cover_art_alt", "description", "display_order", "status", "format_id", "price"];
   const updates: Record<string, unknown> = {};
   for (const f of fields) { if (f in body) updates[f] = body[f]; }
   const { data, error } = await supabase.from("albums").update(updates).eq("id", id).select().single();
