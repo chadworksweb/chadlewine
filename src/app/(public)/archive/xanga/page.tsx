@@ -5,6 +5,7 @@ import * as path from "path";
 export const metadata: Metadata = {
   title: "Xanga Archive (2004–2011)",
   description: "Archive of blog entries from Xanga, 2004–2011.",
+  alternates: { canonical: "https://chadlewine.com/archive/xanga" },
 };
 
 function parseXangaMarkdown(md: string): string {

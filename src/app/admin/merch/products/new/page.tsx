@@ -4,16 +4,20 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 const TIERS = ["art", "line", "fusion", "pick", "diddy"] as const;
+const FULFILLMENTS = ["manual", "printify_curated", "printify_configurator"] as const;
 
 export default function NewProductPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     title: "",
     tier: "art" as string,
+    fulfillment: "manual" as string,
     description: "",
     price: "",
     source_observation_id: "",
     printify_product_id: "",
+    image_url: "",
+    image_alt: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -29,6 +33,8 @@ export default function NewProductPage() {
         price: form.price ? parseFloat(form.price) : null,
         source_observation_id: form.source_observation_id || null,
         printify_product_id: form.printify_product_id || null,
+        image_url: form.image_url || null,
+        image_alt: form.image_alt || null,
       }),
     });
     if (!res.ok) {
@@ -65,6 +71,13 @@ export default function NewProductPage() {
       </div>
 
       <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Fulfillment</label>
+        <select className="obsv-editor__input" value={form.fulfillment} onChange={(e) => setForm({ ...form, fulfillment: e.target.value })}>
+          {FULFILLMENTS.map((f) => <option key={f} value={f}>{f === "manual" ? "Manual (self-fulfilled)" : f === "printify_curated" ? "Printify Curated" : "Printify Configurator"}</option>)}
+        </select>
+      </div>
+
+      <div className="obsv-editor__field">
         <label className="obsv-editor__label">Description</label>
         <textarea className="obsv-editor__input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
       </div>
@@ -79,10 +92,25 @@ export default function NewProductPage() {
         <input className="obsv-editor__input" value={form.source_observation_id} onChange={(e) => setForm({ ...form, source_observation_id: e.target.value })} />
       </div>
 
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Printify Product ID (optional)</label>
-        <input className="obsv-editor__input" value={form.printify_product_id} onChange={(e) => setForm({ ...form, printify_product_id: e.target.value })} />
-      </div>
+      {form.fulfillment !== "manual" && (
+        <div className="obsv-editor__field">
+          <label className="obsv-editor__label">Printify Product ID (optional)</label>
+          <input className="obsv-editor__input" value={form.printify_product_id} onChange={(e) => setForm({ ...form, printify_product_id: e.target.value })} />
+        </div>
+      )}
+
+      {form.fulfillment === "manual" && (
+        <>
+          <div className="obsv-editor__field">
+            <label className="obsv-editor__label">Product Image URL</label>
+            <input className="obsv-editor__input" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." />
+          </div>
+          <div className="obsv-editor__field">
+            <label className="obsv-editor__label">Image Alt Text</label>
+            <input className="obsv-editor__input" value={form.image_alt} onChange={(e) => setForm({ ...form, image_alt: e.target.value })} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

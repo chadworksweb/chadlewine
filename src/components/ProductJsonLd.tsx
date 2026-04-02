@@ -1,12 +1,12 @@
 interface ProductJsonLdProps {
   name: string;
-  description?: string;
+  description?: string | null;
   price: number;
   currency?: string;
-  image?: string;
+  imageUrl?: string | null;
   url: string;
-  brand?: string;
-  observationUrl?: string;
+  observationUrl?: string | null;
+  availability?: "InStock" | "OutOfStock" | "PreOrder";
 }
 
 export function ProductJsonLd({
@@ -14,27 +14,35 @@ export function ProductJsonLd({
   description,
   price,
   currency = "USD",
-  image,
+  imageUrl,
   url,
-  brand = "Chad Lewine",
   observationUrl,
+  availability = "InStock",
 }: ProductJsonLdProps) {
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
     name,
-    brand: { "@type": "Brand", name: brand },
+    url,
+    brand: {
+      "@type": "Brand",
+      name: "Chad Lewine",
+    },
     offers: {
       "@type": "Offer",
-      price: (price / 100).toFixed(2),
+      price: price.toFixed(2),
       priceCurrency: currency,
-      availability: "https://schema.org/InStock",
-      url,
+      availability: `https://schema.org/${availability}`,
+      seller: {
+        "@type": "Person",
+        name: "Chad Lewine",
+        url: "https://chadlewine.com",
+      },
     },
   };
 
   if (description) schema.description = description;
-  if (image) schema.image = image;
+  if (imageUrl) schema.image = imageUrl;
   if (observationUrl) {
     schema.isRelatedTo = {
       "@type": "Article",

@@ -87,6 +87,42 @@ export async function createMusicCheckoutSession(params: {
   });
 }
 
+export async function createMerchCheckoutSession(params: {
+  product_config: Record<string, unknown>;
+  product_id?: string;
+  title: string;
+  price: number;
+  image_url?: string;
+  success_url: string;
+  cancel_url: string;
+}) {
+  const images = params.image_url ? [params.image_url] : [];
+
+  return getStripe().checkout.sessions.create({
+    mode: "payment",
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: params.title,
+            ...(images.length ? { images } : {}),
+          },
+          unit_amount: toCents(params.price),
+        },
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      type: "merch",
+      product_id: params.product_id || "",
+      product_config: JSON.stringify(params.product_config),
+    },
+    success_url: params.success_url,
+    cancel_url: params.cancel_url,
+  });
+}
+
 export function verifyWebhookSignature(payload: string, signature: string) {
   return getStripe().webhooks.constructEvent(
     payload,

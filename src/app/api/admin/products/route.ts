@@ -19,11 +19,14 @@ export async function POST(request: Request) {
     .from("products")
     .insert({
       tier: body.tier,
+      fulfillment: body.fulfillment || "printify_curated",
       title: body.title,
       description: body.description || null,
       source_observation_id: body.source_observation_id || null,
       printify_product_id: body.printify_product_id || null,
       price: body.price || null,
+      image_url: body.image_url || null,
+      image_alt: body.image_alt || null,
       status: body.status || "active",
     })
     .select()

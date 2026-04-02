@@ -55,6 +55,9 @@ interface ObservationData {
   article_type: string;
   published_at: string | null;
   related_music: { type: "song" | "album"; id: string }[];
+  art_fullres_print_path: string;
+  art_fullres_wallpaper_path: string;
+  audio_file_path: string;
 }
 
 const emptyObservation: ObservationData = {
@@ -82,6 +85,9 @@ const emptyObservation: ObservationData = {
   article_type: "article",
   published_at: null,
   related_music: [],
+  art_fullres_print_path: "",
+  art_fullres_wallpaper_path: "",
+  audio_file_path: "",
 };
 
 function CoverArtPanel({
@@ -145,6 +151,181 @@ function CoverArtPanel({
           setMediaOpen(false);
         }}
       />
+    </div>
+  );
+}
+
+function AudioUploadPanel({
+  slug,
+  observationId,
+  audioPath,
+  onUploadComplete,
+}: {
+  slug: string;
+  observationId: string | undefined;
+  audioPath: string;
+  onUploadComplete: (url: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleUpload(file: File) {
+    if (!observationId || !slug) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("slug", slug);
+    fd.append("observation_id", observationId);
+    const res = await fetch("/api/admin/observation-audio", { method: "POST", body: fd });
+    if (res.ok) {
+      const data = await res.json();
+      onUploadComplete(data.url);
+    }
+    setUploading(false);
+  }
+
+  async function handleRemove() {
+    if (!observationId || !audioPath) return;
+    // Extract storage path from full URL
+    const match = audioPath.match(/observation-audio\/(.+)$/);
+    if (!match) return;
+    await fetch("/api/admin/observation-audio", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ observation_id: observationId, path: match[1] }),
+    });
+    onUploadComplete("");
+  }
+
+  return (
+    <div className="obsv-editor__panel">
+      <h3 className="obsv-editor__panel-title">Audio Reading</h3>
+      {!slug && (
+        <p className="obsv-editor__hint">Save the observation first to enable uploads.</p>
+      )}
+      {slug && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
+          {audioPath ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)" }}>
+              <audio controls src={audioPath} style={{ width: "100%", height: 36 }} />
+              <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center" }}>
+                <label style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", cursor: "pointer" }}>
+                  Replace
+                  <input
+                    type="file"
+                    accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+                    disabled={uploading}
+                    style={{ display: "none" }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  className="admin-btn admin-btn--danger"
+                  style={{ fontSize: "0.6875rem", padding: "4px 12px" }}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <input
+                type="file"
+                accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+                disabled={uploading}
+                style={{ fontSize: "var(--text-xs)" }}
+              />
+              {uploading && (
+                <span style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", marginLeft: "var(--space-sm)" }}>
+                  Uploading...
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FullResArtPanel({
+  slug,
+  printPath,
+  wallpaperPath,
+  onUploadComplete,
+}: {
+  slug: string;
+  printPath: string;
+  wallpaperPath: string;
+  onUploadComplete: () => void;
+}) {
+  const [uploading, setUploading] = useState<string | null>(null);
+
+  async function handleUpload(variant: "print" | "wallpaper", file: File) {
+    setUploading(variant);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("slug", slug);
+    fd.append("variant", variant);
+    const res = await fetch("/api/admin/art-fullres", { method: "POST", body: fd });
+    if (res.ok) onUploadComplete();
+    setUploading(null);
+  }
+
+  return (
+    <div className="obsv-editor__panel">
+      <h3 className="obsv-editor__panel-title">Full-Res Art</h3>
+      {!slug && (
+        <p className="obsv-editor__hint">Save the observation first to enable uploads.</p>
+      )}
+      {slug && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
+          <div className="obsv-editor__field">
+            <label className="obsv-editor__label">
+              Print ({printPath ? "uploaded" : "none"})
+              {uploading === "print" && " — uploading..."}
+            </label>
+            <input
+              type="file"
+              accept="image/png,image/tiff"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleUpload("print", f);
+              }}
+              disabled={!!uploading}
+              style={{ fontSize: "var(--text-xs)" }}
+            />
+            {printPath && (
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>
+                {printPath}
+              </span>
+            )}
+          </div>
+          <div className="obsv-editor__field">
+            <label className="obsv-editor__label">
+              Wallpaper ({wallpaperPath ? "uploaded" : "none"})
+              {uploading === "wallpaper" && " — uploading..."}
+            </label>
+            <input
+              type="file"
+              accept="image/webp,image/png"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleUpload("wallpaper", f);
+              }}
+              disabled={!!uploading}
+              style={{ fontSize: "var(--text-xs)" }}
+            />
+            {wallpaperPath && (
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>
+                {wallpaperPath}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -650,6 +831,30 @@ export function ObservationEditor({
             altText={form.art_alt}
             onImageChange={(url) => set("art_image_path", url)}
             onAltChange={(alt) => set("art_alt", alt)}
+          />
+
+          <FullResArtPanel
+            slug={form.slug}
+            printPath={form.art_fullres_print_path}
+            wallpaperPath={form.art_fullres_wallpaper_path}
+            onUploadComplete={() => {
+              // Refresh form from server to get updated paths
+              if (form.id) {
+                fetch(`/api/admin/observations/${form.id}`)
+                  .then((r) => r.json())
+                  .then((d) => {
+                    set("art_fullres_print_path", d.observation?.art_fullres_print_path || "");
+                    set("art_fullres_wallpaper_path", d.observation?.art_fullres_wallpaper_path || "");
+                  });
+              }
+            }}
+          />
+
+          <AudioUploadPanel
+            slug={form.slug}
+            observationId={form.id}
+            audioPath={form.audio_file_path}
+            onUploadComplete={(url) => set("audio_file_path", url)}
           />
 
           <RelatedMusicPanel

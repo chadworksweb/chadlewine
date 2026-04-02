@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { VoiceMachine } from "@/components/VoiceMachine";
 
 export const metadata: Metadata = {
   title: "Thinking",
@@ -38,22 +39,7 @@ export default function ThinkingPage() {
           thinking produces one. The thinking is the product.
         </p>
 
-        <div
-          id="voice-machine-placeholder"
-          className="glass-panel"
-          style={{
-            padding: "var(--space-xl)",
-            marginTop: "var(--space-2xl)",
-            textAlign: "center",
-          }}
-        >
-          <p className="voice-machine__status">
-            Voice Machine coming soon.
-          </p>
-          <a href="mailto:chad@chadlewine.com" className="voice-machine__cta">
-            chad@chadlewine.com
-          </a>
-        </div>
+        <VoiceMachine />
       </div>
     </article>
   );

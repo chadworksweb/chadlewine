@@ -2,6 +2,7 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { SubscribeSection } from "@/components/SubscribeSection";
 import { PatronageWidget } from "@/components/PatronageWidget";
+import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 
 export default function PublicLayout({
   children,
@@ -9,7 +10,7 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <AnalyticsProvider>
       <Nav />
       <main>{children}</main>
       <SubscribeSection />
@@ -17,6 +18,6 @@ export default function PublicLayout({
         <PatronageWidget />
       </section>
       <Footer />
-    </>
+    </AnalyticsProvider>
   );
 }

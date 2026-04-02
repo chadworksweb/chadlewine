@@ -28,19 +28,96 @@ export async function POST(request: Request) {
     const itemType = session.metadata?.type;
     const itemId = session.metadata?.item_id;
 
-    if (itemType && itemId && ["song", "album"].includes(itemType)) {
-      // Music purchase
+    if (itemType === "merch") {
+      // Merch purchase
+      const productId = session.metadata?.product_id || null;
+      const productConfig = session.metadata?.product_config || null;
+
       const { error: purchaseError } = await supabase.from("purchases").insert({
         buyer_email: session.customer_details?.email || "unknown",
-        item_type: itemType,
-        item_id: itemId,
+        item_type: "merch",
+        item_id: productId,
         stripe_payment_intent_id: session.payment_intent || null,
         amount: (session.amount_total || 0) / 100,
       });
 
       if (purchaseError) {
+        console.error("[stripe-webhook] Failed to insert merch purchase:", purchaseError.message);
+        return Response.json({ error: "Database insert failed" }, { status: 500 });
+      }
+
+      // If configurator purchase, auto-create product_submission for catalog review
+      if (productConfig && session.customer_details?.email) {
+        let config: Record<string, unknown> = {};
+        try { config = JSON.parse(productConfig); } catch { /* ignore */ }
+
+        if (config.tier && config.blueprint_id) {
+          await supabase.from("product_submissions").insert({
+            buyer_email: session.customer_details.email,
+            product_config: config,
+            status: "pending",
+          });
+        }
+      }
+    } else if (itemType && itemId && ["song", "album"].includes(itemType)) {
+      // Music purchase — generate download URL
+      const CDN_BASE = "https://chadrising-audio-downloads.b-cdn.net";
+      let downloadUrl: string | null = null;
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      if (itemType === "song") {
+        const { data: song } = await supabase
+          .from("songs")
+          .select("download_path")
+          .eq("id", itemId)
+          .single();
+        if (song?.download_path) {
+          downloadUrl = song.download_path.startsWith("http")
+            ? song.download_path
+            : `${CDN_BASE}/${song.download_path}`;
+        }
+      } else {
+        // Album — get all song download paths
+        const { data: albumSongs } = await supabase
+          .from("album_songs")
+          .select("song_id, songs(download_path, title)")
+          .eq("album_id", itemId)
+          .order("track_number");
+        // For album, store first track URL as primary download
+        // Full album download requires a zip — for now, point to first track
+        const firstWithPath = albumSongs?.find(
+          (as: unknown) => ((as as Record<string, unknown>).songs as Record<string, unknown>)?.download_path
+        );
+        if (firstWithPath) {
+          const songData = (firstWithPath as unknown as Record<string, unknown>).songs as Record<string, unknown>;
+          const path = songData.download_path as string;
+          downloadUrl = path.startsWith("http") ? path : `${CDN_BASE}/${path}`;
+        }
+      }
+
+      const { data: purchase, error: purchaseError } = await supabase
+        .from("purchases")
+        .insert({
+          buyer_email: session.customer_details?.email || "unknown",
+          item_type: itemType,
+          item_id: itemId,
+          stripe_payment_intent_id: session.payment_intent || null,
+          amount: (session.amount_total || 0) / 100,
+          download_url: downloadUrl,
+          download_expires_at: expiresAt.toISOString(),
+        })
+        .select("id")
+        .single();
+
+      if (purchaseError) {
         console.error("[stripe-webhook] Failed to insert purchase:", purchaseError.message);
         return Response.json({ error: "Database insert failed" }, { status: 500 });
+      }
+
+      // TODO: Send download email via Resend/Postmark
+      // Email would contain: https://chadlewine.com/music/purchase/download?token={purchase.id}
+      if (purchase) {
+        console.log(`[stripe-webhook] Download ready: /music/purchase/download?token=${purchase.id}`);
       }
     } else {
       // Patronage

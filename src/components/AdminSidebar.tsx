@@ -20,6 +20,7 @@ const adminNav = [
   { href: "/admin/media", label: "Media" },
   { href: "/admin/seo", label: "SEO" },
   { href: "/admin/voice-profile", label: "Voice Profile" },
+  { href: "/admin/voice-messages", label: "Voice Messages" },
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/merch", label: "Merch" },
 ];

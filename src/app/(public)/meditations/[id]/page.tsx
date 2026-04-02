@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { SocialShare } from "@/components/SocialShare";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
+import { MeditationMerchSection } from "@/components/MeditationMerchSection";
 
 export const revalidate = 60;
 
@@ -95,7 +96,7 @@ export default async function MeditationPermalinkPage({
   if (!meditation) notFound();
 
   return (
-    <div className="page-meditation-single">
+    <div className="page-meditation-single" data-meditation-id={id}>
       <AdminEditButton href={`/admin/meditations/${id}`} />
       <article className="meditation-single">
         <div
@@ -122,6 +123,8 @@ export default async function MeditationPermalinkPage({
           )}
         </footer>
       </article>
+
+      <MeditationMerchSection meditationId={id} meditationText={meditation.plain_text} />
 
       <SynapseDisplay sourceType="meditation" sourceId={id} />
 

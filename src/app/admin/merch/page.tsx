@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 interface Product {
   id: string;
   tier: string;
+  fulfillment: string;
   title: string;
   price: number | null;
   status: string;
@@ -91,6 +92,7 @@ export default function AdminMerchPage() {
           <tr>
             <th className="admin-table__th">Title</th>
             <th className="admin-table__th">Tier</th>
+            <th className="admin-table__th">Fulfillment</th>
             <th className="admin-table__th">Price</th>
             <th className="admin-table__th">Status</th>
             <th className="admin-table__th">Printify</th>
@@ -100,7 +102,7 @@ export default function AdminMerchPage() {
         <tbody>
           {products.length === 0 && (
             <tr>
-              <td className="admin-table__td admin-table__td--empty" colSpan={6}>No products yet.</td>
+              <td className="admin-table__td admin-table__td--empty" colSpan={7}>No products yet.</td>
             </tr>
           )}
           {products.map((p) => (
@@ -112,6 +114,9 @@ export default function AdminMerchPage() {
               </td>
               <td className="admin-table__td">
                 <span className="admin-meta-chip">{p.tier}</span>
+              </td>
+              <td className="admin-table__td">
+                <span className="admin-meta-chip">{p.fulfillment === "manual" ? "Manual" : p.fulfillment === "printify_curated" ? "Curated" : "Config"}</span>
               </td>
               <td className="admin-table__td">
                 {p.price ? `$${Number(p.price).toFixed(2)}` : "--"}

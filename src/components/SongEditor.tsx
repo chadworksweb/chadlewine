@@ -2,8 +2,16 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { slugify } from "@/lib/utils";
 import { useAutosave } from "@/hooks/useAutosave";
+
+interface ExpansionSummary {
+  id: string;
+  title: string;
+  status: string;
+  display_order: number;
+}
 
 interface SongData {
   id?: string;
@@ -51,12 +59,20 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     initial || { ...emptySong, album_id: presetAlbumId || "" }
   );
   const [albums, setAlbums] = useState<AlbumOption[]>([]);
+  const [expansions, setExpansions] = useState<ExpansionSummary[]>([]);
 
   useEffect(() => {
     fetch("/api/admin/albums")
       .then((r) => r.json())
       .then((data: AlbumOption[]) => setAlbums(data));
   }, []);
+
+  useEffect(() => {
+    if (!form.id) return;
+    fetch(`/api/admin/expansions?song_id=${form.id}`)
+      .then((r) => r.json())
+      .then((data: ExpansionSummary[]) => setExpansions(data));
+  }, [form.id]);
 
   const set = useCallback((field: keyof SongData, value: unknown) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -325,6 +341,41 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               <label className="obsv-editor__label" htmlFor="is_single" style={{ margin: 0 }}>Is Single</label>
             </div>
           </div>
+
+          {/* Expansions */}
+          {form.id && (
+            <div className="obsv-editor__panel">
+              <h3 className="obsv-editor__panel-title">Expansions</h3>
+              {expansions.length > 0 ? (
+                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 0.75rem" }}>
+                  {expansions.map((exp) => (
+                    <li key={exp.id} style={{ marginBottom: "0.35rem" }}>
+                      <Link
+                        href={`/admin/music/songs/${form.id}/expansions/${exp.id}`}
+                        style={{ color: "var(--text-link)", fontFamily: "var(--font-ui)", fontSize: "0.875rem" }}
+                      >
+                        {exp.title || "Untitled"}
+                      </Link>
+                      <span style={{ color: "var(--text-tertiary)", fontSize: "0.75rem", marginLeft: "0.5rem" }}>
+                        {exp.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: "0.875rem", margin: "0 0 0.75rem" }}>
+                  No expansions yet.
+                </p>
+              )}
+              <Link
+                href={`/admin/music/songs/${form.id}/expansions/new`}
+                className="admin-btn"
+                style={{ display: "inline-block", fontSize: "0.875rem" }}
+              >
+                + Add Expansion
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

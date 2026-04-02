@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Foundations",
   description: "The founding texts — the intellectual bedrock.",
+  alternates: { canonical: "https://chadlewine.com/foundations" },
 };
 
 export const revalidate = 60;

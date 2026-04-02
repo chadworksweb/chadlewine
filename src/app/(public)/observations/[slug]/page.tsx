@@ -9,6 +9,8 @@ import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
 import { MerchSection } from "@/components/MerchSection";
+import { DiddySection } from "@/components/DiddySection";
+import { ObservationAudioPlayer } from "@/components/ObservationAudioPlayer";
 
 
 
@@ -171,6 +173,7 @@ export async function generateMetadata({
       publishedTime: obsv.published_at || obsv.date_captured,
       modifiedTime: obsv.updated_at || undefined,
       authors: ["Chad Lewine"],
+      section: obsv.categories?.[0]?.title || "Observations",
     },
   };
 }
@@ -190,7 +193,7 @@ export default async function ObservationPage({
   const related = await getRelatedObservations(obsv.id, obsv.category_ids || [], obsv.tag_ids || [], synapseIds);
 
   return (
-    <div id="page-observation" className="page-observation">
+    <div id="page-observation" className="page-observation" data-observation-id={obsv.id}>
       <AdminEditButton href={`/admin/observations/${obsv.id}`} />
       <ObservationJsonLd
         title={obsv.title}
@@ -209,6 +212,7 @@ export default async function ObservationPage({
           url={obsv.art_image_path}
           name={`Cover art for ${obsv.title}`}
           description={obsv.art_alt}
+          acquireLicensePage={`https://chadlewine.com/merch/configure?tier=art&obs=${encodeURIComponent(obsv.id)}`}
         />
       )}
       <ProgressBar />
@@ -263,11 +267,19 @@ export default async function ObservationPage({
         </div>
       </section>
 
+      {obsv.audio_file_path && (
+        <ObservationAudioPlayer
+          src={obsv.audio_file_path}
+          title={obsv.title}
+        />
+      )}
+
       <article className="observation-body">
         <MarkdownRenderer html={obsv.body} />
       </article>
 
       <SynapseDisplay sourceType="observation" sourceId={obsv.id} />
+      <DiddySection observationId={obsv.id} />
       <MerchSection observationId={obsv.id} />
 
       <div className="obsv-celestial-anchor">

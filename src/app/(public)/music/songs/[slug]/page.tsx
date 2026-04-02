@@ -32,10 +32,20 @@ async function getSongData(songSlug: string) {
     .select("id", { count: "exact", head: true })
     .eq("album_id", album.id);
 
+  // Published expansions for this song
+  const { data: expansions } = await supabase
+    .from("expansions")
+    .select("id, title, slug, body")
+    .eq("song_id", song.id)
+    .eq("status", "published")
+    .order("display_order")
+    .order("created_at");
+
   return {
     album,
     song: { ...song, track_number: junction!.track_number },
     totalTracks: count || 0,
+    expansions: expansions || [],
   };
 }
 
@@ -67,7 +77,7 @@ export default async function SongDetailPage({
   const result = await getSongData(slug);
   if (!result) notFound();
 
-  const { album, song, totalTracks } = result;
+  const { album, song, totalTracks, expansions } = result;
 
   return (
     <SongDetail
@@ -93,6 +103,7 @@ export default async function SongDetailPage({
         price: album.price,
       }}
       totalTracks={totalTracks}
+      expansions={expansions}
     />
   );
 }

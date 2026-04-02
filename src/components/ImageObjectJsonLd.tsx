@@ -4,6 +4,7 @@ interface ImageObjectJsonLdProps {
   description?: string | null;
   width?: number;
   height?: number;
+  acquireLicensePage?: string | null;
 }
 
 export function ImageObjectJsonLd({
@@ -12,8 +13,9 @@ export function ImageObjectJsonLd({
   description,
   width = 1200,
   height = 630,
+  acquireLicensePage,
 }: ImageObjectJsonLdProps) {
-  const schema = {
+  const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "ImageObject",
     url,
@@ -29,7 +31,12 @@ export function ImageObjectJsonLd({
       "@type": "Person",
       name: "Chad Lewine",
     },
+    license: "https://chadlewine.com/foundations",
   };
+
+  if (acquireLicensePage) {
+    schema.acquireLicensePage = acquireLicensePage;
+  }
 
   return (
     <script

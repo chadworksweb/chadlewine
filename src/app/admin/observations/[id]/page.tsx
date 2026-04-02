@@ -66,6 +66,9 @@ export default function EditObservationPage() {
         article_type: (data.article_type as string) || "article",
         published_at: (data.published_at as string) || null,
         related_music: (data.related_music as { type: "song" | "album"; id: string }[]) || [],
+        art_fullres_print_path: (data.art_fullres_print_path as string) || "",
+        art_fullres_wallpaper_path: (data.art_fullres_wallpaper_path as string) || "",
+        audio_file_path: (data.audio_file_path as string) || "",
       }}
     />
   );

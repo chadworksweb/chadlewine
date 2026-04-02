@@ -27,6 +27,13 @@ interface AlbumProps {
   price: number | null;
 }
 
+interface ExpansionProps {
+  id: string;
+  title: string;
+  slug: string;
+  body: string;
+}
+
 function formatPrice(dollars: number): string {
   return `$${Number(dollars).toFixed(2)}`;
 }
@@ -35,13 +42,25 @@ export function SongDetail({
   song,
   album,
   totalTracks,
+  expansions = [],
 }: {
   song: SongProps;
   album: AlbumProps;
   totalTracks: number;
+  expansions?: ExpansionProps[];
 }) {
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [buying, setBuying] = useState<"song" | "album" | null>(null);
+  const [openExpansions, setOpenExpansions] = useState<Set<string>>(new Set());
+
+  function toggleExpansion(id: string) {
+    setOpenExpansions((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function handleBuy(type: "song" | "album") {
     setBuying(type);
@@ -166,6 +185,37 @@ export function SongDetail({
               <h3 className="track-detail__section-title">About This Song</h3>
               <div className="track-detail__summary-text">
                 {song.song_summary}
+              </div>
+            </div>
+          )}
+
+          {/* Expansions */}
+          {expansions.length > 0 && (
+            <div className="track-detail__section">
+              <h3 className="track-detail__section-title">Deep Dive</h3>
+              <div className="track-detail__expansions">
+                {expansions.map((exp) => (
+                  <div key={exp.id} className="track-detail__expansion">
+                    <button
+                      type="button"
+                      className="track-detail__expansion-toggle"
+                      onClick={() => toggleExpansion(exp.id)}
+                      aria-expanded={openExpansions.has(exp.id)}
+                    >
+                      <span className="track-detail__expansion-arrow">
+                        {openExpansions.has(exp.id) ? "▾" : "▸"}
+                      </span>
+                      {exp.title}
+                    </button>
+                    {openExpansions.has(exp.id) && (
+                      <div className="track-detail__expansion-body">
+                        {exp.body.split("\n\n").map((paragraph, i) => (
+                          <p key={i}>{paragraph}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}

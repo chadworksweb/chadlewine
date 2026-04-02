@@ -80,6 +80,36 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${BASE_URL}/archive/xanga`,
       changeFrequency: "yearly",
       priority: 0.3,
+    },
+    {
+      url: `${BASE_URL}/merch`,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/merch/configure`,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${BASE_URL}/merch/art`,
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+    {
+      url: `${BASE_URL}/merch/line`,
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+    {
+      url: `${BASE_URL}/merch/fusion`,
+      changeFrequency: "weekly",
+      priority: 0.5,
+    },
+    {
+      url: `${BASE_URL}/merch/pick`,
+      changeFrequency: "weekly",
+      priority: 0.5,
     }
   );
 
@@ -144,6 +174,49 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             : undefined,
         changeFrequency: "weekly",
         priority: 0.7,
+      });
+    }
+  }
+
+  // Discography page
+  entries.push({
+    url: `${BASE_URL}/discography`,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  });
+
+  // Album pages
+  const { data: albums } = await supabase
+    .from("albums")
+    .select("slug, updated_at")
+    .eq("status", "published")
+    .order("display_order");
+
+  if (albums) {
+    for (const a of albums) {
+      entries.push({
+        url: `${BASE_URL}/music/albums/${a.slug}`,
+        lastModified: a.updated_at ? new Date(a.updated_at) : undefined,
+        changeFrequency: "monthly",
+        priority: 0.6,
+      });
+    }
+  }
+
+  // Song pages
+  const { data: songs } = await supabase
+    .from("songs")
+    .select("slug, updated_at")
+    .eq("status", "published")
+    .order("title");
+
+  if (songs) {
+    for (const s of songs) {
+      entries.push({
+        url: `${BASE_URL}/music/songs/${s.slug}`,
+        lastModified: s.updated_at ? new Date(s.updated_at) : undefined,
+        changeFrequency: "monthly",
+        priority: 0.5,
       });
     }
   }
