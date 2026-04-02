@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Tier = "art" | "line" | "fusion";
 
@@ -49,6 +50,52 @@ export function ProductConfigurator() {
   const [error, setError] = useState("");
 
   const product = CURATED_PRODUCTS[0];
+  const searchParams = useSearchParams();
+
+  // Pre-fill from URL params (from The Pick links)
+  useEffect(() => {
+    const urlTier = searchParams.get("tier") as Tier | null;
+    const urlLine = searchParams.get("line");
+    const urlObs = searchParams.get("obs");
+
+    if (!urlTier || !["art", "line", "fusion"].includes(urlTier)) return;
+
+    setTier(urlTier);
+
+    // Fetch observations, then auto-select if obs ID provided
+    (async () => {
+      const res = await fetch("/api/configurator/observations");
+      if (!res.ok) return;
+      const obs: ObservationOption[] = await res.json();
+      setObservations(obs);
+
+      if (urlObs) {
+        const match = obs.find((o) => o.id === urlObs);
+        if (match) {
+          setSelectedObservation(match);
+
+          if (urlTier === "art" && match.art_image_path) {
+            // Art tier with obs selected — go straight to variant
+            setStep("variant");
+            fetchVariants();
+          } else if (urlLine && (urlTier === "line" || urlTier === "fusion")) {
+            // Line/fusion with line pre-selected — go to variant
+            setSelectedLine(decodeURIComponent(urlLine));
+            setStep("variant");
+            fetchVariants();
+          } else {
+            // Obs selected but need line selection
+            setStep("source");
+          }
+        } else {
+          setStep("source");
+        }
+      } else {
+        setStep("source");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchObservations = useCallback(async () => {
     const res = await fetch("/api/configurator/observations");

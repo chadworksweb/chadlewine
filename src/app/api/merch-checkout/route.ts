@@ -38,7 +38,15 @@ export async function POST(request: Request) {
       return Response.json({ error: "Incomplete product configuration" }, { status: 400 });
     }
 
-    const price = typeof body.price === "number" && body.price > 0 ? body.price : 34.99;
+    // Server-side price lookup — never trust client-sent price
+    const CURATED_PRICES: Record<number, number> = {
+      706: 34.99, // Comfort Colors 1717
+    };
+    const price = CURATED_PRICES[config.blueprint_id as number];
+    if (!price) {
+      return Response.json({ error: "Unknown product type" }, { status: 400 });
+    }
+
     const tierLabel =
       config.tier === "art" ? "The Art" : config.tier === "line" ? "The Line" : "The Fusion";
     const title = `${tierLabel} — ${config.blueprint_title || "Custom Product"}`;

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ProductConfigurator } from "@/components/ProductConfigurator";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Design Your Own — Merch — Chad Lewine",
@@ -19,7 +20,9 @@ export default function ConfigurePage() {
           and earn revenue share on every future sale.
         </p>
       </header>
-      <ProductConfigurator />
+      <Suspense fallback={<div style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>Loading configurator...</div>}>
+        <ProductConfigurator />
+      </Suspense>
     </div>
   );
 }
