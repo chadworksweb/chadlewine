@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
-import { CoverHero } from "@/components/CoverHero";
+import { HeroLens } from "@/components/HeroLens";
 import { FeedEntry } from "@/components/FeedEntry";
 import { FeaturedTrack } from "@/components/FeaturedTrack";
 import { formatDate } from "@/lib/utils";
@@ -18,7 +18,39 @@ async function getObservations() {
 
   if (!observations || observations.length === 0) return [];
 
-  return observations;
+  // Fetch categories and tags for all observations
+  const ids = observations.map((o) => o.id);
+
+  const [{ data: catLinks }, { data: tagLinks }] = await Promise.all([
+    supabase
+      .from("observation_categories")
+      .select("observation_id, categories(title, slug)")
+      .in("observation_id", ids),
+    supabase
+      .from("observation_tags")
+      .select("observation_id, tags(label, slug)")
+      .in("observation_id", ids),
+  ]);
+
+  const catMap: Record<string, { title: string; slug: string }[]> = {};
+  for (const link of catLinks || []) {
+    const cat = (link as any).categories;
+    if (!cat) continue;
+    (catMap[link.observation_id] ||= []).push(cat);
+  }
+
+  const tagMap: Record<string, { label: string; slug: string }[]> = {};
+  for (const link of tagLinks || []) {
+    const tag = (link as any).tags;
+    if (!tag) continue;
+    (tagMap[link.observation_id] ||= []).push(tag);
+  }
+
+  return observations.map((o) => ({
+    ...o,
+    categories: catMap[o.id] || [],
+    tags: tagMap[o.id] || [],
+  }));
 }
 
 async function getFeaturedTrack() {
@@ -75,30 +107,20 @@ export default async function HomePage() {
     ? await getPlaybackMode(featuredTrack.song.playback_mode ?? null)
     : "preview" as const;
 
-  const latest = observations[0];
-  const feed = observations.slice(1);
-
   return (
     <div id="page-home" className="page-home">
-      {/* Hero — full width, own section */}
-      {latest && (
-        <CoverHero
-          title={latest.title}
-          slug={latest.slug}
-          dateCaptured={latest.date_captured}
-          hookLine={latest.hook_line || ""}
-          artImageUrl={latest.art_image_path || ""}
-          artAlt={latest.art_alt || latest.title}
-        />
+      {/* Hero Lens — vertical scroll through all observations */}
+      {observations.length > 0 && (
+        <HeroLens observations={observations} />
       )}
 
       {/* Two-column content grid — headings top-aligned */}
       <div className="home-split">
         <section className="home-split__observations">
           <h2 className="home-split__section-heading">Observations</h2>
-          {feed.length > 0 && (
+          {observations.length > 0 && (
             <div className="archive__feed">
-              {feed.map((obsv) => (
+              {observations.map((obsv) => (
                 <FeedEntry
                   key={obsv.slug}
                   title={obsv.title}
