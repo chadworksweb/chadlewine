@@ -85,22 +85,8 @@ export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroL
     [currentIndex, total, onIndexChange]
   );
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      accumulatedDelta.current += e.deltaY;
-
-      if (accumulatedDelta.current > SCROLL_THRESHOLD) {
-        advance("up");
-        accumulatedDelta.current = 0;
-      } else if (accumulatedDelta.current < -SCROLL_THRESHOLD) {
-        advance("down");
-        accumulatedDelta.current = 0;
-      }
-    },
-    [advance]
-  );
+  // Wheel handling is done entirely in native listener (see useEffect below)
+  // React onWheel can't preventDefault on passive listeners
 
   const touchStartY = useRef(0);
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -117,15 +103,29 @@ export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroL
     [advance]
   );
 
+  // Native wheel listener — non-passive so we can preventDefault
+  const advanceRef = useRef(advance);
+  advanceRef.current = advance;
+
   useEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
-    const prevent = (e: WheelEvent) => {
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
+
+      accumulatedDelta.current += e.deltaY;
+
+      if (accumulatedDelta.current > SCROLL_THRESHOLD) {
+        advanceRef.current("up");
+        accumulatedDelta.current = 0;
+      } else if (accumulatedDelta.current < -SCROLL_THRESHOLD) {
+        advanceRef.current("down");
+        accumulatedDelta.current = 0;
+      }
     };
-    rail.addEventListener("wheel", prevent, { passive: false });
-    return () => rail.removeEventListener("wheel", prevent);
+    rail.addEventListener("wheel", handleWheel, { passive: false });
+    return () => rail.removeEventListener("wheel", handleWheel);
   }, []);
 
   if (!current) return null;
@@ -241,7 +241,6 @@ export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroL
         <div
           ref={railRef}
           className="hero-lens__rail"
-          onWheel={handleWheel}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
