@@ -1413,6 +1413,10 @@ h2, h3, h4, h5, h6 {
   opacity: 0.5;
 }
 
+.archive__feed-item:not(.archive__feed-item--active):hover {
+  opacity: 1;
+}
+
 .home-split__meditations-feed {
   display: flex;
   flex-direction: column;

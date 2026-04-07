@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { CoverArtPlayground } from "@/components/CoverArtPlayground";
@@ -22,17 +22,35 @@ interface HeroLensProps {
   onIndexChange?: (index: number) => void;
 }
 
+export interface HeroLensHandle {
+  goTo: (index: number) => void;
+}
+
 const SCROLL_THRESHOLD = 120;
 const TRANSITION_MS = 600;
 const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
-export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
+export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroLens({ observations, onIndexChange }, ref) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [prevIndex, setPrevIndex] = useState<number | null>(null);
   const [slideDirection, setSlideDirection] = useState<"up" | "down" | null>(null);
   const accumulatedDelta = useRef(0);
   const railRef = useRef<HTMLDivElement>(null);
   const lockoutRef = useRef(false);
+
+  useImperativeHandle(ref, () => ({
+    goTo: (index: number) => {
+      if (index >= 0 && index < observations.length && index !== currentIndex && !lockoutRef.current) {
+        setPrevIndex(currentIndex);
+        setSlideDirection(index > currentIndex ? "up" : "down");
+        setCurrentIndex(index);
+        setTimeout(() => {
+          setPrevIndex(null);
+          setSlideDirection(null);
+        }, TRANSITION_MS);
+      }
+    },
+  }), [currentIndex, observations.length]);
 
   const total = observations.length;
   const current = observations[currentIndex];
@@ -102,7 +120,10 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
   useEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
-    const prevent = (e: WheelEvent) => e.preventDefault();
+    const prevent = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
     rail.addEventListener("wheel", prevent, { passive: false });
     return () => rail.removeEventListener("wheel", prevent);
   }, []);
@@ -240,4 +261,4 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
       </div>
     </section>
   );
-}
+});
