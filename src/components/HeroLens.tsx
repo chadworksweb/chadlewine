@@ -19,15 +19,16 @@ interface Observation {
 
 interface HeroLensProps {
   observations: Observation[];
+  onIndexChange?: (index: number) => void;
 }
 
 const SCROLL_THRESHOLD = 120;
 const TRANSITION_MS = 600;
 const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
-export function HeroLens({ observations }: HeroLensProps) {
+export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [transitioning, setTransitioning] = useState(false);
+  const [prevIndex, setPrevIndex] = useState<number | null>(null);
   const [slideDirection, setSlideDirection] = useState<"up" | "down" | null>(null);
   const accumulatedDelta = useRef(0);
   const railRef = useRef<HTMLDivElement>(null);
@@ -35,6 +36,8 @@ export function HeroLens({ observations }: HeroLensProps) {
 
   const total = observations.length;
   const current = observations[currentIndex];
+  const prev = prevIndex !== null ? observations[prevIndex] : null;
+  const transitioning = prevIndex !== null;
 
   const advance = useCallback(
     (direction: "up" | "down") => {
@@ -49,18 +52,19 @@ export function HeroLens({ observations }: HeroLensProps) {
       }
 
       lockoutRef.current = true;
+      setPrevIndex(currentIndex);
       setSlideDirection(direction);
-      setTransitioning(true);
+      setCurrentIndex(nextIndex);
+      onIndexChange?.(nextIndex);
 
       setTimeout(() => {
-        setCurrentIndex(nextIndex);
+        setPrevIndex(null);
         setSlideDirection(null);
-        setTransitioning(false);
         lockoutRef.current = false;
         accumulatedDelta.current = 0;
       }, TRANSITION_MS);
     },
-    [currentIndex, total]
+    [currentIndex, total, onIndexChange]
   );
 
   const handleWheel = useCallback(
@@ -80,7 +84,6 @@ export function HeroLens({ observations }: HeroLensProps) {
     [advance]
   );
 
-  // Touch on rail
   const touchStartY = useRef(0);
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -96,7 +99,6 @@ export function HeroLens({ observations }: HeroLensProps) {
     [advance]
   );
 
-  // Prevent default wheel on rail to stop page scroll
   useEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
@@ -107,36 +109,71 @@ export function HeroLens({ observations }: HeroLensProps) {
 
   if (!current) return null;
 
-  let artTransform = "translateY(0)";
-  let artOpacity = 1;
-  if (transitioning && slideDirection) {
-    artTransform = slideDirection === "up" ? "translateY(-6%)" : "translateY(6%)";
-    artOpacity = 0;
-  }
+  // Outgoing art: slides out + fades
+  const prevStyle: React.CSSProperties = transitioning
+    ? {
+        transform: slideDirection === "up" ? "translateY(-6%)" : "translateY(6%)",
+        opacity: 0,
+        transition: `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.4}ms ease`,
+      }
+    : {};
+
+  // Incoming art: slides in from opposite side + fades in
+  const currentStyle: React.CSSProperties = transitioning
+    ? {
+        transform: "translateY(0)",
+        opacity: 1,
+        transition: `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease ${TRANSITION_MS * 0.15}ms`,
+        animationName: "hero-lens-enter",
+      }
+    : {};
 
   return (
     <section className="hero-lens">
-      {/* Two-column: content left, rail right */}
       <div className="hero-lens__columns">
         <div className="hero-lens__main">
-          {/* Art */}
-          <div
-            className="hero-lens__art"
-            style={{
-              transform: artTransform,
-              opacity: artOpacity,
-              transition: transitioning
-                ? `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease`
-                : "none",
-            }}
-          >
-            {current.art_image_path && (
-              <CoverArtPlayground
-                src={current.art_image_path}
-                alt={current.art_alt || current.title}
-                className="cover-hero__art-wrap"
-              />
+          {/* Art — stacked layers for crossfade */}
+          <div className="hero-lens__art-container">
+            {/* Outgoing layer */}
+            {transitioning && prev && prev.art_image_path && (
+              <div className="hero-lens__art hero-lens__art--out" style={prevStyle}>
+                <CoverArtPlayground
+                  key={`art-out-${prevIndex}`}
+                  src={prev.art_image_path}
+                  alt={prev.art_alt || prev.title}
+                  className="cover-hero__art-wrap"
+                />
+              </div>
             )}
+
+            {/* Current layer */}
+            <div
+              className={`hero-lens__art ${transitioning ? "hero-lens__art--in" : ""}`}
+              style={transitioning ? {
+                opacity: 0,
+                transform: slideDirection === "up" ? "translateY(4%)" : "translateY(-4%)",
+              } : {}}
+              ref={(el) => {
+                if (el && transitioning) {
+                  // Force reflow then apply end state
+                  el.getBoundingClientRect();
+                  requestAnimationFrame(() => {
+                    el.style.transition = `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease`;
+                    el.style.transform = "translateY(0)";
+                    el.style.opacity = "1";
+                  });
+                }
+              }}
+            >
+              {current.art_image_path && (
+                <CoverArtPlayground
+                  key={`art-${currentIndex}`}
+                  src={current.art_image_path}
+                  alt={current.art_alt || current.title}
+                  className="cover-hero__art-wrap"
+                />
+              )}
+            </div>
           </div>
 
           {/* Content below art */}
@@ -179,7 +216,7 @@ export function HeroLens({ observations }: HeroLensProps) {
           </div>
         </div>
 
-        {/* Scroll rail — full height of hero, own column */}
+        {/* Scroll rail */}
         <div
           ref={railRef}
           className="hero-lens__rail"
