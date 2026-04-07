@@ -6,12 +6,14 @@ import { GlitchEffect } from "@/components/effects/GlitchEffect";
 import { KaleidoscopeEffect } from "@/components/effects/KaleidoscopeEffect";
 import { ShatterEffect } from "@/components/effects/ShatterEffect";
 import { InvertWaveEffect } from "@/components/effects/InvertWaveEffect";
+import { LightningEffect } from "@/components/effects/LightningEffect";
 
-type EffectMode = "ripple" | "glitch" | "kaleidoscope" | "shatter" | "invert";
+type EffectMode = "ripple" | "lightning" | "glitch" | "kaleidoscope" | "shatter" | "invert";
 
 const effects: { id: EffectMode; label: string; icon: string; interaction: string }[] = [
   { id: "ripple", label: "Ripple", icon: "💧", interaction: "click" },
-  { id: "glitch", label: "Glitch", icon: "⚡", interaction: "drag" },
+  { id: "lightning", label: "Lightning", icon: "⚡", interaction: "click" },
+  { id: "glitch", label: "Glitch", icon: "📡", interaction: "drag" },
   { id: "kaleidoscope", label: "Kaleidoscope", icon: "🔮", interaction: "drag" },
   { id: "shatter", label: "Shatter", icon: "💎", interaction: "click" },
   { id: "invert", label: "Invert", icon: "🌗", interaction: "click" },
@@ -30,6 +32,7 @@ export function CoverArtPlayground({ src, alt, className }: ArtPlaygroundProps) 
     <div className="art-playground">
       <div className="art-playground__canvas">
         {mode === "ripple" && <WaterRipple src={src} alt={alt} className={className} />}
+        {mode === "lightning" && <LightningEffect src={src} alt={alt} className={className} />}
         {mode === "glitch" && <GlitchEffect src={src} alt={alt} className={className} />}
         {mode === "kaleidoscope" && <KaleidoscopeEffect src={src} alt={alt} className={className} />}
         {mode === "shatter" && <ShatterEffect src={src} alt={alt} className={className} />}

@@ -69,9 +69,11 @@ export function TitleReveal({ artImageUrl, children }: TitleRevealProps) {
     mctx.fillStyle = "#fff";
     mctx.textBaseline = "top";
 
-    // Offset correction — canvas fillText doesn't perfectly match CSS rendering
+    // Scale offset with computed font size so it aligns at every breakpoint.
+    // The 26px offset was calibrated at ~88px font size (26/88 ≈ 0.295).
+    const fontSize = parseFloat(style.fontSize);
     const offsetX = 0;
-    const offsetY = 26;
+    const offsetY = fontSize * 0.295;
 
     const range = document.createRange();
     for (let i = 0; i < text.length; i++) {

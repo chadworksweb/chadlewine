@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { CoverArtPlayground } from "@/components/CoverArtPlayground";
@@ -22,35 +22,17 @@ interface HeroLensProps {
   onIndexChange?: (index: number) => void;
 }
 
-export interface HeroLensHandle {
-  goTo: (index: number) => void;
-}
-
 const SCROLL_THRESHOLD = 120;
 const TRANSITION_MS = 600;
 const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 
-export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroLens({ observations, onIndexChange }, ref) {
+export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [prevIndex, setPrevIndex] = useState<number | null>(null);
   const [slideDirection, setSlideDirection] = useState<"up" | "down" | null>(null);
   const accumulatedDelta = useRef(0);
   const railRef = useRef<HTMLDivElement>(null);
   const lockoutRef = useRef(false);
-
-  useImperativeHandle(ref, () => ({
-    goTo: (index: number) => {
-      if (index >= 0 && index < observations.length && index !== currentIndex && !lockoutRef.current) {
-        setPrevIndex(currentIndex);
-        setSlideDirection(index > currentIndex ? "up" : "down");
-        setCurrentIndex(index);
-        setTimeout(() => {
-          setPrevIndex(null);
-          setSlideDirection(null);
-        }, TRANSITION_MS);
-      }
-    },
-  }), [currentIndex, observations.length]);
 
   const total = observations.length;
   const current = observations[currentIndex];
@@ -69,6 +51,7 @@ export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroL
         return;
       }
 
+      console.log("[HeroLens] advance", direction, "from", currentIndex, "to", nextIndex);
       lockoutRef.current = true;
       setPrevIndex(currentIndex);
       setSlideDirection(direction);
@@ -76,6 +59,7 @@ export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroL
       onIndexChange?.(nextIndex);
 
       setTimeout(() => {
+        console.log("[HeroLens] transition complete, unlocking");
         setPrevIndex(null);
         setSlideDirection(null);
         lockoutRef.current = false;
@@ -110,9 +94,11 @@ export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroL
   useEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
+    console.log("[HeroLens] Rail mounted, attaching wheel listener", rail);
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log("[HeroLens] Wheel event", e.deltaY, "accumulated:", accumulatedDelta.current);
 
       accumulatedDelta.current += e.deltaY;
 
@@ -151,93 +137,49 @@ export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroL
 
   return (
     <section className="hero-lens">
+      {/* Art + Rail row */}
       <div className="hero-lens__columns">
-        <div className="hero-lens__main">
-          {/* Art — stacked layers for crossfade */}
-          <div className="hero-lens__art-container">
-            {/* Outgoing layer */}
-            {transitioning && prev && prev.art_image_path && (
-              <div className="hero-lens__art hero-lens__art--out" style={prevStyle}>
-                <CoverArtPlayground
-                  key={`art-out-${prevIndex}`}
-                  src={prev.art_image_path}
-                  alt={prev.art_alt || prev.title}
-                  className="cover-hero__art-wrap"
-                />
-              </div>
+        <div className="hero-lens__art-container">
+          {/* Outgoing layer */}
+          {transitioning && prev && prev.art_image_path && (
+            <div className="hero-lens__art hero-lens__art--out" style={prevStyle}>
+              <img
+                src={prev.art_image_path}
+                alt={prev.art_alt || prev.title}
+                style={{ width: "100%", display: "block" }}
+              />
+            </div>
+          )}
+
+          {/* Current layer */}
+          <div
+            className={`hero-lens__art ${transitioning ? "hero-lens__art--in" : ""}`}
+            style={transitioning ? {
+              opacity: 0,
+              transform: slideDirection === "up" ? "translateY(4%)" : "translateY(-4%)",
+            } : {}}
+            ref={(el) => {
+              if (el && transitioning) {
+                el.getBoundingClientRect();
+                requestAnimationFrame(() => {
+                  el.style.transition = `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease`;
+                  el.style.transform = "translateY(0)";
+                  el.style.opacity = "1";
+                });
+              }
+            }}
+          >
+            {current.art_image_path && (
+              <CoverArtPlayground
+                src={current.art_image_path}
+                alt={current.art_alt || current.title}
+                className="cover-hero__art-wrap"
+              />
             )}
-
-            {/* Current layer */}
-            <div
-              className={`hero-lens__art ${transitioning ? "hero-lens__art--in" : ""}`}
-              style={transitioning ? {
-                opacity: 0,
-                transform: slideDirection === "up" ? "translateY(4%)" : "translateY(-4%)",
-              } : {}}
-              ref={(el) => {
-                if (el && transitioning) {
-                  // Force reflow then apply end state
-                  el.getBoundingClientRect();
-                  requestAnimationFrame(() => {
-                    el.style.transition = `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease`;
-                    el.style.transform = "translateY(0)";
-                    el.style.opacity = "1";
-                  });
-                }
-              }}
-            >
-              {current.art_image_path && (
-                <CoverArtPlayground
-                  key={`art-${currentIndex}`}
-                  src={current.art_image_path}
-                  alt={current.art_alt || current.title}
-                  className="cover-hero__art-wrap"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Content below art */}
-          <div className="cover-hero__content">
-            <div className="cover-hero__title-col">
-              <TitleReveal artImageUrl={current.art_image_path || ""}>
-                <Link href={`/observations/${current.slug}`} className="cover-hero__title-link">
-                  <h1 className="cover-hero__title">{current.title}</h1>
-                </Link>
-              </TitleReveal>
-
-              {current.hook_line && (
-                <p className="cover-hero__hook">{current.hook_line}</p>
-              )}
-            </div>
-
-            <div className="cover-hero__bar">
-              <time className="cover-hero__date">{formatDate(current.date_captured)}</time>
-
-              {current.categories?.length > 0 && (
-                <div className="cover-hero__cats">
-                  {current.categories.map((c) => (
-                    <span key={c.slug} className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
-                  ))}
-                </div>
-              )}
-
-              {current.tags?.length > 0 && (
-                <div className="cover-hero__tags">
-                  {current.tags.map((t) => (
-                    <span key={t.slug} className="cover-hero__tag">#{t.label}</span>
-                  ))}
-                </div>
-              )}
-
-              <Link href={`/observations/${current.slug}`} className="cover-hero__cta cover-hero__cta--inverted">
-                Read the Observation →
-              </Link>
-            </div>
           </div>
         </div>
 
-        {/* Scroll rail */}
+        {/* Scroll rail — art height only */}
         <div
           ref={railRef}
           className="hero-lens__rail"
@@ -258,6 +200,45 @@ export const HeroLens = forwardRef<HeroLensHandle, HeroLensProps>(function HeroL
           </div>
         </div>
       </div>
+
+      {/* Content below art */}
+      <div className="cover-hero__content">
+        <div className="cover-hero__title-col">
+          <TitleReveal artImageUrl={current.art_image_path || ""}>
+            <Link href={`/observations/${current.slug}`} className="cover-hero__title-link">
+              <h1 className="cover-hero__title">{current.title}</h1>
+            </Link>
+          </TitleReveal>
+
+          {current.hook_line && (
+            <p className="cover-hero__hook">{current.hook_line}</p>
+          )}
+        </div>
+
+        <div className="cover-hero__bar">
+          <time className="cover-hero__date">{formatDate(current.date_captured)}</time>
+
+          {current.categories?.length > 0 && (
+            <div className="cover-hero__cats">
+              {current.categories.map((c) => (
+                <span key={c.slug} className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
+              ))}
+            </div>
+          )}
+
+          {current.tags?.length > 0 && (
+            <div className="cover-hero__tags">
+              {current.tags.map((t) => (
+                <span key={t.slug} className="cover-hero__tag">#{t.label}</span>
+              ))}
+            </div>
+          )}
+
+          <Link href={`/observations/${current.slug}`} className="cover-hero__cta cover-hero__cta--inverted">
+            Read the Observation →
+          </Link>
+        </div>
+      </div>
     </section>
   );
-});
+}
