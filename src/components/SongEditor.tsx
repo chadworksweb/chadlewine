@@ -117,6 +117,32 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     enabled: !!form.title && !!form.album_id,
   });
 
+  // Rising Compass classification
+  const [rcStatus, setRcStatus] = useState<"idle" | "classifying" | "done" | "error">("idle");
+  const [rcResult, setRcResult] = useState<{ tier: string; tier_label: string; charge: number; charge_summary: string } | null>(null);
+
+  async function handleClassify() {
+    if (!form.title || !form.lyrics) return;
+    setRcStatus("classifying");
+    setRcResult(null);
+    try {
+      const res = await fetch("/api/admin/classify-song", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: form.title, artist: "Chad Lewine", lyrics: form.lyrics }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setRcStatus("error");
+      } else {
+        setRcResult(data);
+        setRcStatus("done");
+      }
+    } catch {
+      setRcStatus("error");
+    }
+  }
+
   async function handleDelete() {
     if (!form.id) return;
     if (!confirm("Delete this song? This cannot be undone.")) return;
@@ -340,6 +366,45 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               />
               <label className="obsv-editor__label" htmlFor="is_single" style={{ margin: 0 }}>Is Single</label>
             </div>
+          </div>
+
+          {/* Rising Compass */}
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">Rising Compass</h3>
+            {rcResult && (
+              <div style={{ marginBottom: "0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.875rem", fontWeight: 600, color: "var(--text-accent)" }}>
+                  {rcResult.tier_label}
+                </span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.875rem", color: "var(--text-primary)" }}>
+                  {rcResult.charge > 0 ? "+" : ""}{rcResult.charge}
+                </span>
+              </div>
+            )}
+            {rcResult?.charge_summary && (
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "var(--text-secondary)", margin: "0 0 0.75rem", lineHeight: 1.4 }}>
+                {rcResult.charge_summary}
+              </p>
+            )}
+            <button
+              type="button"
+              className="admin-btn admin-btn--secondary"
+              onClick={handleClassify}
+              disabled={rcStatus === "classifying" || !form.title || !form.lyrics}
+              style={{ fontSize: "0.875rem" }}
+            >
+              {rcStatus === "classifying" ? "Classifying..." : rcResult ? "Reclassify" : "Classify"}
+            </button>
+            {rcStatus === "error" && (
+              <p style={{ color: "#ff3333", fontFamily: "var(--font-ui)", fontSize: "0.75rem", marginTop: "0.5rem" }}>
+                Classification failed. Check lyrics and try again.
+              </p>
+            )}
+            {!form.lyrics && (
+              <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: "0.75rem", marginTop: "0.5rem" }}>
+                Add lyrics to enable classification.
+              </p>
+            )}
           </div>
 
           {/* Expansions */}

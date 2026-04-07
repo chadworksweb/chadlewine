@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
+import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
+import { fetchBadge } from "@/lib/rising-compass";
 
 export const revalidate = 60;
 
@@ -79,31 +81,53 @@ export default async function SongDetailPage({
 
   const { album, song, totalTracks, expansions } = result;
 
+  const badge = await fetchBadge(song.title, "Chad Lewine");
+
   return (
-    <SongDetail
-      song={{
-        id: song.id,
-        title: song.title,
-        slug: song.slug,
-        track_number: song.track_number,
-        duration_seconds: song.duration_seconds,
-        streaming_path: song.streaming_path,
-        lyrics: song.lyrics,
-        price: song.price,
-        release_date: song.release_date,
-        song_summary: song.song_summary,
-        isrc: song.isrc,
-      }}
-      album={{
-        id: album.id,
-        title: album.title,
-        slug: album.slug,
-        cover_art_path: album.cover_art_path,
-        cover_art_alt: album.cover_art_alt,
-        price: album.price,
-      }}
-      totalTracks={totalTracks}
-      expansions={expansions}
-    />
+    <>
+      <SongDetail
+        song={{
+          id: song.id,
+          title: song.title,
+          slug: song.slug,
+          track_number: song.track_number,
+          duration_seconds: song.duration_seconds,
+          streaming_path: song.streaming_path,
+          lyrics: song.lyrics,
+          price: song.price,
+          release_date: song.release_date,
+          song_summary: song.song_summary,
+          isrc: song.isrc,
+        }}
+        album={{
+          id: album.id,
+          title: album.title,
+          slug: album.slug,
+          cover_art_path: album.cover_art_path,
+          cover_art_alt: album.cover_art_alt,
+          price: album.price,
+        }}
+        totalTracks={totalTracks}
+        expansions={expansions}
+        badge={badge ? {
+          tier: badge.tier,
+          tierLabel: badge.tier_label,
+          tierHex: badge.tier_hex,
+          charge: badge.charge,
+          chargeSummary: badge.charge_summary,
+          contaminated: badge.contaminated,
+          contaminationNote: badge.contamination_note,
+        } : null}
+      />
+      {badge && (
+        <SongChargeJsonLd
+          songTitle={song.title}
+          songUrl={`https://chadlewine.com/music/songs/${song.slug}`}
+          albumTitle={album.title}
+          albumUrl={`https://chadlewine.com/music/albums/${album.slug}`}
+          badge={badge}
+        />
+      )}
+    </>
   );
 }

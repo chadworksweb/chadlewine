@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { RisingCompassBadge } from "./RisingCompassBadge";
+import { RisingCompassScoreBadge } from "./RisingCompassBadge";
 
 interface CuratedEntry {
   id: string;
@@ -71,7 +71,7 @@ export function CurationGrid({ entries }: { entries: CuratedEntry[] }) {
               <span className="curation-card__title">{entry.title}</span>
               <span className="curation-card__artist">{entry.artist_name}</span>
               {entry.rising_compass_score != null && (
-                <RisingCompassBadge
+                <RisingCompassScoreBadge
                   score={entry.rising_compass_score}
                   classification={entry.rising_compass_classification}
                   size="sm"

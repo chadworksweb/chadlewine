@@ -280,7 +280,6 @@ export default async function ObservationPage({
 
       <SynapseDisplay sourceType="observation" sourceId={obsv.id} />
       <DiddySection observationId={obsv.id} />
-      <MerchSection observationId={obsv.id} />
 
       <div className="obsv-celestial-anchor">
         <div className="obsv-celestial-wrap" aria-hidden="true">
@@ -368,6 +367,8 @@ export default async function ObservationPage({
           </div>
         </section>
       )}
+
+      <MerchSection observationId={obsv.id} />
 
       {related.length > 0 && (
         <section className="related-observations">

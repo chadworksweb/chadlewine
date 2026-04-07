@@ -25,10 +25,43 @@ interface SongProps {
   price: number | null;
 }
 
+interface AlbumBadgeProps {
+  tier: string;
+  tierLabel: string;
+  tierHex: string;
+  charge: number;
+  chargeSummary: string | null;
+  contaminated: boolean;
+  contaminationNote: string | null;
+}
+
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function chargeToNeedleAngle(charge: number): number {
+  const clamped = Math.max(-100, Math.min(100, charge));
+  return -(clamped / 100) * 58;
+}
+
+function CompassIcon({ charge, tierHex }: { charge: number; tierHex: string }) {
+  const angle = chargeToNeedleAngle(charge);
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 32 32" style={{ display: "block" }}>
+      <rect width="32" height="32" rx="6" fill="#0a0a14"/>
+      <path d="M 5,20 A 11,11 0 0,1 7.6,13.1" fill="none" stroke="#9933ff" strokeWidth="6" strokeLinecap="butt"/>
+      <path d="M 7.6,13.1 A 11,11 0 0,1 12.6,9.6" fill="none" stroke="#3388ff" strokeWidth="6" strokeLinecap="butt"/>
+      <path d="M 12.6,9.6 A 11,11 0 0,1 19.4,9.6" fill="none" stroke="#33cc55" strokeWidth="6" strokeLinecap="butt"/>
+      <path d="M 19.4,9.6 A 11,11 0 0,1 24.4,13.1" fill="none" stroke="#ffbb33" strokeWidth="6" strokeLinecap="butt"/>
+      <path d="M 24.4,13.1 A 11,11 0 0,1 27,20" fill="none" stroke="#ff3333" strokeWidth="6" strokeLinecap="butt"/>
+      <g transform={`rotate(${angle}, 16, 20)`}>
+        <polygon points="16,10 14.2,20 17.8,20" fill="#eeeef4"/>
+      </g>
+      <circle cx="16" cy="20" r="3" fill={tierHex}/>
+    </svg>
+  );
 }
 
 // Seeded PRNG for deterministic waveform
@@ -76,13 +109,16 @@ const CIRCUMFERENCE = 2 * Math.PI * 18;
 export function AlbumDetail({
   album,
   songs,
+  badge,
 }: {
   album: AlbumProps;
   songs: SongProps[];
+  badge?: AlbumBadgeProps | null;
 }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [buying, setBuying] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number>(0);
 
@@ -170,48 +206,95 @@ export function AlbumDetail({
 
         {/* Right — Album content */}
         <div className="track-detail__content-col">
-          <div className="track-detail__title-row">
-            <h1 className="track-detail__title">{album.title}</h1>
+          <h1 className="track-detail__title">{album.title}</h1>
+
+          {/* Info bar */}
+          <div className="track-detail__info-bar" data-cols={3}>
+            <div className="track-detail__info-cell">
+              <span className="track-detail__info-label">Tracks</span>
+              <span className="track-detail__info-value">{songs.length}</span>
+            </div>
+            {year && (
+              <div className="track-detail__info-cell">
+                <span className="track-detail__info-label">Released</span>
+                <span className="track-detail__info-value">{year}</span>
+              </div>
+            )}
             {album.format_label && (
-              <span className="track-detail__format-badge">{album.format_label}</span>
+              <div className="track-detail__info-cell">
+                <span className="track-detail__info-label">Format</span>
+                <span className="track-detail__info-value">{album.format_label}</span>
+              </div>
             )}
           </div>
 
-          {year && (
-            <div className="track-detail__release-date">
-              <span className="track-detail__release-label">Released</span>
-              <span className="track-detail__release-value">{year}</span>
+          {/* Action row: buy button + RC badge */}
+          <div className="track-detail__action-row">
+            <div className="track-detail__actions">
+              {album.price ? (
+                <button
+                  type="button"
+                  className="track-detail__btn track-detail__btn--buy-album"
+                  disabled={buying}
+                  onClick={async () => {
+                    setBuying(true);
+                    try {
+                      const res = await fetch("/api/music-checkout", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ type: "album", id: album.id }),
+                      });
+                      const data = await res.json();
+                      if (data.url) window.location.href = data.url;
+                    } finally {
+                      setBuying(false);
+                    }
+                  }}
+                >
+                  {buying ? "..." : `Buy Album — $${Number(album.price).toFixed(2)}`}
+                </button>
+              ) : (
+                <button type="button" className="track-detail__btn track-detail__btn--buy-album">
+                  Buy Album
+                </button>
+              )}
             </div>
-          )}
 
-          {/* Buy Album button */}
-          <div className="track-detail__actions">
-            {album.price ? (
-              <button
-                type="button"
-                className="track-detail__btn track-detail__btn--buy-album"
-                disabled={buying}
-                onClick={async () => {
-                  setBuying(true);
-                  try {
-                    const res = await fetch("/api/music-checkout", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ type: "album", id: album.id }),
-                    });
-                    const data = await res.json();
-                    if (data.url) window.location.href = data.url;
-                  } finally {
-                    setBuying(false);
-                  }
-                }}
-              >
-                {buying ? "..." : `Buy Album — $${Number(album.price).toFixed(2)}`}
-              </button>
-            ) : (
-              <button type="button" className="track-detail__btn track-detail__btn--buy-album">
-                Buy Album
-              </button>
+            {badge && (
+              <div className="track-detail__rc-badge">
+                <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
+                  <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
+                </a>
+                <div className="track-detail__rc-data">
+                  <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
+                    {badge.tierLabel}
+                  </span>
+                  <span className="track-detail__rc-charge">
+                    {badge.charge > 0 ? "+" : ""}{badge.charge}
+                  </span>
+                </div>
+                {badge.chargeSummary && (
+                  <div className="track-detail__rc-summary-wrap">
+                    <button
+                      type="button"
+                      className="track-detail__rc-summary-btn"
+                      onClick={() => setSummaryOpen((v) => !v)}
+                      aria-label="Read charge summary"
+                      title="Charge summary"
+                    >
+                      &#x1F4AC;
+                    </button>
+                    {summaryOpen && (
+                      <div className="track-detail__rc-summary-tooltip">
+                        <p>{badge.chargeSummary}</p>
+                        {badge.contaminated && badge.contaminationNote && (
+                          <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -230,26 +313,23 @@ export function AlbumDetail({
                     key={song.id}
                     className={`mini-player ${isActive ? "mini-player--active" : ""} ${!hasAudio ? "mini-player--no-audio" : ""}`}
                   >
-                    {hasAudio ? (
-                      <button
-                        type="button"
-                        className="mini-player__play-btn"
-                        onClick={() => handlePlay(song)}
-                        aria-label={isActive ? "Stop preview" : "Play preview"}
-                      >
-                        <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
-                          <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
-                          <circle
-                            className="mini-player__ring-progress"
-                            cx="20" cy="20" r="18"
-                            style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
-                          />
-                        </svg>
-                        <span className="mini-player__icon" />
-                      </button>
-                    ) : (
-                      <span className="mini-player__play-spacer" />
-                    )}
+                    <button
+                      type="button"
+                      className="mini-player__play-btn"
+                      onClick={hasAudio ? () => handlePlay(song) : undefined}
+                      disabled={!hasAudio}
+                      aria-label={isActive ? "Stop preview" : "Play preview"}
+                    >
+                      <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
+                        <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
+                        <circle
+                          className="mini-player__ring-progress"
+                          cx="20" cy="20" r="18"
+                          style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
+                        />
+                      </svg>
+                      <span className="mini-player__icon" />
+                    </button>
 
                     <span className="mini-player__number">{song.track_number}</span>
 

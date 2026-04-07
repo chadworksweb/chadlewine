@@ -35,7 +35,7 @@ export async function MerchSection({ observationId }: MerchSectionProps) {
 
   return (
     <section className="merch-section">
-      <h2 className="merch-section__heading">Merch</h2>
+      <h2 className="merch-section__heading">Like what you just read?</h2>
 
       {/* Existing products */}
       {hasProducts && (
@@ -62,7 +62,7 @@ export async function MerchSection({ observationId }: MerchSectionProps) {
         <div className="merch-pick">
           <h3 className="merch-pick__heading">The Pick</h3>
           <p className="merch-pick__desc">
-            Choose a line. Put it on anything.
+            Put it on a shirt. Or a mug. Or anything.
           </p>
           <div className="merch-pick__lines">
             {pickLines.map((line, i) => (

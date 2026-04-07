@@ -24,7 +24,7 @@ export async function MeditationMerchSection({
 
   return (
     <section className="merch-section">
-      <h2 className="merch-section__heading">Carry this line</h2>
+      <h2 className="merch-section__heading">Like what you just read?</h2>
       {hasProducts ? (
         <div className="merch-section__grid">
           {products.map((p) => (
@@ -44,7 +44,7 @@ export async function MeditationMerchSection({
         </div>
       ) : (
         <p className="merch-section__desc">
-          Put this meditation on anything.{" "}
+          Put it on a shirt. Or a mug. Or anything.{" "}
           <Link href="/merch/configure" style={{ color: "var(--text-accent)" }}>
             Open the configurator
           </Link>

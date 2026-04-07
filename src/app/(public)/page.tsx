@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 import { CoverHero } from "@/components/CoverHero";
 import { FeedEntry } from "@/components/FeedEntry";
+import { FeaturedTrack } from "@/components/FeaturedTrack";
 import { formatDate } from "@/lib/utils";
 
 export const revalidate = 60;
@@ -20,6 +21,36 @@ async function getObservations() {
   return observations;
 }
 
+async function getFeaturedTrack() {
+  const supabase = createPublicClient();
+
+  const { data: song } = await supabase
+    .from("songs")
+    .select("id, title, slug, track_number, duration_seconds, streaming_path, song_summary")
+    .eq("featured", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (!song) return null;
+
+  // Get album via junction
+  const { data: junction } = await supabase
+    .from("album_songs")
+    .select("track_number, album:albums(title, slug, cover_art_path, cover_art_alt)")
+    .eq("song_id", song.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (!junction?.album) return null;
+
+  const album = Array.isArray(junction.album) ? junction.album[0] : junction.album;
+
+  return {
+    song: { ...song, track_number: junction.track_number || song.track_number },
+    album,
+  };
+}
+
 async function getMeditations() {
   const supabase = createPublicClient();
 
@@ -34,9 +65,10 @@ async function getMeditations() {
 }
 
 export default async function HomePage() {
-  const [observations, meditations] = await Promise.all([
+  const [observations, meditations, featuredTrack] = await Promise.all([
     getObservations(),
     getMeditations(),
+    getFeaturedTrack(),
   ]);
 
   const latest = observations[0];
@@ -53,6 +85,10 @@ export default async function HomePage() {
           artImageUrl={latest.art_image_path || ""}
           artAlt={latest.art_alt || latest.title}
         />
+      )}
+
+      {featuredTrack && (
+        <FeaturedTrack song={featuredTrack.song} album={featuredTrack.album} />
       )}
 
       <div className="home-split">

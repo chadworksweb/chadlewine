@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createPublicClient } from "@/lib/supabase-server";
-import { RisingCompassBadge } from "@/components/RisingCompassBadge";
+import { RisingCompassScoreBadge } from "@/components/RisingCompassBadge";
 
 export const revalidate = 60;
 
@@ -136,7 +136,7 @@ export default async function CurationEntryPage({ params }: { params: Promise<{ 
             <p className="curation-entry__artist">{e.artist_name}</p>
 
             {e.rising_compass_score != null && (
-              <RisingCompassBadge
+              <RisingCompassScoreBadge
                 score={e.rising_compass_score}
                 classification={e.rising_compass_classification}
               />
@@ -186,7 +186,7 @@ export default async function CurationEntryPage({ params }: { params: Promise<{ 
                   <span className="curation-entry__track-title">{t.track_title}</span>
                   <span className="curation-entry__track-artist">{t.artist_name}</span>
                   {t.rising_compass_score != null && (
-                    <RisingCompassBadge score={t.rising_compass_score} size="sm" />
+                    <RisingCompassScoreBadge score={t.rising_compass_score} size="sm" />
                   )}
                   {t.outbound_url && (
                     <a href={t.outbound_url} target="_blank" rel="noopener noreferrer" className="curation-entry__track-link">Listen</a>
