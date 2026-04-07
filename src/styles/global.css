@@ -656,21 +656,23 @@ h2, h3, h4, h5, h6 {
   padding: 0 var(--page-gutter);
 }
 
-.hero-lens__viewport {
-  position: relative;
-  display: flex;
+.hero-lens__columns {
+  display: grid;
+  grid-template-columns: 1fr 85px;
   gap: 0;
 }
 
-.hero-lens__art {
-  flex: 1;
+.hero-lens__main {
   min-width: 0;
+}
+
+.hero-lens__art {
   will-change: transform, opacity;
 }
 
-/* Scroll rail — the dedicated hotspot */
+/* Scroll rail — full-height column, the dedicated hotspot */
 .hero-lens__rail {
-  width: 48px;
+  width: 85px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -767,8 +769,12 @@ h2, h3, h4, h5, h6 {
 }
 
 @media (max-width: 768px) {
+  .hero-lens__columns {
+    grid-template-columns: 1fr 48px;
+  }
+
   .hero-lens__rail {
-    width: 36px;
+    width: 48px;
   }
 
   .hero-lens__pips {

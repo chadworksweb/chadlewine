@@ -116,27 +116,70 @@ export function HeroLens({ observations }: HeroLensProps) {
 
   return (
     <section className="hero-lens">
-      <div className="hero-lens__viewport">
-        <div
-          className="hero-lens__art"
-          style={{
-            transform: artTransform,
-            opacity: artOpacity,
-            transition: transitioning
-              ? `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease`
-              : "none",
-          }}
-        >
-          {current.art_image_path && (
-            <CoverArtPlayground
-              src={current.art_image_path}
-              alt={current.art_alt || current.title}
-              className="cover-hero__art-wrap"
-            />
-          )}
+      {/* Two-column: content left, rail right */}
+      <div className="hero-lens__columns">
+        <div className="hero-lens__main">
+          {/* Art */}
+          <div
+            className="hero-lens__art"
+            style={{
+              transform: artTransform,
+              opacity: artOpacity,
+              transition: transitioning
+                ? `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease`
+                : "none",
+            }}
+          >
+            {current.art_image_path && (
+              <CoverArtPlayground
+                src={current.art_image_path}
+                alt={current.art_alt || current.title}
+                className="cover-hero__art-wrap"
+              />
+            )}
+          </div>
+
+          {/* Content below art */}
+          <div className="cover-hero__content">
+            <div className="cover-hero__title-col">
+              <TitleReveal artImageUrl={current.art_image_path || ""}>
+                <Link href={`/observations/${current.slug}`} className="cover-hero__title-link">
+                  <h1 className="cover-hero__title">{current.title}</h1>
+                </Link>
+              </TitleReveal>
+
+              {current.hook_line && (
+                <p className="cover-hero__hook">{current.hook_line}</p>
+              )}
+            </div>
+
+            <div className="cover-hero__bar">
+              <time className="cover-hero__date">{formatDate(current.date_captured)}</time>
+
+              {current.categories?.length > 0 && (
+                <div className="cover-hero__cats">
+                  {current.categories.map((c) => (
+                    <span key={c.slug} className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
+                  ))}
+                </div>
+              )}
+
+              {current.tags?.length > 0 && (
+                <div className="cover-hero__tags">
+                  {current.tags.map((t) => (
+                    <span key={t.slug} className="cover-hero__tag">#{t.label}</span>
+                  ))}
+                </div>
+              )}
+
+              <Link href={`/observations/${current.slug}`} className="cover-hero__cta cover-hero__cta--inverted">
+                Read the Observation →
+              </Link>
+            </div>
+          </div>
         </div>
 
-        {/* Scroll rail — hotspot */}
+        {/* Scroll rail — full height of hero, own column */}
         <div
           ref={railRef}
           className="hero-lens__rail"
@@ -156,45 +199,6 @@ export function HeroLens({ observations }: HeroLensProps) {
           <div className="hero-lens__rail-counter">
             {currentIndex + 1} / {total}
           </div>
-        </div>
-      </div>
-
-      {/* Content below art */}
-      <div className="cover-hero__content">
-        <div className="cover-hero__title-col">
-          <TitleReveal artImageUrl={current.art_image_path || ""}>
-            <Link href={`/observations/${current.slug}`} className="cover-hero__title-link">
-              <h1 className="cover-hero__title">{current.title}</h1>
-            </Link>
-          </TitleReveal>
-
-          {current.hook_line && (
-            <p className="cover-hero__hook">{current.hook_line}</p>
-          )}
-        </div>
-
-        <div className="cover-hero__bar">
-          <time className="cover-hero__date">{formatDate(current.date_captured)}</time>
-
-          {current.categories?.length > 0 && (
-            <div className="cover-hero__cats">
-              {current.categories.map((c) => (
-                <span key={c.slug} className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
-              ))}
-            </div>
-          )}
-
-          {current.tags?.length > 0 && (
-            <div className="cover-hero__tags">
-              {current.tags.map((t) => (
-                <span key={t.slug} className="cover-hero__tag">#{t.label}</span>
-              ))}
-            </div>
-          )}
-
-          <Link href={`/observations/${current.slug}`} className="cover-hero__cta cover-hero__cta--inverted">
-            Read the Observation →
-          </Link>
         </div>
       </div>
     </section>
