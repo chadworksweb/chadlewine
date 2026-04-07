@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createPublicClient } from "@/lib/supabase-server";
+import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { CoverHero } from "@/components/CoverHero";
 import { FeedEntry } from "@/components/FeedEntry";
 import { FeaturedTrack } from "@/components/FeaturedTrack";
@@ -26,7 +26,7 @@ async function getFeaturedTrack() {
 
   const { data: song } = await supabase
     .from("songs")
-    .select("id, title, slug, duration_seconds, streaming_path, song_summary")
+    .select("id, title, slug, duration_seconds, streaming_path, song_summary, playback_mode")
     .eq("featured", true)
     .limit(1)
     .maybeSingle();
@@ -71,11 +71,16 @@ export default async function HomePage() {
     getFeaturedTrack(),
   ]);
 
+  const featuredPlaybackMode = featuredTrack
+    ? await getPlaybackMode(featuredTrack.song.playback_mode ?? null)
+    : "preview" as const;
+
   const latest = observations[0];
   const feed = observations.slice(1);
 
   return (
     <div id="page-home" className="page-home">
+      {/* Hero — full width, own section */}
       {latest && (
         <CoverHero
           title={latest.title}
@@ -87,56 +92,57 @@ export default async function HomePage() {
         />
       )}
 
+      {/* Two-column content grid — headings top-aligned */}
       <div className="home-split">
-        {/* Left 2/3 — Observation archive */}
         <section className="home-split__observations">
+          <h2 className="home-split__section-heading">Observations</h2>
           {feed.length > 0 && (
-            <>
-              <div className="archive__feed">
-                {feed.map((obsv) => (
-                  <FeedEntry
-                    key={obsv.slug}
-                    title={obsv.title}
-                    slug={obsv.slug}
-                    dateCaptured={obsv.date_captured}
-                    hookLine={obsv.hook_line || ""}
-                    artImageUrl={obsv.art_image_path || ""}
-                    artAlt={obsv.art_alt || obsv.title}
-                  />
-                ))}
-              </div>
-            </>
+            <div className="archive__feed">
+              {feed.map((obsv) => (
+                <FeedEntry
+                  key={obsv.slug}
+                  title={obsv.title}
+                  slug={obsv.slug}
+                  dateCaptured={obsv.date_captured}
+                  hookLine={obsv.hook_line || ""}
+                  artImageUrl={obsv.art_image_path || ""}
+                  artAlt={obsv.art_alt || obsv.title}
+                />
+              ))}
+            </div>
           )}
         </section>
 
-        {/* Right 1/3 — Featured Track + Meditations */}
-        {(featuredTrack || meditations.length > 0) && (
-          <aside className="home-split__meditations">
-            {featuredTrack && (
-              <FeaturedTrack song={featuredTrack.song} album={featuredTrack.album} />
-            )}
-            {meditations.length > 0 && (
-              <>
-              <h2 className="home-split__meditations-heading">Meditations</h2>
-            <div className="home-split__meditations-feed">
-              {meditations.map((med) => (
-                <Link
-                  key={med.id}
-                  href={`/meditations/${med.id}`}
-                  className="home-med-row"
-                >
-                  <span className="home-med-row__label">{med.subtitle || "new meditation"}</span>
-                  <span className="home-med-row__date">{new Date(med.published_at || med.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}</span>
-                </Link>
-              ))}
+        <aside className="home-split__sidebar">
+          {featuredTrack && (
+            <div className="home-split__sidebar-block">
+              <h2 className="home-split__section-heading">Featured Track</h2>
+              <div className="featured-track__inner">
+                <FeaturedTrack song={featuredTrack.song} album={featuredTrack.album} playbackMode={featuredPlaybackMode} />
+              </div>
             </div>
-            <Link href="/meditations" className="home-split__meditations-more">
-              All Meditations
-            </Link>
-              </>
-            )}
-          </aside>
-        )}
+          )}
+          {meditations.length > 0 && (
+            <div className="home-split__sidebar-block">
+              <h2 className="home-split__section-heading">Meditations</h2>
+              <div className="home-split__meditations-feed">
+                {meditations.map((med) => (
+                  <Link
+                    key={med.id}
+                    href={`/meditations/${med.id}`}
+                    className="home-med-row"
+                  >
+                    <span className="home-med-row__label">{med.subtitle || "new meditation"}</span>
+                    <span className="home-med-row__date">{new Date(med.published_at || med.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}</span>
+                  </Link>
+                ))}
+              </div>
+              <Link href="/meditations" className="home-split__meditations-more">
+                All Meditations
+              </Link>
+            </div>
+          )}
+        </aside>
       </div>
 
       {observations.length === 0 && meditations.length === 0 && (

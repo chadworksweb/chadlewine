@@ -17,3 +17,22 @@ export function createPublicClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 }
+
+/**
+ * Resolve the effective playback mode for a song.
+ * Per-song override wins, otherwise falls back to sitewide default.
+ */
+export async function getPlaybackMode(
+  songPlaybackMode: string | null
+): Promise<"preview" | "full"> {
+  if (songPlaybackMode === "preview" || songPlaybackMode === "full") {
+    return songPlaybackMode;
+  }
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "playback_mode")
+    .single();
+  return data?.value === "full" ? "full" : "preview";
+}

@@ -96,12 +96,14 @@ export function SongDetail({
   totalTracks,
   expansions = [],
   badge,
+  playbackMode = "preview",
 }: {
   song: SongProps;
   album: AlbumProps;
   totalTracks: number;
   expansions?: ExpansionProps[];
   badge?: BadgeProps | null;
+  playbackMode?: "preview" | "full";
 }) {
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [buying, setBuying] = useState<"song" | "album" | null>(null);
@@ -195,6 +197,7 @@ export function SongDetail({
               trackNumber={song.track_number}
               trackTitle={song.title}
               durationSeconds={song.duration_seconds}
+              playbackMode={playbackMode}
             />
           )}
 

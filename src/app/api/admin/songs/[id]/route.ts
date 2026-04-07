@@ -25,7 +25,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const supabase = createAdminClient();
   const body = await request.json();
 
-  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "lyrics", "price", "is_single", "status", "release_date", "song_summary", "isrc"];
+  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "lyrics", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode"];
   const updates: Record<string, unknown> = {};
   for (const f of songFields) { if (f in body) updates[f] = body[f]; }
 

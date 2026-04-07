@@ -7,6 +7,7 @@ interface MiniPlayerProps {
   trackNumber: number;
   trackTitle: string;
   durationSeconds: number;
+  playbackMode?: "preview" | "full";
 }
 
 // Seeded PRNG (mulberry32) — deterministic waveform per track
@@ -66,7 +67,9 @@ export function MiniPlayer({
   trackNumber,
   trackTitle,
   durationSeconds,
+  playbackMode = "preview",
 }: MiniPlayerProps) {
+  const isFullPlay = playbackMode === "full";
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0–1 through preview window
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -96,20 +99,25 @@ export function MiniPlayer({
     const audio = audioRef.current;
     if (!audio || audio.paused) return;
 
-    const elapsed = audio.currentTime - PREVIEW_START;
-    const pct = Math.max(0, Math.min(1, elapsed / PREVIEW_DURATION));
-    setProgress(pct);
+    if (isFullPlay) {
+      const pct = Math.max(0, Math.min(1, audio.currentTime / durationSeconds));
+      setProgress(pct);
+    } else {
+      const elapsed = audio.currentTime - PREVIEW_START;
+      const pct = Math.max(0, Math.min(1, elapsed / PREVIEW_DURATION));
+      setProgress(pct);
 
-    // Fade out near end
-    const remaining = PREVIEW_DURATION - elapsed;
-    if (remaining <= FADE_DURATION) {
-      audio.volume = Math.max(0, remaining / FADE_DURATION);
-    }
+      // Fade out near end
+      const remaining = PREVIEW_DURATION - elapsed;
+      if (remaining <= FADE_DURATION) {
+        audio.volume = Math.max(0, remaining / FADE_DURATION);
+      }
 
-    // Stop at end of preview
-    if (elapsed >= PREVIEW_DURATION) {
-      stopPlayback();
-      return;
+      // Stop at end of preview
+      if (elapsed >= PREVIEW_DURATION) {
+        stopPlayback();
+        return;
+      }
     }
 
     rafRef.current = requestAnimationFrame(tick);
@@ -123,26 +131,39 @@ export function MiniPlayer({
 
     const audio = new Audio(streamingUrl);
     audioRef.current = audio;
-    audio.currentTime = PREVIEW_START;
-    audio.volume = 0;
+
+    if (isFullPlay) {
+      audio.currentTime = 0;
+      audio.volume = 1;
+    } else {
+      audio.currentTime = PREVIEW_START;
+      audio.volume = 0;
+    }
 
     audio.addEventListener("canplay", () => {
       audio.play().then(() => {
         setPlaying(true);
-        // Fade in
-        let vol = 0;
-        const fadeIn = setInterval(() => {
-          vol += 0.05;
-          if (vol >= 1) {
-            audio.volume = 1;
-            clearInterval(fadeIn);
-          } else {
-            audio.volume = vol;
-          }
-        }, FADE_DURATION * 1000 / 20);
+
+        if (!isFullPlay) {
+          // Fade in for preview
+          let vol = 0;
+          const fadeIn = setInterval(() => {
+            vol += 0.05;
+            if (vol >= 1) {
+              audio.volume = 1;
+              clearInterval(fadeIn);
+            } else {
+              audio.volume = vol;
+            }
+          }, FADE_DURATION * 1000 / 20);
+        }
 
         rafRef.current = requestAnimationFrame(tick);
       });
+    }, { once: true });
+
+    audio.addEventListener("ended", () => {
+      stopPlayback();
     }, { once: true });
 
     audio.addEventListener("error", () => {

@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     release_date: body.release_date || null,
     song_summary: body.song_summary || null,
     isrc: body.isrc || null,
+    playback_mode: body.playback_mode || null,
   }).select().single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });

@@ -29,6 +29,7 @@ interface SongData {
   release_date: string | null;
   song_summary: string | null;
   isrc: string | null;
+  playback_mode: string | null;
 }
 
 const emptySong: SongData = {
@@ -46,6 +47,7 @@ const emptySong: SongData = {
   release_date: null,
   song_summary: null,
   isrc: null,
+  playback_mode: null,
 };
 
 interface AlbumOption {
@@ -101,6 +103,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       release_date: d.release_date,
       song_summary: d.song_summary,
       isrc: d.isrc,
+      playback_mode: d.playback_mode,
     }),
     []
   );
@@ -365,6 +368,24 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 onChange={(e) => set("is_single", e.target.checked)}
               />
               <label className="obsv-editor__label" htmlFor="is_single" style={{ margin: 0 }}>Is Single</label>
+            </div>
+          </div>
+
+          {/* Playback */}
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">Playback</h3>
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="playback_mode">Mode</label>
+              <select
+                id="playback_mode"
+                className="obsv-editor__input"
+                value={form.playback_mode || ""}
+                onChange={(e) => set("playback_mode", e.target.value || null)}
+              >
+                <option value="">Site default</option>
+                <option value="preview">30s preview</option>
+                <option value="full">Full length</option>
+              </select>
             </div>
           </div>
 

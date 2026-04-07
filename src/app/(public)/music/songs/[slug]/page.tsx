@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createPublicClient } from "@/lib/supabase-server";
+import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
 import { fetchBadge } from "@/lib/rising-compass";
@@ -81,7 +81,10 @@ export default async function SongDetailPage({
 
   const { album, song, totalTracks, expansions } = result;
 
-  const badge = await fetchBadge(song.title, "Chad Lewine");
+  const [badge, playbackMode] = await Promise.all([
+    fetchBadge(song.title, "Chad Lewine"),
+    getPlaybackMode(song.playback_mode),
+  ]);
 
   return (
     <>
@@ -109,6 +112,7 @@ export default async function SongDetailPage({
         }}
         totalTracks={totalTracks}
         expansions={expansions}
+        playbackMode={playbackMode}
         badge={badge ? {
           tier: badge.tier,
           tierLabel: badge.tier_label,

@@ -13,20 +13,25 @@ export default function AdminMusicPage() {
   const [albumSongCounts, setAlbumSongCounts] = useState<Record<string, number>>({});
   const [featured, setFeatured] = useState<FeaturedSong | null>(null);
   const [settingFeatured, setSettingFeatured] = useState(false);
+  const [playbackMode, setPlaybackMode] = useState<string>("preview");
+  const [savingPlayback, setSavingPlayback] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    const [aRes, sRes, fRes] = await Promise.all([
+    const [aRes, sRes, fRes, settingsRes] = await Promise.all([
       fetch("/api/admin/albums"),
       fetch("/api/admin/songs"),
       fetch("/api/admin/featured-track"),
+      fetch("/api/admin/site-settings"),
     ]);
     const albumsData = await aRes.json();
     const songsData = await sRes.json();
     const featuredData = await fRes.json();
+    const settingsData = await settingsRes.json();
     setAlbums(albumsData);
     setSongs(songsData);
     setFeatured(featuredData);
+    if (settingsData.playback_mode) setPlaybackMode(settingsData.playback_mode);
 
     // Get song counts per album
     const counts: Record<string, number> = {};
@@ -38,6 +43,17 @@ export default function AdminMusicPage() {
     setAlbumSongCounts(counts);
     setLoading(false);
   }, []);
+
+  async function handleSetPlaybackMode(mode: string) {
+    setSavingPlayback(true);
+    await fetch("/api/admin/site-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playback_mode: mode }),
+    });
+    setPlaybackMode(mode);
+    setSavingPlayback(false);
+  }
 
   async function handleSetFeatured(songId: string) {
     setSettingFeatured(true);
@@ -91,6 +107,24 @@ export default function AdminMusicPage() {
               {settingFeatured ? "Saving..." : `Current: ${featured.title}`}
             </span>
           )}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: "var(--space-xl)", padding: "var(--space-lg)", background: "var(--bg-glass)", border: "1px solid var(--bg-glass-border)", borderRadius: 8 }}>
+        <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "var(--space-md)" }}>Playback Default</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)" }}>
+          <select
+            value={playbackMode}
+            onChange={(e) => handleSetPlaybackMode(e.target.value)}
+            disabled={savingPlayback}
+            style={{ flex: 1, padding: "8px 12px", background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-medium)", borderRadius: 6, fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)" }}
+          >
+            <option value="preview">30s Preview</option>
+            <option value="full">Full Length</option>
+          </select>
+          <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+            {savingPlayback ? "Saving..." : `Sitewide: ${playbackMode === "full" ? "Full Length" : "30s Preview"}`}
+          </span>
         </div>
       </div>
 
