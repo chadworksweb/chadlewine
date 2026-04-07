@@ -26,7 +26,7 @@ async function getFeaturedTrack() {
 
   const { data: song } = await supabase
     .from("songs")
-    .select("id, title, slug, track_number, duration_seconds, streaming_path, song_summary")
+    .select("id, title, slug, duration_seconds, streaming_path, song_summary")
     .eq("featured", true)
     .limit(1)
     .maybeSingle();
@@ -46,7 +46,7 @@ async function getFeaturedTrack() {
   const album = Array.isArray(junction.album) ? junction.album[0] : junction.album;
 
   return {
-    song: { ...song, track_number: junction.track_number || song.track_number },
+    song: { ...song, track_number: junction.track_number },
     album,
   };
 }
@@ -87,10 +87,6 @@ export default async function HomePage() {
         />
       )}
 
-      {featuredTrack && (
-        <FeaturedTrack song={featuredTrack.song} album={featuredTrack.album} />
-      )}
-
       <div className="home-split">
         {/* Left 2/3 — Observation archive */}
         <section className="home-split__observations">
@@ -113,10 +109,15 @@ export default async function HomePage() {
           )}
         </section>
 
-        {/* Right 1/3 — Meditations */}
-        {meditations.length > 0 && (
+        {/* Right 1/3 — Featured Track + Meditations */}
+        {(featuredTrack || meditations.length > 0) && (
           <aside className="home-split__meditations">
-            <h2 className="home-split__meditations-heading">Meditations</h2>
+            {featuredTrack && (
+              <FeaturedTrack song={featuredTrack.song} album={featuredTrack.album} />
+            )}
+            {meditations.length > 0 && (
+              <>
+              <h2 className="home-split__meditations-heading">Meditations</h2>
             <div className="home-split__meditations-feed">
               {meditations.map((med) => (
                 <Link
@@ -132,6 +133,8 @@ export default async function HomePage() {
             <Link href="/meditations" className="home-split__meditations-more">
               All Meditations
             </Link>
+              </>
+            )}
           </aside>
         )}
       </div>
