@@ -75,8 +75,38 @@ function generateStrike(w: number, h: number) {
 
 export function LightningEffect({ src, alt, className }: LightningEffectProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [striking, setStriking] = useState(false);
+
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = src;
+    imgRef.current = img;
+
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      const container = containerRef.current;
+      if (!canvas || !ctx || !container || !img.complete) {
+        requestAnimationFrame(draw);
+        return;
+      }
+      canvas.width = container.offsetWidth;
+      canvas.height = container.offsetHeight;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+
+    img.onload = draw;
+
+    const handleResize = () => draw();
+    window.addEventListener("resize", handleResize);
+    draw();
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, [src]);
 
   const strike = useCallback(() => {
     if (striking || !containerRef.current || !svgRef.current) return;
@@ -193,7 +223,11 @@ export function LightningEffect({ src, alt, className }: LightningEffectProps) {
       onClick={handleClick}
       style={{ position: "relative", overflow: "hidden", cursor: "pointer" }}
     >
-      <img src={src} alt={alt} style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }} />
+      <img src={src} alt={alt} style={{ width: "100%", display: "block", visibility: "hidden" }} />
+      <canvas
+        ref={canvasRef}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+      />
       <svg
         ref={svgRef}
         style={{

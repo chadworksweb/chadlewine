@@ -10,7 +10,7 @@ import { LightningEffect } from "@/components/effects/LightningEffect";
 
 type EffectMode = "ripple" | "lightning" | "glitch" | "kaleidoscope" | "shatter" | "invert";
 
-const effects: { id: EffectMode; label: string; icon: string; interaction: string }[] = [
+const allEffects: { id: EffectMode; label: string; icon: string; interaction: string }[] = [
   { id: "ripple", label: "Ripple", icon: "💧", interaction: "click" },
   { id: "lightning", label: "Lightning", icon: "⚡", interaction: "click" },
   { id: "glitch", label: "Glitch", icon: "📡", interaction: "drag" },
@@ -25,21 +25,24 @@ interface ArtPlaygroundProps {
   className?: string;
 }
 
+const hide: React.CSSProperties = { position: "absolute", inset: 0, visibility: "hidden", pointerEvents: "none" };
+const show: React.CSSProperties = { position: "relative" };
+
 export function CoverArtPlayground({ src, alt, className }: ArtPlaygroundProps) {
   const [mode, setMode] = useState<EffectMode>("ripple");
 
   return (
     <div className="art-playground">
-      <div className="art-playground__canvas">
-        {mode === "ripple" && <WaterRipple src={src} alt={alt} className={className} />}
-        {mode === "lightning" && <LightningEffect src={src} alt={alt} className={className} />}
-        {mode === "glitch" && <GlitchEffect src={src} alt={alt} className={className} />}
-        {mode === "kaleidoscope" && <KaleidoscopeEffect src={src} alt={alt} className={className} />}
-        {mode === "shatter" && <ShatterEffect src={src} alt={alt} className={className} />}
-        {mode === "invert" && <InvertWaveEffect src={src} alt={alt} className={className} />}
+      <div className="art-playground__canvas" style={{ position: "relative" }}>
+        <div style={mode === "ripple" ? show : hide}><WaterRipple src={src} alt={alt} className={className} /></div>
+        <div style={mode === "lightning" ? show : hide}><LightningEffect src={src} alt={alt} className={className} /></div>
+        <div style={mode === "glitch" ? show : hide}><GlitchEffect src={src} alt={alt} className={className} /></div>
+        <div style={mode === "kaleidoscope" ? show : hide}><KaleidoscopeEffect src={src} alt={alt} className={className} /></div>
+        <div style={mode === "shatter" ? show : hide}><ShatterEffect src={src} alt={alt} className={className} /></div>
+        <div style={mode === "invert" ? show : hide}><InvertWaveEffect src={src} alt={alt} className={className} /></div>
       </div>
       <div className="art-playground__menu">
-        {effects.map((fx) => (
+        {allEffects.map((fx) => (
           <button
             key={fx.id}
             className={`art-playground__btn${mode === fx.id ? " art-playground__btn--active" : ""}`}

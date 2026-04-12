@@ -26,34 +26,15 @@ const SCROLL_THRESHOLD = 120;
 const TRANSITION_MS = 1500;
 
 function ObservationSlide({ obs }: { obs: Observation }) {
-  const [playgroundActive, setPlaygroundActive] = useState(false);
-
   return (
     <>
       <div className="hero-lens__slide-art">
         {obs.art_image_path && (
-          playgroundActive ? (
-            <CoverArtPlayground
-              src={obs.art_image_path}
-              alt={obs.art_alt || obs.title}
-              className="cover-hero__art-wrap"
-            />
-          ) : (
-            <div className="cover-hero__art-wrap hero-lens__art-static">
-              <img
-                src={obs.art_image_path}
-                alt={obs.art_alt || obs.title}
-                className="cover-hero__art"
-              />
-              <button
-                className="hero-lens__fx-toggle"
-                onClick={() => setPlaygroundActive(true)}
-                title="Activate effects"
-              >
-                FX
-              </button>
-            </div>
-          )
+          <CoverArtPlayground
+            src={obs.art_image_path}
+            alt={obs.art_alt || obs.title}
+            className="cover-hero__art-wrap"
+          />
         )}
       </div>
 
@@ -210,7 +191,7 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
         >
           {observations.map((obs, i) => {
             const offset = i - currentIndex;
-            // Offset 0 = visible at center. Negative = scrolled past (above). Positive = upcoming (below).
+            if (Math.abs(offset) > 1) return null;
             const translateY = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
             return (
               <div
