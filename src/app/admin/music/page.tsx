@@ -15,6 +15,10 @@ export default function AdminMusicPage() {
   const [settingFeatured, setSettingFeatured] = useState(false);
   const [playbackMode, setPlaybackMode] = useState<string>("preview");
   const [savingPlayback, setSavingPlayback] = useState(false);
+  const [exploreMode, setExploreMode] = useState<"random" | "manual">("random");
+  const [exploreIds, setExploreIds] = useState<string[]>([]);
+  const [savingExplore, setSavingExplore] = useState(false);
+  const [exploreSaved, setExploreSaved] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -32,6 +36,15 @@ export default function AdminMusicPage() {
     setSongs(songsData);
     setFeatured(featuredData);
     if (settingsData.playback_mode) setPlaybackMode(settingsData.playback_mode);
+    if (settingsData.homepage_explore_songs_mode === "manual" || settingsData.homepage_explore_songs_mode === "random") {
+      setExploreMode(settingsData.homepage_explore_songs_mode);
+    }
+    if (settingsData.homepage_explore_songs_ids) {
+      try {
+        const parsed = JSON.parse(settingsData.homepage_explore_songs_ids);
+        if (Array.isArray(parsed)) setExploreIds(parsed);
+      } catch {}
+    }
 
     // Get song counts per album
     const counts: Record<string, number> = {};
@@ -53,6 +66,49 @@ export default function AdminMusicPage() {
     });
     setPlaybackMode(mode);
     setSavingPlayback(false);
+  }
+
+  async function handleSaveExplore(nextMode: "random" | "manual", nextIds: string[]) {
+    setSavingExplore(true);
+    setExploreSaved(false);
+    await fetch("/api/admin/site-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        homepage_explore_songs_mode: nextMode,
+        homepage_explore_songs_ids: JSON.stringify(nextIds),
+      }),
+    });
+    setSavingExplore(false);
+    setExploreSaved(true);
+    setTimeout(() => setExploreSaved(false), 2000);
+  }
+
+  function handleExploreModeChange(nextMode: "random" | "manual") {
+    setExploreMode(nextMode);
+    handleSaveExplore(nextMode, exploreIds);
+  }
+
+  function handleAddExploreSong(songId: string) {
+    if (!songId || exploreIds.includes(songId) || exploreIds.length >= 10) return;
+    const next = [...exploreIds, songId];
+    setExploreIds(next);
+    handleSaveExplore(exploreMode, next);
+  }
+
+  function handleRemoveExploreSong(songId: string) {
+    const next = exploreIds.filter((id) => id !== songId);
+    setExploreIds(next);
+    handleSaveExplore(exploreMode, next);
+  }
+
+  function handleMoveExploreSong(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= exploreIds.length) return;
+    const next = [...exploreIds];
+    [next[index], next[target]] = [next[target], next[index]];
+    setExploreIds(next);
+    handleSaveExplore(exploreMode, next);
   }
 
   async function handleSetFeatured(songId: string) {
@@ -126,6 +182,64 @@ export default function AdminMusicPage() {
             {savingPlayback ? "Saving..." : `Sitewide: ${playbackMode === "full" ? "Full Length" : "30s Preview"}`}
           </span>
         </div>
+      </div>
+
+      <div style={{ marginBottom: "var(--space-xl)", padding: "var(--space-lg)", background: "var(--bg-glass)", border: "1px solid var(--bg-glass-border)", borderRadius: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-md)" }}>
+          <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Explore Songs (Homepage)</h2>
+          <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", color: savingExplore ? "var(--text-tertiary)" : "var(--text-accent)" }}>
+            {savingExplore ? "Saving..." : exploreSaved ? "Saved" : ""}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", gap: "var(--space-md)", marginBottom: "var(--space-md)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer" }}>
+            <input type="radio" name="explore-mode" value="random" checked={exploreMode === "random"} onChange={() => handleExploreModeChange("random")} />
+            Random (10 from all published)
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer" }}>
+            <input type="radio" name="explore-mode" value="manual" checked={exploreMode === "manual"} onChange={() => handleExploreModeChange("manual")} />
+            Manual (pick and order up to 10)
+          </label>
+        </div>
+
+        {exploreMode === "manual" && (
+          <>
+            <div style={{ display: "flex", gap: "var(--space-md)", marginBottom: "var(--space-md)" }}>
+              <select
+                value=""
+                onChange={(e) => { handleAddExploreSong(e.target.value); e.target.value = ""; }}
+                disabled={exploreIds.length >= 10}
+                style={{ flex: 1, padding: "8px 12px", background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-medium)", borderRadius: 6, fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)" }}
+              >
+                <option value="">{exploreIds.length >= 10 ? "Max 10 reached" : "Add a song..."}</option>
+                {songs.filter((s) => !exploreIds.includes(s.id)).map((s) => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))}
+              </select>
+              <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-tertiary)", alignSelf: "center", whiteSpace: "nowrap" }}>
+                {exploreIds.length} / 10
+              </span>
+            </div>
+
+            {exploreIds.length > 0 && (
+              <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                {exploreIds.map((id, i) => {
+                  const song = songs.find((s) => s.id === id);
+                  return (
+                    <li key={id} style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", padding: "8px 12px", background: "var(--bg-elevated)", border: "1px solid var(--border-medium)", borderRadius: 6, fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                      <span style={{ color: "var(--text-tertiary)", minWidth: 20 }}>{i + 1}.</span>
+                      <span style={{ flex: 1 }}>{song?.title || <span style={{ color: "var(--text-tertiary)" }}>Missing song ({id.slice(0, 8)}...)</span>}</span>
+                      <button type="button" onClick={() => handleMoveExploreSong(i, -1)} disabled={i === 0} className="admin-btn admin-btn--secondary" style={{ padding: "4px 10px" }}>↑</button>
+                      <button type="button" onClick={() => handleMoveExploreSong(i, 1)} disabled={i === exploreIds.length - 1} className="admin-btn admin-btn--secondary" style={{ padding: "4px 10px" }}>↓</button>
+                      <button type="button" onClick={() => handleRemoveExploreSong(id)} className="admin-btn admin-btn--secondary" style={{ padding: "4px 10px" }}>×</button>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </>
+        )}
       </div>
 
       <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "var(--space-md)" }}>Albums</h2>

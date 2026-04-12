@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { HomepageFeed } from "@/components/HomepageFeed";
 import { FeaturedTrack } from "@/components/FeaturedTrack";
+import { ExploreSongs } from "@/components/ExploreSongs";
 
 
 export const revalidate = 60;
@@ -82,6 +83,64 @@ async function getFeaturedTrack() {
   };
 }
 
+async function getExploreSongs() {
+  const supabase = createPublicClient();
+
+  const { data: settings } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .in("key", ["homepage_explore_songs_mode", "homepage_explore_songs_ids"]);
+
+  const smap: Record<string, string> = {};
+  for (const s of settings || []) smap[s.key] = s.value;
+  const mode = smap.homepage_explore_songs_mode || "random";
+
+  let songs: { id: string; title: string; slug: string; song_summary: string | null }[] = [];
+
+  if (mode === "manual") {
+    let ids: string[] = [];
+    try { ids = JSON.parse(smap.homepage_explore_songs_ids || "[]"); } catch {}
+    if (ids.length === 0) return [];
+    const { data } = await supabase
+      .from("songs")
+      .select("id, title, slug, song_summary")
+      .eq("status", "published")
+      .in("id", ids);
+    const byId = new Map((data || []).map((s) => [s.id, s]));
+    songs = ids.map((id) => byId.get(id)).filter(Boolean) as typeof songs;
+  } else {
+    const { data } = await supabase
+      .from("songs")
+      .select("id, title, slug, song_summary")
+      .eq("status", "published");
+    const pool = data || [];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    songs = pool.slice(0, 10);
+  }
+
+  if (songs.length === 0) return [];
+
+  const songIds = songs.map((s) => s.id);
+  const { data: junctions } = await supabase
+    .from("album_songs")
+    .select("song_id, album:albums(title, slug, cover_art_path, cover_art_alt)")
+    .in("song_id", songIds);
+
+  const albumBySong: Record<string, { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null } | null> = {};
+  for (const j of junctions || []) {
+    const alb = Array.isArray((j as any).album) ? (j as any).album[0] : (j as any).album;
+    if (alb && !albumBySong[j.song_id]) albumBySong[j.song_id] = alb;
+  }
+
+  return songs.map((s) => ({
+    ...s,
+    album: albumBySong[s.id] || null,
+  }));
+}
+
 async function getMeditations() {
   const supabase = createPublicClient();
 
@@ -96,10 +155,11 @@ async function getMeditations() {
 }
 
 export default async function HomePage() {
-  const [observations, meditations, featuredTrack] = await Promise.all([
+  const [observations, meditations, featuredTrack, exploreSongs] = await Promise.all([
     getObservations(),
     getMeditations(),
     getFeaturedTrack(),
+    getExploreSongs(),
   ]);
 
   const featuredPlaybackMode = featuredTrack
@@ -143,6 +203,23 @@ export default async function HomePage() {
           </aside>
         }
       />
+
+      <ExploreSongs songs={exploreSongs} />
+
+      <section className="home-merch">
+        <div className="home-merch__inner site-contain">
+          <h2 className="home-merch__heading">Most Popular</h2>
+          <div className="home-merch__grid">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <div key={n} className="home-merch__card">
+                <div className="home-merch__img" />
+                <span className="home-merch__title">Product {n}</span>
+                <span className="home-merch__price">$—</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {observations.length === 0 && (
         <section className="empty-state">
