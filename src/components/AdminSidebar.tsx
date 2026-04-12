@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const adminNav = [
+interface NavItem {
+  href: string;
+  label: string;
+  exact?: boolean;
+  children?: { href: string; label: string }[];
+}
+
+const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/observations", label: "Observations" },
   { href: "/admin/meditations", label: "Meditations" },
@@ -13,7 +20,15 @@ const adminNav = [
   { href: "/admin/foundations", label: "Foundations" },
   { href: "/admin/door-pages", label: "Door Pages" },
   { href: "/admin/art", label: "Art" },
-  { href: "/admin/music", label: "Music" },
+  {
+    href: "/admin/music",
+    label: "Music",
+    children: [
+      { href: "/admin/music", label: "Overview" },
+      { href: "/admin/music/albums", label: "Albums" },
+      { href: "/admin/music/songs", label: "Songs" },
+    ],
+  },
   { href: "/admin/curation", label: "Curation" },
   { href: "/admin/videos", label: "Videos" },
   { href: "/admin/subscribers", label: "Subscribers" },
@@ -44,9 +59,35 @@ export function AdminSidebar() {
 
       <nav className="admin-sidebar__nav">
         {adminNav.map((item) => {
-          const isActive = "exact" in item && item.exact
+          const isActive = item.exact
             ? pathname === item.href
             : pathname.startsWith(item.href);
+
+          if (item.children) {
+            return (
+              <div key={item.href} className="admin-sidebar__flyout-wrap">
+                <Link
+                  href={item.href}
+                  className={`admin-sidebar__link${isActive ? " admin-sidebar__link--active" : ""}`}
+                >
+                  {item.label}
+                </Link>
+                <div className="admin-sidebar__flyout">
+                  <div className="admin-sidebar__flyout-title">{item.label}</div>
+                  {item.children.map((child) => (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className="admin-sidebar__flyout-item"
+                    >
+                      {child.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+
           return (
             <Link
               key={item.href}

@@ -25,7 +25,6 @@ interface HomepageFeedProps {
 
 export function HomepageFeed({ observations, sidebar }: HomepageFeedProps) {
   const feedObs = useMemo(() => observations.slice(0, FEED_LIMIT), [observations]);
-  const [activeIndex, setActiveIndex] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [stuck, setStuck] = useState(false);
 
@@ -34,7 +33,11 @@ export function HomepageFeed({ observations, sidebar }: HomepageFeedProps) {
     if (!heading) return;
     const stickyTopPx = parseFloat(getComputedStyle(heading).top) || 96;
     const io = new IntersectionObserver(
-      ([entry]) => setStuck(entry.intersectionRatio < 1),
+      ([entry]) =>
+        setStuck(
+          entry.intersectionRatio < 1 &&
+          entry.boundingClientRect.top <= stickyTopPx
+        ),
       { rootMargin: `-${stickyTopPx + 1}px 0px 0px 0px`, threshold: [1] }
     );
     io.observe(heading);
@@ -43,20 +46,15 @@ export function HomepageFeed({ observations, sidebar }: HomepageFeedProps) {
 
   return (
     <>
-      {feedObs.length > 0 && (
-        <HeroLens observations={feedObs} onIndexChange={setActiveIndex} />
-      )}
+      {feedObs.length > 0 && <HeroLens observations={feedObs} />}
 
       <div className="home-split">
         <section className="home-split__observations">
           <h2 ref={headingRef} className={`home-split__section-heading${stuck ? " is-stuck" : ""}`}>Observations</h2>
           {feedObs.length > 0 && (
             <div className="archive__feed">
-              {feedObs.map((obsv, i) => (
-                <div
-                  key={obsv.slug}
-                  className={`archive__feed-item${i === activeIndex ? " archive__feed-item--inFocus" : ""}`}
-                >
+              {feedObs.map((obsv) => (
+                <div key={obsv.slug} className="archive__feed-item">
                   <FeedEntry
                     title={obsv.title}
                     slug={obsv.slug}

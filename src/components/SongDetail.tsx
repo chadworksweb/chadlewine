@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { MiniPlayer } from "@/components/MiniPlayer";
+import { VISIBILITY_CATEGORIES } from "@/lib/song-visibility";
 
 interface SongProps {
   id: string;
@@ -16,6 +17,8 @@ interface SongProps {
   release_date: string | null;
   song_summary: string | null;
   isrc: string | null;
+  art_image_path: string | null;
+  art_alt: string | null;
 }
 
 interface AlbumProps {
@@ -32,6 +35,13 @@ interface ExpansionProps {
   title: string;
   slug: string;
   body: string;
+}
+
+interface VisibilitySectionProps {
+  id: string;
+  category: string;
+  content: string;
+  contentHtml: string;
 }
 
 interface BadgeProps {
@@ -95,13 +105,17 @@ export function SongDetail({
   album,
   totalTracks,
   expansions = [],
+  visibilitySections = [],
+  composition = null,
   badge,
   playbackMode = "preview",
 }: {
   song: SongProps;
-  album: AlbumProps;
+  album: AlbumProps | null;
   totalTracks: number;
   expansions?: ExpansionProps[];
+  visibilitySections?: VisibilitySectionProps[];
+  composition?: { contentHtml: string } | null;
   badge?: BadgeProps | null;
   playbackMode?: "preview" | "full";
 }) {
@@ -120,12 +134,13 @@ export function SongDetail({
   }
 
   async function handleBuy(type: "song" | "album") {
+    if (type === "album" && !album) return;
     setBuying(type);
     try {
       const res = await fetch("/api/music-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, id: type === "song" ? song.id : album.id }),
+        body: JSON.stringify({ type, id: type === "song" ? song.id : album!.id }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
@@ -134,39 +149,50 @@ export function SongDetail({
     }
   }
 
+  // Resolve cover art: song art overrides album art; fall back to album art if song has none
+  const coverArtPath = song.art_image_path || album?.cover_art_path || null;
+  const coverArtAlt = song.art_alt || album?.cover_art_alt || album?.title || song.title;
+
   const infoCells: { label: string; value: React.ReactNode }[] = [];
 
   if (song.price) {
     infoCells.push({ label: "Price", value: formatPrice(song.price) });
   }
 
-  infoCells.push({
-    label: "Track",
-    value: `${song.track_number} of ${totalTracks}`,
-  });
+  if (album) {
+    infoCells.push({
+      label: "Track",
+      value: `${song.track_number} of ${totalTracks}`,
+    });
 
-  infoCells.push({
-    label: "Album",
-    value: (
-      <Link
-        href="/discography"
-        className="track-detail__glitch-link"
-        data-text={album.title}
-      >
-        {album.title}
-      </Link>
-    ),
-  });
+    infoCells.push({
+      label: "Album",
+      value: (
+        <Link
+          href="/discography"
+          className="track-detail__glitch-link"
+          data-text={album.title}
+        >
+          {album.title}
+        </Link>
+      ),
+    });
+  } else {
+    infoCells.push({
+      label: "Release",
+      value: "Single",
+    });
+  }
 
   return (
     <div className="track-detail">
       <div className="track-detail__grid">
-        {/* Left column — Album art */}
+        {/* Left column — Cover art (song art overrides album art) */}
         <div className="track-detail__art-col">
-          {album.cover_art_path && (
+          {coverArtPath && (
             <img
-              src={album.cover_art_path}
-              alt={album.cover_art_alt || album.title}
+              src={coverArtPath}
+              alt={coverArtAlt}
               className="track-detail__cover"
               loading="eager"
             />
@@ -204,9 +230,11 @@ export function SongDetail({
           {/* Action row: buttons + badge */}
           <div className="track-detail__action-row">
             <div className="track-detail__actions">
-              <Link href={`/music/albums/${album.slug}`} className="track-detail__btn track-detail__btn--buy-album">
-                Buy Album{album.price ? ` — ${formatPrice(album.price)}` : ""}
-              </Link>
+              {album && (
+                <Link href={`/music/albums/${album.slug}`} className="track-detail__btn track-detail__btn--buy-album">
+                  Buy Album{album.price ? ` — ${formatPrice(album.price)}` : ""}
+                </Link>
+              )}
               {song.price && (
                 <button
                   type="button"
@@ -316,8 +344,81 @@ export function SongDetail({
               </div>
             </div>
           )}
+
         </div>
       </div>
+
+      {/* Composition — unified published piece */}
+      {composition && composition.contentHtml && (
+        <div className="track-visibility">
+          <div className="track-visibility__rule" />
+          <div className="track-visibility__block track-visibility__block--composition">
+            <div className="track-visibility__block-inner" style={{ gridTemplateColumns: "1fr" }}>
+              <div
+                className="track-visibility__content-col track-visibility__content--composition reading-column"
+                style={{ maxWidth: "800px" }}
+                dangerouslySetInnerHTML={{ __html: composition.contentHtml }}
+              />
+            </div>
+          </div>
+          <div className="track-visibility__business">
+            <span className="track-visibility__business-text">
+              Interested in licensing, sync placement, or collaboration?
+            </span>
+            <Link href="/business" className="track-visibility__business-link">
+              Business Inquiries
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Visibility fallback — raw sections when no composition */}
+      {!composition && visibilitySections.length > 0 && (
+        <div className="track-visibility">
+          <div className="track-visibility__rule" />
+
+          {visibilitySections.map((section, idx) => {
+            const cat = VISIBILITY_CATEGORIES.find((c) => c.slug === section.category);
+            if (!cat || !section.contentHtml) return null;
+
+            const isWide = ["hooks", "fragments", "connections"].includes(section.category);
+
+            return (
+              <section
+                key={section.id}
+                className={`track-visibility__block track-visibility__block--${section.category}${isWide ? " track-visibility__block--wide" : ""}${idx % 2 === 1 ? " track-visibility__block--alt" : ""}`}
+              >
+                <div className="track-visibility__block-inner">
+                  <div className="track-visibility__label-col">
+                    <span className="track-visibility__category-tag">{cat.label}</span>
+                    <span className="track-visibility__category-desc">{cat.description}</span>
+                  </div>
+                  <div
+                    className={`track-visibility__content-col track-visibility__content--${section.category} reading-column`}
+                    dangerouslySetInnerHTML={{ __html: section.contentHtml }}
+                  />
+                </div>
+                <div className={`track-visibility__media-slot track-visibility__media--${section.category}`} />
+              </section>
+            );
+          })}
+
+          <div className="track-visibility__business">
+            <span className="track-visibility__business-text">
+              Interested in licensing, sync placement, or collaboration?
+            </span>
+            <Link href="/business" className="track-visibility__business-link">
+              Business Inquiries
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {!composition && visibilitySections.length === 0 && (
+        <div className="track-detail__business-cta" style={{ maxWidth: "800px", margin: "0 auto" }}>
+          Interested in licensing or sync placement? <Link href="/business">Business inquiries</Link>
+        </div>
+      )}
     </div>
   );
 }

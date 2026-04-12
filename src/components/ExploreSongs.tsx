@@ -8,6 +8,8 @@ interface ExploreSong {
   title: string;
   slug: string;
   song_summary: string | null;
+  art_image_path: string | null;
+  art_alt: string | null;
   album: {
     title: string;
     slug: string;
@@ -16,12 +18,18 @@ interface ExploreSong {
   } | null;
 }
 
+function resolveArt(s: ExploreSong): { src: string | null; alt: string } {
+  const src = s.art_image_path || s.album?.cover_art_path || null;
+  const alt = s.art_alt || s.album?.cover_art_alt || s.title;
+  return { src, alt };
+}
+
 interface ExploreSongsProps {
   songs: ExploreSong[];
 }
 
 export function ExploreSongs({ songs }: ExploreSongsProps) {
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(Math.floor(songs.length / 2));
   if (!songs || songs.length === 0) return null;
 
   const current = songs[active];
@@ -29,12 +37,13 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
 
   return (
     <section className="explore-songs">
-      <div className="explore-songs__frame explore-songs__frame--top" aria-hidden="true">
-        <span className="explore-songs__frame-label">◉ Lens · 002 / Explore Songs</span>
+      <div className="explore-songs__frame explore-songs__frame--top">
+        <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
+        <h2 className="explore-songs__heading">Explore Songs</h2>
+        <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
       </div>
 
       <div className="explore-songs__inner site-contain">
-        <h2 className="explore-songs__heading">Explore Songs</h2>
 
         <div className="coverflow">
           <button
@@ -44,7 +53,7 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
             disabled={active === 0}
             aria-label="Previous song"
           >
-            ‹
+            <span className="coverflow__nav-glyph">❮</span>
           </button>
 
           <div className="coverflow__stage">
@@ -52,10 +61,10 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
               const offset = i - active;
               const abs = Math.abs(offset);
               const style: React.CSSProperties = {
-                transform: `translateX(${offset * 140}px) translateZ(${-abs * 160}px) rotateY(${offset * -32}deg)`,
+                transform: `translateX(${offset * 148}px) translateZ(${-abs * 160}px) rotateY(${offset * -19}deg)`,
                 zIndex: 100 - abs,
-                opacity: abs > 3 ? 0 : 1,
-                pointerEvents: abs > 3 ? "none" : "auto",
+                opacity: abs > 5 ? 0 : 1,
+                pointerEvents: abs > 5 ? "none" : "auto",
               };
               return (
                 <button
@@ -66,16 +75,19 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
                   onClick={() => setActive(i)}
                   aria-label={s.title}
                 >
-                  {s.album?.cover_art_path ? (
-                    <img
-                      src={s.album.cover_art_path}
-                      alt={s.album.cover_art_alt || s.title}
-                      className="coverflow__art"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="coverflow__art coverflow__art--empty" />
-                  )}
+                  {(() => {
+                    const { src, alt } = resolveArt(s);
+                    return src ? (
+                      <img
+                        src={src}
+                        alt={alt}
+                        className="coverflow__art"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="coverflow__art coverflow__art--empty" />
+                    );
+                  })()}
                 </button>
               );
             })}
@@ -88,34 +100,45 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
             disabled={active === last}
             aria-label="Next song"
           >
-            ›
+            <span className="coverflow__nav-glyph">❯</span>
           </button>
         </div>
 
         <div className="explore-songs__meta">
           <h3 className="explore-songs__title">{current.title}</h3>
-          {current.album && (
+          <span className="explore-songs__album">
+            from{" "}
+            {current.album ? (
+              <Link
+                href={`/music/albums/${current.album.slug}`}
+                className="explore-songs__album-link"
+              >
+                <em>{current.album.title}</em>
+              </Link>
+            ) : (
+              <em>{current.title}</em>
+            )}
+          </span>
+          <div className="explore-songs__detail-row">
+            <p className="explore-songs__summary">
+              {current.song_summary || "A short summary of this song will appear here — capturing the essence of the track in a sentence or two."}
+            </p>
             <Link
-              href={`/music/albums/${current.album.slug}`}
-              className="explore-songs__album"
+              href={`/music/songs/${current.slug}`}
+              className="explore-songs__cta"
             >
-              from <em>{current.album.title}</em>
+              Listen →
             </Link>
-          )}
-          {current.song_summary && (
-            <p className="explore-songs__summary">{current.song_summary}</p>
-          )}
-          <Link
-            href={`/music/songs/${current.slug}`}
-            className="explore-songs__cta"
-          >
-            Listen →
-          </Link>
+          </div>
         </div>
       </div>
 
-      <div className="explore-songs__frame explore-songs__frame--bottom" aria-hidden="true">
-        <span className="explore-songs__frame-label">◯ End · Lens / 002</span>
+      <div className="explore-songs__frame explore-songs__frame--bottom">
+        <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
+        <Link href="/music/songs" className="explore-songs__all">
+          View All Songs →
+        </Link>
+        <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
       </div>
     </section>
   );

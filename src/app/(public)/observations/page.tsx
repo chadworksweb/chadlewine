@@ -46,7 +46,7 @@ export default async function ObservationsArchivePage() {
 
       <div className="observations-archive">
         {feed.length > 0 && (
-          <div className="archive__feed">
+          <div className="observations-grid">
             {feed.map((obsv) => (
               <FeedEntry
                 key={obsv.slug}

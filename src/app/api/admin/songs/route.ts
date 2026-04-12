@@ -42,6 +42,16 @@ export async function POST(request: Request) {
     song_summary: body.song_summary || null,
     isrc: body.isrc || null,
     playback_mode: body.playback_mode || null,
+    focus_keyphrase: body.focus_keyphrase || null,
+    secondary_keyphrases: body.secondary_keyphrases || [],
+    search_intent: body.search_intent || "informational",
+    citation_summary: body.citation_summary || null,
+    paa_pairs: body.paa_pairs || [],
+    entity_tags: body.entity_tags || [],
+    seo_title: body.seo_title || null,
+    seo_description: body.seo_description || null,
+    art_image_path: body.art_image_path || null,
+    art_alt: body.art_alt || null,
   }).select().single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
@@ -56,5 +66,16 @@ export async function POST(request: Request) {
     if (jErr) return Response.json({ error: jErr.message }, { status: 500 });
   }
 
-  return Response.json({ ...song, album_id: body.album_id, track_number: body.track_number || 1 }, { status: 201 });
+  // Create topic mappings
+  if (Array.isArray(body.topic_ids) && body.topic_ids.length > 0 && song) {
+    const rows = body.topic_ids.map((tId: string) => ({ song_id: song.id, topic_id: tId }));
+    await supabase.from("song_topics").insert(rows);
+  }
+
+  return Response.json({
+    ...song,
+    album_id: body.album_id,
+    track_number: body.track_number || 1,
+    topic_ids: Array.isArray(body.topic_ids) ? body.topic_ids : [],
+  }, { status: 201 });
 }

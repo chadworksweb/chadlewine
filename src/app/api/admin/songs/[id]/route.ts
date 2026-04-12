@@ -13,10 +13,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .eq("song_id", id)
     .single();
 
+  const { data: topicLinks } = await supabase
+    .from("song_topics")
+    .select("topic_id")
+    .eq("song_id", id);
+
   return Response.json({
     ...song,
     album_id: assoc?.album_id || null,
     track_number: assoc?.track_number || null,
+    topic_ids: (topicLinks || []).map((t) => t.topic_id),
   });
 }
 
@@ -25,7 +31,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const supabase = createAdminClient();
   const body = await request.json();
 
-  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "lyrics", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode"];
+  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "lyrics", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt"];
   const updates: Record<string, unknown> = {};
   for (const f of songFields) { if (f in body) updates[f] = body[f]; }
 
@@ -54,10 +60,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
   }
 
+  // Replace topic mappings
+  if (Array.isArray(body.topic_ids)) {
+    await supabase.from("song_topics").delete().eq("song_id", id);
+    if (body.topic_ids.length > 0) {
+      const rows = body.topic_ids.map((tId: string) => ({ song_id: id, topic_id: tId }));
+      await supabase.from("song_topics").insert(rows);
+    }
+  }
+
   const { data: song } = await supabase.from("songs").select("*").eq("id", id).single();
   const { data: assoc } = await supabase.from("album_songs").select("album_id, track_number").eq("song_id", id).single();
+  const { data: topicLinks } = await supabase.from("song_topics").select("topic_id").eq("song_id", id);
 
-  return Response.json({ ...song, album_id: assoc?.album_id || null, track_number: assoc?.track_number || null });
+  return Response.json({
+    ...song,
+    album_id: assoc?.album_id || null,
+    track_number: assoc?.track_number || null,
+    topic_ids: (topicLinks || []).map((t) => t.topic_id),
+  });
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {

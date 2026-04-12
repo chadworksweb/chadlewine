@@ -6,6 +6,10 @@ interface SongChargeJsonLdProps {
   albumTitle: string;
   albumUrl: string;
   badge: RisingCompassBadgeData;
+  citationSummary?: string | null;
+  focusKeyphrase?: string | null;
+  secondaryKeyphrases?: string[];
+  paaPairs?: { question: string; answer: string }[];
 }
 
 export function SongChargeJsonLd({
@@ -14,6 +18,10 @@ export function SongChargeJsonLd({
   albumTitle,
   albumUrl,
   badge,
+  citationSummary,
+  focusKeyphrase,
+  secondaryKeyphrases = [],
+  paaPairs = [],
 }: SongChargeJsonLdProps) {
   const jsonLd = {
     "@context": [
@@ -110,12 +118,38 @@ export function SongChargeJsonLd({
         url: "https://risingcompass.net",
       },
     },
+    ...(citationSummary ? { description: citationSummary } : {}),
+    ...((focusKeyphrase || secondaryKeyphrases.length > 0) ? {
+      keywords: [focusKeyphrase, ...secondaryKeyphrases].filter(Boolean).join(", "),
+    } : {}),
   };
 
+  const schemas: Record<string, unknown>[] = [jsonLd];
+
+  if (paaPairs.length > 0) {
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: paaPairs.map((pair) => ({
+        "@type": "Question",
+        name: pair.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: pair.answer,
+        },
+      })),
+    });
+  }
+
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-    />
+    <>
+      {schemas.map((schema, i) => (
+        <script
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      ))}
+    </>
   );
 }

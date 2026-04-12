@@ -5,12 +5,21 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { slugify } from "@/lib/utils";
 import { useAutosave } from "@/hooks/useAutosave";
+import { TaxonomyPicker } from "@/components/TaxonomyPicker";
+import { MediaLibrary } from "@/components/MediaLibrary";
 
 interface ExpansionSummary {
   id: string;
   title: string;
   status: string;
   display_order: number;
+}
+
+interface VisibilitySectionSummary {
+  id: string;
+  category: string;
+  content: string;
+  status: string;
 }
 
 interface SongData {
@@ -30,6 +39,23 @@ interface SongData {
   song_summary: string | null;
   isrc: string | null;
   playback_mode: string | null;
+  focus_keyphrase: string;
+  secondary_keyphrases: string[];
+  search_intent: string;
+  citation_summary: string;
+  paa_pairs: { question: string; answer: string }[];
+  entity_tags: string[];
+  seo_title: string;
+  seo_description: string;
+  topic_ids: string[];
+  art_image_path: string | null;
+  art_alt: string | null;
+}
+
+interface TopicOption {
+  id: string;
+  label: string;
+  slug: string;
 }
 
 const emptySong: SongData = {
@@ -48,25 +74,138 @@ const emptySong: SongData = {
   song_summary: null,
   isrc: null,
   playback_mode: null,
+  focus_keyphrase: "",
+  secondary_keyphrases: [],
+  search_intent: "informational",
+  citation_summary: "",
+  paa_pairs: [],
+  entity_tags: [],
+  seo_title: "",
+  seo_description: "",
+  topic_ids: [],
+  art_image_path: null,
+  art_alt: null,
 };
 
 interface AlbumOption {
   id: string;
   title: string;
+  cover_art_path?: string | null;
+  cover_art_alt?: string | null;
+}
+
+function SongCoverArtPanel({
+  imagePath,
+  altText,
+  onImageChange,
+  onAltChange,
+}: {
+  imagePath: string;
+  altText: string;
+  onImageChange: (url: string) => void;
+  onAltChange: (alt: string) => void;
+}) {
+  const [mediaOpen, setMediaOpen] = useState(false);
+
+  return (
+    <div className="obsv-editor__panel">
+      <h3 className="obsv-editor__panel-title">Cover Art</h3>
+      <p style={{ margin: "0 0 var(--space-sm)", fontSize: "0.75rem", color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>
+        Optional. If set, overrides the album&rsquo;s cover art everywhere this song appears.
+      </p>
+
+      {imagePath ? (
+        <div className="cover-art-preview">
+          <img
+            src={imagePath}
+            alt={altText || "Song cover art preview"}
+            className="cover-art-preview__img"
+          />
+          <div className="cover-art-preview__actions">
+            <button
+              type="button"
+              className="admin-btn admin-btn--primary"
+              onClick={() => setMediaOpen(true)}
+              style={{ fontSize: "0.6875rem", padding: "4px 12px" }}
+            >
+              Replace
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn--danger"
+              onClick={() => onImageChange("")}
+              style={{ fontSize: "0.6875rem", padding: "4px 12px" }}
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="cover-art-upload"
+          onClick={() => setMediaOpen(true)}
+        >
+          Choose Cover Art
+        </button>
+      )}
+
+      {imagePath && (
+        <div className="obsv-editor__field" style={{ marginTop: "var(--space-sm)" }}>
+          <label className="obsv-editor__label" htmlFor="song_art_alt">Alt Text</label>
+          <input
+            id="song_art_alt"
+            className="obsv-editor__input"
+            type="text"
+            value={altText || ""}
+            onChange={(e) => onAltChange(e.target.value)}
+            placeholder="Describe the cover art"
+          />
+        </div>
+      )}
+
+      <MediaLibrary
+        open={mediaOpen}
+        onClose={() => setMediaOpen(false)}
+        onSelect={(url: string) => {
+          onImageChange(url);
+          setMediaOpen(false);
+        }}
+      />
+    </div>
+  );
 }
 
 export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; presetAlbumId?: string }) {
   const router = useRouter();
-  const [form, setForm] = useState<SongData>(
-    initial || { ...emptySong, album_id: presetAlbumId || "" }
-  );
+  const [form, setForm] = useState<SongData>(() => {
+    if (!initial) return { ...emptySong, album_id: presetAlbumId || "" };
+    return {
+      ...initial,
+      focus_keyphrase: initial.focus_keyphrase || "",
+      secondary_keyphrases: initial.secondary_keyphrases || [],
+      search_intent: initial.search_intent || "informational",
+      citation_summary: initial.citation_summary || "",
+      paa_pairs: initial.paa_pairs || [],
+      entity_tags: initial.entity_tags || [],
+      seo_title: initial.seo_title || "",
+      seo_description: initial.seo_description || "",
+      topic_ids: initial.topic_ids || [],
+    };
+  });
   const [albums, setAlbums] = useState<AlbumOption[]>([]);
+  const [allTopics, setAllTopics] = useState<TopicOption[]>([]);
   const [expansions, setExpansions] = useState<ExpansionSummary[]>([]);
+  const [visibilitySections, setVisibilitySections] = useState<VisibilitySectionSummary[]>([]);
+  const [compositionStatus, setCompositionStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/albums")
       .then((r) => r.json())
       .then((data: AlbumOption[]) => setAlbums(data));
+    fetch("/api/admin/topics")
+      .then((r) => r.json())
+      .then((data: TopicOption[]) => setAllTopics(data));
   }, []);
 
   useEffect(() => {
@@ -74,6 +213,12 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     fetch(`/api/admin/expansions?song_id=${form.id}`)
       .then((r) => r.json())
       .then((data: ExpansionSummary[]) => setExpansions(data));
+    fetch(`/api/admin/song-visibility-sections?song_id=${form.id}`)
+      .then((r) => r.json())
+      .then((data: VisibilitySectionSummary[]) => setVisibilitySections(data));
+    fetch(`/api/admin/song-composition?song_id=${form.id}`)
+      .then((r) => r.json())
+      .then((data) => setCompositionStatus(data?.status || null));
   }, [form.id]);
 
   const set = useCallback((field: keyof SongData, value: unknown) => {
@@ -104,9 +249,32 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       song_summary: d.song_summary,
       isrc: d.isrc,
       playback_mode: d.playback_mode,
+      focus_keyphrase: d.focus_keyphrase,
+      secondary_keyphrases: d.secondary_keyphrases,
+      search_intent: d.search_intent,
+      citation_summary: d.citation_summary,
+      paa_pairs: d.paa_pairs,
+      entity_tags: d.entity_tags,
+      seo_title: d.seo_title,
+      seo_description: d.seo_description,
+      topic_ids: d.topic_ids,
+      art_image_path: d.art_image_path,
+      art_alt: d.art_alt,
     }),
     []
   );
+
+  function toggleTopic(id: string) {
+    setForm((prev) => {
+      const has = prev.topic_ids.includes(id);
+      return {
+        ...prev,
+        topic_ids: has
+          ? prev.topic_ids.filter((v) => v !== id)
+          : [...prev.topic_ids, id],
+      };
+    });
+  }
 
   const { status: autosaveStatus } = useAutosave({
     data: form,
@@ -160,6 +328,15 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
           {!form.id ? "New Song" : "Edit Song"}
         </h1>
         <div className="obsv-editor__actions">
+          {form.id && form.slug && (
+            <Link
+              href={`/music/songs/${form.slug}`}
+              className="admin-btn admin-btn--secondary"
+              target="_blank"
+            >
+              View Song
+            </Link>
+          )}
           {form.id && (
             <button
               className="admin-btn admin-btn--danger"
@@ -207,7 +384,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             <textarea
               id="lyrics"
               className="obsv-editor__input"
-              value={form.lyrics || ""}
+              value={(form.lyrics || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n")}
               onChange={(e) => set("lyrics", e.target.value || null)}
               rows={16}
               style={{ fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap" }}
@@ -225,6 +402,43 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               placeholder="About this song..."
             />
           </div>
+
+          {/* Visibility */}
+          {form.id && (
+            <div className="obsv-editor__panel">
+              <h3 className="obsv-editor__panel-title">Visibility</h3>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.875rem", color: "var(--text-secondary)", margin: "0 0 0.25rem" }}>
+                {visibilitySections.filter((s) => s.content).length}/9 sections filled
+              </p>
+              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.875rem", color: compositionStatus === "published" ? "#33cc55" : compositionStatus === "draft" ? "#ffbb33" : "var(--text-tertiary)", margin: "0 0 0.75rem" }}>
+                Composition: {compositionStatus || "not started"}
+              </p>
+              <Link
+                href={`/admin/music/songs/${form.id}/visibility`}
+                className="admin-btn"
+                style={{ display: "inline-block", fontSize: "0.875rem" }}
+              >
+                Open Visibility
+              </Link>
+              {expansions.length > 0 && (
+                <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-subtle)" }}>
+                  <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "var(--text-tertiary)", margin: "0 0 0.35rem" }}>
+                    Legacy Expansions ({expansions.length})
+                  </p>
+                  {expansions.map((exp) => (
+                    <div key={exp.id} style={{ marginBottom: "0.25rem" }}>
+                      <Link
+                        href={`/admin/music/songs/${form.id}/expansions/${exp.id}`}
+                        style={{ color: "var(--text-link)", fontFamily: "var(--font-ui)", fontSize: "0.75rem" }}
+                      >
+                        {exp.title || "Untitled"}
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -241,6 +455,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 onChange={(e) => set("status", e.target.value)}
               >
                 <option value="draft">Draft</option>
+                <option value="unreleased">Unreleased</option>
                 <option value="published">Published</option>
               </select>
             </div>
@@ -312,6 +527,29 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               />
             </div>
           </div>
+
+          <TaxonomyPicker
+            heading="Topics"
+            items={allTopics}
+            selected={form.topic_ids}
+            onToggle={toggleTopic}
+            onCreate={(item) => {
+              setAllTopics((prev) =>
+                [...prev, item as TopicOption].sort((a, b) => a.label.localeCompare(b.label))
+              );
+              setForm((prev) => ({ ...prev, topic_ids: [...prev.topic_ids, item.id] }));
+            }}
+            createEndpoint="/api/admin/topics"
+            createPlaceholder="+ New topic"
+            nameField="label"
+          />
+
+          <SongCoverArtPanel
+            imagePath={form.art_image_path || ""}
+            altText={form.art_alt || ""}
+            onImageChange={(url) => set("art_image_path", url || null)}
+            onAltChange={(alt) => set("art_alt", alt || null)}
+          />
 
           {/* Files */}
           <div className="obsv-editor__panel">
@@ -428,40 +666,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             )}
           </div>
 
-          {/* Expansions */}
-          {form.id && (
-            <div className="obsv-editor__panel">
-              <h3 className="obsv-editor__panel-title">Expansions</h3>
-              {expansions.length > 0 ? (
-                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 0.75rem" }}>
-                  {expansions.map((exp) => (
-                    <li key={exp.id} style={{ marginBottom: "0.35rem" }}>
-                      <Link
-                        href={`/admin/music/songs/${form.id}/expansions/${exp.id}`}
-                        style={{ color: "var(--text-link)", fontFamily: "var(--font-ui)", fontSize: "0.875rem" }}
-                      >
-                        {exp.title || "Untitled"}
-                      </Link>
-                      <span style={{ color: "var(--text-tertiary)", fontSize: "0.75rem", marginLeft: "0.5rem" }}>
-                        {exp.status}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: "0.875rem", margin: "0 0 0.75rem" }}>
-                  No expansions yet.
-                </p>
-              )}
-              <Link
-                href={`/admin/music/songs/${form.id}/expansions/new`}
-                className="admin-btn"
-                style={{ display: "inline-block", fontSize: "0.875rem" }}
-              >
-                + Add Expansion
-              </Link>
-            </div>
-          )}
         </div>
       </div>
     </div>

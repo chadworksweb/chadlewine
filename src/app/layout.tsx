@@ -25,6 +25,12 @@ export const metadata: Metadata = {
     "max-image-preview": "large",
     "max-snippet": -1,
   },
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "32x32" },
+    ],
+  },
   alternates: {
     canonical: "https://chadlewine.com",
   },

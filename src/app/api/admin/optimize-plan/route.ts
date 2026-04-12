@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     .join("\n");
 
   const voiceSection = voiceProfile
-    ? `\n\nIMPORTANT — VOICE PROFILE:\nAll suggested text (citation summaries, PAA answers, SEO descriptions, hook/tension candidates) MUST match Chad Lewine's voice. Here is his voice profile:\n\n${voiceProfile.slice(0, 8000)}`
+    ? `\n\nIMPORTANT — VOICE PROFILE:\nAll suggested text (citation summaries, PAA answers, SEO descriptions, hook/tension candidates) MUST match Chad Lewine's voice. Here is his voice profile:\n\n${voiceProfile}`
     : "";
 
   const systemPrompt = `You are a GEO/SEO optimization analyst for chadlewine.com. You analyze Observations (cross-domain essays by Chad Lewine) and produce actionable optimization plans.

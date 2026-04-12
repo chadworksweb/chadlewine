@@ -23,7 +23,7 @@ export default function NewAlbumPage() {
       <div className="obsv-editor__field"><label className="obsv-editor__label">Slug</label><input className="obsv-editor__input" value={form.slug} onChange={e => setForm({...form, slug: e.target.value})} placeholder={form.title ? slugify(form.title) : "auto"} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Release Date</label><input className="obsv-editor__input" type="date" value={form.release_date} onChange={e => setForm({...form, release_date: e.target.value})} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Description</label><textarea className="obsv-editor__input" value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={3} /></div>
-      <div className="obsv-editor__field"><label className="obsv-editor__label">Status</label><select className="obsv-editor__input" value={form.status} onChange={e => setForm({...form, status: e.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></div>
+      <div className="obsv-editor__field"><label className="obsv-editor__label">Status</label><select className="obsv-editor__input" value={form.status} onChange={e => setForm({...form, status: e.target.value})}><option value="draft">Draft</option><option value="unreleased">Unreleased</option><option value="published">Published</option></select></div>
     </div>
   );
 }

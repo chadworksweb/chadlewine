@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 
-interface GeoPanelProps {
+export interface GeoPanelProps {
   body: string;
   focusKeyphrase: string;
   secondaryKeyphrases: string[];
@@ -21,6 +21,8 @@ interface GeoPanelProps {
   seoTitle: string;
   seoDescription: string;
   onChange: (field: string, value: unknown) => void;
+  /** Controls which optional sections appear. Defaults to "observation". */
+  contentType?: "observation" | "door-page" | "page";
 }
 
 interface SuggestionCandidate {
@@ -41,7 +43,7 @@ function countHeadings(html: string, tag: string): number {
 }
 
 function countInternalLinks(html: string): number {
-  return (html.match(/href="\/observations\//gi) || []).length;
+  return (html.match(/href="\/(?!\/)[^"]*"/gi) || []).length;
 }
 
 function checkHeadingHierarchy(html: string): boolean {
@@ -192,7 +194,7 @@ function SectionDot({ status }: { status: string }) {
 }
 
 export function GeoPanel(props: GeoPanelProps) {
-  const { onChange } = props;
+  const { onChange, contentType = "observation" } = props;
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     search: true,
     citation: true,
@@ -699,8 +701,8 @@ export function GeoPanel(props: GeoPanelProps) {
         )}
       </div>
 
-      {/* Section 8: Google Surfaces */}
-      <div className="geo-section">
+      {/* Section 8: Google Surfaces (observations only) */}
+      {contentType === "observation" && <div className="geo-section">
         <button
           type="button"
           className="geo-section__header"
@@ -732,10 +734,10 @@ export function GeoPanel(props: GeoPanelProps) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* Section 9: AI-Assisted Hook & Tension */}
-      <div className="geo-section">
+      {/* Section 9: AI-Assisted Hook & Tension (observations only) */}
+      {contentType === "observation" && <div className="geo-section">
         <button
           type="button"
           className="geo-section__header"
@@ -806,7 +808,7 @@ export function GeoPanel(props: GeoPanelProps) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Schema Preview */}
       <div className="geo-section">

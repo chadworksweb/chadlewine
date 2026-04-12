@@ -93,6 +93,9 @@ export default function EditAlbumPage() {
       <div className="obsv-editor__header">
         <h1 className="admin-page__title">Edit Album</h1>
         <div className="obsv-editor__actions">
+          {form.slug && (
+            <Link href={`/music/albums/${form.slug}`} className="admin-btn admin-btn--secondary" target="_blank">View Album</Link>
+          )}
           <button className="admin-btn admin-btn--danger" onClick={handleDelete} type="button">Delete</button>
           <span className={`autosave-status autosave-status--${autosaveStatus}`}>
             {autosaveStatus === "saving" && "Saving..."}
@@ -171,6 +174,7 @@ export default function EditAlbumPage() {
               <label className="obsv-editor__label" htmlFor="status">Status</label>
               <select id="status" className="obsv-editor__input" value={form.status} onChange={e => set("status", e.target.value)}>
                 <option value="draft">Draft</option>
+                <option value="unreleased">Unreleased</option>
                 <option value="published">Published</option>
               </select>
             </div>

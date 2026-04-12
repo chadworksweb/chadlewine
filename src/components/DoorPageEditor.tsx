@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/utils";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { GeoPanel } from "@/components/GeoPanel";
 
 interface DoorPageData {
   id?: string;
@@ -15,7 +16,22 @@ interface DoorPageData {
   target_queries: string[];
   funnel_targets: string[];
   og_image_path: string;
+  og_alt: string;
   status: string;
+  // GEO fields
+  seo_title: string;
+  seo_description: string;
+  focus_keyphrase: string;
+  secondary_keyphrases: string[];
+  search_intent: string;
+  citation_summary: string;
+  first_sentence_extractable: boolean;
+  paa_pairs: { question: string; answer: string }[];
+  entity_tags: string[];
+  article_type: string;
+  hook_line: string;
+  tension_line: string;
+  published_at: string | null;
 }
 
 const EMPTY: DoorPageData = {
@@ -27,7 +43,21 @@ const EMPTY: DoorPageData = {
   target_queries: [],
   funnel_targets: [],
   og_image_path: "",
+  og_alt: "",
   status: "draft",
+  seo_title: "",
+  seo_description: "",
+  focus_keyphrase: "",
+  secondary_keyphrases: [],
+  search_intent: "informational",
+  citation_summary: "",
+  first_sentence_extractable: false,
+  paa_pairs: [],
+  entity_tags: [],
+  article_type: "article",
+  hook_line: "",
+  tension_line: "",
+  published_at: null,
 };
 
 export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
@@ -225,27 +255,27 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
         </div>
       </div>
 
-      {/* SEO Fields */}
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Meta Title</label>
-        <input
-          className="obsv-editor__input"
-          value={form.meta_title}
-          onChange={(e) => set("meta_title", e.target.value)}
-          placeholder="SEO title (defaults to title)"
-        />
-      </div>
-
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Meta Description</label>
-        <textarea
-          className="obsv-editor__input"
-          value={form.meta_description}
-          onChange={(e) => set("meta_description", e.target.value)}
-          placeholder="SEO description"
-          rows={3}
-        />
-      </div>
+      <GeoPanel
+        body={form.body}
+        focusKeyphrase={form.focus_keyphrase}
+        secondaryKeyphrases={form.secondary_keyphrases}
+        searchIntent={form.search_intent}
+        citationSummary={form.citation_summary}
+        firstSentenceExtractable={form.first_sentence_extractable}
+        paaPairs={form.paa_pairs}
+        entityTags={form.entity_tags}
+        articleType={form.article_type}
+        artImagePath={form.og_image_path}
+        artAlt={form.og_alt}
+        dateCaptured={form.published_at || ""}
+        publishedAt={form.published_at}
+        hookLine={form.hook_line}
+        tensionLine={form.tension_line}
+        seoTitle={form.seo_title || form.meta_title}
+        seoDescription={form.seo_description || form.meta_description}
+        onChange={(field, value) => set(field as keyof DoorPageData, value as never)}
+        contentType="door-page"
+      />
     </div>
   );
 }

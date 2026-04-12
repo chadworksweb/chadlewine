@@ -13,7 +13,7 @@ async function getAlbumData(albumSlug: string) {
     .from("albums")
     .select("*, release_formats(label)")
     .eq("slug", albumSlug)
-    .eq("status", "published")
+    .in("status", ["unreleased", "published"])
     .single();
   if (!album) return null;
 
@@ -25,7 +25,7 @@ async function getAlbumData(albumSlug: string) {
     .order("track_number");
 
   const songs = (junctions || [])
-    .filter((j: any) => j.song?.status === "published")
+    .filter((j: any) => j.song?.status === "published" || j.song?.status === "unreleased")
     .map((j: any) => ({
       id: j.song.id,
       title: j.song.title,

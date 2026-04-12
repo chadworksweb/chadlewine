@@ -95,7 +95,14 @@ async function getExploreSongs() {
   for (const s of settings || []) smap[s.key] = s.value;
   const mode = smap.homepage_explore_songs_mode || "random";
 
-  let songs: { id: string; title: string; slug: string; song_summary: string | null }[] = [];
+  let songs: {
+    id: string;
+    title: string;
+    slug: string;
+    song_summary: string | null;
+    art_image_path: string | null;
+    art_alt: string | null;
+  }[] = [];
 
   if (mode === "manual") {
     let ids: string[] = [];
@@ -103,7 +110,7 @@ async function getExploreSongs() {
     if (ids.length === 0) return [];
     const { data } = await supabase
       .from("songs")
-      .select("id, title, slug, song_summary")
+      .select("id, title, slug, song_summary, art_image_path, art_alt")
       .eq("status", "published")
       .in("id", ids);
     const byId = new Map((data || []).map((s) => [s.id, s]));
@@ -111,14 +118,14 @@ async function getExploreSongs() {
   } else {
     const { data } = await supabase
       .from("songs")
-      .select("id, title, slug, song_summary")
+      .select("id, title, slug, song_summary, art_image_path, art_alt")
       .eq("status", "published");
     const pool = data || [];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    songs = pool.slice(0, 10);
+    songs = pool.slice(0, 20);
   }
 
   if (songs.length === 0) return [];
@@ -208,7 +215,7 @@ export default async function HomePage() {
 
       <section className="home-merch">
         <div className="home-merch__inner site-contain">
-          <h2 className="home-merch__heading">Most Popular</h2>
+          <h2 className="home-merch__heading">Most Popular Merch</h2>
           <div className="home-merch__grid">
             {[1, 2, 3, 4, 5, 6].map((n) => (
               <div key={n} className="home-merch__card">

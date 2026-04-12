@@ -25,7 +25,13 @@ export async function PUT(
   const body = await request.json();
 
   const updates: Record<string, unknown> = {};
-  const fields = ["title", "slug", "body", "meta_title", "meta_description", "target_queries", "funnel_targets", "og_image_path", "status"];
+  const fields = [
+    "title", "slug", "body", "meta_title", "meta_description",
+    "target_queries", "funnel_targets", "og_image_path", "og_alt", "status",
+    "seo_title", "seo_description", "focus_keyphrase", "secondary_keyphrases",
+    "search_intent", "citation_summary", "first_sentence_extractable",
+    "paa_pairs", "entity_tags", "article_type", "hook_line", "tension_line",
+  ];
   for (const f of fields) {
     if (f in body) updates[f] = body[f];
   }

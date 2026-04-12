@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
 import { RelatedMusicPanel } from "@/components/RelatedMusicPanel";
+import { TaxonomyPicker } from "@/components/TaxonomyPicker";
 
 interface CategoryOption {
   id: string;
@@ -85,9 +86,6 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
   const [allThoughtlines, setAllThoughtlines] = useState<ThoughtlineOption[]>([]);
   const [allTags, setAllTags] = useState<TagOption[]>([]);
-  const [newCategoryTitle, setNewCategoryTitle] = useState("");
-  const [newThoughtlineTitle, setNewThoughtlineTitle] = useState("");
-  const [newTagLabel, setNewTagLabel] = useState("");
 
   // Load metadata options
   useEffect(() => {
@@ -142,78 +140,15 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
     handleInput();
   }
 
-  // Metadata toggles
-  function toggleCategory(id: string) {
+  function toggleTaxonomy(field: "categories" | "thoughtlines" | "tags", id: string) {
     setForm((prev) => ({
       ...prev,
-      categories: prev.categories.includes(id)
-        ? prev.categories.filter((c) => c !== id)
-        : [...prev.categories, id],
+      [field]: (prev[field] as string[]).includes(id)
+        ? (prev[field] as string[]).filter((v) => v !== id)
+        : [...(prev[field] as string[]), id],
     }));
   }
 
-  function toggleThoughtline(id: string) {
-    setForm((prev) => ({
-      ...prev,
-      thoughtlines: prev.thoughtlines.includes(id)
-        ? prev.thoughtlines.filter((t) => t !== id)
-        : [...prev.thoughtlines, id],
-    }));
-  }
-
-  function toggleTag(id: string) {
-    setForm((prev) => ({
-      ...prev,
-      tags: prev.tags.includes(id)
-        ? prev.tags.filter((t) => t !== id)
-        : [...prev.tags, id],
-    }));
-  }
-
-  async function handleCreateCategory() {
-    if (!newCategoryTitle.trim()) return;
-    const res = await fetch("/api/admin/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newCategoryTitle.trim() }),
-    });
-    if (res.ok) {
-      const cat = await res.json();
-      setAllCategories((prev) => [...prev, cat].sort((a, b) => a.title.localeCompare(b.title)));
-      setForm((prev) => ({ ...prev, categories: [...prev.categories, cat.id] }));
-      setNewCategoryTitle("");
-    }
-  }
-
-  async function handleCreateThoughtline() {
-    if (!newThoughtlineTitle.trim()) return;
-    const res = await fetch("/api/admin/thoughtlines", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newThoughtlineTitle.trim() }),
-    });
-    if (res.ok) {
-      const tl = await res.json();
-      setAllThoughtlines((prev) => [...prev, tl].sort((a, b) => a.title.localeCompare(b.title)));
-      setForm((prev) => ({ ...prev, thoughtlines: [...prev.thoughtlines, tl.id] }));
-      setNewThoughtlineTitle("");
-    }
-  }
-
-  async function handleCreateTag() {
-    if (!newTagLabel.trim()) return;
-    const res = await fetch("/api/admin/tags", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: newTagLabel.trim() }),
-    });
-    if (res.ok) {
-      const tag = await res.json();
-      setAllTags((prev) => [...prev, tag].sort((a, b) => a.label.localeCompare(b.label)));
-      setForm((prev) => ({ ...prev, tags: [...prev.tags, tag.id] }));
-      setNewTagLabel("");
-    }
-  }
 
   async function handlePublish() {
     setForm((prev) => ({ ...prev, status: "published" }));
@@ -348,176 +283,45 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
             </select>
           </div>
 
-          <div className="obsv-editor__panel">
-            <h3 className="obsv-editor__panel-title">
-              Categories
-              <span className="obsv-editor__counter">{form.categories.length} selected</span>
-            </h3>
-            {form.categories.length > 0 && (
-              <div className="obsv-editor__chip-section">
-                <span className="obsv-editor__chip-label">Selected</span>
-                <div className="obsv-editor__chip-grid">
-                  {allCategories
-                    .filter((c) => form.categories.includes(c.id))
-                    .map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="obsv-editor__chip obsv-editor__chip--active"
-                        onClick={() => toggleCategory(c.id)}
-                      >
-                        {c.title}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-            <div className="obsv-editor__chip-section">
-              <span className="obsv-editor__chip-label">Available</span>
-              <div className="obsv-editor__chip-grid">
-                {allCategories
-                  .filter((c) => !form.categories.includes(c.id))
-                  .map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="obsv-editor__chip"
-                      onClick={() => toggleCategory(c.id)}
-                    >
-                      {c.title}
-                    </button>
-                  ))}
-                <input
-                  type="text"
-                  className="obsv-editor__chip"
-                  placeholder="+ New category"
-                  value={newCategoryTitle}
-                  onChange={(e) => setNewCategoryTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleCreateCategory();
-                    }
-                  }}
-                  style={{ border: "1px dashed var(--border)", background: "transparent", cursor: "text", textAlign: "left" }}
-                />
-              </div>
-            </div>
-          </div>
+          <TaxonomyPicker
+            heading="Categories"
+            items={allCategories}
+            selected={form.categories}
+            onToggle={(id) => toggleTaxonomy("categories", id)}
+            onCreate={(item) => {
+              setAllCategories((prev) => [...prev, item as CategoryOption].sort((a, b) => a.title.localeCompare(b.title)));
+              setForm((prev) => ({ ...prev, categories: [...prev.categories, item.id] }));
+            }}
+            createEndpoint="/api/admin/categories"
+            createPlaceholder="+ New category"
+          />
 
-          <div className="obsv-editor__panel">
-            <h3 className="obsv-editor__panel-title">
-              Thoughtlines
-              <span className="obsv-editor__counter">{form.thoughtlines.length} selected</span>
-            </h3>
-            {form.thoughtlines.length > 0 && (
-              <div className="obsv-editor__chip-section">
-                <span className="obsv-editor__chip-label">Selected</span>
-                <div className="obsv-editor__chip-grid">
-                  {allThoughtlines
-                    .filter((t) => form.thoughtlines.includes(t.id))
-                    .map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className="obsv-editor__chip obsv-editor__chip--active"
-                        onClick={() => toggleThoughtline(t.id)}
-                      >
-                        {t.title}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-            <div className="obsv-editor__chip-section">
-              <span className="obsv-editor__chip-label">Available</span>
-              <div className="obsv-editor__chip-grid">
-                {allThoughtlines
-                  .filter((t) => !form.thoughtlines.includes(t.id))
-                  .map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className="obsv-editor__chip"
-                      onClick={() => toggleThoughtline(t.id)}
-                    >
-                      {t.title}
-                    </button>
-                  ))}
-                <input
-                  type="text"
-                  className="obsv-editor__chip"
-                  placeholder="+ New thoughtline"
-                  value={newThoughtlineTitle}
-                  onChange={(e) => setNewThoughtlineTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleCreateThoughtline();
-                    }
-                  }}
-                  style={{ border: "1px dashed var(--border)", background: "transparent", cursor: "text", textAlign: "left" }}
-                />
-              </div>
-            </div>
-          </div>
+          <TaxonomyPicker
+            heading="Thoughtlines"
+            items={allThoughtlines}
+            selected={form.thoughtlines}
+            onToggle={(id) => toggleTaxonomy("thoughtlines", id)}
+            onCreate={(item) => {
+              setAllThoughtlines((prev) => [...prev, item as ThoughtlineOption].sort((a, b) => a.title.localeCompare(b.title)));
+              setForm((prev) => ({ ...prev, thoughtlines: [...prev.thoughtlines, item.id] }));
+            }}
+            createEndpoint="/api/admin/thoughtlines"
+            createPlaceholder="+ New thoughtline"
+          />
 
-          <div className="obsv-editor__panel">
-            <h3 className="obsv-editor__panel-title">
-              Tags
-              <span className="obsv-editor__counter">{form.tags.length} selected</span>
-            </h3>
-            {form.tags.length > 0 && (
-              <div className="obsv-editor__chip-section">
-                <span className="obsv-editor__chip-label">Selected</span>
-                <div className="obsv-editor__chip-grid">
-                  {allTags
-                    .filter((t) => form.tags.includes(t.id))
-                    .map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className="obsv-editor__chip obsv-editor__chip--active"
-                        onClick={() => toggleTag(t.id)}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-            <div className="obsv-editor__chip-section">
-              <span className="obsv-editor__chip-label">Available</span>
-              <div className="obsv-editor__chip-grid">
-                {allTags
-                  .filter((t) => !form.tags.includes(t.id))
-                  .map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      className="obsv-editor__chip"
-                      onClick={() => toggleTag(t.id)}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                <input
-                  type="text"
-                  className="obsv-editor__chip"
-                  placeholder="+ New tag"
-                  value={newTagLabel}
-                  onChange={(e) => setNewTagLabel(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleCreateTag();
-                    }
-                  }}
-                  style={{ border: "1px dashed var(--border)", background: "transparent", cursor: "text", textAlign: "left" }}
-                />
-              </div>
-            </div>
-          </div>
+          <TaxonomyPicker
+            heading="Tags"
+            items={allTags}
+            selected={form.tags}
+            onToggle={(id) => toggleTaxonomy("tags", id)}
+            onCreate={(item) => {
+              setAllTags((prev) => [...prev, item as TagOption].sort((a, b) => a.label.localeCompare(b.label)));
+              setForm((prev) => ({ ...prev, tags: [...prev.tags, item.id] }));
+            }}
+            createEndpoint="/api/admin/tags"
+            createPlaceholder="+ New tag"
+            nameField="label"
+          />
 
           <RelatedMusicPanel
             value={form.related_music}

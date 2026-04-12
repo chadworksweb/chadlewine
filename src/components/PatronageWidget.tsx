@@ -11,7 +11,7 @@ const PRESETS = [5, 10, 25, 50];
 
 export function PatronageWidget({ observationId, observationTitle }: PatronageWidgetProps) {
   const [amount, setAmount] = useState(10);
-  const [custom, setCustom] = useState("");
+  const [custom, setCustom] = useState("88");
   const [loading, setLoading] = useState(false);
 
   const effectiveAmount = custom ? parseFloat(custom) : amount;
@@ -41,6 +41,7 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
     <div className="patronage">
       <div className="patronage__inner">
         <h3 className="patronage__heading">Sponsor Chad Lewine</h3>
+        <p className="patronage__subtitle">Make a one time patronage payment</p>
 
         <div className="patronage__amounts">
           {PRESETS.map((p) => (
@@ -58,11 +59,29 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
               className="patronage__input"
               type="number"
               min="1"
-              step="0.01"
+              step="1"
               placeholder="Custom"
               value={custom}
               onChange={(e) => setCustom(e.target.value)}
             />
+            <div className="patronage__stepper">
+              <button
+                type="button"
+                className="patronage__step"
+                aria-label="Increase amount"
+                onClick={() => setCustom(String(Math.max(1, Math.floor(parseFloat(custom) || 0) + 1)))}
+              >
+                &#9650;
+              </button>
+              <button
+                type="button"
+                className="patronage__step"
+                aria-label="Decrease amount"
+                onClick={() => setCustom(String(Math.max(1, Math.floor(parseFloat(custom) || 2) - 1)))}
+              >
+                &#9660;
+              </button>
+            </div>
           </div>
         </div>
 

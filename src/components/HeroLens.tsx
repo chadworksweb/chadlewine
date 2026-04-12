@@ -23,21 +23,121 @@ interface HeroLensProps {
 }
 
 const SCROLL_THRESHOLD = 120;
-const TRANSITION_MS = 600;
-const EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
+const TRANSITION_MS = 1500;
+
+function ObservationSlide({ obs }: { obs: Observation }) {
+  const [playgroundActive, setPlaygroundActive] = useState(false);
+
+  return (
+    <>
+      <div className="hero-lens__slide-art">
+        {obs.art_image_path && (
+          playgroundActive ? (
+            <CoverArtPlayground
+              src={obs.art_image_path}
+              alt={obs.art_alt || obs.title}
+              className="cover-hero__art-wrap"
+            />
+          ) : (
+            <div className="cover-hero__art-wrap hero-lens__art-static">
+              <img
+                src={obs.art_image_path}
+                alt={obs.art_alt || obs.title}
+                className="cover-hero__art"
+              />
+              <button
+                className="hero-lens__fx-toggle"
+                onClick={() => setPlaygroundActive(true)}
+                title="Activate effects"
+              >
+                FX
+              </button>
+            </div>
+          )
+        )}
+      </div>
+
+      <div className="hero-lens__slide-content">
+        <div className="cover-hero__title-col">
+          <TitleReveal artImageUrl={obs.art_image_path || ""}>
+            <Link href={`/observations/${obs.slug}`} className="cover-hero__title-link">
+              <h1 className="cover-hero__title">{obs.title}</h1>
+            </Link>
+          </TitleReveal>
+
+          {obs.hook_line && (
+            <p className="cover-hero__hook">{obs.hook_line}</p>
+          )}
+        </div>
+
+        <div className="cover-hero__bar">
+          <Link href={`/observations/${obs.slug}`} className="hero-lens__cta">
+            Read Observation →
+          </Link>
+
+          <time className="cover-hero__date">{formatDate(obs.date_captured)}</time>
+
+          {obs.categories?.length > 0 && (
+            <div className="cover-hero__cats">
+              {obs.categories.map((c, i) => (
+                <span key={c.slug}>
+                  <span className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
+                  {i < obs.categories.length - 1 && ", "}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {obs.tags?.length > 0 && (
+            <div className="cover-hero__tags">
+              {obs.tags.map((t, i) => (
+                <span key={t.slug}>
+                  <span className="cover-hero__tag">#{t.label}</span>
+                  {i < obs.tags.length - 1 && ", "}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
 
 export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [prevIndex, setPrevIndex] = useState<number | null>(null);
-  const [slideDirection, setSlideDirection] = useState<"up" | "down" | null>(null);
   const accumulatedDelta = useRef(0);
   const railRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const lockoutRef = useRef(false);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
   const total = observations.length;
-  const current = observations[currentIndex];
-  const prev = prevIndex !== null ? observations[prevIndex] : null;
-  const transitioning = prevIndex !== null;
+
+  // Measure viewport height from the active slide's natural size once
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp || viewportHeight !== null) return;
+    const h = vp.getBoundingClientRect().height;
+    if (h > 0) setViewportHeight(h);
+  }, [viewportHeight]);
+
+  // Re-measure on resize
+  useEffect(() => {
+    const measure = () => {
+      const vp = viewportRef.current;
+      if (!vp) return;
+      vp.style.height = "auto";
+      const h = vp.getBoundingClientRect().height;
+      vp.style.height = "";
+      if (h > 0) setViewportHeight(h);
+    };
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  const onIndexChangeRef = useRef(onIndexChange);
+  onIndexChangeRef.current = onIndexChange;
 
   const advance = useCallback(
     (direction: "up" | "down") => {
@@ -50,27 +150,19 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
         accumulatedDelta.current = 0;
         return;
       }
-
-      console.log("[HeroLens] advance", direction, "from", currentIndex, "to", nextIndex);
       lockoutRef.current = true;
-      setPrevIndex(currentIndex);
-      setSlideDirection(direction);
       setCurrentIndex(nextIndex);
-      onIndexChange?.(nextIndex);
-
+      onIndexChangeRef.current?.(nextIndex);
       setTimeout(() => {
-        console.log("[HeroLens] transition complete, unlocking");
-        setPrevIndex(null);
-        setSlideDirection(null);
         lockoutRef.current = false;
         accumulatedDelta.current = 0;
       }, TRANSITION_MS);
     },
-    [currentIndex, total, onIndexChange]
+    [currentIndex, total]
   );
 
-  // Wheel handling is done entirely in native listener (see useEffect below)
-  // React onWheel can't preventDefault on passive listeners
+  const advanceRef = useRef(advance);
+  advanceRef.current = advance;
 
   const touchStartY = useRef(0);
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -81,27 +173,19 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
     (e: React.TouchEvent) => {
       const delta = touchStartY.current - e.changedTouches[0].clientY;
       if (Math.abs(delta) > 40) {
-        advance(delta > 0 ? "up" : "down");
+        advanceRef.current(delta > 0 ? "up" : "down");
       }
     },
-    [advance]
+    []
   );
-
-  // Native wheel listener — non-passive so we can preventDefault
-  const advanceRef = useRef(advance);
-  advanceRef.current = advance;
 
   useEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
-    console.log("[HeroLens] Rail mounted, attaching wheel listener", rail);
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log("[HeroLens] Wheel event", e.deltaY, "accumulated:", accumulatedDelta.current);
-
       accumulatedDelta.current += e.deltaY;
-
       if (accumulatedDelta.current > SCROLL_THRESHOLD) {
         advanceRef.current("up");
         accumulatedDelta.current = 0;
@@ -114,72 +198,37 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
     return () => rail.removeEventListener("wheel", handleWheel);
   }, []);
 
-  if (!current) return null;
-
-  // Outgoing art: slides out + fades
-  const prevStyle: React.CSSProperties = transitioning
-    ? {
-        transform: slideDirection === "up" ? "translateY(-6%)" : "translateY(6%)",
-        opacity: 0,
-        transition: `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.4}ms ease`,
-      }
-    : {};
-
-  // Incoming art: slides in from opposite side + fades in
-  const currentStyle: React.CSSProperties = transitioning
-    ? {
-        transform: "translateY(0)",
-        opacity: 1,
-        transition: `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease ${TRANSITION_MS * 0.15}ms`,
-        animationName: "hero-lens-enter",
-      }
-    : {};
+  if (total === 0) return null;
 
   return (
     <section className="hero-lens">
-      {/* Art + Rail row */}
       <div className="hero-lens__columns">
-        <div className="hero-lens__art-container">
-          {/* Outgoing layer */}
-          {transitioning && prev && prev.art_image_path && (
-            <div className="hero-lens__art hero-lens__art--out" style={prevStyle}>
-              <img
-                src={prev.art_image_path}
-                alt={prev.art_alt || prev.title}
-                style={{ width: "100%", display: "block" }}
-              />
-            </div>
-          )}
-
-          {/* Current layer */}
-          <div
-            className={`hero-lens__art ${transitioning ? "hero-lens__art--in" : ""}`}
-            style={transitioning ? {
-              opacity: 0,
-              transform: slideDirection === "up" ? "translateY(4%)" : "translateY(-4%)",
-            } : {}}
-            ref={(el) => {
-              if (el && transitioning) {
-                el.getBoundingClientRect();
-                requestAnimationFrame(() => {
-                  el.style.transition = `transform ${TRANSITION_MS}ms ${EASING}, opacity ${TRANSITION_MS * 0.5}ms ease`;
-                  el.style.transform = "translateY(0)";
-                  el.style.opacity = "1";
-                });
-              }
-            }}
-          >
-            {current.art_image_path && (
-              <CoverArtPlayground
-                src={current.art_image_path}
-                alt={current.art_alt || current.title}
-                className="cover-hero__art-wrap"
-              />
-            )}
-          </div>
+        <div
+          ref={viewportRef}
+          className="hero-lens__viewport"
+          style={viewportHeight ? { height: viewportHeight } : undefined}
+        >
+          {observations.map((obs, i) => {
+            const offset = i - currentIndex;
+            // Offset 0 = visible at center. Negative = scrolled past (above). Positive = upcoming (below).
+            const translateY = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
+            return (
+              <div
+                key={obs.slug}
+                className={`hero-lens__slide${i === currentIndex ? " hero-lens__slide--current" : ""}`}
+                style={{
+                  transform: `translateY(${translateY})`,
+                  zIndex: i === currentIndex ? 2 : 1,
+                }}
+                aria-hidden={i !== currentIndex}
+              >
+                <ObservationSlide obs={obs} />
+              </div>
+            );
+          })}
         </div>
 
-        {/* Scroll rail — art height only */}
+        {/* Scroll rail — static, never slides */}
         <div
           ref={railRef}
           className="hero-lens__rail"
@@ -198,45 +247,6 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
           <div className="hero-lens__rail-counter">
             {currentIndex + 1} / {total}
           </div>
-        </div>
-      </div>
-
-      {/* Content below art */}
-      <div className="cover-hero__content">
-        <div className="cover-hero__title-col">
-          <TitleReveal artImageUrl={current.art_image_path || ""}>
-            <Link href={`/observations/${current.slug}`} className="cover-hero__title-link">
-              <h1 className="cover-hero__title">{current.title}</h1>
-            </Link>
-          </TitleReveal>
-
-          {current.hook_line && (
-            <p className="cover-hero__hook">{current.hook_line}</p>
-          )}
-        </div>
-
-        <div className="cover-hero__bar">
-          <time className="cover-hero__date">{formatDate(current.date_captured)}</time>
-
-          {current.categories?.length > 0 && (
-            <div className="cover-hero__cats">
-              {current.categories.map((c) => (
-                <span key={c.slug} className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
-              ))}
-            </div>
-          )}
-
-          {current.tags?.length > 0 && (
-            <div className="cover-hero__tags">
-              {current.tags.map((t) => (
-                <span key={t.slug} className="cover-hero__tag">#{t.label}</span>
-              ))}
-            </div>
-          )}
-
-          <Link href={`/observations/${current.slug}`} className="cover-hero__cta cover-hero__cta--inverted">
-            Read the Observation →
-          </Link>
         </div>
       </div>
     </section>
