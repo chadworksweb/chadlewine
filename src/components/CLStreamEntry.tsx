@@ -30,7 +30,7 @@ export function CLStreamEntry({ song }: { song: CLStreamSong }) {
     <div className="feed-entry feed-entry--stream">
       <div className="feed-entry__content">
         <div className="feed-entry__meta">
-          <time className="feed-entry__date">{formatDate(song.created_at)}</time>
+          <time className="feed-entry__date">Added {formatDate(song.created_at)}</time>
         </div>
         <div className="cl-stream-entry-body">
           <div className="cl-stream-entry-body__text">

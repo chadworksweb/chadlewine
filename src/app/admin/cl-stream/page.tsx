@@ -70,7 +70,7 @@ export default function CLStreamAdminPage() {
                 </div>
                 <div className="cl-stream-admin-row__actions">
                   <span className="cl-stream-admin-row__date">
-                    {new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    Added {new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </span>
                   <button
                     className="admin-btn admin-btn--danger admin-btn--sm"
