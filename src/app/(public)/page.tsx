@@ -7,7 +7,7 @@ async function getCLStream() {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from("cl_stream_songs")
-    .select("id, title, artist, album, album_art_url, note, source_url, rc_color, rc_charge, rc_contaminated, created_at")
+    .select("id, title, artist, album, note, source_url, rc_color, rc_charge, created_at")
     .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(8);

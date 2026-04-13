@@ -69,7 +69,6 @@ export async function POST(request: Request) {
       title,
       artist,
       album: body.album?.trim() || null,
-      album_art_url: body.album_art_url || null,
       note: body.note?.trim() || null,
       source_url: body.source_url || null,
       source_platform: body.source_platform || null,

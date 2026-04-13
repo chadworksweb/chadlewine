@@ -8,7 +8,6 @@ interface StreamSong {
   title: string;
   artist: string;
   album: string | null;
-  album_art_url: string | null;
   note: string | null;
   rc_color: string | null;
   rc_charge: number | null;
@@ -51,35 +50,38 @@ export default function CLStreamAdminPage() {
 
       {!loading && songs.length > 0 && (
         <div className="cl-stream-admin-list">
-          {songs.map((s) => (
-            <div key={s.id} className="cl-stream-admin-row">
-              {s.album_art_url && (
-                <img src={s.album_art_url} alt={s.title} className="cl-stream-admin-row__art" />
-              )}
-              <div className="cl-stream-admin-row__info">
-                <span className="cl-stream-admin-row__title">{s.title}</span>
-                <span className="cl-stream-admin-row__artist">{s.artist}</span>
-                {s.album && <span className="cl-stream-admin-row__album">{s.album}</span>}
-                {s.rc_color && (
-                  <span className="cl-stream-admin-row__badge" data-color={s.rc_color}>
-                    {s.rc_color} {s.rc_charge != null ? (s.rc_charge > 0 ? `+${s.rc_charge}` : s.rc_charge) : ""}
+          {songs.map((s) => {
+            const chargeStr = s.rc_charge != null
+              ? (s.rc_charge > 0 ? `+${s.rc_charge}` : `${s.rc_charge}`)
+              : null;
+            return (
+              <div key={s.id} className="cl-stream-admin-row">
+                <div className="cl-stream-admin-row__info">
+                  <span className="cl-stream-admin-row__title">{s.title}</span>
+                  <span className="cl-stream-admin-row__artist">
+                    {s.artist}{s.album ? ` · ${s.album}` : ""}
                   </span>
-                )}
-                {s.note && <p className="cl-stream-admin-row__note">{s.note}</p>}
+                  {s.rc_color && (
+                    <span className="cl-stream-admin-row__badge" data-color={s.rc_color}>
+                      {s.rc_color}{chargeStr ? ` ${chargeStr}` : ""}
+                    </span>
+                  )}
+                  {s.note && <p className="cl-stream-admin-row__note">{s.note}</p>}
+                </div>
+                <div className="cl-stream-admin-row__actions">
+                  <span className="cl-stream-admin-row__date">
+                    {new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                  <button
+                    className="admin-btn admin-btn--danger admin-btn--sm"
+                    onClick={() => handleDelete(s.id, s.title)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-              <div className="cl-stream-admin-row__actions">
-                <span className="cl-stream-admin-row__date">
-                  {new Date(s.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                </span>
-                <button
-                  className="admin-btn admin-btn--danger admin-btn--sm"
-                  onClick={() => handleDelete(s.id, s.title)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

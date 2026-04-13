@@ -8,7 +8,6 @@ export default function NewStreamSongPage() {
   const [saving, setSaving] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState("");
-  const [artPreview, setArtPreview] = useState("");
   const [needsLyrics, setNeedsLyrics] = useState(false);
   const [lyrics, setLyrics] = useState("");
   const [form, setForm] = useState({
@@ -16,7 +15,6 @@ export default function NewStreamSongPage() {
     title: "",
     artist: "",
     album: "",
-    album_art_url: "",
     note: "",
   });
   const urlRef = useRef<HTMLInputElement>(null);
@@ -45,9 +43,7 @@ export default function NewStreamSongPage() {
         ...f,
         title: data.title || f.title,
         artist: data.artist || f.artist,
-        album_art_url: data.album_art_url || f.album_art_url,
       }));
-      if (data.album_art_url) setArtPreview(data.album_art_url);
     } finally {
       setResolving(false);
     }
@@ -67,7 +63,6 @@ export default function NewStreamSongPage() {
       });
 
       if (res.status === 202) {
-        // RC doesn't have this song — need lyrics
         setNeedsLyrics(true);
         return;
       }
@@ -99,7 +94,6 @@ export default function NewStreamSongPage() {
         )}
       </div>
 
-      {/* Step 1 — song details */}
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">Paste a link (Tidal, etc.)</label>
         <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -126,16 +120,6 @@ export default function NewStreamSongPage() {
           </p>
         )}
       </div>
-
-      {artPreview && (
-        <div style={{ marginBottom: "1rem" }}>
-          <img
-            src={artPreview}
-            alt="Album art preview"
-            style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 4 }}
-          />
-        </div>
-      )}
 
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">Title</label>
@@ -166,19 +150,6 @@ export default function NewStreamSongPage() {
       </div>
 
       <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Album Art URL</label>
-        <input
-          className="obsv-editor__input"
-          value={form.album_art_url}
-          onChange={(e) => {
-            set("album_art_url", e.target.value);
-            setArtPreview(e.target.value);
-          }}
-          placeholder="Auto-filled from link or paste manually"
-        />
-      </div>
-
-      <div className="obsv-editor__field">
         <label className="obsv-editor__label">Why this song</label>
         <textarea
           className="obsv-editor__input"
@@ -189,7 +160,6 @@ export default function NewStreamSongPage() {
         />
       </div>
 
-      {/* Step 2 — lyrics (only shown when RC doesn't have the song) */}
       {needsLyrics && (
         <div style={{ marginTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
           <p style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>

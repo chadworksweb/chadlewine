@@ -19,3 +19,7 @@ CREATE TABLE cl_stream_songs (
 );
 
 CREATE INDEX cl_stream_songs_status_created ON cl_stream_songs (status, created_at DESC);
+
+ALTER TABLE cl_stream_songs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public can read published cl_stream_songs" ON cl_stream_songs FOR SELECT USING (status = 'published');
+CREATE POLICY "Admin full access cl_stream_songs" ON cl_stream_songs FOR ALL USING (auth.role() = 'authenticated');

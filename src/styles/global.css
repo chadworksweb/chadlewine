@@ -10587,10 +10587,15 @@ h3.aw-heading {
    CL STREAM
    ============================================================ */
 
-.cl-stream-feed {
+.cl-stream-feed,
+.cl-stream-page-feed {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+}
+
+.cl-stream-page-feed {
+  max-width: 600px;
+  margin-top: 2rem;
 }
 
 .cl-stream-entry-link {
@@ -10600,117 +10605,71 @@ h3.aw-heading {
 }
 
 .cl-stream-entry {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 0.75rem;
-  padding: 0.7rem 0;
+  padding: 0.75rem 0;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   transition: opacity 0.15s ease;
 }
 
 .cl-stream-entry-link:hover .cl-stream-entry {
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
-.cl-stream-entry__art-wrap {
-  position: relative;
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-}
-
-.cl-stream-entry__art {
-  width: 56px;
-  height: 56px;
-  object-fit: cover;
-  border-radius: 4px;
-  display: block;
-}
-
-.cl-stream-entry__art-placeholder {
-  width: 56px;
-  height: 56px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.05);
-}
-
-.cl-stream-entry__color-dot {
-  position: absolute;
-  bottom: -3px;
-  right: -3px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1px solid var(--bg-primary, #07070d);
-}
-.cl-stream-entry__color-dot[data-color="green"]   { background: #4ade80; }
-.cl-stream-entry__color-dot[data-color="yellow"]  { background: #facc15; }
-.cl-stream-entry__color-dot[data-color="orange"]  { background: #fb923c; }
-.cl-stream-entry__color-dot[data-color="red"]     { background: #f87171; }
-.cl-stream-entry__color-dot[data-color="violet"]  { background: #a78bfa; }
-.cl-stream-entry__color-dot[data-color="blue"]    { background: #60a5fa; }
-
-.cl-stream-entry__content {
-  min-width: 0;
+.cl-stream-entry__header {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.1rem;
-}
-
-.cl-stream-entry__meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.cl-stream-entry__date {
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  color: var(--text-tertiary, rgba(228,228,236,0.4));
-  letter-spacing: 0.02em;
-}
-
-.cl-stream-entry__charge {
-  font-family: var(--font-mono, "SF Mono", monospace);
-  font-size: 0.68rem;
-  color: var(--text-secondary, rgba(228,228,236,0.6));
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 .cl-stream-entry__title {
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--text-primary, #e4e4ec);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin: 0;
 }
+
+.cl-stream-entry__badge {
+  font-family: var(--font-mono, "SF Mono", monospace);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 0.1em 0.45em;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.cl-stream-entry__badge[data-color="green"]  { background: rgba(74,222,128,0.15); color: #4ade80; }
+.cl-stream-entry__badge[data-color="yellow"] { background: rgba(250,204,21,0.15); color: #facc15; }
+.cl-stream-entry__badge[data-color="orange"] { background: rgba(251,146,60,0.15); color: #fb923c; }
+.cl-stream-entry__badge[data-color="red"]    { background: rgba(248,113,113,0.15); color: #f87171; }
+.cl-stream-entry__badge[data-color="violet"] { background: rgba(167,139,250,0.15); color: #a78bfa; }
+.cl-stream-entry__badge[data-color="blue"]   { background: rgba(96,165,250,0.15); color: #60a5fa; }
 
 .cl-stream-entry__artist {
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: var(--text-secondary, rgba(228,228,236,0.6));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin: 0;
+  margin: 0.15rem 0 0;
 }
 
 .cl-stream-entry__album {
-  color: var(--text-tertiary, rgba(228,228,236,0.4));
+  color: var(--text-tertiary, rgba(228,228,236,0.35));
 }
 
 .cl-stream-entry__note {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-style: italic;
-  color: var(--text-tertiary, rgba(228,228,236,0.4));
-  margin: 0.15rem 0 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  color: var(--text-tertiary, rgba(228,228,236,0.45));
+  margin: 0.25rem 0 0;
+  line-height: 1.5;
+}
+
+.cl-stream-entry__date {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  color: var(--text-tertiary, rgba(228,228,236,0.3));
+  margin-top: 0.3rem;
+  letter-spacing: 0.02em;
 }
 
 /* Admin list */
@@ -10730,20 +10689,12 @@ h3.aw-heading {
   border: 1px solid rgba(255,255,255,0.06);
 }
 
-.cl-stream-admin-row__art {
-  width: 48px;
-  height: 48px;
-  object-fit: cover;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
 .cl-stream-admin-row__info {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.15rem;
 }
 
 .cl-stream-admin-row__title {
@@ -10751,8 +10702,7 @@ h3.aw-heading {
   font-size: 0.9rem;
 }
 
-.cl-stream-admin-row__artist,
-.cl-stream-admin-row__album {
+.cl-stream-admin-row__artist {
   font-size: 0.8rem;
   opacity: 0.6;
 }
@@ -10767,7 +10717,7 @@ h3.aw-heading {
   font-size: 0.8rem;
   font-style: italic;
   opacity: 0.5;
-  margin: 0.2rem 0 0;
+  margin: 0.1rem 0 0;
 }
 
 .cl-stream-admin-row__actions {

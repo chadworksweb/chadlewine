@@ -54,7 +54,6 @@ interface CLStreamSong {
   title: string;
   artist: string;
   album: string | null;
-  album_art_url: string | null;
   note: string | null;
   source_url: string | null;
   rc_color: string | null;
