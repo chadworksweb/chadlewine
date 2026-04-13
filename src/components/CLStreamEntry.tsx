@@ -1,4 +1,5 @@
 import { formatDate } from "@/lib/utils";
+import { CompassIcon, rcTierHex, rcTierLabel } from "@/components/RCBadge";
 
 interface CLStreamSong {
   id: string;
@@ -9,32 +10,43 @@ interface CLStreamSong {
   source_url: string | null;
   rc_color: string | null;
   rc_charge: number | null;
+  rc_charge_summary?: string | null;
   created_at: string;
 }
 
 export function CLStreamEntry({ song }: { song: CLStreamSong }) {
-  const chargeStr =
-    song.rc_charge != null
-      ? song.rc_charge > 0
-        ? `+${song.rc_charge}`
-        : `${song.rc_charge}`
-      : null;
+  const tierHex = song.rc_color ? rcTierHex(song.rc_color) : null;
+  const tierLabel = song.rc_color ? rcTierLabel(song.rc_color) : null;
+  const charge = song.rc_charge ?? 0;
+  const chargeStr = song.rc_charge != null
+    ? (song.rc_charge > 0 ? `+${song.rc_charge}` : `${song.rc_charge}`)
+    : null;
 
   const inner = (
     <div className="cl-stream-entry">
       <div className="cl-stream-entry__header">
         <span className="cl-stream-entry__title">{song.title}</span>
-        {song.rc_color && (
-          <span className="cl-stream-entry__badge" data-color={song.rc_color}>
-            {song.rc_color}{chargeStr ? ` ${chargeStr}` : ""}
-          </span>
-        )}
       </div>
       <p className="cl-stream-entry__artist">
         {song.artist}
         {song.album && <span className="cl-stream-entry__album"> · {song.album}</span>}
       </p>
       {song.note && <p className="cl-stream-entry__note">{song.note}</p>}
+
+      {tierHex && chargeStr && (
+        <div className="track-detail__rc-badge" style={{ marginTop: "0.5rem" }}>
+          <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
+            <CompassIcon charge={charge} tierHex={tierHex} />
+          </a>
+          <div className="track-detail__rc-data">
+            <span className="track-detail__rc-tier" style={{ color: tierHex }}>
+              {tierLabel}
+            </span>
+            <span className="track-detail__rc-charge">{chargeStr}</span>
+          </div>
+        </div>
+      )}
+
       <time className="cl-stream-entry__date">{formatDate(song.created_at)}</time>
     </div>
   );

@@ -10639,21 +10639,6 @@ h3.aw-heading {
   color: var(--text-primary, #e4e4ec);
 }
 
-.cl-stream-entry__badge {
-  font-family: var(--font-mono, "SF Mono", monospace);
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  padding: 0.1em 0.45em;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-.cl-stream-entry__badge[data-color="green"]  { background: rgba(74,222,128,0.15); color: #4ade80; }
-.cl-stream-entry__badge[data-color="yellow"] { background: rgba(250,204,21,0.15); color: #facc15; }
-.cl-stream-entry__badge[data-color="orange"] { background: rgba(251,146,60,0.15); color: #fb923c; }
-.cl-stream-entry__badge[data-color="red"]    { background: rgba(248,113,113,0.15); color: #f87171; }
-.cl-stream-entry__badge[data-color="violet"] { background: rgba(167,139,250,0.15); color: #a78bfa; }
-.cl-stream-entry__badge[data-color="blue"]   { background: rgba(96,165,250,0.15); color: #60a5fa; }
 
 .cl-stream-entry__artist {
   font-family: var(--font-ui);
