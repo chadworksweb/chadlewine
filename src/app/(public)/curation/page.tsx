@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 import { CurationGrid } from "@/components/CurationGrid";
 
+
 export const revalidate = 60;
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default async function CurationPage() {
     <div id="page-curation" className="page-static">
       <h1 className="page-static__title">Curation</h1>
       <p className="curation-intro">Positively charged music, quantified by Rising Compass. Not opinion — receipts.</p>
+      <Link href="/curation/cl-stream" className="cl-stream-curation-link">CL Stream →</Link>
       <CurationGrid entries={entries || []} />
     </div>
   );

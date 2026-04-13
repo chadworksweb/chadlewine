@@ -2077,8 +2077,19 @@ h2, h3, h4, h5, h6 {
   color: var(--text-secondary);
   font-size: var(--text-body);
   line-height: var(--leading-body);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-md);
 }
+
+.cl-stream-curation-link {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  color: var(--text-accent, #8b9cf7);
+  text-decoration: none;
+  margin-bottom: var(--space-xl);
+  letter-spacing: 0.02em;
+}
+.cl-stream-curation-link:hover { text-decoration: underline; }
 
 /* Filters */
 .curation-filters {
