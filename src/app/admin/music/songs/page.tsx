@@ -14,9 +14,10 @@ interface Song {
   duration_seconds: number | null;
   price: number | null;
   is_single: boolean;
+  updated_at: string | null;
 }
 
-type SortKey = "title" | "status" | "release_date" | "duration_seconds";
+type SortKey = "title" | "status" | "release_date" | "duration_seconds" | "updated_at";
 type SortDir = "asc" | "desc";
 
 export default function AdminSongsPage() {
@@ -65,6 +66,19 @@ export default function AdminSongsPage() {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }
 
+  function freshnessColor(dateStr: string | null): string {
+    if (!dateStr) return "var(--text-tertiary)";
+    const months = (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24 * 30);
+    if (months > 12) return "#ff3333";
+    if (months > 6) return "#ffbb33";
+    return "#33cc55";
+  }
+
+  function formatUpdated(dateStr: string | null): string {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  }
+
   if (loading) return <div className="admin-page"><p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>Loading...</p></div>;
 
   return (
@@ -99,13 +113,14 @@ export default function AdminSongsPage() {
             <th className="admin-table__th admin-table__th--sortable" onClick={() => handleSort("status")}>Status{sortIndicator("status")}</th>
             <th className="admin-table__th admin-table__th--sortable" onClick={() => handleSort("duration_seconds")}>Duration{sortIndicator("duration_seconds")}</th>
             <th className="admin-table__th admin-table__th--sortable" onClick={() => handleSort("release_date")}>Release{sortIndicator("release_date")}</th>
+            <th className="admin-table__th admin-table__th--sortable" onClick={() => handleSort("updated_at")}>Last Updated{sortIndicator("updated_at")}</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((s) => (
             <tr key={s.id} className="admin-table__row">
               <td className="admin-table__td">
-                <Link href={`/admin/music/songs/${s.id}`} className="admin-table__link">{s.title}</Link>
+                <Link href={`/admin/music/songs/${s.slug || s.id}`} className="admin-table__link">{s.title}</Link>
                 {s.is_single && <span style={{ marginLeft: "0.5rem", fontSize: "0.65rem", color: "var(--text-tertiary)", textTransform: "uppercase" }}>single</span>}
               </td>
               <td className="admin-table__td" style={{ textAlign: "center" }}>
@@ -114,6 +129,7 @@ export default function AdminSongsPage() {
               <td className="admin-table__td"><span className={`admin-status admin-status--${s.status}`}>{s.status}</span></td>
               <td className="admin-table__td">{formatDuration(s.duration_seconds)}</td>
               <td className="admin-table__td admin-table__td--date">{s.release_date || "—"}</td>
+              <td className="admin-table__td admin-table__td--date" style={{ color: freshnessColor(s.updated_at) }}>{formatUpdated(s.updated_at)}</td>
             </tr>
           ))}
         </tbody>

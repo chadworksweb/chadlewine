@@ -59,24 +59,18 @@ async function getSongData(songSlug: string) {
   // Published visibility sections
   const { data: visibilitySections } = await supabase
     .from("song_visibility_sections")
-    .select("id, category, content")
+    .select("id, category, content, direct_answer, key_points")
     .eq("song_id", song.id)
     .eq("status", "published")
     .order("display_order");
 
-  // Published composition (takes priority over raw sections)
-  const { data: composition } = await supabase
-    .from("song_composition")
-    .select("id, content_html, status")
-    .eq("song_id", song.id)
-    .eq("status", "published")
-    .single();
-
-  // Convert visibility markdown to HTML (fallback if no composition)
-  const renderedSections = composition ? [] : await Promise.all(
+  // Convert ALL visibility sections to HTML (used in integrated landing page)
+  const renderedSections = await Promise.all(
     (visibilitySections || []).map(async (s: any) => ({
       ...s,
       contentHtml: s.content ? await markdownToHtml(s.content) : "",
+      directAnswer: s.direct_answer || null,
+      keyPoints: s.key_points || [],
     }))
   );
 
@@ -86,7 +80,6 @@ async function getSongData(songSlug: string) {
     totalTracks: count || 0,
     expansions: expansions || [],
     visibilitySections: renderedSections,
-    composition: composition ? { contentHtml: composition.content_html } : null,
   };
 }
 
@@ -135,12 +128,31 @@ export default async function SongDetailPage({
   const result = await getSongData(slug);
   if (!result) notFound();
 
-  const { album, song, totalTracks, expansions, visibilitySections, composition } = result;
+  const { album, song, totalTracks, expansions, visibilitySections } = result;
 
   const [badge, playbackMode] = await Promise.all([
     fetchBadge(song.title, "Chad Lewine"),
     getPlaybackMode(song.playback_mode),
   ]);
+
+  // Build section-level Q&A pairs for JSON-LD FAQPage (format stack headings + direct answers)
+  const sectionHeadingMap: Record<string, string> = {
+    "if-you-like": `Who should listen to "${song.title}"?`,
+    audience: `Who is "${song.title}" for?`,
+    world: `What is "${song.title}" about?`,
+    fragments: `What are the best lines in "${song.title}"?`,
+    "cultural-position": `Where does "${song.title}" fit?`,
+    story: `What is the story behind "${song.title}"?`,
+    breakdown: `What makes "${song.title}" work?`,
+    connections: `What other songs connect to "${song.title}"?`,
+  };
+
+  const sectionQAPairs = visibilitySections
+    .filter((s: any) => s.directAnswer && sectionHeadingMap[s.category])
+    .map((s: any) => ({
+      question: sectionHeadingMap[s.category],
+      answer: s.directAnswer,
+    }));
 
   return (
     <>
@@ -175,8 +187,14 @@ export default async function SongDetailPage({
         totalTracks={totalTracks}
         expansions={expansions}
         visibilitySections={visibilitySections}
-        composition={composition}
         playbackMode={playbackMode}
+        geoFields={{
+          citation_summary: song.citation_summary,
+          focus_keyphrase: song.focus_keyphrase,
+          secondary_keyphrases: song.secondary_keyphrases || [],
+          paa_pairs: song.paa_pairs || [],
+          entity_tags: song.entity_tags || [],
+        }}
         badge={badge ? {
           tier: badge.tier,
           tierLabel: badge.tier_label,
@@ -198,6 +216,7 @@ export default async function SongDetailPage({
           focusKeyphrase={song.focus_keyphrase}
           secondaryKeyphrases={song.secondary_keyphrases || []}
           paaPairs={song.paa_pairs || []}
+          sectionQAPairs={sectionQAPairs}
         />
       )}
     </>

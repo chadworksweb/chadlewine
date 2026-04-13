@@ -124,14 +124,14 @@ export function DiscographyExplorer({ items, allFormats }: DiscographyExplorerPr
                   )}
                 </Link>
                 <div className="discography-grid__info">
-                  <Link href={item.href} className="discography-grid__title">
-                    {item.title}
-                  </Link>
                   <span className="discography-grid__meta">
+                    <Link href={item.href} className="discography-grid__title">
+                      {item.title}
+                    </Link>
+                    {year && <span className="discography-grid__year">({year})</span>}
                     {item.format_label && (
                       <span className="discography-grid__format">{item.format_label}</span>
                     )}
-                    {year && <span className="discography-grid__year">{year}</span>}
                   </span>
                 </div>
               </div>

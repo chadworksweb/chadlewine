@@ -37,7 +37,7 @@ export default function EditAlbumPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const [form, setForm] = useState<AlbumData | null>(null);
-  const [songs, setSongs] = useState<{ id: string; title: string; track_number: number; status: string }[]>([]);
+  const [songs, setSongs] = useState<{ id: string; title: string; slug: string; track_number: number; status: string }[]>([]);
   const [formats, setFormats] = useState<{ id: string; label: string }[]>([]);
 
   useEffect(() => {
@@ -221,7 +221,7 @@ export default function EditAlbumPage() {
           {songs.sort((a, b) => a.track_number - b.track_number).map(s => (
             <tr key={s.id} className="admin-table__row">
               <td className="admin-table__td">{s.track_number}</td>
-              <td className="admin-table__td"><Link href={`/admin/music/songs/${s.id}`} className="admin-table__link">{s.title}</Link></td>
+              <td className="admin-table__td"><Link href={`/admin/music/songs/${s.slug || s.id}`} className="admin-table__link">{s.title}</Link></td>
               <td className="admin-table__td"><span className={`admin-status admin-status--${s.status}`}>{s.status}</span></td>
             </tr>
           ))}

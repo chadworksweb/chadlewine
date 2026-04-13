@@ -1,6 +1,6 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
+import LyricBook from "@/components/LyricBook";
 
 export const revalidate = 60;
 
@@ -13,20 +13,52 @@ export const metadata: Metadata = {
 export default async function LyricsPage() {
   const supabase = createPublicClient();
 
-  const { data: albums } = await supabase
+  // Albums — reverse chronological
+  const { data: albumRows } = await supabase
     .from("albums")
-    .select("id, title, slug, cover_art_path")
+    .select("id, title, slug, release_date")
     .eq("status", "published")
-    .order("display_order");
+    .order("release_date", { ascending: false });
 
-  // Get songs with track numbers via junction
+  // Album-song junctions
   const { data: junctions } = await supabase
     .from("album_songs")
     .select("album_id, track_number, song:songs(id, title, slug, lyrics, status)")
     .order("track_number");
 
-  // Flatten and filter published songs with lyrics
-  const songs = (junctions || [])
+  // IDs of songs that belong to an album
+  const albumSongIds = new Set(
+    (junctions || []).map((j: any) => j.song?.id).filter(Boolean)
+  );
+
+  // Singles = published songs with lyrics that aren't in any album
+  const { data: allSongs } = await supabase
+    .from("songs")
+    .select("id, title, slug, lyrics, status, created_at")
+    .eq("status", "published")
+    .order("created_at", { ascending: false });
+
+  const singles = (allSongs || [])
+    .filter((s: any) => s.lyrics && !albumSongIds.has(s.id))
+    .map((s: any, i: number) => ({
+      id: s.id,
+      album_id: "__singles__",
+      title: s.title,
+      slug: s.slug,
+      track_number: i + 1,
+      lyrics: s.lyrics,
+    }));
+
+  const albums = (albumRows || []).map((a: any) => ({
+    id: a.id,
+    title: a.title,
+    slug: a.slug,
+    release_year: a.release_date
+      ? new Date(a.release_date).getFullYear().toString()
+      : undefined,
+  }));
+
+  const albumSongs = (junctions || [])
     .filter((j: any) => j.song?.status === "published" && j.song?.lyrics)
     .map((j: any) => ({
       id: j.song.id,
@@ -38,42 +70,10 @@ export default async function LyricsPage() {
     }));
 
   return (
-    <div id="page-lyrics" className="page-static lyric-book">
-      <h1 className="page-static__title">Lyrics</h1>
-
-      <div className="lyric-book__layout">
-        {/* TOC — left column */}
-        <nav className="lyric-book__toc">
-          {(albums || []).map((album) => {
-            const albumSongs = songs.filter((s: any) => s.album_id === album.id);
-            if (albumSongs.length === 0) return null;
-            return (
-              <div key={album.id} className="lyric-book__album-group">
-                <h2 className="lyric-book__album-title">{album.title}</h2>
-                <ul className="lyric-book__track-list">
-                  {albumSongs.map((s: any) => (
-                    <li key={s.id}>
-                      <Link
-                        href={`/lyrics/${album.slug}/${s.slug}`}
-                        className="lyric-book__track-link"
-                      >
-                        {s.track_number}. {s.title}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Reading pane — right column (placeholder for index) */}
-        <div className="lyric-book__pane">
-          <p style={{ color: "var(--text-tertiary)" }}>
-            Select a song to read its lyrics.
-          </p>
-        </div>
-      </div>
-    </div>
+    <LyricBook
+      albums={albums}
+      songs={albumSongs}
+      singles={singles}
+    />
   );
 }

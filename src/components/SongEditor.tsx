@@ -1,25 +1,20 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { slugify } from "@/lib/utils";
 import { useAutosave } from "@/hooks/useAutosave";
 import { TaxonomyPicker } from "@/components/TaxonomyPicker";
 import { MediaLibrary } from "@/components/MediaLibrary";
+import { SongVisibilityChat } from "@/components/SongVisibilityChat";
+import { SongVisibilitySections, type SongVisibilitySectionsHandle } from "@/components/SongVisibilitySections";
 
 interface ExpansionSummary {
   id: string;
   title: string;
   status: string;
   display_order: number;
-}
-
-interface VisibilitySectionSummary {
-  id: string;
-  category: string;
-  content: string;
-  status: string;
 }
 
 interface SongData {
@@ -50,6 +45,7 @@ interface SongData {
   topic_ids: string[];
   art_image_path: string | null;
   art_alt: string | null;
+  updated_at: string | null;
 }
 
 interface TopicOption {
@@ -85,6 +81,7 @@ const emptySong: SongData = {
   topic_ids: [],
   art_image_path: null,
   art_alt: null,
+  updated_at: null,
 };
 
 interface AlbumOption {
@@ -178,6 +175,7 @@ function SongCoverArtPanel({
 
 export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; presetAlbumId?: string }) {
   const router = useRouter();
+  const sectionsRef = useRef<SongVisibilitySectionsHandle>(null);
   const [form, setForm] = useState<SongData>(() => {
     if (!initial) return { ...emptySong, album_id: presetAlbumId || "" };
     return {
@@ -196,8 +194,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
   const [albums, setAlbums] = useState<AlbumOption[]>([]);
   const [allTopics, setAllTopics] = useState<TopicOption[]>([]);
   const [expansions, setExpansions] = useState<ExpansionSummary[]>([]);
-  const [visibilitySections, setVisibilitySections] = useState<VisibilitySectionSummary[]>([]);
-  const [compositionStatus, setCompositionStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/albums")
@@ -213,12 +209,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     fetch(`/api/admin/expansions?song_id=${form.id}`)
       .then((r) => r.json())
       .then((data: ExpansionSummary[]) => setExpansions(data));
-    fetch(`/api/admin/song-visibility-sections?song_id=${form.id}`)
-      .then((r) => r.json())
-      .then((data: VisibilitySectionSummary[]) => setVisibilitySections(data));
-    fetch(`/api/admin/song-composition?song_id=${form.id}`)
-      .then((r) => r.json())
-      .then((data) => setCompositionStatus(data?.status || null));
   }, [form.id]);
 
   const set = useCallback((field: keyof SongData, value: unknown) => {
@@ -283,9 +273,13 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     buildPayload,
     onCreated: (newId) => {
       setForm((prev) => ({ ...prev, id: newId }));
-      router.replace(`/admin/music/songs/${newId}`, { scroll: false });
+      setForm((prev) => {
+        const slug = prev.slug || newId;
+        router.replace(`/admin/music/songs/${slug}`, { scroll: false });
+        return prev;
+      });
     },
-    enabled: !!form.title && !!form.album_id,
+    enabled: !!form.title,
   });
 
   // Rising Compass classification
@@ -403,40 +397,38 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             />
           </div>
 
-          {/* Visibility */}
+          {/* Visibility Engine */}
           {form.id && (
+            <div style={{ marginTop: "1.5rem" }}>
+              <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "0.75rem" }}>
+                Visibility Engine
+              </h2>
+              <SongVisibilityChat
+                songId={form.id}
+                onSectionsUpdated={() => sectionsRef.current?.refresh()}
+              />
+              <div style={{ marginTop: "1rem" }}>
+                <SongVisibilitySections ref={sectionsRef} songId={form.id} />
+              </div>
+            </div>
+          )}
+
+          {/* Legacy Expansions */}
+          {form.id && expansions.length > 0 && (
             <div className="obsv-editor__panel">
-              <h3 className="obsv-editor__panel-title">Visibility</h3>
-              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.875rem", color: "var(--text-secondary)", margin: "0 0 0.25rem" }}>
-                {visibilitySections.filter((s) => s.content).length}/9 sections filled
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "var(--text-tertiary)", margin: "0 0 0.35rem" }}>
+                Legacy Expansions ({expansions.length})
               </p>
-              <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.875rem", color: compositionStatus === "published" ? "#33cc55" : compositionStatus === "draft" ? "#ffbb33" : "var(--text-tertiary)", margin: "0 0 0.75rem" }}>
-                Composition: {compositionStatus || "not started"}
-              </p>
-              <Link
-                href={`/admin/music/songs/${form.id}/visibility`}
-                className="admin-btn"
-                style={{ display: "inline-block", fontSize: "0.875rem" }}
-              >
-                Open Visibility
-              </Link>
-              {expansions.length > 0 && (
-                <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-subtle)" }}>
-                  <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "var(--text-tertiary)", margin: "0 0 0.35rem" }}>
-                    Legacy Expansions ({expansions.length})
-                  </p>
-                  {expansions.map((exp) => (
-                    <div key={exp.id} style={{ marginBottom: "0.25rem" }}>
-                      <Link
-                        href={`/admin/music/songs/${form.id}/expansions/${exp.id}`}
-                        style={{ color: "var(--text-link)", fontFamily: "var(--font-ui)", fontSize: "0.75rem" }}
-                      >
-                        {exp.title || "Untitled"}
-                      </Link>
-                    </div>
-                  ))}
+              {expansions.map((exp) => (
+                <div key={exp.id} style={{ marginBottom: "0.25rem" }}>
+                  <Link
+                    href={`/admin/music/songs/${form.id}/expansions/${exp.id}`}
+                    style={{ color: "var(--text-link)", fontFamily: "var(--font-ui)", fontSize: "0.75rem" }}
+                  >
+                    {exp.title || "Untitled"}
+                  </Link>
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>
@@ -460,6 +452,23 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               </select>
             </div>
           </div>
+
+          {/* Content Freshness */}
+          {form.updated_at && (() => {
+            const months = (Date.now() - new Date(form.updated_at).getTime()) / (1000 * 60 * 60 * 24 * 30);
+            const color = months > 12 ? "#ff3333" : months > 6 ? "#ffbb33" : "#33cc55";
+            const label = months > 12 ? "Stale" : months > 6 ? "Aging" : "Fresh";
+            const dateStr = new Date(form.updated_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+            return (
+              <div className="obsv-editor__panel" style={{ borderLeft: `3px solid ${color}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", fontWeight: 600, color }}>{label}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-tertiary)", marginLeft: "auto" }}>{dateStr}</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Song Details */}
           <div className="obsv-editor__panel">
@@ -668,6 +677,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
 
         </div>
       </div>
+
     </div>
   );
 }

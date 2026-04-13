@@ -1,13 +1,13 @@
 export const VISIBILITY_CATEGORIES = [
+  { slug: "if-you-like", label: "If You Like", description: "Similar famous artists & songs fans would search for", autoGenerate: true },
+  { slug: "audience", label: "The Audience", description: "Who needs this song", autoGenerate: false },
+  { slug: "world", label: "The World", description: "Thematic universe", autoGenerate: false },
+  { slug: "fragments", label: "The Fragments", description: "Quotable lines & shareable content", autoGenerate: true },
+  { slug: "cultural-position", label: "The Cultural Position", description: "What this song reflects about where culture is right now", autoGenerate: true },
   { slug: "story", label: "The Story", description: "Origin & backstory", autoGenerate: false },
   { slug: "breakdown", label: "The Breakdown", description: "Craft & construction", autoGenerate: true },
-  { slug: "world", label: "The World", description: "Thematic universe", autoGenerate: false },
-  { slug: "audience", label: "The Audience", description: "Who needs this song", autoGenerate: false },
-  { slug: "hooks", label: "The Hooks", description: "GEO/SEO discovery angles", autoGenerate: true },
-  { slug: "fragments", label: "The Fragments", description: "Quotable lines & shareable content", autoGenerate: true },
   { slug: "connections", label: "The Connections", description: "Catalog cross-linking", autoGenerate: true },
-  { slug: "visual", label: "The Visual", description: "Visual & multimedia extensions", autoGenerate: false },
-  { slug: "cultural-position", label: "The Cultural Position", description: "Critical & editorial angles", autoGenerate: true },
+  { slug: "hooks", label: "The Hooks", description: "Door page discovery angles (internal)", autoGenerate: true },
 ] as const;
 
 export type VisibilityCategory = typeof VISIBILITY_CATEGORIES[number]["slug"];
@@ -17,6 +17,8 @@ export interface SongVisibilitySection {
   song_id: string;
   category: VisibilityCategory;
   content: string;
+  direct_answer: string | null;
+  key_points: string[];
   status: "draft" | "published";
   display_order: number;
   created_at: string;

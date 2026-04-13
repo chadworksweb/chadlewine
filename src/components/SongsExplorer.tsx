@@ -349,7 +349,7 @@ function SongRow({
 
                   {song.citation_summary && (
                     <section className="songs-explorer__drawer-section">
-                      <h3 className="songs-explorer__drawer-label">Citation</h3>
+                      <h3 className="songs-explorer__drawer-label">In Brief</h3>
                       <p className="songs-explorer__drawer-quote">{firstTwoSentences(song.citation_summary)}</p>
                     </section>
                   )}
@@ -392,7 +392,7 @@ function SongRow({
 
                   {halfEntities.length > 0 && (
                     <div className="songs-explorer__drawer-meta">
-                      <span className="songs-explorer__drawer-meta-label">Entities</span>
+                      <span className="songs-explorer__drawer-meta-label">Themes</span>
                       <div className="songs-explorer__drawer-chips">
                         {halfEntities.map((e, i) => (
                           <span key={i} className="songs-explorer__drawer-chip">

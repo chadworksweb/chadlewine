@@ -16,6 +16,7 @@ export function SongVisibilityChat({
   const [streamText, setStreamText] = useState("");
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Load existing messages
   useEffect(() => {
@@ -34,9 +35,16 @@ export function SongVisibilityChat({
     }
   }, [messages, streamText]);
 
+  function handleStop() {
+    abortRef.current?.abort();
+  }
+
   async function sendMessage(userMessage?: string) {
     setStreaming(true);
     setStreamText("");
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const body: Record<string, string> = { song_id: songId };
     if (userMessage) {
@@ -53,6 +61,7 @@ export function SongVisibilityChat({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -94,9 +103,22 @@ export function SongVisibilityChat({
           }
         }
       }
-    } catch (err) {
-      console.error("Chat error:", err);
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // Stopped by user — keep whatever streamed so far visible
+        if (streamText) {
+          setMessages((prev) => [
+            ...prev,
+            { id: crypto.randomUUID(), song_id: songId, role: "assistant", content: streamText + "\n\n[stopped]", created_at: new Date().toISOString() },
+          ]);
+          setStreamText("");
+          onSectionsUpdated?.();
+        }
+      } else {
+        console.error("Chat error:", err);
+      }
     } finally {
+      abortRef.current = null;
       setStreaming(false);
     }
   }
@@ -194,19 +216,30 @@ export function SongVisibilityChat({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={streaming ? "Waiting for response..." : "Reply..."}
+            placeholder={streaming ? "Generating..." : "Reply..."}
             disabled={streaming}
             className="obsv-editor__input"
             style={{ flex: 1 }}
           />
-          <button
-            type="submit"
-            className="admin-btn"
-            disabled={streaming || !input.trim()}
-            style={{ marginLeft: "0.5rem" }}
-          >
-            Send
-          </button>
+          {streaming ? (
+            <button
+              type="button"
+              className="admin-btn admin-btn--danger"
+              onClick={handleStop}
+              style={{ marginLeft: "0.5rem" }}
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="admin-btn"
+              disabled={!input.trim()}
+              style={{ marginLeft: "0.5rem" }}
+            >
+              Send
+            </button>
+          )}
         </form>
       )}
     </div>

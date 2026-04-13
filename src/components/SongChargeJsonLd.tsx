@@ -1,5 +1,10 @@
 import type { RisingCompassBadgeData } from "@/lib/rising-compass";
 
+interface SectionQA {
+  question: string;
+  answer: string;
+}
+
 interface SongChargeJsonLdProps {
   songTitle: string;
   songUrl: string;
@@ -10,6 +15,7 @@ interface SongChargeJsonLdProps {
   focusKeyphrase?: string | null;
   secondaryKeyphrases?: string[];
   paaPairs?: { question: string; answer: string }[];
+  sectionQAPairs?: SectionQA[];
 }
 
 export function SongChargeJsonLd({
@@ -22,6 +28,7 @@ export function SongChargeJsonLd({
   focusKeyphrase,
   secondaryKeyphrases = [],
   paaPairs = [],
+  sectionQAPairs = [],
 }: SongChargeJsonLdProps) {
   const jsonLd = {
     "@context": [
@@ -126,11 +133,13 @@ export function SongChargeJsonLd({
 
   const schemas: Record<string, unknown>[] = [jsonLd];
 
-  if (paaPairs.length > 0) {
+  // Combine PAA pairs + section-level Q&A (from format stack headings + direct answers)
+  const allFaqPairs = [...paaPairs, ...sectionQAPairs];
+  if (allFaqPairs.length > 0) {
     schemas.push({
       "@context": "https://schema.org",
       "@type": "FAQPage",
-      mainEntity: paaPairs.map((pair) => ({
+      mainEntity: allFaqPairs.map((pair) => ({
         "@type": "Question",
         name: pair.question,
         acceptedAnswer: {

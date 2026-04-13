@@ -1,8 +1,18 @@
 import Link from "next/link";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { HomepageFeed } from "@/components/HomepageFeed";
-import { FeaturedTrack } from "@/components/FeaturedTrack";
 import { ExploreSongs } from "@/components/ExploreSongs";
+
+async function getCLStream() {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("cl_stream_songs")
+    .select("id, title, artist, album, album_art_url, note, source_url, rc_color, rc_charge, rc_contaminated, created_at")
+    .eq("status", "published")
+    .order("created_at", { ascending: false })
+    .limit(8);
+  return data || [];
+}
 
 
 export const revalidate = 60;
@@ -162,11 +172,12 @@ async function getMeditations() {
 }
 
 export default async function HomePage() {
-  const [observations, meditations, featuredTrack, exploreSongs] = await Promise.all([
+  const [observations, meditations, featuredTrack, exploreSongs, clStream] = await Promise.all([
     getObservations(),
     getMeditations(),
     getFeaturedTrack(),
     getExploreSongs(),
+    getCLStream(),
   ]);
 
   const featuredPlaybackMode = featuredTrack
@@ -177,38 +188,9 @@ export default async function HomePage() {
     <div id="page-home" className="page-home">
       <HomepageFeed
         observations={observations}
-        sidebar={
-          <aside className="home-split__sidebar">
-            {featuredTrack && (
-              <div className="home-split__sidebar-block">
-                <h2 className="home-split__section-heading">Featured Track</h2>
-                <div className="featured-track__inner">
-                  <FeaturedTrack song={featuredTrack.song} album={featuredTrack.album} playbackMode={featuredPlaybackMode} />
-                </div>
-              </div>
-            )}
-            {meditations.length > 0 && (
-              <div className="home-split__sidebar-block">
-                <h2 className="home-split__section-heading">Meditations</h2>
-                <div className="home-split__meditations-feed">
-                  {meditations.map((med) => (
-                    <Link
-                      key={med.id}
-                      href={`/meditations/${med.id}`}
-                      className="home-med-row"
-                    >
-                      <span className="home-med-row__label">{med.subtitle || "new meditation"}</span>
-                      <span className="home-med-row__date">{new Date(med.published_at || med.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}</span>
-                    </Link>
-                  ))}
-                </div>
-                <Link href="/meditations" className="home-split__meditations-more">
-                  All Meditations
-                </Link>
-              </div>
-            )}
-          </aside>
-        }
+        featuredTrack={featuredTrack ? { ...featuredTrack, playbackMode: featuredPlaybackMode } : null}
+        meditations={meditations}
+        clStream={clStream}
       />
 
       <ExploreSongs songs={exploreSongs} />

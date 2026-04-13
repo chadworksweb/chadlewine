@@ -4,6 +4,8 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { HeroLens } from "@/components/HeroLens";
 import { FeedEntry } from "@/components/FeedEntry";
+import { FeaturedTrack } from "@/components/FeaturedTrack";
+import { CLStreamEntry } from "@/components/CLStreamEntry";
 
 const FEED_LIMIT = 10;
 
@@ -18,12 +20,56 @@ interface Observation {
   tags: { label: string; slug: string }[];
 }
 
-interface HomepageFeedProps {
-  observations: Observation[];
-  sidebar: React.ReactNode;
+interface Meditation {
+  id: string;
+  subtitle: string | null;
+  body: string | null;
+  plain_text: string | null;
+  published_at: string | null;
+  created_at: string;
 }
 
-export function HomepageFeed({ observations, sidebar }: HomepageFeedProps) {
+interface FeaturedTrackData {
+  song: {
+    id: string;
+    title: string;
+    slug: string;
+    track_number: number;
+    duration_seconds: number | null;
+    streaming_path: string | null;
+    song_summary: string | null;
+    playback_mode?: string | null;
+  };
+  album: {
+    title: string;
+    slug: string;
+    cover_art_path: string | null;
+    cover_art_alt: string | null;
+  };
+  playbackMode: "preview" | "full";
+}
+
+interface CLStreamSong {
+  id: string;
+  title: string;
+  artist: string;
+  album: string | null;
+  album_art_url: string | null;
+  note: string | null;
+  source_url: string | null;
+  rc_color: string | null;
+  rc_charge: number | null;
+  created_at: string;
+}
+
+interface HomepageFeedProps {
+  observations: Observation[];
+  featuredTrack: FeaturedTrackData | null;
+  meditations: Meditation[];
+  clStream: CLStreamSong[];
+}
+
+export function HomepageFeed({ observations, featuredTrack, meditations, clStream }: HomepageFeedProps) {
   const feedObs = useMemo(() => observations.slice(0, FEED_LIMIT), [observations]);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [stuck, setStuck] = useState(false);
@@ -74,7 +120,50 @@ export function HomepageFeed({ observations, sidebar }: HomepageFeedProps) {
           )}
         </section>
 
-        {sidebar}
+        <aside className="home-split__sidebar">
+          {featuredTrack && (
+            <div className="home-split__sidebar-block">
+              <h2 className="home-split__section-heading">Featured Track</h2>
+              <div className="featured-track__inner">
+                <FeaturedTrack
+                  song={featuredTrack.song}
+                  album={featuredTrack.album}
+                  playbackMode={featuredTrack.playbackMode}
+                />
+              </div>
+            </div>
+          )}
+          {meditations.length > 0 && (
+            <div className="home-split__sidebar-block">
+              <h2 className="home-split__section-heading">Meditations</h2>
+              <div className="home-split__meditations-feed">
+                {meditations.map((med) => (
+                  <Link
+                    key={med.id}
+                    href={`/meditations/${med.id}`}
+                    className="home-med-row"
+                  >
+                    <span className="home-med-row__label">{med.subtitle || "new meditation"}</span>
+                    <span className="home-med-row__date">{new Date(med.published_at || med.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}</span>
+                  </Link>
+                ))}
+              </div>
+              <Link href="/meditations" className="home-split__meditations-more">
+                All Meditations
+              </Link>
+            </div>
+          )}
+          {clStream.length > 0 && (
+            <div className="home-split__sidebar-block">
+              <h2 className="home-split__section-heading">CL Stream</h2>
+              <div className="cl-stream-feed">
+                {clStream.map((song) => (
+                  <CLStreamEntry key={song.id} song={song} />
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
       </div>
     </>
   );

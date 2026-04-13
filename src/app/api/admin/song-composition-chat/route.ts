@@ -144,6 +144,9 @@ COMPOSITION REQUIREMENTS:
 6. Target 300-600 words. Dense, not padded.
 7. Reference the lyrics specifically. Pull key lines and contextualize them for the seeker.
 
+FORMAT STACK CONTEXT:
+This composition is the NARRATIVE LAYER of a format stack. On the page, each section has three extraction layers: a direct-answer block (40-60 words), prose narrative, and a bullet summary. The composition IS the prose for the "Full Story" section. Other sections handle their own direct-answers and bullets. Your job is to write the deep, citation-worthy narrative that gives AI engines something substantial to cite. Do not duplicate what the visibility sections cover in list form. Go deeper.
+
 OUTPUT FORMAT:
 Wrap the composed content in <composition> delimiters:
 <composition>

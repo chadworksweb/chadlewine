@@ -1,10 +1,19 @@
 import { createAdminClient } from "@/lib/supabase-server";
 
+// Resolve param as UUID or slug
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveSong(supabase: ReturnType<typeof createAdminClient>, idOrSlug: string) {
+  const field = UUID_RE.test(idOrSlug) ? "id" : "slug";
+  const { data, error } = await supabase.from("songs").select("*").eq(field, idOrSlug).single();
+  return { data, error };
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = createAdminClient();
 
-  const { data: song, error } = await supabase.from("songs").select("*").eq("id", id).single();
+  const { data: song, error } = await resolveSong(supabase, id);
   if (error) return Response.json({ error: error.message }, { status: 404 });
 
   const { data: assoc } = await supabase
@@ -27,9 +36,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: idOrSlug } = await params;
   const supabase = createAdminClient();
   const body = await request.json();
+
+  // Resolve to actual UUID
+  const { data: resolved } = await resolveSong(supabase, idOrSlug);
+  if (!resolved) return Response.json({ error: "Song not found" }, { status: 404 });
+  const id = resolved.id;
 
   const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "lyrics", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt"];
   const updates: Record<string, unknown> = {};
@@ -82,9 +96,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: idOrSlug } = await params;
   const supabase = createAdminClient();
-  const { error } = await supabase.from("songs").delete().eq("id", id);
+  const { data: resolved } = await resolveSong(supabase, idOrSlug);
+  if (!resolved) return Response.json({ error: "Song not found" }, { status: 404 });
+  const { error } = await supabase.from("songs").delete().eq("id", resolved.id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true });
 }

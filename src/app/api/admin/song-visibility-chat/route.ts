@@ -81,18 +81,27 @@ export async function POST(request: Request) {
     .map((s: any) => `- ${s.title}${s.song_summary ? `: ${s.song_summary}` : ""}`)
     .join("\n");
 
-  // Build existing sections context
+  // Build existing sections context — include full content from interview categories
+  // so Claude can regenerate without re-interviewing
+  const interviewCategories = new Set(
+    VISIBILITY_CATEGORIES.filter((c) => !c.autoGenerate).map((c) => c.slug)
+  );
   const sectionState = (existingSections || [])
     .filter((s: any) => s.content)
-    .map((s: any) => `- ${s.category}: has content`)
-    .join("\n") || "None generated yet";
+    .map((s: any) => {
+      if (interviewCategories.has(s.category)) {
+        return `### ${s.category} (from prior interview — use this context, do NOT re-ask)\n${s.content}`;
+      }
+      return `- ${s.category}: has content (will regenerate)`;
+    })
+    .join("\n\n") || "None generated yet";
 
   // Build category definitions
   const categoryDefs = VISIBILITY_CATEGORIES
     .map((c) => `- **${c.label}** (slug: ${c.slug}): ${c.description} [${c.autoGenerate ? "auto-generate from lyrics" : "interview Chad"}]`)
     .join("\n");
 
-  const systemPrompt = `You are Chad Lewine's song visibility strategist. Your job is to generate raw marketing material, ideas, and discovery angles for a single song across 10 categories. You generate raw material that Chad will shape and mold into final content. You NEVER rewrite Chad's words or polish his voice — you provide ideas, suggestions, and analysis that he works with.
+  const systemPrompt = `You are Chad Lewine's song visibility strategist. Your job is to generate raw marketing material, ideas, and discovery angles for a single song across the visibility categories. You generate raw material that Chad will shape and mold into final content. You NEVER rewrite Chad's words or polish his voice — you provide ideas, suggestions, and analysis that he works with.
 
 THE SONG:
 Title: ${song.title}
@@ -115,24 +124,51 @@ Contaminated: ${badge.contaminated ? `Yes — ${badge.contamination_note}` : "No
 CATALOG (other songs by Chad):
 ${catalogLines || "No other published songs"}
 
-THE 10 VISIBILITY CATEGORIES:
+THE VISIBILITY CATEGORIES:
 ${categoryDefs}
 
 CURRENT STATE:
 ${sectionState}
 
+FORMAT STACK — CRITICAL:
+Every category must output THREE extraction layers, not just one. AI engines extract differently:
+- Perplexity grabs the bullet list
+- ChatGPT grabs the narrative
+- Gemini grabs the direct answer + schema
+
+When you generate content for a category, use this three-layer delimiter format:
+
+<visibility:breakdown>
+<direct-answer>40-60 word standalone summary. Self-contained — an AI reads this back verbatim. No intro, no setup, just the answer.</direct-answer>
+<prose>
+150-300 words of expanded narrative. USE MARKDOWN: **bold** for emphasis, line breaks between paragraphs, > blockquotes for lyric references. This is the citation-worthy layer — depth, context, specifics. Not a wall of text.
+</prose>
+<key-points>
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3
+- Bullet point 4
+- Bullet point 5
+</key-points>
+</visibility:breakdown>
+
+HARD LIMITS PER LAYER:
+- direct-answer: 40-60 words. One block. No markdown.
+- prose: 150-300 words. MUST use markdown formatting (bold, paragraphs, blockquotes for lyrics). Not an essay.
+- key-points: 5-8 bullets. One line each. No sub-bullets.
+- Total per category: under 500 words across all three layers combined.
+
+All three sub-layers are required for every category. The direct-answer is a self-contained block (not an intro to the prose). The prose expands with depth. The key-points are a structured summary of the same content, not new content.
+
 BEHAVIOR:
-1. For auto-generate categories (Breakdown, Hooks, Fragments, Connections, Cultural Position), analyze the lyrics and generate raw content immediately. These don't need Chad's input.
-2. For interview categories (Story, World, Audience, Visual, Commerce), ask Chad ONE question at a time. Wait for his answer before asking the next question.
-3. When you generate content for a category, wrap it in delimiters like this:
-   <visibility:breakdown>
-   Your generated content here...
-   </visibility:breakdown>
-4. Keep each category's content to focused, actionable ideas — not essays. Bullet points, angles, specific suggestions.
-5. For Fragments, extract specific quotable lines from the lyrics with brief context on why each one works.
-6. For Hooks, think about what someone would ask an AI or search engine that this song answers.
-7. For Connections, reference specific other songs from the catalog.
-8. Be direct. No filler. Every idea should be something Chad can act on.
+1. For auto-generate categories, analyze the lyrics and generate raw content immediately with all three layers. These don't need Chad's input. Generate them in this order: If You Like, Hooks, Breakdown, Fragments, Cultural Position, Connections.
+2. For interview categories (Story, World, Audience): if the CURRENT STATE section above already contains interview content for a category, use that content to generate the format stack — do NOT re-ask questions you already have answers to. Only interview for categories that have no content yet. When interviewing, ask ONE question at a time.
+3. Every idea should be something Chad can act on. No filler.
+4. For Fragments, extract specific quotable lines from the lyrics with brief context on why each one works.
+5. For Hooks, think about what someone would ask an AI or search engine that this song answers.
+6. For Connections, reference specific other songs from the catalog.
+7. For Cultural Position: this is PUBLIC-FACING content, not internal strategy. Write it as what the song reflects about where culture is right now. The seeker reads this and recognizes their own world. Not "here are editorial angles to pursue" — instead "here is what this song says about what people are living through." Frame it as cultural commentary, not marketing positioning.
+8. For If You Like, name specific famous artists and songs that fans of THIS song would search for. Think: "If you like [Famous Artist] — [Famous Song], you'll connect with this." Format as a list of artist/song pairs with a one-line reason each. Real, well-known artists whose fans would genuinely resonate. The goal is GEO — people searching for those artists should find this page.
 
 ${voiceProfile ? `VOICE PROFILE (for awareness — do NOT use this to rewrite anything, only to understand Chad's voice when generating ideas):
 ${voiceProfile}` : ""}`;
@@ -210,19 +246,32 @@ ${voiceProfile}` : ""}`;
           content: fullText,
         });
 
-        // Parse <visibility:slug> delimiters and upsert sections
+        // Parse <visibility:slug> delimiters and extract three-layer format stack
         const sectionRegex = /<visibility:([a-z-]+)>([\s\S]*?)<\/visibility:\1>/g;
         let match;
         while ((match = sectionRegex.exec(fullText)) !== null) {
-          const [, category, content] = match;
+          const [, category, rawContent] = match;
           const validCategory = VISIBILITY_CATEGORIES.find((c) => c.slug === category);
           if (!validCategory) continue;
+
+          // Extract format stack layers
+          const daMatch = rawContent.match(/<direct-answer>([\s\S]*?)<\/direct-answer>/);
+          const proseMatch = rawContent.match(/<prose>([\s\S]*?)<\/prose>/);
+          const kpMatch = rawContent.match(/<key-points>([\s\S]*?)<\/key-points>/);
+
+          const directAnswer = daMatch ? daMatch[1].trim() : null;
+          const prose = proseMatch ? proseMatch[1].trim() : rawContent.trim();
+          const keyPoints = kpMatch
+            ? kpMatch[1].trim().split(/\n/).map((l: string) => l.replace(/^[-*]\s*/, "").trim()).filter(Boolean)
+            : [];
 
           await supabase.from("song_visibility_sections").upsert(
             {
               song_id,
               category,
-              content: content.trim(),
+              content: prose,
+              direct_answer: directAnswer,
+              key_points: keyPoints,
               status: "draft",
             },
             { onConflict: "song_id,category" }

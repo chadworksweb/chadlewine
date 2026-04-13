@@ -14,7 +14,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const supabase = createAdminClient();
   const body = await request.json();
 
-  const allowed = ["content", "status", "display_order"];
+  const allowed = ["content", "status", "display_order", "direct_answer", "key_points"];
   const updates: Record<string, unknown> = {};
   for (const f of allowed) { if (f in body) updates[f] = body[f]; }
 
