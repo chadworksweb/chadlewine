@@ -10598,75 +10598,8 @@ h3.aw-heading {
    CL STREAM
    ============================================================ */
 
-.cl-stream-feed,
-.cl-stream-page-feed {
-  display: flex;
-  flex-direction: column;
-}
-
-.cl-stream-page-feed {
-  max-width: 600px;
-  margin-top: 2rem;
-}
-
-.cl-stream-entry-link {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-}
-
-.cl-stream-entry {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  transition: opacity 0.15s ease;
-}
-
-.cl-stream-entry-link:hover .cl-stream-entry {
-  opacity: 0.7;
-}
-
-.cl-stream-entry__header {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.cl-stream-entry__title {
-  font-family: var(--font-ui);
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text-primary, #e4e4ec);
-}
-
-
-.cl-stream-entry__artist {
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  color: var(--text-secondary, rgba(228,228,236,0.6));
-  margin: 0.15rem 0 0;
-}
-
-.cl-stream-entry__album {
-  color: var(--text-tertiary, rgba(228,228,236,0.35));
-}
-
-.cl-stream-entry__note {
-  font-size: 0.78rem;
-  font-style: italic;
-  color: var(--text-tertiary, rgba(228,228,236,0.45));
-  margin: 0.25rem 0 0;
-  line-height: 1.5;
-}
-
-.cl-stream-entry__date {
-  display: block;
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
-  color: var(--text-tertiary, rgba(228,228,236,0.3));
-  margin-top: 0.3rem;
-  letter-spacing: 0.02em;
-}
+.cl-stream-page-feed { margin-top: 2rem; }
+.feed-entry--stream { grid-template-columns: 1fr; }
 
 /* Admin list */
 .cl-stream-admin-list {

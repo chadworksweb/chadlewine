@@ -3,18 +3,6 @@ import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { HomepageFeed } from "@/components/HomepageFeed";
 import { ExploreSongs } from "@/components/ExploreSongs";
 
-async function getCLStream() {
-  const supabase = createPublicClient();
-  const { data } = await supabase
-    .from("cl_stream_songs")
-    .select("id, title, artist, album, note, source_url, rc_color, rc_charge, created_at")
-    .eq("status", "published")
-    .order("created_at", { ascending: false })
-    .limit(8);
-  return data || [];
-}
-
-
 export const revalidate = 60;
 
 async function getObservations() {
@@ -172,12 +160,11 @@ async function getMeditations() {
 }
 
 export default async function HomePage() {
-  const [observations, meditations, featuredTrack, exploreSongs, clStream] = await Promise.all([
+  const [observations, meditations, featuredTrack, exploreSongs] = await Promise.all([
     getObservations(),
     getMeditations(),
     getFeaturedTrack(),
     getExploreSongs(),
-    getCLStream(),
   ]);
 
   const featuredPlaybackMode = featuredTrack
@@ -190,7 +177,6 @@ export default async function HomePage() {
         observations={observations}
         featuredTrack={featuredTrack ? { ...featuredTrack, playbackMode: featuredPlaybackMode } : null}
         meditations={meditations}
-        clStream={clStream}
       />
 
       <ExploreSongs songs={exploreSongs} />
