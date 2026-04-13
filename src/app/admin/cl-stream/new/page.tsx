@@ -9,6 +9,8 @@ export default function NewStreamSongPage() {
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState("");
   const [artPreview, setArtPreview] = useState("");
+  const [needsLyrics, setNeedsLyrics] = useState(false);
+  const [lyrics, setLyrics] = useState("");
   const [form, setForm] = useState({
     source_url: "",
     title: "",
@@ -51,36 +53,53 @@ export default function NewStreamSongPage() {
     }
   }
 
-  async function handleSave() {
+  async function handleSave(withLyrics = false) {
     if (!form.title.trim() || !form.artist.trim()) return;
     setSaving(true);
-    const res = await fetch("/api/admin/cl-stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    if (res.ok) {
-      router.push("/admin/cl-stream");
-    } else {
+    try {
+      const payload: Record<string, string> = { ...form };
+      if (withLyrics && lyrics.trim()) payload.lyrics = lyrics.trim();
+
+      const res = await fetch("/api/admin/cl-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.status === 202) {
+        // RC doesn't have this song — need lyrics
+        setNeedsLyrics(true);
+        return;
+      }
+
+      if (res.ok) {
+        router.push("/admin/cl-stream");
+        return;
+      }
+
       const err = await res.json().catch(() => ({}));
       alert(err.error || "Save failed");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   return (
     <div className="admin-page">
       <div className="admin-page__header">
         <h1 className="admin-page__title">Add to CL Stream</h1>
-        <button
-          className="admin-btn admin-btn--primary"
-          onClick={handleSave}
-          disabled={saving || !form.title.trim() || !form.artist.trim()}
-        >
-          {saving ? "Saving..." : "Add to Stream"}
-        </button>
+        {!needsLyrics && (
+          <button
+            className="admin-btn admin-btn--primary"
+            onClick={() => handleSave(false)}
+            disabled={saving || !form.title.trim() || !form.artist.trim()}
+          >
+            {saving ? "Checking..." : "Add to Stream"}
+          </button>
+        )}
       </div>
 
+      {/* Step 1 — song details */}
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">Paste a link (Tidal, etc.)</label>
         <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -169,6 +188,35 @@ export default function NewStreamSongPage() {
           placeholder="Optional — what caught your ear"
         />
       </div>
+
+      {/* Step 2 — lyrics (only shown when RC doesn't have the song) */}
+      {needsLyrics && (
+        <div style={{ marginTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "1.5rem" }}>
+          <p style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>
+            <strong style={{ color: "var(--text-primary)" }}>{form.title}</strong> by{" "}
+            <strong style={{ color: "var(--text-primary)" }}>{form.artist}</strong> isn&apos;t in Rising Compass yet.
+            Paste the lyrics to calibrate it.
+          </p>
+          <div className="obsv-editor__field">
+            <label className="obsv-editor__label">Lyrics</label>
+            <textarea
+              className="obsv-editor__input"
+              value={lyrics}
+              onChange={(e) => setLyrics(e.target.value)}
+              rows={14}
+              placeholder="Paste full lyrics here..."
+              autoFocus
+            />
+          </div>
+          <button
+            className="admin-btn admin-btn--primary"
+            onClick={() => handleSave(true)}
+            disabled={saving || !lyrics.trim()}
+          >
+            {saving ? "Calibrating..." : "Calibrate & Add to Stream"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
