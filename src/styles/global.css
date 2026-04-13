@@ -10601,6 +10601,41 @@ h3.aw-heading {
 .cl-stream-page-feed { margin-top: 2rem; }
 .feed-entry--stream { grid-template-columns: 1fr; }
 
+.cl-stream-entry-body {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.cl-stream-entry-body__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cl-stream-note-bubble {
+  position: relative;
+  margin-top: var(--space-xs);
+  padding: 0.45rem 0.7rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0 8px 8px 8px;
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.cl-stream-note-bubble::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -6px;
+  width: 0;
+  height: 0;
+  border-top: 6px solid rgba(255, 255, 255, 0.05);
+  border-left: 6px solid transparent;
+}
+
 /* Admin list */
 .cl-stream-admin-list {
   display: flex;

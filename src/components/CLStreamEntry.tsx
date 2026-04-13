@@ -24,37 +24,37 @@ export function CLStreamEntry({ song }: { song: CLStreamSong }) {
 
   const inner = (
     <div className="feed-entry feed-entry--stream">
-      <div className="feed-entry__content" style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-md)" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="feed-entry__meta">
-            <time className="feed-entry__date">{formatDate(song.created_at)}</time>
+      <div className="feed-entry__content">
+        <div className="feed-entry__meta">
+          <time className="feed-entry__date">{formatDate(song.created_at)}</time>
+        </div>
+        <div className="cl-stream-entry-body">
+          <div className="cl-stream-entry-body__text">
+            <h2 className="feed-entry__title">
+              {song.title}
+              <span style={{ opacity: 0.45, fontWeight: 400 }}> — {song.artist}</span>
+            </h2>
+            {song.album && (
+              <p className="feed-entry__hook"><em>{song.album}</em></p>
+            )}
+            {song.note && (
+              <div className="cl-stream-note-bubble">{song.note}</div>
+            )}
           </div>
-          <h2 className="feed-entry__title">
-            {song.title}
-            <span style={{ opacity: 0.45, fontWeight: 400 }}> — {song.artist}</span>
-          </h2>
-          {song.album && (
-            <p className="feed-entry__hook"><em>{song.album}</em></p>
-          )}
-          {song.note && (
-            <p className="feed-entry__hook" style={{ marginTop: "var(--space-xs)" }}>
-              {song.note}
-            </p>
+          {tierHex && chargeStr && (
+            <div className="track-detail__rc-badge" style={{ flexShrink: 0 }}>
+              <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
+                <CompassIcon charge={charge} tierHex={tierHex} />
+              </a>
+              <div className="track-detail__rc-data">
+                <span className="track-detail__rc-tier" style={{ color: tierHex }}>
+                  {tierLabel}
+                </span>
+                <span className="track-detail__rc-charge">{chargeStr}</span>
+              </div>
+            </div>
           )}
         </div>
-        {tierHex && chargeStr && (
-          <div className="track-detail__rc-badge" style={{ flexShrink: 0, marginTop: "var(--space-xs)" }}>
-            <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
-              <CompassIcon charge={charge} tierHex={tierHex} />
-            </a>
-            <div className="track-detail__rc-data">
-              <span className="track-detail__rc-tier" style={{ color: tierHex }}>
-                {tierLabel}
-              </span>
-              <span className="track-detail__rc-charge">{chargeStr}</span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
