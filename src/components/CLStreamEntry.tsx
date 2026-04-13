@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 import { CompassIcon, rcTierHex, rcTierLabel } from "@/components/RCBadge";
 
@@ -15,6 +18,7 @@ interface CLStreamSong {
 }
 
 export function CLStreamEntry({ song }: { song: CLStreamSong }) {
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const tierHex = song.rc_color ? rcTierHex(song.rc_color) : null;
   const tierLabel = song.rc_color ? rcTierLabel(song.rc_color) : null;
   const charge = song.rc_charge ?? 0;
@@ -51,6 +55,24 @@ export function CLStreamEntry({ song }: { song: CLStreamSong }) {
                   {tierLabel}
                 </span>
                 <span className="track-detail__rc-charge">{chargeStr}</span>
+                {song.rc_charge_summary && (
+                  <div className="track-detail__rc-summary-wrap">
+                    <button
+                      type="button"
+                      className="track-detail__rc-summary-btn"
+                      onClick={(e) => { e.preventDefault(); setSummaryOpen((v) => !v); }}
+                      aria-label="Read charge summary"
+                      title="Charge summary"
+                    >
+                      &#x1F4AC;
+                    </button>
+                    {summaryOpen && (
+                      <div className="track-detail__rc-summary-tooltip">
+                        <p>{song.rc_charge_summary}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
