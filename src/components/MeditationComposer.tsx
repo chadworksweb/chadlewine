@@ -118,12 +118,16 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
           published_at: data.published_at,
           related_music: data.related_music || [],
         });
-        if (editorRef.current) {
-          editorRef.current.innerHTML = data.body;
-        }
         setLoaded(true);
       });
   }, [meditationId]);
+
+  // Set editor innerHTML after the editor div mounts (editorRef is null during the loading skeleton)
+  useEffect(() => {
+    if (!loaded || !editorRef.current) return;
+    editorRef.current.innerHTML = form.body;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
 
   // Sync contenteditable → state
   const handleInput = useCallback(() => {
