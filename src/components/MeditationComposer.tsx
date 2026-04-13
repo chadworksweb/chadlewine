@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { RelatedMusicPanel } from "@/components/RelatedMusicPanel";
 import { TaxonomyPicker } from "@/components/TaxonomyPicker";
 
@@ -49,10 +50,8 @@ const emptyMeditation: MeditationData = {
   related_music: [],
 };
 
-
 export function MeditationComposer({ meditationId }: { meditationId?: string }) {
   const router = useRouter();
-  const editorRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<MeditationData>(emptyMeditation);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(!meditationId);
@@ -87,7 +86,6 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
   const [allThoughtlines, setAllThoughtlines] = useState<ThoughtlineOption[]>([]);
   const [allTags, setAllTags] = useState<TagOption[]>([]);
 
-  // Load metadata options
   useEffect(() => {
     Promise.all([
       fetch("/api/admin/categories").then((r) => r.json()),
@@ -122,26 +120,9 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
       });
   }, [meditationId]);
 
-  // Set editor innerHTML after the editor div mounts (editorRef is null during the loading skeleton)
-  useEffect(() => {
-    if (!loaded || !editorRef.current) return;
-    editorRef.current.innerHTML = form.body;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded]);
-
-  // Sync contenteditable → state
-  const handleInput = useCallback(() => {
-    if (!editorRef.current) return;
-    const html = editorRef.current.innerHTML;
-    const text = editorRef.current.textContent || "";
+  function handleBodyChange(html: string) {
+    const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     setForm((prev) => ({ ...prev, body: html, plain_text: text }));
-  }, []);
-
-  // Formatting commands
-  function execCmd(cmd: string) {
-    document.execCommand(cmd, false);
-    editorRef.current?.focus();
-    handleInput();
   }
 
   function toggleTaxonomy(field: "categories" | "thoughtlines" | "tags", id: string) {
@@ -153,10 +134,8 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
     }));
   }
 
-
   async function handlePublish() {
     setForm((prev) => ({ ...prev, status: "published" }));
-    // flush will pick up the status change on next tick
     await new Promise((r) => setTimeout(r, 0));
     await flush();
   }
@@ -167,7 +146,6 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
     await fetch(`/api/admin/meditations/${meditationId}`, { method: "DELETE" });
     router.push("/admin/meditations");
   }
-
 
   if (!loaded) {
     return (
@@ -187,20 +165,12 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
         </h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {meditationId && form.status === "published" && (
-            <a
-              href={`/meditations/${meditationId}`}
-              target="_blank"
-              className="admin-btn"
-            >
+            <a href={`/meditations/${meditationId}`} target="_blank" className="admin-btn">
               View
             </a>
           )}
           {meditationId && (
-            <button
-              type="button"
-              className="admin-btn admin-btn--danger"
-              onClick={handleDelete}
-            >
+            <button type="button" className="admin-btn admin-btn--danger" onClick={handleDelete}>
               Delete
             </button>
           )}
@@ -211,7 +181,6 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
 
       <div className="med-composer">
         <div className="med-composer__main">
-          {/* Subtitle */}
           <input
             type="text"
             className="obsv-editor__input"
@@ -221,30 +190,8 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
             style={{ marginBottom: "var(--space-xs)" }}
           />
 
-          {/* Toolbar */}
-          <div className="med-composer__toolbar">
-            <button type="button" className="med-composer__toolbar-btn" onClick={() => execCmd("bold")} title="Bold">
-              <strong>B</strong>
-            </button>
-            <button type="button" className="med-composer__toolbar-btn" onClick={() => execCmd("italic")} title="Italic">
-              <em>I</em>
-            </button>
-            <button type="button" className="med-composer__toolbar-btn" onClick={() => execCmd("underline")} title="Underline">
-              <u>U</u>
-            </button>
-          </div>
+          <RichTextEditor value={form.body} onChange={handleBodyChange} />
 
-          {/* Contenteditable */}
-          <div
-            ref={editorRef}
-            className="med-composer__editor"
-            contentEditable
-            spellCheck
-            onInput={handleInput}
-            data-placeholder="Write a meditation..."
-          />
-
-          {/* Actions */}
           <div className="med-composer__actions">
             <span className={`autosave-status autosave-status--${autosaveStatus}`}>
               {autosaveStatus === "saving" && "Saving..."}
@@ -252,11 +199,7 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
               {autosaveStatus === "error" && "Save failed"}
             </span>
             {form.status !== "published" && (
-              <button
-                type="button"
-                className="admin-btn admin-btn--primary"
-                onClick={handlePublish}
-              >
+              <button type="button" className="admin-btn admin-btn--primary" onClick={handlePublish}>
                 Publish
               </button>
             )}
@@ -271,12 +214,9 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
           )}
         </div>
 
-        {/* Sidebar — metadata pickers */}
         <div className="med-composer__sidebar">
           <div className="obsv-editor__panel">
-            <h3 className="obsv-editor__panel-title">
-              Status
-            </h3>
+            <h3 className="obsv-editor__panel-title">Status</h3>
             <select
               className="obsv-editor__input"
               value={form.status}
