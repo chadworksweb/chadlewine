@@ -378,7 +378,7 @@ export function ObservationEditor({
       setForm((prev) => ({ ...prev, id: newId }));
       router.replace(`/admin/observations/${newId}`, { scroll: false });
     },
-    enabled: !!form.title && !!form.slug && !!form.body && !!form.date_captured,
+    enabled: !!form.title && !!form.slug && !!form.date_captured,
   });
 
   useEffect(() => {

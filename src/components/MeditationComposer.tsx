@@ -79,7 +79,7 @@ export function MeditationComposer({ meditationId }: { meditationId?: string }) 
       setForm((prev) => ({ ...prev, id: newId }));
       router.replace(`/admin/meditations/${newId}`, { scroll: false });
     },
-    enabled: loaded && !!form.body && !!form.plain_text?.trim(),
+    enabled: loaded,
   });
 
   // Metadata options
