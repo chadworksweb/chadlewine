@@ -53,7 +53,7 @@ export function AdminSidebar() {
 
   async function handleLogout() {
     await fetch("/api/auth/session", { method: "DELETE" });
-    window.location.href = "/login";
+    window.location.href = "/cl-admin-6nnn";
   }
 
   return (

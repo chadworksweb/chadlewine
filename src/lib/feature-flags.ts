@@ -43,12 +43,12 @@ export async function isSectionLive(section: string): Promise<boolean> {
 }
 
 // Maps a URL pathname to its section key. Returns null if the path is not
-// controlled by a section flag (e.g. /, /admin, /api, /login, /preview, static).
+// controlled by a section flag (e.g. /, /admin, /api, /cl-admin-*, /preview, static).
 export function sectionForPath(pathname: string): string | null {
   if (pathname === "/" || pathname === "") return null;
   if (pathname.startsWith("/admin")) return null;
   if (pathname.startsWith("/api")) return null;
-  if (pathname.startsWith("/login")) return null;
+  if (pathname.startsWith("/cl-admin-")) return null;
   if (pathname.startsWith("/preview")) return null;
   if (pathname.startsWith("/_next")) return null;
   if (pathname.startsWith("/archive")) return null;
