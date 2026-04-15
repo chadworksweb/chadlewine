@@ -22,7 +22,6 @@ interface Album {
 export default async function MusicHubPage() {
   const supabase = createPublicClient();
 
-  // Latest: most recent by release_date
   const { data: latestRows } = await supabase
     .from("albums")
     .select("id, title, slug, release_date, cover_art_path, description")
@@ -30,56 +29,71 @@ export default async function MusicHubPage() {
     .order("release_date", { ascending: false })
     .limit(1);
 
-  // Select: first by display_order (the featured pick)
   const { data: selectRows } = await supabase
     .from("albums")
     .select("id, title, slug, release_date, cover_art_path, description")
     .eq("status", "published")
     .order("display_order", { ascending: true })
-    .limit(1);
+    .limit(2);
 
   const latest = (latestRows?.[0] ?? null) as Album | null;
   let select = (selectRows?.[0] ?? null) as Album | null;
-
-  // If Select is the same album as Latest, grab the next one
   if (select && latest && select.id === latest.id) {
-    const { data: altRows } = await supabase
-      .from("albums")
-      .select("id, title, slug, release_date, cover_art_path, description")
-      .eq("status", "published")
-      .order("display_order", { ascending: true })
-      .limit(1)
-      .range(1, 1);
-    select = (altRows?.[0] ?? null) as Album | null;
+    select = (selectRows?.[1] ?? null) as Album | null;
   }
+
+  // Four covers for the Discography CTA mosaic
+  const excludeIds = [latest?.id, select?.id].filter(Boolean) as string[];
+  let mosaicQuery = supabase
+    .from("albums")
+    .select("id, cover_art_path")
+    .eq("status", "published")
+    .not("cover_art_path", "is", null)
+    .order("release_date", { ascending: false })
+    .limit(4);
+  if (excludeIds.length > 0) {
+    mosaicQuery = mosaicQuery.not("id", "in", `(${excludeIds.join(",")})`);
+  }
+  const { data: mosaicRows } = await mosaicQuery;
+  const mosaic = (mosaicRows || []).map((r) => r.cover_art_path).filter(Boolean) as string[];
 
   return (
     <div id="page-music-hub" className="page-static">
       <h1 className="page-static__title">Music</h1>
 
       <div className="music-hub">
-        {/* Latest */}
-        {latest && (
-          <section className="music-hub__section">
-            <h2 className="music-hub__heading">Latest</h2>
-            <AlbumCard album={latest} />
-          </section>
-        )}
+        <section className="music-hub__col">
+          <h2 className="music-hub__heading">Latest</h2>
+          {latest ? <AlbumCard album={latest} /> : <EmptyCard />}
+        </section>
 
-        {/* Select */}
-        {select && (
-          <section className="music-hub__section">
-            <h2 className="music-hub__heading">Select</h2>
-            <AlbumCard album={select} />
-          </section>
-        )}
+        <section className="music-hub__col">
+          <h2 className="music-hub__heading">Select</h2>
+          {select ? <AlbumCard album={select} /> : <EmptyCard />}
+        </section>
 
-        {/* Discography */}
-        <section className="music-hub__section">
+        <section className="music-hub__col">
           <h2 className="music-hub__heading">Discography</h2>
-          <p className="music-hub__desc">Full catalog — 13 albums, streaming audio player.</p>
-          <Link href="/discography" className="music-hub__cta">
-            Browse Discography →
+          <Link href="/discography" className="music-hub__card-link">
+            <div className="music-hub__mosaic" aria-hidden="true">
+              {mosaic.length === 4 ? (
+                mosaic.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt=""
+                    className="music-hub__mosaic-tile"
+                    loading="lazy"
+                  />
+                ))
+              ) : (
+                <div className="music-hub__mosaic-empty" />
+              )}
+            </div>
+            <div className="music-hub__card-info">
+              <span className="music-hub__card-title">Browse All</span>
+              <span className="music-hub__card-year">Full catalog →</span>
+            </div>
           </Link>
         </section>
       </div>
@@ -91,24 +105,33 @@ function AlbumCard({ album }: { album: Album }) {
   const year = album.release_date
     ? new Date(album.release_date).getFullYear()
     : null;
-
   return (
-    <Link href="/discography" className="music-hub__card">
-      {album.cover_art_path && (
+    <Link href={`/music/albums/${album.slug}`} className="music-hub__card-link">
+      {album.cover_art_path ? (
         <img
           src={album.cover_art_path}
           alt={album.title}
           className="music-hub__cover"
           loading="lazy"
         />
+      ) : (
+        <div className="music-hub__cover music-hub__cover--empty" />
       )}
       <div className="music-hub__card-info">
         <span className="music-hub__card-title">{album.title}</span>
         {year && <span className="music-hub__card-year">{year}</span>}
-        {album.description && (
-          <p className="music-hub__card-desc">{album.description}</p>
-        )}
       </div>
     </Link>
+  );
+}
+
+function EmptyCard() {
+  return (
+    <div className="music-hub__card-link">
+      <div className="music-hub__cover music-hub__cover--empty" />
+      <div className="music-hub__card-info">
+        <span className="music-hub__card-title">—</span>
+      </div>
+    </div>
   );
 }
