@@ -29,17 +29,37 @@ export default async function MusicHubPage() {
     .order("release_date", { ascending: false })
     .limit(1);
 
-  const { data: selectRows } = await supabase
-    .from("albums")
-    .select("id, title, slug, release_date, cover_art_path, description")
-    .eq("status", "published")
-    .order("display_order", { ascending: true })
-    .limit(2);
+  const { data: selectSetting } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "music_hub_select_album_id")
+    .maybeSingle();
+  const selectedId = selectSetting?.value || null;
 
   const latest = (latestRows?.[0] ?? null) as Album | null;
-  let select = (selectRows?.[0] ?? null) as Album | null;
-  if (select && latest && select.id === latest.id) {
-    select = (selectRows?.[1] ?? null) as Album | null;
+  let select: Album | null = null;
+
+  if (selectedId) {
+    const { data: pickedRows } = await supabase
+      .from("albums")
+      .select("id, title, slug, release_date, cover_art_path, description")
+      .eq("status", "published")
+      .eq("id", selectedId)
+      .limit(1);
+    select = (pickedRows?.[0] ?? null) as Album | null;
+  }
+
+  if (!select) {
+    const { data: selectRows } = await supabase
+      .from("albums")
+      .select("id, title, slug, release_date, cover_art_path, description")
+      .eq("status", "published")
+      .order("display_order", { ascending: true })
+      .limit(2);
+    select = (selectRows?.[0] ?? null) as Album | null;
+    if (select && latest && select.id === latest.id) {
+      select = (selectRows?.[1] ?? null) as Album | null;
+    }
   }
 
   // Four covers for the Discography CTA mosaic
