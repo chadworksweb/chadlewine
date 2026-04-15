@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-interface NavItem {
+export interface NavItem {
   href: string;
   label: string;
   children?: { href: string; label: string }[];
 }
 
-const navItems: NavItem[] = [
+export const DEFAULT_NAV_ITEMS: NavItem[] = [
   { href: "/observations", label: "Observations" },
   { href: "/meditations", label: "Meditations" },
   {
@@ -27,7 +27,8 @@ const navItems: NavItem[] = [
   { href: "/chad-lewine", label: "About" },
 ];
 
-export function Nav() {
+export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
+  const navItems = items;
   const pathname = usePathname();
   const [hidden, setHidden] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);

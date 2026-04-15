@@ -12,6 +12,7 @@ interface NavItem {
 
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", exact: true },
+  { href: "/admin/launch-control", label: "Launch Control" },
   { href: "/admin/observations", label: "Observations" },
   { href: "/admin/meditations", label: "Meditations" },
   { href: "/admin/categories", label: "Categories" },
