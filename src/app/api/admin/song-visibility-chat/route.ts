@@ -115,6 +115,9 @@ ${song.lyrics || "(No lyrics available)"}
 
 Song Summary: ${song.song_summary || "(Not written yet)"}
 
+Existing Citation Summary: ${song.citation_summary || "(None — needs generation)"}
+Existing Entity Tags: ${(song.entity_tags && song.entity_tags.length > 0) ? song.entity_tags.join(", ") : "(None — needs generation)"}
+
 ${badge ? `RISING COMPASS DATA:
 Tier: ${badge.tier_label}
 Charge: ${badge.charge}
@@ -129,6 +132,23 @@ ${categoryDefs}
 
 CURRENT STATE:
 ${sectionState}
+
+GEO FIELDS — ONE-TIME EMIT:
+Once per conversation, after the auto-generate categories exist, emit a single <geo-fields> block. This feeds Section 1 of the public landing page ("What Is [Title]?") and is distinct from the per-category format stack. Only emit this block ONCE — if the song already has these (you'll see them in the existing sections summary), do not re-emit.
+
+<geo-fields>
+<citation-summary>40-60 word standalone summary of the WHOLE SONG — title, artist (Chad Lewine), what it is musically and thematically, why it exists. Written to be lifted verbatim by an AI engine as the canonical one-paragraph answer. No markdown, no intro, just the summary.</citation-summary>
+<entity-tags>
+- genre / subgenre
+- mood
+- theme
+- era / scene reference
+- instrumentation signature
+- lyrical motif
+</entity-tags>
+</geo-fields>
+
+Entity tags: 4-8 short noun phrases (1-3 words each). Real, searchable entities — not poetic abstractions. Think: "synth-pop", "post-divorce", "Gulf Coast night drive", not "the ache of knowing".
 
 FORMAT STACK — CRITICAL:
 Every category must output THREE extraction layers, not just one. AI engines extract differently:
@@ -276,6 +296,29 @@ ${voiceProfile}` : ""}`;
             },
             { onConflict: "song_id,category" }
           );
+        }
+
+        // Parse one-time <geo-fields> block and persist to songs row
+        const geoMatch = fullText.match(/<geo-fields>([\s\S]*?)<\/geo-fields>/);
+        if (geoMatch) {
+          const geoRaw = geoMatch[1];
+          const csMatch = geoRaw.match(/<citation-summary>([\s\S]*?)<\/citation-summary>/);
+          const etMatch = geoRaw.match(/<entity-tags>([\s\S]*?)<\/entity-tags>/);
+          const citationSummary = csMatch ? csMatch[1].trim() : null;
+          const entityTags = etMatch
+            ? etMatch[1]
+                .trim()
+                .split(/\n/)
+                .map((l: string) => l.replace(/^[-*]\s*/, "").trim())
+                .filter(Boolean)
+            : null;
+
+          const patch: Record<string, unknown> = {};
+          if (citationSummary) patch.citation_summary = citationSummary;
+          if (entityTags && entityTags.length > 0) patch.entity_tags = entityTags;
+          if (Object.keys(patch).length > 0) {
+            await supabase.from("songs").update(patch).eq("id", song_id);
+          }
         }
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));

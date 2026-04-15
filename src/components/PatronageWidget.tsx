@@ -10,8 +10,8 @@ interface PatronageWidgetProps {
 const PRESETS = [5, 10, 25, 50];
 
 export function PatronageWidget({ observationId, observationTitle }: PatronageWidgetProps) {
-  const [amount, setAmount] = useState(10);
-  const [custom, setCustom] = useState("88");
+  const [amount, setAmount] = useState(5);
+  const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);
 
   const effectiveAmount = custom ? parseFloat(custom) : amount;

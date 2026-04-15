@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Foundations",
   description: "The founding texts — the intellectual bedrock.",
   alternates: { canonical: "https://chadlewine.com/foundations" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/foundations", DEFAULT_METADATA);
+}
 
 export const revalidate = 60;
 

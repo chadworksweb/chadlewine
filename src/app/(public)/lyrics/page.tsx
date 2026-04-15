@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import LyricBook from "@/components/LyricBook";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Lyrics — Chad Lewine",
   description: "Read lyrics from Chad Lewine's discography.",
   alternates: { canonical: "https://chadlewine.com/lyrics" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/lyrics", DEFAULT_METADATA);
+}
 
 export default async function LyricsPage() {
   const supabase = createPublicClient();

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Chad D — The Early Identity | Chad Lewine",
   description:
     "The Chad D era — where it started. How the earliest version of Chad Lewine's creative identity laid the groundwork for everything that followed.",
@@ -21,6 +22,10 @@ export const metadata: Metadata = {
     "max-snippet": -1,
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/chad-d", DEFAULT_METADATA);
+}
 
 export default function ChadDPage() {
   return (

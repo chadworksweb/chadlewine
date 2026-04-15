@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Who Is Chad Lewine",
   description:
     "The canonical biographical page for Chad Lewine — architect of Libra Engine, cross-domain observer, super individual.",
@@ -8,6 +9,10 @@ export const metadata: Metadata = {
     canonical: "https://chadlewine.com/chad-lewine",
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/chad-lewine", DEFAULT_METADATA);
+}
 
 export default function WhoPage() {
   return (

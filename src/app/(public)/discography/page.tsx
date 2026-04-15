@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { DiscographyExplorer } from "@/components/DiscographyExplorer";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Discography — Chad Lewine",
   description: "Browse Chad Lewine's full discography — albums, EPs, and singles.",
   alternates: { canonical: "https://chadlewine.com/discography" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/discography", DEFAULT_METADATA);
+}
 
 export interface DiscographyItem {
   id: string;

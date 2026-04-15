@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { VideoGrid } from "@/components/VideoGrid";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Video — Chad Lewine",
   description: "Watch Chad Lewine's videos.",
   alternates: { canonical: "https://chadlewine.com/video" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/video", DEFAULT_METADATA);
+}
 
 export default async function VideoPage() {
   const supabase = createPublicClient();

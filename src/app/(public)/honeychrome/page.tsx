@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "HoneyChrome — The Design Era | Chad Lewine",
   description:
     "The HoneyChrome era — when Chad Lewine operated under a design-forward identity. What was built, what it meant, and how it evolved into what came next.",
@@ -21,6 +22,10 @@ export const metadata: Metadata = {
     "max-snippet": -1,
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/honeychrome", DEFAULT_METADATA);
+}
 
 export default function HoneyChromePage() {
   return (

@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { CoverHero } from "@/components/CoverHero";
 import { FeedEntry } from "@/components/FeedEntry";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Observations — Chad Lewine",
   description: "The full archive of Chad Lewine's Observations.",
   alternates: { canonical: "https://chadlewine.com/observations" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/observations", DEFAULT_METADATA);
+}
 
 async function getObservations() {
   const supabase = createPublicClient();

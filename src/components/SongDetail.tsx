@@ -586,32 +586,7 @@ export function SongDetail({
               </section>
             )}
 
-            {/* 12. If You Like — famous artists/songs (format stack) */}
-            {(ifYouLike?.directAnswer || ifYouLike?.contentHtml || (ifYouLike?.keyPoints && ifYouLike.keyPoints.length > 0)) && (
-              <section className="song-landing__section song-landing__section--alt">
-                <div className="song-landing__container">
-                  <h2 className="song-landing__heading">Who Should Listen to &ldquo;{song.title}&rdquo;?</h2>
-                  {ifYouLike.directAnswer && (
-                    <p className="song-landing__direct-answer">{ifYouLike.directAnswer}</p>
-                  )}
-                  {ifYouLike.contentHtml && (
-                    <div
-                      className="song-landing__prose reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(ifYouLike.contentHtml) }}
-                    />
-                  )}
-                  {ifYouLike.keyPoints && ifYouLike.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {ifYouLike.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* 13. Business Inquiries CTA */}
+            {/* Business Inquiries CTA */}
             <div className="song-landing__cta">
               <span className="song-landing__cta-text">
                 Interested in licensing, sync placement, or collaboration?

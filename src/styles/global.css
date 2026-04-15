@@ -1861,11 +1861,16 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .page-static {
-  max-width: var(--reading-width);
+  max-width: var(--site-width);
   margin: 0 auto;
   padding: 0 var(--page-gutter) var(--space-4xl);
 }
 
+.page-static--reading {
+  max-width: var(--reading-width);
+}
+
+/* Deprecated — kept as no-op alias since default is now wide */
 .page-static--wide {
   max-width: var(--site-width);
 }
@@ -9388,53 +9393,108 @@ h3.aw-heading {
   margin: var(--space-lg) 0 var(--space-sm);
 }
 
-/* ─── Direct answer block (In Brief / citation summary) ─── */
+/* ─── Direct answer block — the extractable TL;DR card ───
+   Standalone answer designed to be lifted by AI engines.
+   Visually distinct from prose: boxed, denser, slightly larger type. */
 
 .song-landing__direct-answer {
   font-family: var(--font-ui);
   font-size: 1.05rem;
-  line-height: 1.7;
-  color: #e0e0e0;
-  margin: 0 0 var(--space-lg);
-  padding-left: var(--space-md);
-  border-left: 3px solid #00d4ff40;
+  line-height: 1.65;
+  color: #e8e8f0;
+  margin: 0 0 var(--space-xl);
+  padding: var(--space-md) var(--space-lg);
+  background: linear-gradient(180deg, #0f1824 0%, #0b1018 100%);
+  border-left: 3px solid #00d4ff;
+  border-top: 1px solid #00d4ff18;
+  border-right: 1px solid #00d4ff10;
+  border-bottom: 1px solid #00d4ff18;
+  border-radius: 2px;
+  position: relative;
 }
 
-/* ─── Key points (structured extraction layer — bullets per section) ─── */
+.song-landing__direct-answer::before {
+  content: "IN BRIEF";
+  position: absolute;
+  top: -0.55rem;
+  left: var(--space-md);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: #00d4ff;
+  background: #0a0a16;
+  padding: 0 0.5rem;
+}
+
+.song-landing__section--alt .song-landing__direct-answer::before {
+  background: #0b0b18;
+}
+
+/* ─── Key points (structured extraction layer) ───
+   Standalone (no prose above): chips.
+   After prose: bulleted list with a labeled divider. */
 
 .song-landing__key-points {
   list-style: none;
   padding: 0;
-  margin: var(--space-lg) 0 0;
+  margin: var(--space-xl) 0 0;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .song-landing__key-points li {
-  padding: 5px 14px;
+  padding: 6px 14px;
   border: 1px solid #2a2a3e;
-  color: #a0a0b8;
+  background: #0d0d1a80;
+  color: #b0b0c4;
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   letter-spacing: 0.03em;
+  border-radius: 2px;
 }
 
-/* When key-points appear below prose, use vertical bullet list instead of chips */
+/* When key-points appear below prose: vertical bulleted list with a labeled divider */
 .song-landing__prose + .song-landing__key-points {
   display: block;
-  padding-left: 1.25rem;
+  margin-top: var(--space-xl);
+  padding: var(--space-lg) 0 0 1.5rem;
+  border-top: 1px solid #1a1a2e;
   list-style: disc;
+  position: relative;
+}
+
+.song-landing__prose + .song-landing__key-points::before {
+  content: "KEY POINTS";
+  position: absolute;
+  top: -0.55rem;
+  left: 0;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: #888;
+  background: #0a0a16;
+  padding-right: 0.75rem;
+}
+
+.song-landing__section--alt .song-landing__prose + .song-landing__key-points::before {
+  background: #0b0b18;
 }
 
 .song-landing__prose + .song-landing__key-points li {
   display: list-item;
   padding: 0;
   border: none;
-  color: #b0b0c4;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  margin-bottom: 0.35rem;
+  background: none;
+  color: #b8b8cc;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  margin-bottom: 0.5rem;
+  border-radius: 0;
+}
+
+.song-landing__prose + .song-landing__key-points li::marker {
+  color: #00d4ff80;
 }
 
 /* ─── Prose (reading column content) ─── */
