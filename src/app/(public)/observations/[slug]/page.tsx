@@ -250,16 +250,22 @@ export default async function ObservationPage({
 
             {obsv.categories?.length > 0 && (
               <div className="cover-hero__cats">
-                {obsv.categories.map((c: { title: string; slug: string }) => (
-                  <span key={c.slug} className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
+                {obsv.categories.map((c: { title: string; slug: string }, i: number) => (
+                  <span key={c.slug}>
+                    <span className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
+                    {i < obsv.categories.length - 1 && ", "}
+                  </span>
                 ))}
               </div>
             )}
 
             {obsv.tags?.length > 0 && (
               <div className="cover-hero__tags">
-                {obsv.tags.map((t: { label: string; slug: string }) => (
-                  <span key={t.slug} className="cover-hero__tag">#{t.label}</span>
+                {obsv.tags.map((t: { label: string; slug: string }, i: number) => (
+                  <span key={t.slug}>
+                    <span className="cover-hero__tag">#{t.label}</span>
+                    {i < obsv.tags.length - 1 && ", "}
+                  </span>
                 ))}
               </div>
             )}
