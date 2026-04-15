@@ -9,7 +9,7 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const accessToken = request.cookies.get("sb-access-token")?.value;
     if (!accessToken) {
-      const loginUrl = new URL("/login", request.url);
+      const loginUrl = new URL("/cl-admin-6nnn", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
