@@ -1866,6 +1866,10 @@ h2, h3, h4, h5, h6 {
   padding: 0 var(--page-gutter) var(--space-4xl);
 }
 
+.page-static--wide {
+  max-width: var(--site-width);
+}
+
 .page-static__title {
   font-size: var(--text-2xl);
   line-height: 1;

@@ -78,7 +78,7 @@ export default async function MusicHubPage() {
   const mosaic = (mosaicRows || []).map((r) => r.cover_art_path).filter(Boolean) as string[];
 
   return (
-    <div id="page-music-hub" className="page-static">
+    <div id="page-music-hub" className="page-static page-static--wide">
       <h1 className="page-static__title">Music</h1>
 
       <div className="music-hub">
