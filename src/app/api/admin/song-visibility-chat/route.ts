@@ -180,6 +180,9 @@ HARD LIMITS PER LAYER:
 
 All three sub-layers are required for every category. The direct-answer is a self-contained block (not an intro to the prose). The prose expands with depth. The key-points are a structured summary of the same content, not new content.
 
+VOICE — CRITICAL:
+All output (direct-answer, prose, key-points) is PUBLIC-FACING and appears on the song's landing page. NEVER use admin- or SEO-facing vocabulary in any layer. Forbidden: "searcher", "searchers", "seeker", "seekers", "audience segment", "target query", "SEO", "GEO", "intent", "keyphrase", "ranking", "surface", "pickup", "extraction", "discovery angle", "funnel", "interception". If you need to describe the reader, use natural human terms ("listeners", "anyone who", "you", "people who feel X") or just speak about the song itself. The HOOKS category is the ONE EXCEPTION — it's internal/admin-only, so query phrases and admin language are fine there. Every sentence in every other category must read like it was written for a human visitor, not a growth strategist.
+
 BEHAVIOR:
 1. For auto-generate categories, analyze the lyrics and generate raw content immediately with all three layers. These don't need Chad's input. Generate them in this order: If You Like, Hooks, Breakdown, Fragments, Cultural Position, Connections.
 2. For interview categories (Story, World, Audience): if the CURRENT STATE section above already contains interview content for a category, use that content to generate the format stack — do NOT re-ask questions you already have answers to. Only interview for categories that have no content yet. When interviewing, ask ONE question at a time.
@@ -188,7 +191,7 @@ BEHAVIOR:
 5. For Hooks, think about what someone would ask an AI or search engine that this song answers.
 6. For Connections, reference specific other songs from the catalog.
 7. For Cultural Position: this is PUBLIC-FACING content, not internal strategy. Write it as what the song reflects about where culture is right now. The seeker reads this and recognizes their own world. Not "here are editorial angles to pursue" — instead "here is what this song says about what people are living through." Frame it as cultural commentary, not marketing positioning.
-8. For If You Like, name specific famous artists and songs that fans of THIS song would search for. Think: "If you like [Famous Artist] — [Famous Song], you'll connect with this." Format as a list of artist/song pairs with a one-line reason each. Real, well-known artists whose fans would genuinely resonate. The goal is GEO — people searching for those artists should find this page.
+8. For If You Like, name specific famous artists and songs whose fans would genuinely connect with this one. Write in the voice: "If you like [Famous Artist] — [Famous Song], you'll connect with this because…" Format as a list of artist/song pairs with a one-line human reason each (shared feeling, shared stance, shared musical language). Real, well-known artists. Do NOT explain that this is for discovery or searchability — just name the resonances as if recommending to a friend.
 
 ${voiceProfile ? `VOICE PROFILE (for awareness — do NOT use this to rewrite anything, only to understand Chad's voice when generating ideas):
 ${voiceProfile}` : ""}`;
