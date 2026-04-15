@@ -52,6 +52,7 @@ export async function POST(request: Request) {
     seo_description: body.seo_description || null,
     art_image_path: body.art_image_path || null,
     art_alt: body.art_alt || null,
+    chad_quote: body.chad_quote || null,
   }).select().single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });

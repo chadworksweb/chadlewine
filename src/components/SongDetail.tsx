@@ -53,6 +53,7 @@ interface GeoFieldsProps {
   secondary_keyphrases: string[];
   paa_pairs: { question: string; answer: string }[];
   entity_tags: string[];
+  chad_quote: string | null;
 }
 
 interface BadgeProps {
@@ -350,46 +351,61 @@ export function SongDetail({
 
         return (
           <div className="song-landing">
-            <div className="song-landing__rule" />
-
-            {/* 1. What Is "[Title]"? — citation summary + entity tags */}
-            {geoFields?.citation_summary && (
-              <section className="song-landing__section">
+            {/* 1. What Is "[Title]"? — citation summary + entity tags + Chad quote */}
+            {(geoFields?.citation_summary || geoFields?.chad_quote || (geoFields?.entity_tags && geoFields.entity_tags.length > 0)) && (
+              <section className="song-landing__section song-landing__section--about">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">What Is &ldquo;{song.title}&rdquo;?</h2>
-                  <p className="song-landing__direct-answer">{geoFields.citation_summary}</p>
-                  {geoFields.entity_tags.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {geoFields.entity_tags.filter((e) => e.trim()).map((e, i) => (
-                        <li key={i}>{e}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <h2 className="song-landing__heading">What is the song &ldquo;{song.title}&rdquo; by Chad Lewine about?</h2>
+                  <div className="song-landing__layers">
+                    {geoFields?.chad_quote && (
+                      <blockquote className="song-landing__chad-quote">
+                        <p>{geoFields.chad_quote}</p>
+                        <cite>— Chad Lewine</cite>
+                      </blockquote>
+                    )}
+                    {geoFields?.citation_summary && (
+                      <p className="song-landing__direct-answer">{geoFields.citation_summary}</p>
+                    )}
+                    {geoFields?.entity_tags && geoFields.entity_tags.length > 0 && (
+                      <div>
+                        <h3 className="song-landing__column-heading">Topics &amp; themes</h3>
+                        <ul className="song-landing__key-points">
+                          {geoFields.entity_tags.filter((e) => e.trim()).map((e, i) => (
+                            <li key={i}>{e}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
 
             {/* 2. If You Like — interception: seeker searched for a famous artist (format stack) */}
             {(ifYouLike?.directAnswer || ifYouLike?.contentHtml || (ifYouLike?.keyPoints && ifYouLike.keyPoints.length > 0)) && (
-              <section className="song-landing__section song-landing__section--alt">
+              <section className="song-landing__section song-landing__section--alt song-landing__section--audience">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">Who Should Listen to &ldquo;{song.title}&rdquo;?</h2>
-                  {ifYouLike.directAnswer && (
-                    <p className="song-landing__direct-answer">{ifYouLike.directAnswer}</p>
-                  )}
-                  {ifYouLike.contentHtml && (
-                    <div
-                      className="song-landing__prose reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(ifYouLike.contentHtml) }}
-                    />
-                  )}
-                  {ifYouLike.keyPoints && ifYouLike.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {ifYouLike.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">Fans of these songs might like &ldquo;{song.title}&rdquo;</h2>
+                    {ifYouLike.directAnswer && (
+                      <p className="song-landing__direct-answer">{ifYouLike.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {ifYouLike.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(ifYouLike.contentHtml) }}
+                      />
+                    )}
+                    {ifYouLike.keyPoints && ifYouLike.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {ifYouLike.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
@@ -398,23 +414,27 @@ export function SongDetail({
             {(audience?.directAnswer || audience?.contentHtml || (audience?.keyPoints && audience.keyPoints.length > 0)) && (
               <section className="song-landing__section">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">Who Is &ldquo;{song.title}&rdquo; For?</h2>
-                  {audience.directAnswer && (
-                    <p className="song-landing__direct-answer">{audience.directAnswer}</p>
-                  )}
-                  {audience.contentHtml && (
-                    <div
-                      className="song-landing__prose reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(audience.contentHtml) }}
-                    />
-                  )}
-                  {audience.keyPoints && audience.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {audience.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">Who Is &ldquo;{song.title}&rdquo; For?</h2>
+                    {audience.directAnswer && (
+                      <p className="song-landing__direct-answer">{audience.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {audience.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(audience.contentHtml) }}
+                      />
+                    )}
+                    {audience.keyPoints && audience.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {audience.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
@@ -423,23 +443,27 @@ export function SongDetail({
             {(world?.directAnswer || world?.contentHtml || (world?.keyPoints && world.keyPoints.length > 0)) && (
               <section className="song-landing__section song-landing__section--alt">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">What Is &ldquo;{song.title}&rdquo; About?</h2>
-                  {world.directAnswer && (
-                    <p className="song-landing__direct-answer">{world.directAnswer}</p>
-                  )}
-                  {world.contentHtml && (
-                    <div
-                      className="song-landing__prose reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(world.contentHtml) }}
-                    />
-                  )}
-                  {world.keyPoints && world.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {world.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">What Is &ldquo;{song.title}&rdquo; About?</h2>
+                    {world.directAnswer && (
+                      <p className="song-landing__direct-answer">{world.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {world.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(world.contentHtml) }}
+                      />
+                    )}
+                    {world.keyPoints && world.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {world.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
@@ -448,23 +472,27 @@ export function SongDetail({
             {(fragments?.directAnswer || fragments?.contentHtml || (fragments?.keyPoints && fragments.keyPoints.length > 0)) && (
               <section className="song-landing__section">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">What Are the Best Lines in &ldquo;{song.title}&rdquo;?</h2>
-                  {fragments.directAnswer && (
-                    <p className="song-landing__direct-answer">{fragments.directAnswer}</p>
-                  )}
-                  {fragments.contentHtml && (
-                    <div
-                      className="song-landing__prose song-landing__prose--fragments reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(fragments.contentHtml) }}
-                    />
-                  )}
-                  {fragments.keyPoints && fragments.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {fragments.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">What Are the Best Lines in &ldquo;{song.title}&rdquo;?</h2>
+                    {fragments.directAnswer && (
+                      <p className="song-landing__direct-answer">{fragments.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {fragments.contentHtml && (
+                      <div
+                        className="song-landing__prose song-landing__prose--fragments reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(fragments.contentHtml) }}
+                      />
+                    )}
+                    {fragments.keyPoints && fragments.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {fragments.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
@@ -473,23 +501,27 @@ export function SongDetail({
             {(culturalPosition?.directAnswer || culturalPosition?.contentHtml || (culturalPosition?.keyPoints && culturalPosition.keyPoints.length > 0)) && (
               <section className="song-landing__section song-landing__section--alt">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">Where Does &ldquo;{song.title}&rdquo; Fit?</h2>
-                  {culturalPosition.directAnswer && (
-                    <p className="song-landing__direct-answer">{culturalPosition.directAnswer}</p>
-                  )}
-                  {culturalPosition.contentHtml && (
-                    <div
-                      className="song-landing__prose reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(culturalPosition.contentHtml) }}
-                    />
-                  )}
-                  {culturalPosition.keyPoints && culturalPosition.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {culturalPosition.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">Where Does &ldquo;{song.title}&rdquo; Fit?</h2>
+                    {culturalPosition.directAnswer && (
+                      <p className="song-landing__direct-answer">{culturalPosition.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {culturalPosition.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(culturalPosition.contentHtml) }}
+                      />
+                    )}
+                    {culturalPosition.keyPoints && culturalPosition.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {culturalPosition.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
@@ -498,23 +530,27 @@ export function SongDetail({
             {(story?.directAnswer || story?.contentHtml || (story?.keyPoints && story.keyPoints.length > 0)) && (
               <section className="song-landing__section">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">What Is the Story Behind &ldquo;{song.title}&rdquo;?</h2>
-                  {story.directAnswer && (
-                    <p className="song-landing__direct-answer">{story.directAnswer}</p>
-                  )}
-                  {story.contentHtml && (
-                    <div
-                      className="song-landing__prose reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(story.contentHtml) }}
-                    />
-                  )}
-                  {story.keyPoints && story.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {story.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">What Is the Story Behind &ldquo;{song.title}&rdquo;?</h2>
+                    {story.directAnswer && (
+                      <p className="song-landing__direct-answer">{story.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {story.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(story.contentHtml) }}
+                      />
+                    )}
+                    {story.keyPoints && story.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {story.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
@@ -523,23 +559,27 @@ export function SongDetail({
             {(breakdown?.directAnswer || breakdown?.contentHtml || (breakdown?.keyPoints && breakdown.keyPoints.length > 0)) && (
               <section className="song-landing__section song-landing__section--alt">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">What Makes &ldquo;{song.title}&rdquo; Work?</h2>
-                  {breakdown.directAnswer && (
-                    <p className="song-landing__direct-answer">{breakdown.directAnswer}</p>
-                  )}
-                  {breakdown.contentHtml && (
-                    <div
-                      className="song-landing__prose reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(breakdown.contentHtml) }}
-                    />
-                  )}
-                  {breakdown.keyPoints && breakdown.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {breakdown.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">What Makes &ldquo;{song.title}&rdquo; Work?</h2>
+                    {breakdown.directAnswer && (
+                      <p className="song-landing__direct-answer">{breakdown.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {breakdown.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(breakdown.contentHtml) }}
+                      />
+                    )}
+                    {breakdown.keyPoints && breakdown.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {breakdown.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
             )}
@@ -548,23 +588,27 @@ export function SongDetail({
             {(connections?.directAnswer || connections?.contentHtml || (connections?.keyPoints && connections.keyPoints.length > 0)) && (
               <section className="song-landing__section">
                 <div className="song-landing__container">
-                  <h2 className="song-landing__heading">What Other Songs Connect to &ldquo;{song.title}&rdquo;?</h2>
-                  {connections.directAnswer && (
-                    <p className="song-landing__direct-answer">{connections.directAnswer}</p>
-                  )}
-                  {connections.contentHtml && (
-                    <div
-                      className="song-landing__prose reading-column"
-                      dangerouslySetInnerHTML={{ __html: stripLeadingHeading(connections.contentHtml) }}
-                    />
-                  )}
-                  {connections.keyPoints && connections.keyPoints.length > 0 && (
-                    <ul className="song-landing__key-points">
-                      {connections.keyPoints.map((pt, i) => (
-                        <li key={i}>{pt}</li>
-                      ))}
-                    </ul>
-                  )}
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">What Other Songs Connect to &ldquo;{song.title}&rdquo;?</h2>
+                    {connections.directAnswer && (
+                      <p className="song-landing__direct-answer">{connections.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {connections.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(connections.contentHtml) }}
+                      />
+                    )}
+                    {connections.keyPoints && connections.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {connections.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </section>
             )}

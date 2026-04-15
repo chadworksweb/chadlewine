@@ -194,6 +194,7 @@ export default async function SongDetailPage({
           secondary_keyphrases: song.secondary_keyphrases || [],
           paa_pairs: song.paa_pairs || [],
           entity_tags: song.entity_tags || [],
+          chad_quote: song.chad_quote || null,
         }}
         badge={badge ? {
           tier: badge.tier,

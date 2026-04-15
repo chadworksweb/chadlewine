@@ -32,6 +32,7 @@ interface SongData {
   status: string;
   release_date: string | null;
   song_summary: string | null;
+  chad_quote: string | null;
   isrc: string | null;
   playback_mode: string | null;
   focus_keyphrase: string;
@@ -68,6 +69,7 @@ const emptySong: SongData = {
   status: "draft",
   release_date: null,
   song_summary: null,
+  chad_quote: null,
   isrc: null,
   playback_mode: null,
   focus_keyphrase: "",
@@ -194,6 +196,9 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
   const [albums, setAlbums] = useState<AlbumOption[]>([]);
   const [allTopics, setAllTopics] = useState<TopicOption[]>([]);
   const [expansions, setExpansions] = useState<ExpansionSummary[]>([]);
+  const [linkedDoors, setLinkedDoors] = useState<
+    { id: string; title: string; slug: string; status: string }[]
+  >([]);
 
   useEffect(() => {
     fetch("/api/admin/albums")
@@ -209,6 +214,10 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     fetch(`/api/admin/expansions?song_id=${form.id}`)
       .then((r) => r.json())
       .then((data: ExpansionSummary[]) => setExpansions(data));
+    fetch(`/api/admin/songs/${form.id}/linked-doors`)
+      .then((r) => r.json())
+      .then((data) => setLinkedDoors(Array.isArray(data) ? data : []))
+      .catch(() => setLinkedDoors([]));
   }, [form.id]);
 
   const set = useCallback((field: keyof SongData, value: unknown) => {
@@ -237,6 +246,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       status: d.status,
       release_date: d.release_date,
       song_summary: d.song_summary,
+      chad_quote: d.chad_quote,
       isrc: d.isrc,
       playback_mode: d.playback_mode,
       focus_keyphrase: d.focus_keyphrase,
@@ -397,6 +407,18 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             />
           </div>
 
+          <div className="obsv-editor__field">
+            <label className="obsv-editor__label" htmlFor="chad_quote">Quote from Chad</label>
+            <textarea
+              id="chad_quote"
+              className="obsv-editor__input"
+              value={form.chad_quote || ""}
+              onChange={(e) => set("chad_quote", e.target.value || null)}
+              rows={3}
+              placeholder="A short quote from you about this song — appears in section 1 of the landing page."
+            />
+          </div>
+
           {/* Visibility Engine */}
           {form.id && (
             <div style={{ marginTop: "1.5rem" }}>
@@ -410,6 +432,33 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               <div style={{ marginTop: "1rem" }}>
                 <SongVisibilitySections ref={sectionsRef} songId={form.id} />
               </div>
+            </div>
+          )}
+
+          {/* Linked Door Pages (read-only) */}
+          {form.id && (
+            <div className="obsv-editor__panel" style={{ marginTop: "1rem" }}>
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "var(--text-tertiary)", margin: "0 0 0.5rem" }}>
+                Linked from door pages {linkedDoors.length > 0 ? `(${linkedDoors.length})` : ""}
+              </p>
+              {linkedDoors.length === 0 ? (
+                <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "#888", margin: 0 }}>
+                  Not attached to any door page yet.
+                </p>
+              ) : (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                  {linkedDoors.map((d) => (
+                    <li key={d.id} style={{ fontFamily: "var(--font-ui)", fontSize: "0.8rem" }}>
+                      <Link href={`/admin/door-pages/${d.id}`} style={{ color: "var(--text-link)" }}>
+                        {d.title}
+                      </Link>
+                      <span style={{ color: "#888", marginLeft: 8 }}>
+                        /{d.slug} · {d.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 

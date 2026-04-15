@@ -104,12 +104,15 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  min-width: 0; /* prevents grid/flex children from forcing container wider than content */
 }
 
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  overflow-x: clip; /* clip instead of hidden keeps position:sticky working */
+  max-width: 100%;
 }
 
 body {
@@ -119,7 +122,23 @@ body {
   color: var(--text-primary);
   background-color: var(--bg-deep);
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+/* Global containment — nothing may escape its container horizontally */
+img, video, iframe, svg, picture, canvas, object, embed {
+  max-width: 100%;
+  height: auto;
+}
+
+pre, code, table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption, dt, dd {
+  overflow-wrap: break-word;
 }
 
 main {
@@ -9337,14 +9356,23 @@ h3.aw-heading {
 /* ─── Song Landing Page (integrated GEO template) ─── */
 
 .song-landing {
-  margin-top: var(--space-3xl);
+  margin-top: 0;
 }
 
-.song-landing__rule {
-  width: 100%;
-  max-width: var(--site-width);
-  margin: 0 auto var(--space-3xl);
+.song-landing__section {
+  padding: var(--space-3xl) 0;
+  position: relative;
+}
+
+.song-landing__section + .song-landing__section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 1px;
+  max-width: var(--site-width);
+  margin: 0 auto;
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -9355,28 +9383,132 @@ h3.aw-heading {
   );
 }
 
-.song-landing__section {
-  padding: var(--space-3xl) 0;
-  border-bottom: 1px solid #1a1a2e;
-}
-
 .song-landing__section--alt {
-  background: linear-gradient(180deg, #0a0a16 0%, #0d0d1a 100%);
+  background: linear-gradient(180deg, #121224 0%, #16162a 100%);
 }
 
 .song-landing__container {
-  max-width: 800px;
+  max-width: var(--site-width);
   margin: 0 auto;
-  padding: 0 var(--space-lg);
+  padding: 0 var(--page-gutter);
+}
+
+/* Three-column layout for format-stack layers in the ABOUT section (section 1).
+   Heading sits above full-width; quote / direct-answer / topics occupy columns. */
+.song-landing__layers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.song-landing__layers > * {
+  margin: 0 !important;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* Sticky-sidebar layout for category sections (2–9).
+   Left 1/3: heading + direct-answer (sticky).
+   Right 2/3: prose + key-points stacked. */
+.song-landing__section:not(.song-landing__section--about) .song-landing__container {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.song-landing__aside {
+  position: sticky;
+  top: calc(var(--nav-height, 80px) + var(--space-lg));
+  align-self: start;
+  min-width: 0;
+}
+
+.song-landing__aside .song-landing__heading {
+  margin-bottom: var(--space-lg);
+}
+
+.song-landing__aside .song-landing__direct-answer {
+  margin: 0;
+}
+
+.song-landing__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  min-width: 0;
+}
+
+.song-landing__main > * {
+  margin: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .song-landing__section:not(.song-landing__section--about) .song-landing__container {
+    grid-template-columns: 1fr;
+  }
+  .song-landing__aside {
+    position: static;
+  }
+}
+
+.song-landing__column-heading {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #00d4ff;
+  margin: 0 0 var(--space-sm) !important;
+}
+
+.song-landing__column-heading + .song-landing__key-points {
+  column-count: 2;
+  column-gap: var(--space-lg);
+}
+
+.song-landing__column-heading + .song-landing__key-points li {
+  break-inside: avoid;
+}
+
+/* Chad quote column (section 1, third slot) — big block letters, stands alone */
+.song-landing__chad-quote {
+  padding: 0;
+  background: none;
+  border: none;
+  margin: 0;
+}
+
+.song-landing__chad-quote p {
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-ui);
+  font-size: 1.8rem;
+  line-height: 1.1;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: #f2f2f5;
+  font-style: normal;
+}
+
+.song-landing__chad-quote p::before { content: "\201C"; }
+.song-landing__chad-quote p::after  { content: "\201D"; }
+
+.song-landing__chad-quote cite {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #00d4ff;
+  font-style: normal;
 }
 
 /* ─── Headings ─── */
 
 .song-landing__heading {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 1.6rem;
+  letter-spacing: 0.02em;
   color: #00d4ff;
   margin: 0 0 var(--space-lg);
   padding-bottom: 0.5rem;
@@ -9399,8 +9531,8 @@ h3.aw-heading {
 
 .song-landing__direct-answer {
   font-family: var(--font-ui);
-  font-size: 1.05rem;
-  line-height: 1.65;
+  font-size: 1.34rem;
+  line-height: 1.5;
   color: #e8e8f0;
   margin: 0 0 var(--space-xl);
   padding: var(--space-md) var(--space-lg);
@@ -9413,45 +9545,31 @@ h3.aw-heading {
   position: relative;
 }
 
-.song-landing__direct-answer::before {
-  content: "IN BRIEF";
-  position: absolute;
-  top: -0.55rem;
-  left: var(--space-md);
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 0.6rem;
-  letter-spacing: 0.18em;
-  color: #00d4ff;
-  background: #0a0a16;
-  padding: 0 0.5rem;
-}
-
-.song-landing__section--alt .song-landing__direct-answer::before {
-  background: #0b0b18;
-}
-
 /* ─── Key points (structured extraction layer) ───
    Standalone (no prose above): chips.
    After prose: bulleted list with a labeled divider. */
 
 .song-landing__key-points {
-  list-style: none;
-  padding: 0;
-  margin: var(--space-xl) 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  list-style: disc;
+  padding: 0 0 0 1.5rem;
+  margin: 0;
+  display: block;
 }
 
 .song-landing__key-points li {
-  padding: 6px 14px;
-  border: 1px solid #2a2a3e;
-  background: #0d0d1a80;
-  color: #b0b0c4;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #f2f2f5;
   font-family: var(--font-ui);
-  font-size: 0.78rem;
-  letter-spacing: 0.03em;
-  border-radius: 2px;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0;
+}
+
+.song-landing__key-points li::marker {
+  color: #00d4ff80;
 }
 
 /* When key-points appear below prose: vertical bulleted list with a labeled divider */
@@ -9508,8 +9626,8 @@ h3.aw-heading {
 
 .song-landing__prose.reading-column p {
   font-family: var(--font-ui);
-  font-size: 0.95rem;
-  line-height: 1.75;
+  font-size: 1.425rem;
+  line-height: 1.6;
   color: #c8c8d4;
   margin-bottom: 1.25rem;
 }
