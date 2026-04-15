@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Chad Rising — The Music Identity | Chad Lewine",
   description:
     "The Chad Rising era — the artist name behind 13 albums and 151 songs. How this music identity became the bridge to Chad Lewine.",
@@ -21,6 +22,10 @@ export const metadata: Metadata = {
     "max-snippet": -1,
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/chad-rising", DEFAULT_METADATA);
+}
 
 export default function ChadRisingPage() {
   return (

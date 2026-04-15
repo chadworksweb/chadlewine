@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { MeditationArchive } from "@/components/MeditationArchive";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Meditations — Chad Lewine",
   description: "Short form real time verbatim channelings",
   alternates: { canonical: "https://chadlewine.com/meditations" },
@@ -15,6 +16,10 @@ export const metadata: Metadata = {
     type: "website",
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/meditations", DEFAULT_METADATA);
+}
 
 async function getMeditations() {
   const supabase = createPublicClient();

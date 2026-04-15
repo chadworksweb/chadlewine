@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Business Inquiries & Licensing — Chad Lewine",
   description:
     "Sync licensing, placements, collaborations, and business inquiries for Chad Lewine's music catalog.",
@@ -8,6 +9,10 @@ export const metadata: Metadata = {
     canonical: "https://chadlewine.com/business",
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/business", DEFAULT_METADATA);
+}
 
 export default function BusinessPage() {
   return (

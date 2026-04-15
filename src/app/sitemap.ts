@@ -166,7 +166,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (doorPages) {
     for (const dp of doorPages) {
       entries.push({
-        url: `${BASE_URL}/doors/${dp.slug}`,
+        url: `${BASE_URL}/${dp.slug}`,
         lastModified: dp.updated_at
           ? new Date(dp.updated_at)
           : dp.published_at

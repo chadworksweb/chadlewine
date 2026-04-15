@@ -1,9 +1,17 @@
+import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import Link from "next/link";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { HomepageFeed } from "@/components/HomepageFeed";
 import { ExploreSongs } from "@/components/ExploreSongs";
 
 export const revalidate = 60;
+
+const DEFAULT_METADATA: Metadata = {};
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/", DEFAULT_METADATA);
+}
 
 async function getObservations() {
   const supabase = createPublicClient();

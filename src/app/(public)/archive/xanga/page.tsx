@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import * as fs from "fs";
 import * as path from "path";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Xanga Archive (2004–2011)",
   description: "Archive of blog entries from Xanga, 2004–2011.",
   alternates: { canonical: "https://chadlewine.com/archive/xanga" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/archive/xanga", DEFAULT_METADATA);
+}
 
 function parseXangaMarkdown(md: string): string {
   return md

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 import { CurationGrid } from "@/components/CurationGrid";
@@ -6,11 +7,15 @@ import { CurationGrid } from "@/components/CurationGrid";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Curation — Chad Lewine",
   description: "The world's largest collection of positively charged music, quantified by Rising Compass.",
   alternates: { canonical: "https://chadlewine.com/curation" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/curation", DEFAULT_METADATA);
+}
 
 export default async function CurationPage() {
   const supabase = createPublicClient();

@@ -131,7 +131,7 @@ export default function AdminDoorPagesPage() {
                   {page.title}
                 </Link>
               </td>
-              <td className="admin-table__td admin-table__td--date">/doors/{page.slug}</td>
+              <td className="admin-table__td admin-table__td--date">/{page.slug}</td>
               <td className="admin-table__td">
                 <span className={`admin-status admin-status--${page.status}`}>{page.status}</span>
               </td>

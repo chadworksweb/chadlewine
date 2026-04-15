@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { slugify } from "@/lib/utils";
+import { isReservedSlug } from "@/lib/reserved-slugs";
 
 export async function GET() {
   const supabase = createAdminClient();
@@ -28,6 +29,13 @@ export async function POST(request: Request) {
   }
 
   const finalSlug = slug?.trim() || slugify(title);
+
+  if (isReservedSlug(finalSlug)) {
+    return Response.json(
+      { error: `"${finalSlug}" is a reserved slug — it collides with a top-level route. Pick a different slug.` },
+      { status: 400 }
+    );
+  }
 
   const { data, error } = await supabase
     .from("door_pages")

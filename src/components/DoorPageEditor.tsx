@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/utils";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { GeoPanel } from "@/components/GeoPanel";
+
+interface SongRow {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  art_image_path: string | null;
+}
 
 interface DoorPageData {
   id?: string;
@@ -68,6 +76,26 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
   const [error, setError] = useState("");
   const [queryInput, setQueryInput] = useState("");
   const [funnelInput, setFunnelInput] = useState("");
+  const [allSongs, setAllSongs] = useState<SongRow[]>([]);
+  const [linkedSongIds, setLinkedSongIds] = useState<string[]>([]);
+  const [songSearch, setSongSearch] = useState("");
+  const [songsDirty, setSongsDirty] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/songs")
+      .then((r) => r.json())
+      .then((data) => setAllSongs(Array.isArray(data) ? data : []))
+      .catch(() => setAllSongs([]));
+
+    if (isEdit && initial?.id) {
+      fetch(`/api/admin/door-pages/${initial.id}/songs`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setLinkedSongIds(data.map((s: SongRow) => s.id));
+        })
+        .catch(() => {});
+    }
+  }, [isEdit, initial?.id]);
 
   function set<K extends keyof DoorPageData>(key: K, value: DoorPageData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -105,11 +133,44 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
     }
 
     const saved = await res.json();
+
+    const doorId = saved.id;
+    if (doorId && songsDirty) {
+      await fetch(`/api/admin/door-pages/${doorId}/songs`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ song_ids: linkedSongIds }),
+      });
+      setSongsDirty(false);
+    }
+
     setSaving(false);
 
     if (!isEdit) {
       router.push(`/admin/door-pages/${saved.id}`);
     }
+  }
+
+  function addSong(id: string) {
+    if (linkedSongIds.includes(id)) return;
+    setLinkedSongIds([...linkedSongIds, id]);
+    setSongsDirty(true);
+    setSongSearch("");
+  }
+
+  function removeSong(id: string) {
+    setLinkedSongIds(linkedSongIds.filter((x) => x !== id));
+    setSongsDirty(true);
+  }
+
+  function moveSong(id: string, dir: -1 | 1) {
+    const idx = linkedSongIds.indexOf(id);
+    const newIdx = idx + dir;
+    if (idx < 0 || newIdx < 0 || newIdx >= linkedSongIds.length) return;
+    const next = [...linkedSongIds];
+    [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+    setLinkedSongIds(next);
+    setSongsDirty(true);
   }
 
   async function handleDelete() {
@@ -253,6 +314,96 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
             </span>
           ))}
         </div>
+      </div>
+
+      {/* Linked Songs */}
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Songs (funnel targets)</label>
+        <p style={{ fontSize: 12, color: "#888", marginTop: 0, marginBottom: 8 }}>
+          Attach songs to feature on this page. Ordered top-to-bottom.
+        </p>
+
+        {/* Ordered list of linked songs */}
+        <ol style={{ listStyle: "none", padding: 0, margin: "0 0 8px", display: "flex", flexDirection: "column", gap: 4 }}>
+          {linkedSongIds.map((id, idx) => {
+            const s = allSongs.find((x) => x.id === id);
+            if (!s) return null;
+            return (
+              <li
+                key={id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 10px",
+                  border: "1px solid #d8d8dc",
+                  borderRadius: 2,
+                  background: "#fff",
+                  color: "#1a1a1a",
+                }}
+              >
+                <span style={{ flex: 1, fontSize: 14 }}>
+                  {idx + 1}. {s.title}{" "}
+                  <span style={{ color: "#888", fontSize: 12 }}>({s.status})</span>
+                </span>
+                <button type="button" className="admin-btn" onClick={() => moveSong(id, -1)} disabled={idx === 0}>
+                  ↑
+                </button>
+                <button type="button" className="admin-btn" onClick={() => moveSong(id, 1)} disabled={idx === linkedSongIds.length - 1}>
+                  ↓
+                </button>
+                <button type="button" className="admin-btn admin-btn--danger" onClick={() => removeSong(id)}>
+                  Remove
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+
+        {/* Search + add */}
+        <input
+          className="obsv-editor__input"
+          value={songSearch}
+          onChange={(e) => setSongSearch(e.target.value)}
+          placeholder="Search songs by title..."
+        />
+        {songSearch.trim() && (
+          <ul style={{ listStyle: "none", padding: 0, margin: "6px 0 0", maxHeight: 200, overflowY: "auto", border: "1px solid #d8d8dc", background: "#fff" }}>
+            {allSongs
+              .filter(
+                (s) =>
+                  !linkedSongIds.includes(s.id) &&
+                  s.title.toLowerCase().includes(songSearch.trim().toLowerCase())
+              )
+              .slice(0, 20)
+              .map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => addSong(s.id)}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "6px 10px",
+                      background: "transparent",
+                      border: "none",
+                      borderBottom: "1px solid #ececf0",
+                      color: "#1a1a1a",
+                      cursor: "pointer",
+                      fontSize: 13,
+                    }}
+                  >
+                    {s.title} <span style={{ color: "#888" }}>({s.status})</span>
+                  </button>
+                </li>
+              ))}
+          </ul>
+        )}
+        {!isEdit && linkedSongIds.length > 0 && (
+          <p style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
+            Saved on first Save.
+          </p>
+        )}
       </div>
 
       <GeoPanel

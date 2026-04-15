@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Merch — Chad Lewine",
   description:
     "Citation goes physical. The hoodie is a hyperlink made physical.",
@@ -13,6 +14,10 @@ export const metadata: Metadata = {
       "Citation goes physical. The hoodie is a hyperlink made physical.",
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/merch", DEFAULT_METADATA);
+}
 
 export const revalidate = 60;
 

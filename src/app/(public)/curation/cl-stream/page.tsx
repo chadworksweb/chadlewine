@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { CLStreamEntry } from "@/components/CLStreamEntry";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "CL Stream — Chad Lewine",
   description: "Songs I've been hearing — pointed at the compass.",
   alternates: { canonical: "https://chadlewine.com/curation/cl-stream" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/curation/cl-stream", DEFAULT_METADATA);
+}
 
 export default async function CLStreamPage() {
   const supabase = createPublicClient();

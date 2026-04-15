@@ -20,6 +20,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/tags", label: "Tags" },
   { href: "/admin/foundations", label: "Foundations" },
   { href: "/admin/door-pages", label: "Door Pages" },
+  { href: "/admin/pages", label: "Pages (meta)" },
   { href: "/admin/art", label: "Art" },
   {
     href: "/admin/music",

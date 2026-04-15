@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Music — Chad Lewine",
   description: "Music by Chad Lewine — discography, curated selections, and lyrics.",
   alternates: { canonical: "https://chadlewine.com/music" },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/music", DEFAULT_METADATA);
+}
 
 interface Album {
   id: string;
@@ -78,7 +83,7 @@ export default async function MusicHubPage() {
   const mosaic = (mosaicRows || []).map((r) => r.cover_art_path).filter(Boolean) as string[];
 
   return (
-    <div id="page-music-hub" className="page-static page-static--wide">
+    <div id="page-music-hub" className="page-static">
       <h1 className="page-static__title">Music</h1>
 
       <div className="music-hub">

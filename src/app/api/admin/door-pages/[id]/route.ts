@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { isReservedSlug } from "@/lib/reserved-slugs";
 
 export async function GET(
   _request: Request,
@@ -34,6 +35,13 @@ export async function PUT(
   ];
   for (const f of fields) {
     if (f in body) updates[f] = body[f];
+  }
+
+  if (typeof updates.slug === "string" && isReservedSlug(updates.slug)) {
+    return Response.json(
+      { error: `"${updates.slug}" is a reserved slug — it collides with a top-level route. Pick a different slug.` },
+      { status: 400 }
+    );
   }
 
   if (body.status === "published") {

@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
+import { mergeMetadata } from "@/lib/page-meta";
 import { VoiceMachine } from "@/components/VoiceMachine";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Thinking",
   description: "Applied thinking.",
   robots: { index: false },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return mergeMetadata("/thinking", DEFAULT_METADATA);
+}
 
 export default function ThinkingPage() {
   return (
