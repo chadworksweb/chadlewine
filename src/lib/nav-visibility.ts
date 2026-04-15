@@ -1,5 +1,5 @@
 import { getFeatureFlags } from "./feature-flags";
-import { DEFAULT_NAV_ITEMS, type NavItem } from "@/components/Nav";
+import { DEFAULT_NAV_ITEMS, type NavItem } from "./nav-items";
 
 // Map nav hrefs → feature_flags.section keys
 const HREF_TO_SECTION: Record<string, string> = {

@@ -4,28 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export interface NavItem {
-  href: string;
-  label: string;
-  children?: { href: string; label: string }[];
-}
-
-export const DEFAULT_NAV_ITEMS: NavItem[] = [
-  { href: "/observations", label: "Observations" },
-  { href: "/meditations", label: "Meditations" },
-  {
-    href: "/music",
-    label: "Music",
-    children: [
-      { href: "/discography", label: "Discography" },
-      { href: "/curation", label: "Curation" },
-      { href: "/lyrics", label: "Lyrics" },
-      { href: "/video", label: "Video" },
-    ],
-  },
-  { href: "/art", label: "Art" },
-  { href: "/chad-lewine", label: "About" },
-];
+import { DEFAULT_NAV_ITEMS, type NavItem } from "@/lib/nav-items";
 
 export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
   const navItems = items;
