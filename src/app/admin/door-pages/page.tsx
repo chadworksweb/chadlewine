@@ -52,9 +52,14 @@ export default function AdminDoorPagesPage() {
     <div className="admin-page">
       <div className="admin-page__header">
         <h1 className="admin-page__title">Door Pages</h1>
-        <Link href="/admin/door-pages/new" className="admin-btn admin-btn--primary">
-          New Door Page
-        </Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/admin/door-pages/unmapped-hooks" className="admin-btn">
+            Unmapped Hooks
+          </Link>
+          <Link href="/admin/door-pages/new" className="admin-btn admin-btn--primary">
+            New Door Page
+          </Link>
+        </div>
       </div>
 
       <div className="admin-stats">
