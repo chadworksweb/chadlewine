@@ -181,20 +181,22 @@ export default async function HomePage() {
 
       <ExploreSongs songs={exploreSongs} />
 
-      <section className="home-merch">
-        <div className="home-merch__inner site-contain">
-          <h2 className="home-merch__heading">Most Popular Merch</h2>
-          <div className="home-merch__grid">
-            {[1, 2, 3, 4, 5, 6].map((n) => (
-              <div key={n} className="home-merch__card">
-                <div className="home-merch__img" />
-                <span className="home-merch__title">Product {n}</span>
-                <span className="home-merch__price">$—</span>
-              </div>
-            ))}
+      {!process.env.VERCEL && (
+        <section className="home-merch">
+          <div className="home-merch__inner site-contain">
+            <h2 className="home-merch__heading">Most Popular Merch</h2>
+            <div className="home-merch__grid">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={n} className="home-merch__card">
+                  <div className="home-merch__img" />
+                  <span className="home-merch__title">Product {n}</span>
+                  <span className="home-merch__price">$—</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {observations.length === 0 && (
         <section className="empty-state">
