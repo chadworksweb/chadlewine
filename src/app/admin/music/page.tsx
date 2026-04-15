@@ -19,6 +19,8 @@ export default function AdminMusicPage() {
   const [exploreIds, setExploreIds] = useState<string[]>([]);
   const [savingExplore, setSavingExplore] = useState(false);
   const [exploreSaved, setExploreSaved] = useState(false);
+  const [selectAlbumId, setSelectAlbumId] = useState<string>("");
+  const [savingSelect, setSavingSelect] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -44,6 +46,9 @@ export default function AdminMusicPage() {
         const parsed = JSON.parse(settingsData.homepage_explore_songs_ids);
         if (Array.isArray(parsed)) setExploreIds(parsed);
       } catch {}
+    }
+    if (settingsData.music_hub_select_album_id) {
+      setSelectAlbumId(settingsData.music_hub_select_album_id);
     }
 
     // Get song counts per album
@@ -111,6 +116,17 @@ export default function AdminMusicPage() {
     handleSaveExplore(exploreMode, next);
   }
 
+  async function handleSetSelectAlbum(albumId: string) {
+    setSavingSelect(true);
+    await fetch("/api/admin/site-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ music_hub_select_album_id: albumId }),
+    });
+    setSelectAlbumId(albumId);
+    setSavingSelect(false);
+  }
+
   async function handleSetFeatured(songId: string) {
     setSettingFeatured(true);
     const res = await fetch("/api/admin/featured-track", {
@@ -142,6 +158,28 @@ export default function AdminMusicPage() {
         <div className="admin-stats__card"><span className="admin-stats__value">{songs.length}</span><span className="admin-stats__label">Songs</span></div>
         <div className="admin-stats__card"><span className="admin-stats__value">{songs.filter(s => s.lyrics).length}</span><span className="admin-stats__label">With Lyrics</span></div>
         <div className="admin-stats__card"><span className="admin-stats__value">{songs.filter(s => s.streaming_path).length}</span><span className="admin-stats__label">Streamable</span></div>
+      </div>
+
+      <div style={{ marginBottom: "var(--space-xl)", padding: "var(--space-lg)", background: "var(--bg-glass)", border: "1px solid var(--bg-glass-border)", borderRadius: 8 }}>
+        <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "var(--space-md)" }}>Select Album (Music Page)</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)" }}>
+          <select
+            value={selectAlbumId}
+            onChange={(e) => handleSetSelectAlbum(e.target.value)}
+            disabled={savingSelect}
+            style={{ flex: 1, padding: "8px 12px", background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-medium)", borderRadius: 6, fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)" }}
+          >
+            <option value="">Auto (first by display order)</option>
+            {albums.filter((a) => a.status === "published").map((a) => (
+              <option key={a.id} value={a.id}>{a.title}</option>
+            ))}
+          </select>
+          {selectAlbumId && (
+            <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-accent)", whiteSpace: "nowrap" }}>
+              {savingSelect ? "Saving..." : `Current: ${albums.find((a) => a.id === selectAlbumId)?.title || "—"}`}
+            </span>
+          )}
+        </div>
       </div>
 
       <div style={{ marginBottom: "var(--space-xl)", padding: "var(--space-lg)", background: "var(--bg-glass)", border: "1px solid var(--bg-glass-border)", borderRadius: 8 }}>
