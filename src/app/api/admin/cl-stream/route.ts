@@ -53,8 +53,8 @@ export async function POST(request: Request) {
       });
       if (res.ok) {
         const cal = await res.json();
-        rcColor = cal.rubric_color ?? null;
-        rcCharge = cal.charge_value ?? null;
+        rcColor = cal.tier ?? null;
+        rcCharge = cal.charge ?? null;
         rcContaminated = cal.contaminated ?? false;
         rcChargeSummary = cal.charge_summary ?? null;
       }
