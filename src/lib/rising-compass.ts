@@ -1,5 +1,7 @@
 const RC_API_URL = process.env.RISING_COMPASS_API_URL || "https://api.risingcompass.net";
 const RC_API_KEY = process.env.RISING_COMPASS_API_KEY || "";
+const RC_SERVICE_KEY = process.env.RISING_COMPASS_SERVICE_KEY || "";
+const RC_KEY = RC_SERVICE_KEY || RC_API_KEY;
 
 export interface RisingCompassBadgeData {
   tier: string;
@@ -15,12 +17,12 @@ export async function fetchBadge(
   title: string,
   artist: string,
 ): Promise<RisingCompassBadgeData | null> {
-  if (!RC_API_KEY) return null;
+  if (!RC_KEY) return null;
 
   try {
     const params = new URLSearchParams({ title, artist });
     const res = await fetch(`${RC_API_URL}/api/badge/lookup?${params}`, {
-      headers: { "X-Api-Key": RC_API_KEY },
+      headers: { "X-Api-Key": RC_KEY },
       next: { revalidate: 3600 },
     });
 
@@ -40,12 +42,12 @@ export async function fetchAlbumBadge(
   title: string,
   artist: string,
 ): Promise<RisingCompassAlbumBadgeData | null> {
-  if (!RC_API_KEY) return null;
+  if (!RC_KEY) return null;
 
   try {
     const params = new URLSearchParams({ title, artist });
     const res = await fetch(`${RC_API_URL}/api/badge/album-lookup?${params}`, {
-      headers: { "X-Api-Key": RC_API_KEY },
+      headers: { "X-Api-Key": RC_KEY },
       next: { revalidate: 3600 },
     });
 
