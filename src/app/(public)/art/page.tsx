@@ -24,7 +24,6 @@ type ArtRow = {
   medium: string | null;
   dimensions: string | null;
   year_created: number | null;
-  sold: boolean | null;
   gallery_paths: string[] | null;
 };
 
@@ -32,7 +31,7 @@ export default async function ArtPage() {
   const supabase = createPublicClient();
   const { data: pieces } = await supabase
     .from("art_pieces")
-    .select("id, slug, title, image_path, medium, dimensions, year_created, sold, gallery_paths")
+    .select("id, slug, title, image_path, medium, dimensions, year_created, gallery_paths")
     .in("status", ["unreleased", "published"])
     .order("display_order");
 
@@ -50,7 +49,7 @@ export default async function ArtPage() {
       main: p.image_path,
       gallery: [p.image_path, ...extras],
       meta: meta.line1 || meta.line2 || meta.line3 ? meta : undefined,
-      sold: !!p.sold,
+      sold: false,
     };
   });
 
