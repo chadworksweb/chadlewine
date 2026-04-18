@@ -1,11 +1,14 @@
 "use client";
 
 import { useRef, useCallback, useEffect, useState } from "react";
+import { getCoverCropRect } from "@/lib/coverCrop";
 
 interface LightningEffectProps {
   src: string;
   alt: string;
   className?: string;
+  focalX?: number;
+  focalY?: number;
 }
 
 function generateBoltPath(
@@ -73,12 +76,14 @@ function generateStrike(w: number, h: number) {
   return { mainPath, branches, thickness };
 }
 
-export function LightningEffect({ src, alt, className }: LightningEffectProps) {
+export function LightningEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 }: LightningEffectProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [striking, setStriking] = useState(false);
+  const focalRef = useRef({ x: focalX, y: focalY });
+  focalRef.current = { x: focalX, y: focalY };
 
   useEffect(() => {
     const img = new Image();
@@ -96,7 +101,8 @@ export function LightningEffect({ src, alt, className }: LightningEffectProps) {
       }
       canvas.width = container.offsetWidth;
       canvas.height = container.offsetHeight;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, canvas.width / canvas.height, focalRef.current.x, focalRef.current.y);
+      ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, canvas.width, canvas.height);
     };
 
     img.onload = draw;

@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { getCoverCropRect } from "@/lib/coverCrop";
 
 interface WaterRippleProps {
   src: string;
   alt: string;
   className?: string;
+  focalX?: number; // 0-1, defaults to 0.5
+  focalY?: number; // 0-1, defaults to 0.5
 }
 
-export function WaterRipple({ src, alt, className }: WaterRippleProps) {
+export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5 }: WaterRippleProps) {
+  const focalRef = useRef({ x: focalX, y: focalY });
+  focalRef.current = { x: focalX, y: focalY };
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -103,8 +108,15 @@ export function WaterRipple({ src, alt, className }: WaterRippleProps) {
       stepSimulation();
     }
 
-    // Draw base image
-    ctx.drawImage(img, 0, 0, cw, ch);
+    // Draw base image with cover-crop + focal point (preserves source aspect).
+    const crop = getCoverCropRect(
+      img.naturalWidth,
+      img.naturalHeight,
+      cw / ch,
+      focalRef.current.x,
+      focalRef.current.y
+    );
+    ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cw, ch);
 
     // Apply displacement
     const imageData = ctx.getImageData(0, 0, cw, ch);
@@ -115,7 +127,7 @@ export function WaterRipple({ src, alt, className }: WaterRippleProps) {
     srcCanvas.width = cw;
     srcCanvas.height = ch;
     const srcCtx = srcCanvas.getContext("2d")!;
-    srcCtx.drawImage(img, 0, 0, cw, ch);
+    srcCtx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cw, ch);
     const srcData = srcCtx.getImageData(0, 0, cw, ch).data;
 
     for (let py = 0; py < ch; py++) {

@@ -221,6 +221,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
+  // Art piece pages
+  const { data: artPieces } = await supabase
+    .from("art_pieces")
+    .select("slug, updated_at")
+    .eq("status", "published");
+
+  if (artPieces) {
+    for (const a of artPieces) {
+      entries.push({
+        url: `${BASE_URL}/art/${a.slug}`,
+        lastModified: a.updated_at ? new Date(a.updated_at) : undefined,
+        changeFrequency: "monthly",
+        priority: 0.5,
+      });
+    }
+  }
+
   // Curation entry pages
   const { data: curatedEntries } = await supabase
     .from("curated_entries")

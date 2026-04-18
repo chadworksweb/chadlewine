@@ -14,6 +14,14 @@ interface SongRow {
   art_image_path: string | null;
 }
 
+interface ArtRow {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
+  image_path: string | null;
+}
+
 interface DoorPageData {
   id?: string;
   title: string;
@@ -80,6 +88,10 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
   const [linkedSongIds, setLinkedSongIds] = useState<string[]>([]);
   const [songSearch, setSongSearch] = useState("");
   const [songsDirty, setSongsDirty] = useState(false);
+  const [allArt, setAllArt] = useState<ArtRow[]>([]);
+  const [linkedArtIds, setLinkedArtIds] = useState<string[]>([]);
+  const [artSearch, setArtSearch] = useState("");
+  const [artDirty, setArtDirty] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/songs")
@@ -87,11 +99,23 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
       .then((data) => setAllSongs(Array.isArray(data) ? data : []))
       .catch(() => setAllSongs([]));
 
+    fetch("/api/admin/art")
+      .then((r) => r.json())
+      .then((data) => setAllArt(Array.isArray(data) ? data : []))
+      .catch(() => setAllArt([]));
+
     if (isEdit && initial?.id) {
       fetch(`/api/admin/door-pages/${initial.id}/songs`)
         .then((r) => r.json())
         .then((data) => {
           if (Array.isArray(data)) setLinkedSongIds(data.map((s: SongRow) => s.id));
+        })
+        .catch(() => {});
+
+      fetch(`/api/admin/door-pages/${initial.id}/art`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setLinkedArtIds(data.map((a: ArtRow) => a.id));
         })
         .catch(() => {});
     }
@@ -144,6 +168,15 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
       setSongsDirty(false);
     }
 
+    if (doorId && artDirty) {
+      await fetch(`/api/admin/door-pages/${doorId}/art`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ art_ids: linkedArtIds }),
+      });
+      setArtDirty(false);
+    }
+
     setSaving(false);
 
     if (!isEdit) {
@@ -171,6 +204,28 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
     [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
     setLinkedSongIds(next);
     setSongsDirty(true);
+  }
+
+  function addArt(id: string) {
+    if (linkedArtIds.includes(id)) return;
+    setLinkedArtIds([...linkedArtIds, id]);
+    setArtDirty(true);
+    setArtSearch("");
+  }
+
+  function removeArt(id: string) {
+    setLinkedArtIds(linkedArtIds.filter((x) => x !== id));
+    setArtDirty(true);
+  }
+
+  function moveArt(id: string, dir: -1 | 1) {
+    const idx = linkedArtIds.indexOf(id);
+    const newIdx = idx + dir;
+    if (idx < 0 || newIdx < 0 || newIdx >= linkedArtIds.length) return;
+    const next = [...linkedArtIds];
+    [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+    setLinkedArtIds(next);
+    setArtDirty(true);
   }
 
   async function handleDelete() {
@@ -400,6 +455,94 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
           </ul>
         )}
         {!isEdit && linkedSongIds.length > 0 && (
+          <p style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
+            Saved on first Save.
+          </p>
+        )}
+      </div>
+
+      {/* Linked Art Pieces */}
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Art pieces (funnel targets)</label>
+        <p style={{ fontSize: 12, color: "#888", marginTop: 0, marginBottom: 8 }}>
+          Attach art to feature on this page. Ordered top-to-bottom.
+        </p>
+
+        <ol style={{ listStyle: "none", padding: 0, margin: "0 0 8px", display: "flex", flexDirection: "column", gap: 4 }}>
+          {linkedArtIds.map((id, idx) => {
+            const a = allArt.find((x) => x.id === id);
+            if (!a) return null;
+            return (
+              <li
+                key={id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 10px",
+                  border: "1px solid #d8d8dc",
+                  borderRadius: 2,
+                  background: "#fff",
+                  color: "#1a1a1a",
+                }}
+              >
+                <span style={{ flex: 1, fontSize: 14 }}>
+                  {idx + 1}. {a.title}{" "}
+                  <span style={{ color: "#888", fontSize: 12 }}>({a.status})</span>
+                </span>
+                <button type="button" className="admin-btn" onClick={() => moveArt(id, -1)} disabled={idx === 0}>
+                  ↑
+                </button>
+                <button type="button" className="admin-btn" onClick={() => moveArt(id, 1)} disabled={idx === linkedArtIds.length - 1}>
+                  ↓
+                </button>
+                <button type="button" className="admin-btn admin-btn--danger" onClick={() => removeArt(id)}>
+                  Remove
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+
+        <input
+          className="obsv-editor__input"
+          value={artSearch}
+          onChange={(e) => setArtSearch(e.target.value)}
+          placeholder="Search art by title..."
+        />
+        {artSearch.trim() && (
+          <ul style={{ listStyle: "none", padding: 0, margin: "6px 0 0", maxHeight: 200, overflowY: "auto", border: "1px solid #d8d8dc", background: "#fff" }}>
+            {allArt
+              .filter(
+                (a) =>
+                  !linkedArtIds.includes(a.id) &&
+                  a.title.toLowerCase().includes(artSearch.trim().toLowerCase())
+              )
+              .slice(0, 20)
+              .map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => addArt(a.id)}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "6px 10px",
+                      background: "transparent",
+                      border: "none",
+                      borderBottom: "1px solid #ececf0",
+                      color: "#1a1a1a",
+                      cursor: "pointer",
+                      fontSize: 13,
+                    }}
+                  >
+                    {a.title} <span style={{ color: "#888" }}>({a.status})</span>
+                  </button>
+                </li>
+              ))}
+          </ul>
+        )}
+        {!isEdit && linkedArtIds.length > 0 && (
           <p style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
             Saved on first Save.
           </p>

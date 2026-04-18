@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { createPublicClient } from "@/lib/supabase-server";
 import { CoverHero } from "@/components/CoverHero";
 import { FeedEntry } from "@/components/FeedEntry";
@@ -38,6 +39,9 @@ async function getMeditations() {
 }
 
 export default async function HomePreviewPage() {
+  // Local-only sandbox. Block on any Vercel environment (preview + production + staging).
+  if (process.env.VERCEL) notFound();
+
   const [observations, meditations] = await Promise.all([
     getObservations(),
     getMeditations(),
@@ -81,19 +85,19 @@ export default async function HomePreviewPage() {
         {meditations.length > 0 && (
           <aside className="home-split__meditations">
             <h2 className="home-split__meditations-heading">Meditations</h2>
-            <div className="home-split__meditations-feed">
+            <div className="home-split__sidebar-feed">
               {meditations.map((med) => (
                 <Link
                   key={med.id}
                   href={`/meditations/${med.id}`}
-                  className="home-med-row"
+                  className="home-sidebar-row"
                 >
-                  <span className="home-med-row__label">{med.subtitle || "new meditation"}</span>
-                  <span className="home-med-row__date">{new Date(med.published_at || med.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}</span>
+                  <span className="home-sidebar-row__label">{med.subtitle || "new meditation"}</span>
+                  <span className="home-sidebar-row__date">{new Date(med.published_at || med.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}</span>
                 </Link>
               ))}
             </div>
-            <Link href="/meditations" className="home-split__meditations-more">
+            <Link href="/meditations" className="home-split__sidebar-more">
               All Meditations
             </Link>
           </aside>

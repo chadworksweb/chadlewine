@@ -24,7 +24,7 @@ export default function AdminArtPage() {
         <tbody>
           {pieces.map(p => (
             <tr key={p.id} className="admin-table__row">
-              <td className="admin-table__td"><Link href={`/admin/art/${p.id}`} className="admin-table__link">{p.title}</Link></td>
+              <td className="admin-table__td"><Link href={`/admin/art/${p.slug}`} className="admin-table__link">{p.title}</Link></td>
               <td className="admin-table__td">{p.medium || "—"}</td>
               <td className="admin-table__td"><span className={`admin-status admin-status--${p.status}`}>{p.status}</span></td>
               <td className="admin-table__td">{p.display_order}</td>

@@ -39,7 +39,7 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
     <section className="explore-songs">
       <div className="explore-songs__frame explore-songs__frame--top">
         <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-        <h2 className="explore-songs__heading">Explore Songs</h2>
+        <h2 className="explore-songs__heading">Browse Chad Lewine Songs</h2>
         <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
       </div>
 
