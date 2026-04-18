@@ -346,16 +346,16 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     enabled: !!form.title,
   });
 
-  // Rising Compass classification
-  const [rcStatus, setRcStatus] = useState<"idle" | "classifying" | "done" | "error">("idle");
+  // Rising Compass calibration
+  const [rcStatus, setRcStatus] = useState<"idle" | "calibrating" | "done" | "error">("idle");
   const [rcResult, setRcResult] = useState<{ tier: string; tier_label: string; charge: number; charge_summary: string } | null>(null);
 
-  async function handleClassify() {
+  async function handleCalibrate() {
     if (!form.title || !form.lyrics) return;
-    setRcStatus("classifying");
+    setRcStatus("calibrating");
     setRcResult(null);
     try {
-      const res = await fetch("/api/admin/classify-song", {
+      const res = await fetch("/api/admin/calibrate-song", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: form.title, artist: "Chad Lewine", lyrics: form.lyrics }),
@@ -813,24 +813,24 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             <button
               type="button"
               className="admin-btn admin-btn--secondary"
-              onClick={handleClassify}
-              disabled={rcStatus === "classifying" || !form.title || !form.lyrics || form.instrumental}
+              onClick={handleCalibrate}
+              disabled={rcStatus === "calibrating" || !form.title || !form.lyrics || form.instrumental}
               style={{ fontSize: "0.875rem" }}
             >
-              {rcStatus === "classifying" ? "Classifying..." : rcResult ? "Reclassify" : "Classify"}
+              {rcStatus === "calibrating" ? "Calibrating..." : rcResult ? "Recalibrate" : "Calibrate"}
             </button>
             {rcStatus === "error" && (
               <p style={{ color: "#ff3333", fontFamily: "var(--font-ui)", fontSize: "0.75rem", marginTop: "0.5rem" }}>
-                Classification failed. Check lyrics and try again.
+                Calibration failed. Check lyrics and try again.
               </p>
             )}
             {form.instrumental ? (
               <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: "0.75rem", marginTop: "0.5rem" }}>
-                Classification disabled — song is marked instrumental.
+                Calibration disabled — song is marked instrumental.
               </p>
             ) : !form.lyrics && (
               <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: "0.75rem", marginTop: "0.5rem" }}>
-                Add lyrics to enable classification.
+                Add lyrics to enable calibration.
               </p>
             )}
           </div>
