@@ -38,7 +38,9 @@ export async function GET() {
   for (const row of sections || []) {
     const kp = (row as { key_points: string[] | null }).key_points;
     if (!Array.isArray(kp)) continue;
-    const song = (row as { song: HookSong | null }).song;
+    // Supabase joins are typed as arrays even for many-to-one — accept both shapes.
+    const songRaw = (row as { song: HookSong | HookSong[] | null }).song;
+    const song: HookSong | null = Array.isArray(songRaw) ? (songRaw[0] ?? null) : songRaw;
     if (!song) continue;
 
     for (const point of kp) {
