@@ -9,6 +9,8 @@ import { TaxonomyPicker } from "@/components/TaxonomyPicker";
 import { MediaLibrary } from "@/components/MediaLibrary";
 import { SongVisibilityChat } from "@/components/SongVisibilityChat";
 import { SongVisibilitySections, type SongVisibilitySectionsHandle } from "@/components/SongVisibilitySections";
+import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
+import { FeaturedPicker } from "@/components/FeaturedPicker";
 
 interface ExpansionSummary {
   id: string;
@@ -27,11 +29,13 @@ interface SongData {
   streaming_path: string | null;
   download_path: string | null;
   lyrics: string | null;
+  instrumental: boolean;
   price: number | null;
   is_single: boolean;
   status: string;
   release_date: string | null;
   song_summary: string | null;
+  chorus: string | null;
   chad_quote: string | null;
   isrc: string | null;
   playback_mode: string | null;
@@ -46,6 +50,15 @@ interface SongData {
   topic_ids: string[];
   art_image_path: string | null;
   art_alt: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
+  portrait_focal_x: number | null;
+  portrait_focal_y: number | null;
+  portrait_zoom: number | null;
   updated_at: string | null;
 }
 
@@ -64,11 +77,13 @@ const emptySong: SongData = {
   streaming_path: null,
   download_path: null,
   lyrics: null,
+  instrumental: false,
   price: null,
   is_single: false,
   status: "draft",
   release_date: null,
   song_summary: null,
+  chorus: null,
   chad_quote: null,
   isrc: null,
   playback_mode: null,
@@ -83,6 +98,15 @@ const emptySong: SongData = {
   topic_ids: [],
   art_image_path: null,
   art_alt: null,
+  hero_focal_x: null,
+  hero_focal_y: null,
+  hero_zoom: 1.0,
+  card_focal_x: null,
+  card_focal_y: null,
+  card_zoom: 1.0,
+  portrait_focal_x: null,
+  portrait_focal_y: null,
+  portrait_zoom: 1.0,
   updated_at: null,
 };
 
@@ -96,15 +120,24 @@ interface AlbumOption {
 function SongCoverArtPanel({
   imagePath,
   altText,
+  crops,
   onImageChange,
   onAltChange,
+  onCropsChange,
+  onResetCrops,
 }: {
   imagePath: string;
   altText: string;
+  crops: Record<CropRatio, { focalX: number | null; focalY: number | null; zoom: number | null }>;
   onImageChange: (url: string) => void;
   onAltChange: (alt: string) => void;
+  onCropsChange: (ratio: CropRatio, patch: CropPatch) => void;
+  onResetCrops: () => void;
 }) {
   const [mediaOpen, setMediaOpen] = useState(false);
+  const cardCrop = crops.card;
+  const cardFx = cardCrop.focalX ?? 50;
+  const cardFy = cardCrop.focalY ?? 50;
 
   return (
     <div className="obsv-editor__panel">
@@ -119,6 +152,7 @@ function SongCoverArtPanel({
             src={imagePath}
             alt={altText || "Song cover art preview"}
             className="cover-art-preview__img"
+            style={{ objectPosition: `${cardFx}% ${cardFy}%` }}
           />
           <div className="cover-art-preview__actions">
             <button
@@ -132,7 +166,7 @@ function SongCoverArtPanel({
             <button
               type="button"
               className="admin-btn admin-btn--danger"
-              onClick={() => onImageChange("")}
+              onClick={() => { onImageChange(""); onResetCrops(); }}
               style={{ fontSize: "0.6875rem", padding: "4px 12px" }}
             >
               Remove
@@ -161,6 +195,15 @@ function SongCoverArtPanel({
             placeholder="Describe the cover art"
           />
         </div>
+      )}
+
+      {imagePath && (
+        <FocalPointPicker
+          src={imagePath}
+          alt={altText || "Song cover art"}
+          crops={crops}
+          onChange={onCropsChange}
+        />
       )}
 
       <MediaLibrary
@@ -241,11 +284,13 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       streaming_path: d.streaming_path,
       download_path: d.download_path,
       lyrics: d.lyrics,
+      instrumental: d.instrumental,
       price: d.price,
       is_single: d.is_single,
       status: d.status,
       release_date: d.release_date,
       song_summary: d.song_summary,
+      chorus: d.chorus,
       chad_quote: d.chad_quote,
       isrc: d.isrc,
       playback_mode: d.playback_mode,
@@ -260,6 +305,15 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       topic_ids: d.topic_ids,
       art_image_path: d.art_image_path,
       art_alt: d.art_alt,
+      hero_focal_x: d.hero_focal_x,
+      hero_focal_y: d.hero_focal_y,
+      hero_zoom: d.hero_zoom,
+      card_focal_x: d.card_focal_x,
+      card_focal_y: d.card_focal_y,
+      card_zoom: d.card_zoom,
+      portrait_focal_x: d.portrait_focal_x,
+      portrait_focal_y: d.portrait_focal_y,
+      portrait_zoom: d.portrait_zoom,
     }),
     []
   );
@@ -292,16 +346,16 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     enabled: !!form.title,
   });
 
-  // Rising Compass classification
-  const [rcStatus, setRcStatus] = useState<"idle" | "classifying" | "done" | "error">("idle");
+  // Rising Compass calibration
+  const [rcStatus, setRcStatus] = useState<"idle" | "calibrating" | "done" | "error">("idle");
   const [rcResult, setRcResult] = useState<{ tier: string; tier_label: string; charge: number; charge_summary: string } | null>(null);
 
-  async function handleClassify() {
+  async function handleCalibrate() {
     if (!form.title || !form.lyrics) return;
-    setRcStatus("classifying");
+    setRcStatus("calibrating");
     setRcResult(null);
     try {
-      const res = await fetch("/api/admin/classify-song", {
+      const res = await fetch("/api/admin/calibrate-song", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: form.title, artist: "Chad Lewine", lyrics: form.lyrics }),
@@ -383,15 +437,27 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             />
           </div>
 
+          <div className="obsv-editor__field" style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+            <input
+              id="instrumental"
+              type="checkbox"
+              checked={form.instrumental}
+              onChange={(e) => set("instrumental", e.target.checked)}
+            />
+            <label className="obsv-editor__label" htmlFor="instrumental" style={{ margin: 0 }}>Instrumental (no lyrics)</label>
+          </div>
+
           <div className="obsv-editor__field">
             <label className="obsv-editor__label" htmlFor="lyrics">Lyrics</label>
             <textarea
               id="lyrics"
               className="obsv-editor__input"
-              value={(form.lyrics || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n")}
+              value={form.instrumental ? "" : (form.lyrics || "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n")}
               onChange={(e) => set("lyrics", e.target.value || null)}
               rows={16}
-              style={{ fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap" }}
+              disabled={form.instrumental}
+              placeholder={form.instrumental ? "Instrumental — no lyrics" : undefined}
+              style={{ fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", opacity: form.instrumental ? 0.5 : 1 }}
             />
           </div>
 
@@ -408,6 +474,20 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
           </div>
 
           <div className="obsv-editor__field">
+            <label className="obsv-editor__label" htmlFor="chorus">Chorus</label>
+            <textarea
+              id="chorus"
+              className="obsv-editor__input"
+              value={form.instrumental ? "" : (form.chorus || "")}
+              onChange={(e) => set("chorus", e.target.value || null)}
+              rows={4}
+              disabled={form.instrumental}
+              placeholder={form.instrumental ? "Instrumental — no chorus" : "Paste the chorus lyrics here — shown in the homepage words-only feed."}
+              style={{ fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", opacity: form.instrumental ? 0.5 : 1 }}
+            />
+          </div>
+
+          <div className="obsv-editor__field">
             <label className="obsv-editor__label" htmlFor="chad_quote">Quote from Chad</label>
             <textarea
               id="chad_quote"
@@ -418,6 +498,16 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               placeholder="A short quote from you about this song — appears in section 1 of the landing page."
             />
           </div>
+
+          {/* Art Pairings */}
+          {form.id && (
+            <div style={{ marginTop: "1.5rem" }}>
+              <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "0.75rem" }}>
+                Art you might like (shown on song detail page)
+              </h2>
+              <FeaturedPicker kind="art" parentRef={form.id} />
+            </div>
+          )}
 
           {/* Visibility Engine */}
           {form.id && (
@@ -605,8 +695,25 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
           <SongCoverArtPanel
             imagePath={form.art_image_path || ""}
             altText={form.art_alt || ""}
+            crops={{
+              hero: { focalX: form.hero_focal_x, focalY: form.hero_focal_y, zoom: form.hero_zoom },
+              card: { focalX: form.card_focal_x, focalY: form.card_focal_y, zoom: form.card_zoom },
+              portrait: { focalX: form.portrait_focal_x, focalY: form.portrait_focal_y, zoom: form.portrait_zoom },
+            }}
             onImageChange={(url) => set("art_image_path", url || null)}
             onAltChange={(alt) => set("art_alt", alt || null)}
+            onCropsChange={(ratio, patch) => {
+              if ("focalX" in patch) set(`${ratio}_focal_x` as keyof SongData, patch.focalX as SongData[keyof SongData]);
+              if ("focalY" in patch) set(`${ratio}_focal_y` as keyof SongData, patch.focalY as SongData[keyof SongData]);
+              if ("zoom" in patch) set(`${ratio}_zoom` as keyof SongData, (patch.zoom ?? 1) as SongData[keyof SongData]);
+            }}
+            onResetCrops={() => {
+              (["hero", "card", "portrait"] as CropRatio[]).forEach((r) => {
+                set(`${r}_focal_x` as keyof SongData, null as SongData[keyof SongData]);
+                set(`${r}_focal_y` as keyof SongData, null as SongData[keyof SongData]);
+                set(`${r}_zoom` as keyof SongData, 1 as SongData[keyof SongData]);
+              });
+            }}
           />
 
           {/* Files */}
@@ -706,20 +813,24 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             <button
               type="button"
               className="admin-btn admin-btn--secondary"
-              onClick={handleClassify}
-              disabled={rcStatus === "classifying" || !form.title || !form.lyrics}
+              onClick={handleCalibrate}
+              disabled={rcStatus === "calibrating" || !form.title || !form.lyrics || form.instrumental}
               style={{ fontSize: "0.875rem" }}
             >
-              {rcStatus === "classifying" ? "Classifying..." : rcResult ? "Reclassify" : "Classify"}
+              {rcStatus === "calibrating" ? "Calibrating..." : rcResult ? "Recalibrate" : "Calibrate"}
             </button>
             {rcStatus === "error" && (
               <p style={{ color: "#ff3333", fontFamily: "var(--font-ui)", fontSize: "0.75rem", marginTop: "0.5rem" }}>
-                Classification failed. Check lyrics and try again.
+                Calibration failed. Check lyrics and try again.
               </p>
             )}
-            {!form.lyrics && (
+            {form.instrumental ? (
               <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: "0.75rem", marginTop: "0.5rem" }}>
-                Add lyrics to enable classification.
+                Calibration disabled — song is marked instrumental.
+              </p>
+            ) : !form.lyrics && (
+              <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: "0.75rem", marginTop: "0.5rem" }}>
+                Add lyrics to enable calibration.
               </p>
             )}
           </div>

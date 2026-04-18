@@ -5,6 +5,8 @@ import Link from "next/link";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { VISIBILITY_CATEGORIES } from "@/lib/song-visibility";
 import { CompassIcon } from "@/components/RCBadge";
+import "./ArtDetail.css";
+import { focalCropStyle } from "@/lib/focal-crop";
 
 interface SongProps {
   id: string;
@@ -14,12 +16,16 @@ interface SongProps {
   duration_seconds: number | null;
   streaming_path: string | null;
   lyrics: string | null;
+  instrumental: boolean;
   price: number | null;
   release_date: string | null;
   song_summary: string | null;
   isrc: string | null;
   art_image_path: string | null;
   art_alt: string | null;
+  card_focal_x?: number | null;
+  card_focal_y?: number | null;
+  card_zoom?: number | null;
 }
 
 interface AlbumProps {
@@ -66,6 +72,18 @@ interface BadgeProps {
   contaminationNote: string | null;
 }
 
+interface PairedArtProps {
+  id: string;
+  slug: string;
+  title: string;
+  image_path: string;
+  image_alt: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
+  art_summary: string | null;
+}
+
 /** Strip the first h1/h2/h3 from rendered HTML — we provide our own section headings */
 function stripLeadingHeading(html: string): string {
   return html.replace(/^\s*<h[1-3][^>]*>.*?<\/h[1-3]>\s*/i, "");
@@ -85,6 +103,7 @@ export function SongDetail({
   badge,
   playbackMode = "preview",
   geoFields = null,
+  pairedArt = [],
 }: {
   song: SongProps;
   album: AlbumProps | null;
@@ -94,6 +113,7 @@ export function SongDetail({
   badge?: BadgeProps | null;
   playbackMode?: "preview" | "full";
   geoFields?: GeoFieldsProps | null;
+  pairedArt?: PairedArtProps[];
 }) {
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [buying, setBuying] = useState<"song" | "album" | null>(null);
@@ -179,6 +199,7 @@ export function SongDetail({
               alt={coverArtAlt}
               className="track-detail__cover"
               loading="eager"
+              style={focalCropStyle(song.card_focal_x ?? null, song.card_focal_y ?? null, song.card_zoom ?? null)}
             />
           )}
         </div>
@@ -270,7 +291,14 @@ export function SongDetail({
           </div>
 
           {/* Lyrics */}
-          {song.lyrics && (
+          {song.instrumental ? (
+            <div className="track-detail__section">
+              <h3 className="track-detail__section-title">Lyrics</h3>
+              <p style={{ color: "var(--text-tertiary)", fontStyle: "italic" }}>
+                Instrumental — no lyrics.
+              </p>
+            </div>
+          ) : song.lyrics && (
             <div className="track-detail__section">
               <h3 className="track-detail__section-title">Lyrics</h3>
               <div
@@ -626,6 +654,31 @@ export function SongDetail({
                       </div>
                     ))}
                   </dl>
+                </div>
+              </section>
+            )}
+
+            {/* Art you might like — cross-sell */}
+            {pairedArt.length > 0 && (
+              <section className="song-landing__section">
+                <div className="song-landing__container">
+                  <h2 className="song-landing__heading">Art you might like</h2>
+                  <div className="art-detail__pairings-grid art-detail__pairings-grid--hero">
+                    {pairedArt.map((a) => (
+                      <Link key={a.id} href={`/art/${a.slug}`} className="art-pairing-card art-pairing-card--hero">
+                        <img
+                          src={a.image_path}
+                          alt={a.image_alt || a.title}
+                          className="art-pairing-card__img"
+                          style={focalCropStyle(a.hero_focal_x, a.hero_focal_y, a.hero_zoom)}
+                        />
+                        <div className="art-pairing-card__body">
+                          <h3 className="art-pairing-card__title">{a.title}</h3>
+                          {a.art_summary && <p className="art-pairing-card__summary">{a.art_summary}</p>}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </section>
             )}

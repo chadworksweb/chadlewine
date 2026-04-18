@@ -28,7 +28,7 @@ export default async function LyricsPage() {
   // Album-song junctions
   const { data: junctions } = await supabase
     .from("album_songs")
-    .select("album_id, track_number, song:songs(id, title, slug, lyrics, status)")
+    .select("album_id, track_number, song:songs(id, title, slug, lyrics, instrumental, status)")
     .order("track_number");
 
   // IDs of songs that belong to an album
@@ -36,22 +36,23 @@ export default async function LyricsPage() {
     (junctions || []).map((j: any) => j.song?.id).filter(Boolean)
   );
 
-  // Singles = published songs with lyrics that aren't in any album
+  // Singles = published songs with lyrics (or instrumental) that aren't in any album
   const { data: allSongs } = await supabase
     .from("songs")
-    .select("id, title, slug, lyrics, status, created_at")
+    .select("id, title, slug, lyrics, instrumental, status, created_at")
     .eq("status", "published")
     .order("created_at", { ascending: false });
 
   const singles = (allSongs || [])
-    .filter((s: any) => s.lyrics && !albumSongIds.has(s.id))
+    .filter((s: any) => (s.lyrics || s.instrumental) && !albumSongIds.has(s.id))
     .map((s: any, i: number) => ({
       id: s.id,
       album_id: "__singles__",
       title: s.title,
       slug: s.slug,
       track_number: i + 1,
-      lyrics: s.lyrics,
+      lyrics: s.lyrics || "",
+      instrumental: s.instrumental === true,
     }));
 
   const albums = (albumRows || []).map((a: any) => ({
@@ -64,14 +65,15 @@ export default async function LyricsPage() {
   }));
 
   const albumSongs = (junctions || [])
-    .filter((j: any) => j.song?.status === "published" && j.song?.lyrics)
+    .filter((j: any) => j.song?.status === "published" && (j.song?.lyrics || j.song?.instrumental))
     .map((j: any) => ({
       id: j.song.id,
       album_id: j.album_id,
       title: j.song.title,
       slug: j.song.slug,
       track_number: j.track_number,
-      lyrics: j.song.lyrics,
+      lyrics: j.song.lyrics || "",
+      instrumental: j.song.instrumental === true,
     }));
 
   return (

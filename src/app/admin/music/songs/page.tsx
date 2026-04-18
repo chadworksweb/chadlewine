@@ -9,6 +9,7 @@ interface Song {
   slug: string;
   status: string;
   lyrics: string | null;
+  instrumental: boolean;
   streaming_path: string | null;
   release_date: string | null;
   duration_seconds: number | null;
@@ -124,7 +125,7 @@ export default function AdminSongsPage() {
                 {s.is_single && <span style={{ marginLeft: "0.5rem", fontSize: "0.65rem", color: "var(--text-tertiary)", textTransform: "uppercase" }}>single</span>}
               </td>
               <td className="admin-table__td" style={{ textAlign: "center" }}>
-                {s.lyrics ? "✓" : ""}
+                {s.instrumental ? <span style={{ fontSize: "0.65rem", color: "var(--text-tertiary)", textTransform: "uppercase" }}>instr.</span> : s.lyrics ? "✓" : ""}
               </td>
               <td className="admin-table__td"><span className={`admin-status admin-status--${s.status}`}>{s.status}</span></td>
               <td className="admin-table__td">{formatDuration(s.duration_seconds)}</td>

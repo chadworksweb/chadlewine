@@ -9,6 +9,7 @@ interface Song {
   slug: string;
   track_number: number;
   lyrics: string;
+  instrumental: boolean;
 }
 
 interface Album {
@@ -120,6 +121,11 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
                 >
                   <span className="lb__track-num">{song.track_number}.</span>
                   <span className="lb__track-name">{song.title}</span>
+                  {song.instrumental && (
+                    <span className="lb__track-tag" style={{ marginLeft: "0.5rem", fontSize: "0.65rem", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      [Instrumental]
+                    </span>
+                  )}
                 </button>
               </li>
             ))}
@@ -162,10 +168,16 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
                 </p>
               </header>
               <div className="lb__lyrics-body">
-                {activeSong.lyrics
-                  .replace(/\\r\\n/g, "\n")
-                  .replace(/\\n/g, "\n")
-                  .replace(/\\r/g, "\n")}
+                {activeSong.instrumental ? (
+                  <p style={{ color: "var(--text-tertiary)", fontStyle: "italic" }}>
+                    Instrumental — no lyrics.
+                  </p>
+                ) : (
+                  activeSong.lyrics
+                    .replace(/\\r\\n/g, "\n")
+                    .replace(/\\n/g, "\n")
+                    .replace(/\\r/g, "\n")
+                )}
               </div>
             </div>
           ) : (
