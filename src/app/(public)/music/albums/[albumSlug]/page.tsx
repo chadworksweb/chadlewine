@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
 import { AlbumDetail } from "@/components/AlbumDetail";
+import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge, fetchAlbumBadge, type RisingCompassBadgeData } from "@/lib/rising-compass";
 
 export const revalidate = 60;
@@ -94,6 +95,7 @@ export default async function AlbumDetailPage({
 
   return (
     <>
+      <AdminEditButton href={`/admin/music/albums/${album.id}`} />
       <AlbumDetail
         album={{
           id: album.id,

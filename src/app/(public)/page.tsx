@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
-import Link from "next/link";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { HomepageFeed } from "@/components/HomepageFeed";
 import { ExploreSongs } from "@/components/ExploreSongs";
+import { SongBriefCard, type SongBriefData } from "@/components/SongBriefCard";
 
 export const revalidate = 60;
 
@@ -13,50 +13,17 @@ export async function generateMetadata(): Promise<Metadata> {
   return mergeMetadata("/", DEFAULT_METADATA);
 }
 
-async function getObservations() {
+async function getHomepageSongs() {
   const supabase = createPublicClient();
 
-  const { data: observations } = await supabase
-    .from("observations")
-    .select("id, title, slug, date_captured, art_image_path, art_alt, hook_line, status")
-    .eq("status", "published")
-    .order("date_captured", { ascending: false });
+  const { data } = await supabase
+    .from("songs")
+    .select("id, title, slug, release_date, art_image_path, art_alt, art_focal_x, art_focal_y, song_summary")
+    .in("status", ["unreleased", "published"])
+    .order("release_date", { ascending: false, nullsFirst: false })
+    .limit(10);
 
-  if (!observations || observations.length === 0) return [];
-
-  // Fetch categories and tags for all observations
-  const ids = observations.map((o) => o.id);
-
-  const [{ data: catLinks }, { data: tagLinks }] = await Promise.all([
-    supabase
-      .from("observation_categories")
-      .select("observation_id, categories(title, slug)")
-      .in("observation_id", ids),
-    supabase
-      .from("observation_tags")
-      .select("observation_id, tags(label, slug)")
-      .in("observation_id", ids),
-  ]);
-
-  const catMap: Record<string, { title: string; slug: string }[]> = {};
-  for (const link of catLinks || []) {
-    const cat = (link as any).categories;
-    if (!cat) continue;
-    (catMap[link.observation_id] ||= []).push(cat);
-  }
-
-  const tagMap: Record<string, { label: string; slug: string }[]> = {};
-  for (const link of tagLinks || []) {
-    const tag = (link as any).tags;
-    if (!tag) continue;
-    (tagMap[link.observation_id] ||= []).push(tag);
-  }
-
-  return observations.map((o) => ({
-    ...o,
-    categories: catMap[o.id] || [],
-    tags: tagMap[o.id] || [],
-  }));
+  return data || [];
 }
 
 async function getFeaturedTrack() {
@@ -71,7 +38,6 @@ async function getFeaturedTrack() {
 
   if (!song) return null;
 
-  // Get album via junction
   const { data: junction } = await supabase
     .from("album_songs")
     .select("track_number, album:albums(title, slug, cover_art_path, cover_art_alt)")
@@ -87,6 +53,102 @@ async function getFeaturedTrack() {
     song: { ...song, track_number: junction.track_number },
     album,
   };
+}
+
+async function getCLStreamSongs() {
+  const supabase = createPublicClient();
+
+  const { data } = await supabase
+    .from("cl_stream_songs")
+    .select("id, title, artist, album, note, source_url, rc_color, rc_charge, rc_charge_summary, created_at")
+    .eq("status", "published")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  return data || [];
+}
+
+async function getSongBriefs(): Promise<SongBriefData[]> {
+  const supabase = createPublicClient();
+
+  const { data: songs } = await supabase
+    .from("songs")
+    .select("id, slug, title, song_summary, chorus, chad_quote, art_image_path, art_alt")
+    .in("status", ["unreleased", "published"])
+    .order("release_date", { ascending: false, nullsFirst: false })
+    .limit(9);
+
+  if (!songs || songs.length === 0) return [];
+
+  const ids = songs.map((s) => s.id);
+
+  const [{ data: junctions }, { data: sections }] = await Promise.all([
+    supabase
+      .from("album_songs")
+      .select("song_id, album:albums(title, slug)")
+      .in("song_id", ids),
+    supabase
+      .from("song_visibility_sections")
+      .select("song_id, category, direct_answer, content, key_points, display_order")
+      .in("song_id", ids)
+      .eq("status", "published")
+      .order("display_order", { ascending: true }),
+  ]);
+
+  const albumBySong: Record<string, { title: string; slug: string } | null> = {};
+  for (const j of junctions || []) {
+    const alb = Array.isArray((j as any).album) ? (j as any).album[0] : (j as any).album;
+    if (alb && !albumBySong[j.song_id]) albumBySong[j.song_id] = alb;
+  }
+
+  const stripMarkdown = (line: string) =>
+    line
+      .replace(/^[-*+]\s+/, "")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .trim();
+
+  const extractHookLines = (content: string | null | undefined): string[] => {
+    if (!content) return [];
+    const out: string[] = [];
+    for (const raw of content.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (/^\*\*[^*]+\*\*$/.test(line)) continue;
+      if (/^#{1,6}\s/.test(line)) continue;
+      if (/^[-=*_]{3,}$/.test(line)) continue;
+      const cleaned = stripMarkdown(line);
+      if (cleaned.length < 3) continue;
+      out.push(cleaned);
+    }
+    return out;
+  };
+
+  const hooksBySong: Record<string, string[]> = {};
+  for (const s of sections || []) {
+    if (s.category !== "hooks") continue;
+    let pts: string[] = [];
+    if (Array.isArray(s.key_points)) {
+      pts = s.key_points.map((p: string) => stripMarkdown(p)).filter((p) => p.length >= 3);
+    }
+    if (pts.length === 0) pts = extractHookLines(s.content);
+    if (pts.length > 0) hooksBySong[s.song_id] = pts;
+  }
+
+  return songs.map((s) => ({
+    id: s.id,
+    slug: s.slug,
+    title: s.title,
+    song_summary: s.song_summary,
+    chorus: s.chorus,
+    chad_quote: s.chad_quote,
+    art_image_path: s.art_image_path,
+    art_alt: s.art_alt,
+    album: albumBySong[s.id] || null,
+    hooks: hooksBySong[s.id] || [],
+  }));
 }
 
 async function getExploreSongs() {
@@ -154,25 +216,13 @@ async function getExploreSongs() {
   }));
 }
 
-async function getMeditations() {
-  const supabase = createPublicClient();
-
-  const { data: meditations } = await supabase
-    .from("meditations")
-    .select("id, subtitle, body, plain_text, published_at, created_at")
-    .eq("status", "published")
-    .order("published_at", { ascending: false })
-    .limit(10);
-
-  return meditations || [];
-}
-
 export default async function HomePage() {
-  const [observations, meditations, featuredTrack, exploreSongs] = await Promise.all([
-    getObservations(),
-    getMeditations(),
+  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs] = await Promise.all([
+    getHomepageSongs(),
     getFeaturedTrack(),
+    getCLStreamSongs(),
     getExploreSongs(),
+    getSongBriefs(),
   ]);
 
   const featuredPlaybackMode = featuredTrack
@@ -182,17 +232,30 @@ export default async function HomePage() {
   return (
     <div id="page-home" className="page-home">
       <HomepageFeed
-        observations={observations}
+        songs={songs}
         featuredTrack={featuredTrack ? { ...featuredTrack, playbackMode: featuredPlaybackMode } : null}
-        meditations={meditations}
+        clStreamSongs={clStreamSongs}
       />
 
       <ExploreSongs songs={exploreSongs} />
 
+      {songBriefs.length > 0 && (
+        <section className="song-brief-feed">
+          <div className="song-brief-feed__inner">
+            <h2 className="song-brief-feed__heading">Explore Chad Lewine Songs</h2>
+            <div className="song-brief-feed__grid">
+              {songBriefs.map((s) => (
+                <SongBriefCard key={s.id} song={s} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {!process.env.VERCEL && (
         <section className="home-merch">
           <div className="home-merch__inner site-contain">
-            <h2 className="home-merch__heading">Most Popular Merch</h2>
+            <h2 className="home-merch__heading">Chad Lewine Merch</h2>
             <div className="home-merch__grid">
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <div key={n} className="home-merch__card">
@@ -206,9 +269,9 @@ export default async function HomePage() {
         </section>
       )}
 
-      {observations.length === 0 && (
+      {songs.length === 0 && (
         <section className="empty-state">
-          <p className="empty-state__message">No observations published yet.</p>
+          <p className="empty-state__message">No songs published yet.</p>
         </section>
       )}
     </div>

@@ -1,0 +1,2 @@
+ALTER TABLE art_pieces ADD COLUMN art_zoom real NOT NULL DEFAULT 1.0;
+ALTER TABLE songs ADD COLUMN art_zoom real NOT NULL DEFAULT 1.0;

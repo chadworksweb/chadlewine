@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     template: "%s — Chad Lewine",
   },
   description:
-    "Cross-domain observations that connect the invisible patterns between music, money, faith, identity, consciousness, and everything else.",
+    "Chad Lewine — musician. Songs at the center of a catalog that tells a life. Art, merch, and live shows.",
   authors: [{ name: "Chad Lewine", url: "https://chadlewine.com/chad-lewine" }],
   openGraph: {
     type: "website",

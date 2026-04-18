@@ -8,6 +8,7 @@ interface FeedEntryProps {
   hookLine: string;
   artImageUrl?: string;
   artAlt?: string;
+  href?: string;
 }
 
 export function FeedEntry({
@@ -17,10 +18,11 @@ export function FeedEntry({
   hookLine,
   artImageUrl,
   artAlt,
+  href,
 }: FeedEntryProps) {
   return (
     <Link
-      href={`/observations/${slug}`}
+      href={href ?? `/observations/${slug}`}
       className="feed-entry"
     >
       <div className="feed-entry__art-wrap">

@@ -46,6 +46,21 @@ export async function POST(request: Request) {
         return Response.json({ error: "Database insert failed" }, { status: 500 });
       }
 
+      if (productId) {
+        const { error: rpcErr } = await supabase.rpc("increment_editions_sold", { p_product_id: productId });
+        if (rpcErr) console.error("[stripe-webhook] increment_editions_sold failed:", rpcErr.message);
+
+        const { data: product } = await supabase
+          .from("products")
+          .select("variant_type, source_art_id")
+          .eq("id", productId)
+          .single();
+
+        if (product?.variant_type === "original" && product.source_art_id) {
+          await supabase.from("art_pieces").update({ sold: true }).eq("id", product.source_art_id);
+        }
+      }
+
       // If configurator purchase, auto-create product_submission for catalog review
       if (productConfig && session.customer_details?.email) {
         let config: Record<string, unknown> = {};

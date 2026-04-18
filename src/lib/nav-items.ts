@@ -5,8 +5,6 @@ export interface NavItem {
 }
 
 export const DEFAULT_NAV_ITEMS: NavItem[] = [
-  { href: "/observations", label: "Observations" },
-  { href: "/meditations", label: "Meditations" },
   {
     href: "/music",
     label: "Music",
@@ -18,5 +16,8 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
     ],
   },
   { href: "/art", label: "Art" },
+  { href: "/merch", label: "Store" },
+  // { href: "/meditations", label: "Meditations" },   // hidden — music-first pivot
+  // { href: "/observations", label: "Observations" }, // hidden from nav — surfaced only from song pages
   { href: "/chad-lewine", label: "About" },
 ];

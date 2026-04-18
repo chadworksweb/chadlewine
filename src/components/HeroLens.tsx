@@ -6,75 +6,83 @@ import { formatDate } from "@/lib/utils";
 import { CoverArtPlayground } from "@/components/CoverArtPlayground";
 import { TitleReveal } from "@/components/TitleReveal";
 
-interface Observation {
+export interface HeroLensItem {
   slug: string;
   title: string;
-  date_captured: string;
-  hook_line: string;
-  art_image_path: string;
-  art_alt: string;
-  categories: { title: string; slug: string }[];
-  tags: { label: string; slug: string }[];
+  date: string | null;
+  hook: string;
+  artImagePath: string;
+  artAlt: string;
+  href: string;
+  ctaLabel: string;
+  focalX?: number; // 0-1
+  focalY?: number; // 0-1
+  categories?: { title: string; slug: string }[];
+  tags?: { label: string; slug: string }[];
 }
 
 interface HeroLensProps {
-  observations: Observation[];
+  items: HeroLensItem[];
   onIndexChange?: (index: number) => void;
 }
 
 const SCROLL_THRESHOLD = 120;
 const TRANSITION_MS = 1500;
 
-function ObservationSlide({ obs }: { obs: Observation }) {
+function HeroLensSlide({ item }: { item: HeroLensItem }) {
   return (
     <>
       <div className="hero-lens__slide-art">
-        {obs.art_image_path && (
+        {item.artImagePath && (
           <CoverArtPlayground
-            src={obs.art_image_path}
-            alt={obs.art_alt || obs.title}
+            src={item.artImagePath}
+            alt={item.artAlt || item.title}
             className="cover-hero__art-wrap"
+            focalX={item.focalX}
+            focalY={item.focalY}
           />
         )}
       </div>
 
       <div className="hero-lens__slide-content">
         <div className="cover-hero__title-col">
-          <TitleReveal artImageUrl={obs.art_image_path || ""}>
-            <Link href={`/observations/${obs.slug}`} className="cover-hero__title-link">
-              <h1 className="cover-hero__title">{obs.title}</h1>
+          <TitleReveal artImageUrl={item.artImagePath || ""}>
+            <Link href={item.href} className="cover-hero__title-link">
+              <h1 className="cover-hero__title">{item.title}</h1>
             </Link>
           </TitleReveal>
 
-          {obs.hook_line && (
-            <p className="cover-hero__hook">{obs.hook_line}</p>
+          {item.hook && (
+            <p className="cover-hero__hook">{item.hook}</p>
           )}
         </div>
 
         <div className="cover-hero__bar">
-          <Link href={`/observations/${obs.slug}`} className="hero-lens__cta">
-            Read Observation →
+          <Link href={item.href} className="hero-lens__cta">
+            {item.ctaLabel}
           </Link>
 
-          <time className="cover-hero__date">{formatDate(obs.date_captured)}</time>
+          {item.date && (
+            <time className="cover-hero__date">{formatDate(item.date)}</time>
+          )}
 
-          {obs.categories?.length > 0 && (
+          {item.categories && item.categories.length > 0 && (
             <div className="cover-hero__cats">
-              {obs.categories.map((c, i) => (
+              {item.categories.map((c, i) => (
                 <span key={c.slug}>
                   <span className="cover-hero__tag cover-hero__tag--cat">{c.title}</span>
-                  {i < obs.categories.length - 1 && ", "}
+                  {i < item.categories!.length - 1 && ", "}
                 </span>
               ))}
             </div>
           )}
 
-          {obs.tags?.length > 0 && (
+          {item.tags && item.tags.length > 0 && (
             <div className="cover-hero__tags">
-              {obs.tags.map((t, i) => (
+              {item.tags.map((t, i) => (
                 <span key={t.slug}>
                   <span className="cover-hero__tag">#{t.label}</span>
-                  {i < obs.tags.length - 1 && ", "}
+                  {i < item.tags!.length - 1 && ", "}
                 </span>
               ))}
             </div>
@@ -85,7 +93,7 @@ function ObservationSlide({ obs }: { obs: Observation }) {
   );
 }
 
-export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
+export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const accumulatedDelta = useRef(0);
   const railRef = useRef<HTMLDivElement>(null);
@@ -93,9 +101,8 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
   const lockoutRef = useRef(false);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
-  const total = observations.length;
+  const total = items.length;
 
-  // Measure viewport height from the active slide's natural size once
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp || viewportHeight !== null) return;
@@ -103,7 +110,6 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
     if (h > 0) setViewportHeight(h);
   }, [viewportHeight]);
 
-  // Re-measure on resize
   useEffect(() => {
     const measure = () => {
       const vp = viewportRef.current;
@@ -189,13 +195,13 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
           className="hero-lens__viewport"
           style={viewportHeight ? { height: viewportHeight } : undefined}
         >
-          {observations.map((obs, i) => {
+          {items.map((item, i) => {
             const offset = i - currentIndex;
             if (Math.abs(offset) > 1) return null;
             const translateY = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
             return (
               <div
-                key={obs.slug}
+                key={item.slug}
                 className={`hero-lens__slide${i === currentIndex ? " hero-lens__slide--current" : ""}`}
                 style={{
                   transform: `translateY(${translateY})`,
@@ -203,13 +209,12 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
                 }}
                 aria-hidden={i !== currentIndex}
               >
-                <ObservationSlide obs={obs} />
+                <HeroLensSlide item={item} />
               </div>
             );
           })}
         </div>
 
-        {/* Scroll rail — static, never slides */}
         <div
           ref={railRef}
           className="hero-lens__rail"
@@ -218,7 +223,7 @@ export function HeroLens({ observations, onIndexChange }: HeroLensProps) {
         >
           <div className="hero-lens__rail-label">SCROLL</div>
           <div className="hero-lens__pips">
-            {observations.map((_, i) => (
+            {items.map((_, i) => (
               <span
                 key={i}
                 className={`hero-lens__pip${i === currentIndex ? " hero-lens__pip--active" : ""}${i < currentIndex ? " hero-lens__pip--past" : ""}`}

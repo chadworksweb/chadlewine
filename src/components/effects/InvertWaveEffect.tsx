@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { getCoverCropRect } from "@/lib/coverCrop";
 
 interface Props {
   src: string;
   alt: string;
   className?: string;
+  focalX?: number;
+  focalY?: number;
 }
 
 interface Wave {
@@ -16,12 +19,14 @@ interface Wave {
   life: number;
 }
 
-export function InvertWaveEffect({ src, alt, className }: Props) {
+export function InvertWaveEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const rafRef = useRef<number>(0);
   const wavesRef = useRef<Wave[]>([]);
+  const focalRef = useRef({ x: focalX, y: focalY });
+  focalRef.current = { x: focalX, y: focalY };
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -35,7 +40,8 @@ export function InvertWaveEffect({ src, alt, className }: Props) {
     const w = canvas.width;
     const h = canvas.height;
 
-    ctx.drawImage(img, 0, 0, w, h);
+    const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y);
+    ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
 
     const waves = wavesRef.current;
     if (waves.length > 0) {

@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { getCoverCropRect } from "@/lib/coverCrop";
 
 interface Props {
   src: string;
   alt: string;
   className?: string;
+  focalX?: number;
+  focalY?: number;
 }
 
 type Point = [number, number];
@@ -218,10 +221,12 @@ function subdivideShard(shard: Shard, clickX: number, clickY: number): Shard[] {
   return newShards.length >= 2 ? newShards : [shard];
 }
 
-export function ShatterEffect({ src, alt, className }: Props) {
+export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const focalRef = useRef({ x: focalX, y: focalY });
+  focalRef.current = { x: focalX, y: focalY };
   const rafRef = useRef<number>(0);
   const shardsRef = useRef<Shard[]>([]);
   const initializedRef = useRef(false);
@@ -263,7 +268,8 @@ export function ShatterEffect({ src, alt, className }: Props) {
     ctx.clearRect(0, 0, w, h);
 
     if (!initializedRef.current || shards.length === 0) {
-      ctx.drawImage(img, 0, 0, w, h);
+      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y);
+      ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
       rafRef.current = requestAnimationFrame(draw);
       return;
     }
@@ -288,7 +294,8 @@ export function ShatterEffect({ src, alt, className }: Props) {
       }
       ctx.closePath();
       ctx.clip();
-      ctx.drawImage(img, 0, 0, w, h);
+      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y);
+      ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
 
       if (s.generation > 0 && s.crackReveal > 0) {
         // Draw edges with partial reveal — animate from crackOrigin outward

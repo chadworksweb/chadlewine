@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
+import { getCoverCropRect } from "@/lib/coverCrop";
 
 interface Props {
   src: string;
   alt: string;
   className?: string;
+  focalX?: number;
+  focalY?: number;
 }
 
-export function KaleidoscopeEffect({ src, alt, className }: Props) {
+export function KaleidoscopeEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 }: Props) {
+  const focalRef = useRef({ x: focalX, y: focalY });
+  focalRef.current = { x: focalX, y: focalY };
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -43,8 +48,9 @@ export function KaleidoscopeEffect({ src, alt, className }: Props) {
 
     const blend = blendRef.current;
 
-    // Base image
-    ctx.drawImage(img, 0, 0, w, h);
+    // Base image — cover-crop with focal to preserve aspect.
+    const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y);
+    ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
 
     if (blend < 0.01 || !pattern) {
       rafRef.current = requestAnimationFrame(draw);

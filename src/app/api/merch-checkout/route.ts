@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const supabase = createPublicClient();
     const { data: product } = await supabase
       .from("products")
-      .select("id, title, price, status")
+      .select("id, title, price, status, image_url")
       .eq("id", body.product_id)
       .eq("status", "active")
       .single();
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       product_config: { product_id: product.id },
       title: product.title,
       price: product.price,
+      image_url: product.image_url || undefined,
       success_url: `${origin}/merch/checkout?success=true`,
       cancel_url: `${origin}/merch`,
     });
