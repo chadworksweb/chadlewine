@@ -3,6 +3,10 @@ import { fetchBadge } from "@/lib/rising-compass";
 
 const RC_API_URL = process.env.RISING_COMPASS_API_URL || "https://api.risingcompass.net";
 const RC_API_KEY = process.env.RISING_COMPASS_API_KEY || "";
+// First-party calibration key — when set, calibrate-lyrics calls bypass bot
+// protection and tag submissions as source="chadlewine" instead of polluting
+// the public Lyrical Charger activity log.
+const RC_SERVICE_KEY = process.env.RISING_COMPASS_SERVICE_KEY || "";
 
 export async function GET() {
   const supabase = createAdminClient();
@@ -48,8 +52,16 @@ export async function POST(request: Request) {
     try {
       const res = await fetch(`${RC_API_URL}/api/analyzer/calibrate-lyrics`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Api-Key": RC_API_KEY },
-        body: JSON.stringify({ title, artist, lyrics: body.lyrics.trim() }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": RC_SERVICE_KEY || RC_API_KEY,
+        },
+        body: JSON.stringify({
+          title,
+          artist,
+          lyrics: body.lyrics.trim(),
+          source: "chadlewine",
+        }),
       });
       if (res.ok) {
         const cal = await res.json();
