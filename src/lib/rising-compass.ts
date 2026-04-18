@@ -3,6 +3,10 @@ const RC_API_KEY = process.env.RISING_COMPASS_API_KEY || "";
 const RC_SERVICE_KEY = process.env.RISING_COMPASS_SERVICE_KEY || "";
 const RC_KEY = RC_SERVICE_KEY || RC_API_KEY;
 
+// If RC is slow (e.g., mid long-running admin job), we'd rather render
+// the page without a badge than block SSR for minutes.
+const BADGE_TIMEOUT_MS = 4000;
+
 export interface RisingCompassBadgeData {
   tier: string;
   tier_label: string;
@@ -24,6 +28,7 @@ export async function fetchBadge(
     const res = await fetch(`${RC_API_URL}/api/badge/lookup?${params}`, {
       headers: { "X-Api-Key": RC_KEY },
       next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
 
     if (!res.ok) return null;
@@ -49,6 +54,7 @@ export async function fetchAlbumBadge(
     const res = await fetch(`${RC_API_URL}/api/badge/album-lookup?${params}`, {
       headers: { "X-Api-Key": RC_KEY },
       next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
 
     if (!res.ok) return null;
