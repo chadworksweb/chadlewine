@@ -45,7 +45,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!resolved) return Response.json({ error: "Song not found" }, { status: 404 });
   const id = resolved.id;
 
-  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "lyrics", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "chad_quote"];
+  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "lyrics", "instrumental", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote"];
   const updates: Record<string, unknown> = {};
   for (const f of songFields) { if (f in body) updates[f] = body[f]; }
 

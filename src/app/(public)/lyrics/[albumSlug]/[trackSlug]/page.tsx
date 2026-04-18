@@ -74,7 +74,11 @@ export default async function SongLyricsPage({
         {album.title} &middot; Track {song.track_number}
       </p>
 
-      {song.lyrics ? (
+      {song.instrumental ? (
+        <p style={{ color: "var(--text-tertiary)", fontStyle: "italic" }}>
+          Instrumental track — no lyrics.
+        </p>
+      ) : song.lyrics ? (
         <div className="lyric-book__lyrics" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
           {song.lyrics.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n")}
         </div>

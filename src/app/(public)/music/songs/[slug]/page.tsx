@@ -3,10 +3,23 @@ import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
+import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge } from "@/lib/rising-compass";
 import { markdownToHtml } from "@/lib/markdown";
 
 export const revalidate = 60;
+
+type PairedArt = {
+  id: string;
+  slug: string;
+  title: string;
+  image_path: string;
+  image_alt: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
+  art_summary: string | null;
+};
 
 async function getSongData(songSlug: string) {
   const supabase = createPublicClient();
@@ -64,6 +77,18 @@ async function getSongData(songSlug: string) {
     .eq("status", "published")
     .order("display_order");
 
+  // Featured art (curated on song editor, shown on song page)
+  const { data: featuredArt } = await supabase
+    .from("songs_featured_art")
+    .select("position, art:art_pieces(id, slug, title, image_path, image_alt, hero_focal_x, hero_focal_y, hero_zoom, art_summary, status)")
+    .eq("song_id", song.id)
+    .order("position");
+
+  const pairedArt = ((featuredArt as { art: (PairedArt & { status: string }) | null }[] | null) || [])
+    .map((p) => p.art)
+    .filter((a): a is PairedArt & { status: string } => !!a && (a.status === "published" || a.status === "unreleased"))
+    .map(({ status: _status, ...rest }) => rest);
+
   // Convert ALL visibility sections to HTML (used in integrated landing page)
   const renderedSections = await Promise.all(
     (visibilitySections || []).map(async (s: any) => ({
@@ -80,6 +105,7 @@ async function getSongData(songSlug: string) {
     totalTracks: count || 0,
     expansions: expansions || [],
     visibilitySections: renderedSections,
+    pairedArt,
   };
 }
 
@@ -128,7 +154,7 @@ export default async function SongDetailPage({
   const result = await getSongData(slug);
   if (!result) notFound();
 
-  const { album, song, totalTracks, expansions, visibilitySections } = result;
+  const { album, song, totalTracks, expansions, visibilitySections, pairedArt } = result;
 
   const [badge, playbackMode] = await Promise.all([
     fetchBadge(song.title, "Chad Lewine"),
@@ -156,6 +182,7 @@ export default async function SongDetailPage({
 
   return (
     <>
+      <AdminEditButton href={`/admin/music/songs/${song.id}`} />
       <SongDetail
         song={{
           id: song.id,
@@ -165,12 +192,16 @@ export default async function SongDetailPage({
           duration_seconds: song.duration_seconds,
           streaming_path: song.streaming_path,
           lyrics: song.lyrics,
+          instrumental: song.instrumental === true,
           price: song.price,
           release_date: song.release_date,
           song_summary: song.song_summary,
           isrc: song.isrc,
           art_image_path: song.art_image_path,
           art_alt: song.art_alt,
+          card_focal_x: song.card_focal_x,
+          card_focal_y: song.card_focal_y,
+          card_zoom: song.card_zoom,
         }}
         album={
           album
@@ -187,6 +218,7 @@ export default async function SongDetailPage({
         totalTracks={totalTracks}
         expansions={expansions}
         visibilitySections={visibilitySections}
+        pairedArt={pairedArt}
         playbackMode={playbackMode}
         geoFields={{
           citation_summary: song.citation_summary,
