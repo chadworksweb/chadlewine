@@ -4,8 +4,9 @@ import { useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Tier = "art" | "line" | "fusion";
+type SourceType = "obs" | "song";
 
-interface ObservationOption {
+interface SourceOption {
   id: string;
   title: string;
   slug: string;
@@ -36,11 +37,22 @@ const CURATED_PRODUCTS = [
 
 type Step = "tier" | "source" | "variant" | "review";
 
+const SOURCE_ENDPOINT: Record<SourceType, string> = {
+  obs: "/api/configurator/observations",
+  song: "/api/configurator/songs",
+};
+
+const SOURCE_LABEL: Record<SourceType, string> = {
+  obs: "Observation",
+  song: "Song",
+};
+
 export function ProductConfigurator() {
   const [step, setStep] = useState<Step>("tier");
   const [tier, setTier] = useState<Tier | null>(null);
-  const [observations, setObservations] = useState<ObservationOption[]>([]);
-  const [selectedObservation, setSelectedObservation] = useState<ObservationOption | null>(null);
+  const [sourceType, setSourceType] = useState<SourceType>("obs");
+  const [sources, setSources] = useState<SourceOption[]>([]);
+  const [selectedSource, setSelectedSource] = useState<SourceOption | null>(null);
   const [selectedLine, setSelectedLine] = useState<string>("");
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selectedColor, setSelectedColor] = useState<string>("");
@@ -52,39 +64,56 @@ export function ProductConfigurator() {
   const product = CURATED_PRODUCTS[0];
   const searchParams = useSearchParams();
 
-  // Pre-fill from URL params (from The Pick links)
+  const fetchSources = useCallback(async (type: SourceType) => {
+    const res = await fetch(SOURCE_ENDPOINT[type]);
+    if (res.ok) {
+      const data: SourceOption[] = await res.json();
+      setSources(data);
+      return data;
+    }
+    setSources([]);
+    return [];
+  }, []);
+
+  // Pre-fill from URL params (from The Pick links).
+  // Accepts ?tier=...&source=obs|song&obs=<uuid>|song=<uuid>&line=<text>.
+  // If `source` is omitted, infer from which id param is present.
   useEffect(() => {
     const urlTier = searchParams.get("tier") as Tier | null;
     const urlLine = searchParams.get("line");
     const urlObs = searchParams.get("obs");
+    const urlSong = searchParams.get("song");
+    const urlSource = searchParams.get("source") as SourceType | null;
 
     if (!urlTier || !["art", "line", "fusion"].includes(urlTier)) return;
 
+    const inferredType: SourceType =
+      urlSource === "song" || urlSource === "obs"
+        ? urlSource
+        : urlSong
+          ? "song"
+          : "obs";
+    const targetId = inferredType === "song" ? urlSong : urlObs;
+
     setTier(urlTier);
+    setSourceType(inferredType);
 
-    // Fetch observations, then auto-select if obs ID provided
     (async () => {
-      const res = await fetch("/api/configurator/observations");
-      if (!res.ok) return;
-      const obs: ObservationOption[] = await res.json();
-      setObservations(obs);
+      const list = await fetchSources(inferredType);
 
-      if (urlObs) {
-        const match = obs.find((o) => o.id === urlObs);
+      if (targetId) {
+        const match = list.find((o) => o.id === targetId);
         if (match) {
-          setSelectedObservation(match);
+          setSelectedSource(match);
 
           if (urlTier === "art" && match.art_image_path) {
-            // Art tier with obs selected — go straight to variant
             setStep("variant");
             fetchVariants();
           } else if (urlLine && (urlTier === "line" || urlTier === "fusion")) {
-            // Line/fusion with line pre-selected — go to variant
             setSelectedLine(decodeURIComponent(urlLine));
             setStep("variant");
             fetchVariants();
           } else {
-            // Obs selected but need line selection
             setStep("source");
           }
         } else {
@@ -95,11 +124,6 @@ export function ProductConfigurator() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchObservations = useCallback(async () => {
-    const res = await fetch("/api/configurator/observations");
-    if (res.ok) setObservations(await res.json());
   }, []);
 
   async function fetchVariants() {
@@ -124,14 +148,22 @@ export function ProductConfigurator() {
   function handleTierSelect(t: Tier) {
     setTier(t);
     setStep("source");
-    fetchObservations();
+    fetchSources(sourceType);
   }
 
-  function handleObservationSelect(obs: ObservationOption) {
-    setSelectedObservation(obs);
+  function handleSourceTypeChange(type: SourceType) {
+    if (type === sourceType) return;
+    setSourceType(type);
+    setSelectedSource(null);
+    setSelectedLine("");
+    fetchSources(type);
+  }
+
+  function handleSourceSelect(src: SourceOption) {
+    setSelectedSource(src);
     if (tier === "art") {
-      if (!obs.art_image_path) {
-        setError("This observation has no cover art.");
+      if (!src.art_image_path) {
+        setError(`This ${SOURCE_LABEL[sourceType].toLowerCase()} has no cover art.`);
         return;
       }
       setStep("variant");
@@ -151,15 +183,17 @@ export function ProductConfigurator() {
   }
 
   async function handleCheckout() {
-    if (!selectedObservation || !selectedVariant || !tier) return;
+    if (!selectedSource || !selectedVariant || !tier) return;
     setCheckoutLoading(true);
     setError("");
 
     const config = {
       tier,
-      observation_id: selectedObservation.id,
-      observation_title: selectedObservation.title,
-      art_image_path: tier !== "line" ? selectedObservation.art_image_path : null,
+      source_type: sourceType,
+      ...(sourceType === "obs"
+        ? { observation_id: selectedSource.id, observation_title: selectedSource.title }
+        : { song_id: selectedSource.id, song_title: selectedSource.title }),
+      art_image_path: tier !== "line" ? selectedSource.art_image_path : null,
       selected_line: tier !== "art" ? selectedLine : null,
       blueprint_id: product.blueprint_id,
       blueprint_title: product.title,
@@ -194,7 +228,7 @@ export function ProductConfigurator() {
       setSelectedColor("");
       return;
     }
-    if (step === "source") { setStep("tier"); setTier(null); setSelectedObservation(null); return; }
+    if (step === "source") { setStep("tier"); setTier(null); setSelectedSource(null); return; }
   }
 
   // Group variants by color
@@ -207,6 +241,7 @@ export function ProductConfigurator() {
   const colors = Object.keys(colorGroups);
 
   const STEPS: Step[] = ["tier", "source", "variant", "review"];
+  const sourceLabel = SOURCE_LABEL[sourceType].toLowerCase();
 
   return (
     <div className="configurator">
@@ -237,11 +272,11 @@ export function ProductConfigurator() {
           <div className="configurator__tier-grid">
             <button className="configurator__tier-card" onClick={() => handleTierSelect("art")}>
               <span className="configurator__tier-label">The Art</span>
-              <span className="configurator__tier-desc">Cover art from an Observation — visual only</span>
+              <span className="configurator__tier-desc">Cover art from an Observation or Song — visual only</span>
             </button>
             <button className="configurator__tier-card" onClick={() => handleTierSelect("line")}>
               <span className="configurator__tier-label">The Line</span>
-              <span className="configurator__tier-desc">A sentence from an Observation — text only</span>
+              <span className="configurator__tier-desc">A sentence or lyric — text only</span>
             </button>
             <button className="configurator__tier-card" onClick={() => handleTierSelect("fusion")}>
               <span className="configurator__tier-label">The Fusion</span>
@@ -258,21 +293,37 @@ export function ProductConfigurator() {
             {tier === "art" ? "Choose the art" : tier === "line" ? "Choose a line" : "Choose art + line"}
           </h2>
 
-          {!selectedObservation ? (
-            <div className="configurator__source-list">
-              {observations.length === 0 && (
-                <p className="configurator__empty">No observations with merch content available.</p>
-              )}
-              {observations.map((obs) => (
+          {!selectedSource && (
+            <div className="configurator__source-type" style={{ display: "flex", gap: "var(--space-sm)", marginBottom: "var(--space-md)" }}>
+              {(["obs", "song"] as SourceType[]).map((t) => (
                 <button
-                  key={obs.id}
-                  className="configurator__source-card"
-                  onClick={() => handleObservationSelect(obs)}
+                  key={t}
+                  type="button"
+                  className={`configurator__tier-card${sourceType === t ? " configurator__tier-card--selected" : ""}`}
+                  onClick={() => handleSourceTypeChange(t)}
+                  style={{ padding: "var(--space-xs) var(--space-md)" }}
                 >
-                  {obs.art_image_path && (tier === "art" || tier === "fusion") && (
-                    <img src={obs.art_image_path} alt={obs.title} className="configurator__source-thumb" />
+                  <span className="configurator__tier-label">{SOURCE_LABEL[t]}s</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!selectedSource ? (
+            <div className="configurator__source-list">
+              {sources.length === 0 && (
+                <p className="configurator__empty">No {sourceLabel}s with merch content available.</p>
+              )}
+              {sources.map((src) => (
+                <button
+                  key={src.id}
+                  className="configurator__source-card"
+                  onClick={() => handleSourceSelect(src)}
+                >
+                  {src.art_image_path && (tier === "art" || tier === "fusion") && (
+                    <img src={src.art_image_path} alt={src.title} className="configurator__source-thumb" />
                   )}
-                  <span className="configurator__source-title">{obs.title}</span>
+                  <span className="configurator__source-title">{src.title}</span>
                 </button>
               ))}
             </div>
@@ -280,18 +331,18 @@ export function ProductConfigurator() {
             (tier === "line" || tier === "fusion") && (
               <div className="configurator__line-list">
                 <p className="configurator__subtext">
-                  From: <strong>{selectedObservation.title}</strong>
+                  From: <strong>{selectedSource.title}</strong>
                 </p>
-                {selectedObservation.hook_line && (
+                {selectedSource.hook_line && (
                   <button
-                    className={`configurator__line-card${selectedLine === selectedObservation.hook_line ? " configurator__line-card--selected" : ""}`}
-                    onClick={() => handleLineSelect(selectedObservation.hook_line!)}
+                    className={`configurator__line-card${selectedLine === selectedSource.hook_line ? " configurator__line-card--selected" : ""}`}
+                    onClick={() => handleLineSelect(selectedSource.hook_line!)}
                   >
                     <span className="configurator__line-tag">Hook</span>
-                    {selectedObservation.hook_line}
+                    {selectedSource.hook_line}
                   </button>
                 )}
-                {selectedObservation.merch_lines?.map((line, i) => (
+                {selectedSource.merch_lines?.map((line, i) => (
                   <button
                     key={i}
                     className={`configurator__line-card${selectedLine === line ? " configurator__line-card--selected" : ""}`}
@@ -300,11 +351,11 @@ export function ProductConfigurator() {
                     {line}
                   </button>
                 ))}
-                {!selectedObservation.hook_line &&
-                  (!selectedObservation.merch_lines || selectedObservation.merch_lines.length === 0) && (
+                {!selectedSource.hook_line &&
+                  (!selectedSource.merch_lines || selectedSource.merch_lines.length === 0) && (
                     <p className="configurator__empty">
-                      No lines available for this observation.
-                      <button className="configurator__back-link" onClick={() => setSelectedObservation(null)}>
+                      No lines available for this {sourceLabel}.
+                      <button className="configurator__back-link" onClick={() => setSelectedSource(null)}>
                         Pick another
                       </button>
                     </p>
@@ -383,7 +434,9 @@ export function ProductConfigurator() {
             </div>
             <div className="configurator__review-row">
               <span className="configurator__review-label">Source</span>
-              <span className="configurator__review-value">{selectedObservation?.title}</span>
+              <span className="configurator__review-value">
+                {SOURCE_LABEL[sourceType]} &middot; {selectedSource?.title}
+              </span>
             </div>
             {selectedLine && (
               <div className="configurator__review-row">
