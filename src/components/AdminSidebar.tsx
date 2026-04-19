@@ -27,6 +27,17 @@ const adminNav: NavItem[] = [
     ],
   },
   {
+    href: "/admin/music",
+    label: "Music",
+    children: [
+      { href: "/admin/music", label: "Overview" },
+      { href: "/admin/music/albums", label: "Albums" },
+      { href: "/admin/music/songs", label: "Songs" },
+    ],
+  },
+  { href: "/admin/art", label: "Art" },
+  { href: "/admin/merch", label: "Merch" },
+  {
     href: "/admin/observations",
     label: "Observations",
     children: [
@@ -40,17 +51,6 @@ const adminNav: NavItem[] = [
   { href: "/admin/foundations", label: "Foundations" },
   { href: "/admin/door-pages", label: "Door Pages" },
   { href: "/admin/pages", label: "Pages (meta)" },
-  { href: "/admin/art", label: "Art" },
-  {
-    href: "/admin/music",
-    label: "Music",
-    children: [
-      { href: "/admin/music", label: "Overview" },
-      { href: "/admin/music/albums", label: "Albums" },
-      { href: "/admin/music/songs", label: "Songs" },
-    ],
-  },
-  { href: "/admin/merch", label: "Merch" },
   {
     href: "/admin/curation",
     label: "Curation",
