@@ -28,19 +28,32 @@ interface HeroLensProps {
 
 const SCROLL_THRESHOLD = 120;
 const TRANSITION_MS = 1500;
+const TRANSITION_MS_MOBILE = 350;
 
-function HeroLensSlide({ item }: { item: HeroLensItem }) {
+function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boolean }) {
+  const fx = item.focalX ?? 0.5;
+  const fy = item.focalY ?? 0.5;
   return (
     <>
       <div className="hero-lens__slide-art">
         {item.artImagePath && (
-          <CoverArtPlayground
-            src={item.artImagePath}
-            alt={item.artAlt || item.title}
-            className="cover-hero__art-wrap"
-            focalX={item.focalX}
-            focalY={item.focalY}
-          />
+          isMobile ? (
+            <img
+              src={item.artImagePath}
+              alt={item.artAlt || item.title}
+              className="hero-lens__slide-img"
+              style={{ objectPosition: `${fx * 100}% ${fy * 100}%` }}
+              loading="eager"
+            />
+          ) : (
+            <CoverArtPlayground
+              src={item.artImagePath}
+              alt={item.artAlt || item.title}
+              className="cover-hero__art-wrap"
+              focalX={item.focalX}
+              focalY={item.focalY}
+            />
+          )
         )}
       </div>
 
@@ -100,8 +113,17 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const lockoutRef = useRef(false);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const total = items.length;
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     const vp = viewportRef.current;
@@ -143,24 +165,67 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
       setTimeout(() => {
         lockoutRef.current = false;
         accumulatedDelta.current = 0;
-      }, TRANSITION_MS);
+      }, isMobile ? TRANSITION_MS_MOBILE : TRANSITION_MS);
     },
-    [currentIndex, total]
+    [currentIndex, total, isMobile]
   );
 
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
 
-  const touchStartY = useRef(0);
+  const touchStart = useRef({ x: 0, y: 0 });
+  const gestureAxis = useRef<null | "horizontal" | "vertical">(null);
+  const [dragPx, setDragPx] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const viewportWidthRef = useRef(0);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
+    if (lockoutRef.current) return;
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    viewportWidthRef.current = viewportRef.current?.offsetWidth || window.innerWidth;
+    gestureAxis.current = null;
+    setDragPx(0);
+    setIsDragging(false);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStart.current.x;
+    const dy = e.touches[0].clientY - touchStart.current.y;
+    // Decide axis the first time either delta crosses a small threshold.
+    // Horizontal must clearly dominate (>1.5x) AND exceed 12px before we
+    // take control, so natural vertical scrolling passes through.
+    if (gestureAxis.current === null) {
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+      if (ax < 12 && ay < 12) return;
+      if (ax > ay * 1.5) {
+        gestureAxis.current = "horizontal";
+        setIsDragging(true);
+      } else {
+        gestureAxis.current = "vertical";
+        return;
+      }
+    }
+    if (gestureAxis.current !== "horizontal") return;
+    setDragPx(dx);
   }, []);
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
-      const delta = touchStartY.current - e.changedTouches[0].clientY;
-      if (Math.abs(delta) > 40) {
-        advanceRef.current(delta > 0 ? "up" : "down");
+      const wasHorizontal = gestureAxis.current === "horizontal";
+      gestureAxis.current = null;
+      if (!wasHorizontal) {
+        setIsDragging(false);
+        setDragPx(0);
+        return;
+      }
+      const dx = e.changedTouches[0].clientX - touchStart.current.x;
+      const threshold = Math.max(60, viewportWidthRef.current * 0.25);
+      setIsDragging(false);
+      setDragPx(0);
+      if (Math.abs(dx) > threshold) {
+        // Swipe-left (dx<0) → next (up); swipe-right (dx>0) → prev (down).
+        advanceRef.current(dx < 0 ? "up" : "down");
       }
     },
     []
@@ -194,22 +259,30 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
           ref={viewportRef}
           className="hero-lens__viewport"
           style={viewportHeight ? { height: viewportHeight } : undefined}
+          onTouchStart={isMobile ? handleTouchStart : undefined}
+          onTouchMove={isMobile ? handleTouchMove : undefined}
+          onTouchEnd={isMobile ? handleTouchEnd : undefined}
         >
           {items.map((item, i) => {
             const offset = i - currentIndex;
             if (Math.abs(offset) > 1) return null;
-            const translateY = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
+            const translate = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
+            const dragOffset = isMobile && isDragging ? ` + ${dragPx}px` : "";
+            const transform = isMobile
+              ? `translateX(calc(${translate}${dragOffset}))`
+              : `translateY(${translate})`;
             return (
               <div
                 key={item.slug}
                 className={`hero-lens__slide${i === currentIndex ? " hero-lens__slide--current" : ""}`}
                 style={{
-                  transform: `translateY(${translateY})`,
+                  transform,
+                  transition: isMobile && isDragging ? "none" : undefined,
                   zIndex: i === currentIndex ? 2 : 1,
                 }}
                 aria-hidden={i !== currentIndex}
               >
-                <HeroLensSlide item={item} />
+                <HeroLensSlide item={item} isMobile={isMobile} />
               </div>
             );
           })}
@@ -218,8 +291,6 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
         <div
           ref={railRef}
           className="hero-lens__rail"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
         >
           <div className="hero-lens__rail-label">SCROLL</div>
           <div className="hero-lens__pips">

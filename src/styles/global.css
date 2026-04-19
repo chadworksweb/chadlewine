@@ -83,6 +83,7 @@
   --duration-slow: 500ms;
 }
 
+
 /* ============================================================
    LAYOUT PRIMITIVES
    ============================================================ */
@@ -894,15 +895,36 @@ h2, h3, h4, h5, h6 {
 
 @media (max-width: 768px) {
   .hero-lens__columns {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .hero-lens__slide-content {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+    padding-top: var(--space-md);
+    padding-bottom: var(--space-md);
+  }
+
+  .hero-lens__slide-img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1200 / 630;
+    object-fit: cover;
+  }
+
+  .hero-lens__viewport {
+    touch-action: pan-y;
+    overflow: hidden;
+  }
+
+  .hero-lens__slide {
+    padding: 0 10px;
+    transition: transform 350ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .hero-lens__rail {
-    width: 48px;
-  }
-
-  .hero-lens__pips {
-    max-height: 120px;
+    display: none;
   }
 }
 
@@ -1587,6 +1609,12 @@ h2, h3, h4, h5, h6 {
   top: var(--sticky-top);
   background: var(--bg-primary, #000);
   z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .home-split__observations .home-split__section-heading {
+    --sticky-top: calc((var(--nav-height) + var(--space-md)) / 2);
+  }
 }
 
 .home-split__observations .home-split__section-heading::before {
@@ -8236,6 +8264,10 @@ h3.aw-heading {
   white-space: nowrap;
 }
 
+.track-detail__info-value--released {
+  font-size: 0.95625rem; /* 25% smaller than base 1.275rem */
+}
+
 /* Glitch link on album name */
 
 .track-detail__glitch-link {
@@ -10357,6 +10389,25 @@ h3.aw-heading {
   white-space: nowrap;
 }
 
+@media (max-width: 768px) {
+  .explore-songs__frame {
+    flex-direction: column;
+    height: auto;
+    gap: var(--space-xs);
+    padding: var(--space-md) var(--page-gutter);
+  }
+  .explore-songs__heading {
+    white-space: normal;
+    text-align: center;
+    padding: 0 var(--space-sm);
+  }
+  .explore-songs__all {
+    white-space: normal;
+    text-align: center;
+    padding: 0 var(--space-xl);
+  }
+}
+
 .coverflow {
   position: relative;
   display: flex;
@@ -10580,7 +10631,7 @@ h3.aw-heading {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 var(--space-md);
+  padding: 0 var(--space-xl);
   margin: 0;
   border: none;
   background: #000;
