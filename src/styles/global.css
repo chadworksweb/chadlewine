@@ -1371,6 +1371,7 @@ h2, h3, h4, h5, h6 {
 }
 
 .feed-entry__art-wrap {
+  position: relative;
   aspect-ratio: 1200/630;
   overflow: hidden;
   border-radius: 6px;

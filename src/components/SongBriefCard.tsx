@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export interface SongBriefData {
   id: string;
@@ -31,10 +32,13 @@ export function SongBriefCard({ song }: { song: SongBriefData }) {
         </div>
         {song.art_image_path && (
           <Link href={href} className="song-brief-card__thumb-link" aria-hidden="true" tabIndex={-1}>
-            <img
+            <Image
               src={song.art_image_path}
               alt={song.art_alt || ""}
               className="song-brief-card__thumb"
+              width={200}
+              height={200}
+              sizes="100px"
               loading="lazy"
             />
           </Link>

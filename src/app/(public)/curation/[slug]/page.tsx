@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createPublicClient } from "@/lib/supabase-server";
+import Image from "next/image";
 import { RisingCompassScoreBadge } from "@/components/RisingCompassBadge";
 
 export const revalidate = 60;
@@ -125,7 +126,7 @@ export default async function CurationEntryPage({ params }: { params: Promise<{ 
         {/* Hero */}
         <div className="curation-entry__hero">
           {e.cover_image_path ? (
-            <img src={e.cover_image_path} alt={e.title} className="curation-entry__cover" />
+            <Image src={e.cover_image_path} alt={e.title} className="curation-entry__cover" width={1200} height={1200} sizes="(max-width: 720px) 100vw, 600px" priority />
           ) : (
             <div className="curation-entry__cover curation-entry__cover--empty" />
           )}

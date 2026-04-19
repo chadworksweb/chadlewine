@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { VISIBILITY_CATEGORIES } from "@/lib/song-visibility";
 import { CompassIcon } from "@/components/RCBadge";
@@ -710,10 +711,13 @@ export function SongDetail({
                   <div className="art-detail__pairings-grid art-detail__pairings-grid--hero">
                     {pairedArt.map((a) => (
                       <Link key={a.id} href={`/art/${a.slug}`} className="art-pairing-card art-pairing-card--hero">
-                        <img
+                        <Image
                           src={a.image_path}
                           alt={a.image_alt || a.title}
                           className="art-pairing-card__img"
+                          width={1200}
+                          height={1200}
+                          sizes="(max-width: 720px) 100vw, 600px"
                           style={focalCropStyle(a.hero_focal_x, a.hero_focal_y, a.hero_zoom)}
                         />
                         <div className="art-pairing-card__body">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { formatDate } from "@/lib/utils";
 
 interface FeedEntryProps {
@@ -27,10 +28,12 @@ export function FeedEntry({
     >
       <div className="feed-entry__art-wrap">
         {artImageUrl && (
-          <img
+          <Image
             src={artImageUrl}
             alt={artAlt || title}
             className="feed-entry__art"
+            fill
+            sizes="(max-width: 720px) 100vw, (max-width: 1200px) 50vw, 600px"
           />
         )}
       </div>

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { createPublicClient } from "@/lib/supabase-server";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -218,11 +219,14 @@ export default async function ObservationPage({
       <ProgressBar />
       <section className="cover-hero">
         {obsv.art_image_path && (
-          <div className="cover-hero__art-wrap">
-            <img
+          <div className="cover-hero__art-wrap" style={{ position: "relative" }}>
+            <Image
               src={obsv.art_image_path}
               alt={obsv.art_alt || obsv.title}
               className="cover-hero__art"
+              fill
+              sizes="(max-width: 1200px) 100vw, 1200px"
+              priority
             />
           </div>
         )}
@@ -357,11 +361,13 @@ export default async function ObservationPage({
             {synapseJumper.map((r: { id: string; title: string; slug: string; art_image_path: string | null; art_alt: string | null }) => (
               <a key={r.id} href={`/observations/${r.slug}`} className="synapse-jumper__card">
                 {r.art_image_path ? (
-                  <div className="synapse-jumper__art-wrap">
-                    <img
+                  <div className="synapse-jumper__art-wrap" style={{ position: "relative" }}>
+                    <Image
                       src={r.art_image_path}
                       alt={r.art_alt || r.title}
                       className="synapse-jumper__art"
+                      fill
+                      sizes="(max-width: 720px) 50vw, 240px"
                     />
                   </div>
                 ) : (
@@ -383,11 +389,13 @@ export default async function ObservationPage({
             {related.map((r: { id: string; title: string; slug: string; art_image_path: string | null; art_alt: string | null }) => (
               <a key={r.id} href={`/observations/${r.slug}`} className="related-observations__card">
                 {r.art_image_path ? (
-                  <div className="related-observations__art-wrap">
-                    <img
+                  <div className="related-observations__art-wrap" style={{ position: "relative" }}>
+                    <Image
                       src={r.art_image_path}
                       alt={r.art_alt || r.title}
                       className="related-observations__art"
+                      fill
+                      sizes="(max-width: 720px) 50vw, 240px"
                     />
                   </div>
                 ) : (

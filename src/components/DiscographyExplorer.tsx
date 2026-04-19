@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface DiscographyItem {
   id: string;
@@ -115,10 +116,13 @@ export function DiscographyExplorer({ items, allFormats }: DiscographyExplorerPr
               <div key={item.id} className="discography-grid__card">
                 <Link href={item.href} className="discography-grid__art-link">
                   {item.cover_art_path && (
-                    <img
+                    <Image
                       src={item.cover_art_path}
                       alt={item.title}
                       className="discography-grid__cover"
+                      width={800}
+                      height={800}
+                      sizes="(max-width: 720px) 50vw, (max-width: 1200px) 33vw, 280px"
                       loading="lazy"
                     />
                   )}
