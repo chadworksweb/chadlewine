@@ -8236,6 +8236,10 @@ h3.aw-heading {
   white-space: nowrap;
 }
 
+.track-detail__info-value--released {
+  font-size: 0.95625rem; /* 25% smaller than base 1.275rem */
+}
+
 /* Glitch link on album name */
 
 .track-detail__glitch-link {
