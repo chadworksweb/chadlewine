@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
+import Script from "next/script";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "@/styles/global.css";
 import { SiteJsonLd } from "@/components/SiteJsonLd";
+
+const GA_ID = "G-9EE3EK7X3R";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chadlewine.com"),
@@ -46,6 +51,20 @@ export default function RootLayout({
       <body>
         <SiteJsonLd />
         {children}
+        <Analytics />
+        <SpeedInsights />
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="ga-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GA_ID}');
+          `}
+        </Script>
       </body>
     </html>
   );
