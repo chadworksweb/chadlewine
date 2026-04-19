@@ -149,27 +149,30 @@ export function SongDetail({
   const coverArtPath = song.art_image_path || album?.cover_art_path || null;
   const coverArtAlt = song.art_alt || album?.cover_art_alt || album?.title || song.title;
 
-  const infoCells: { label: string; value: React.ReactNode }[] = [];
+  const infoCells: { key: string; label: string; value: React.ReactNode }[] = [];
 
   if (song.release_date) {
     const d = new Date(song.release_date);
     infoCells.push({
+      key: "released",
       label: "Released",
       value: d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }),
     });
   }
 
   if (song.price) {
-    infoCells.push({ label: "Price", value: formatPrice(song.price) });
+    infoCells.push({ key: "price", label: "Price", value: formatPrice(song.price) });
   }
 
   if (album) {
     infoCells.push({
+      key: "track",
       label: "Track",
       value: `${song.track_number} of ${totalTracks}`,
     });
 
     infoCells.push({
+      key: "album",
       label: "Album",
       value: (
         <Link
@@ -183,6 +186,7 @@ export function SongDetail({
     });
   } else {
     infoCells.push({
+      key: "release",
       label: "Release",
       value: "Single",
     });
@@ -213,10 +217,10 @@ export function SongDetail({
             className="track-detail__info-bar"
             data-cols={infoCells.length}
           >
-            {infoCells.map((cell, i) => (
-              <div key={i} className="track-detail__info-cell">
-                <span className="track-detail__info-label">{cell.label}</span>
-                <span className="track-detail__info-value">{cell.value}</span>
+            {infoCells.map((cell) => (
+              <div key={cell.key} className={`track-detail__info-cell track-detail__info-cell--${cell.key}`}>
+                <span className={`track-detail__info-label track-detail__info-label--${cell.key}`}>{cell.label}</span>
+                <span className={`track-detail__info-value track-detail__info-value--${cell.key}`}>{cell.value}</span>
               </div>
             ))}
           </div>
