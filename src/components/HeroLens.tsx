@@ -174,6 +174,7 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   advanceRef.current = advance;
 
   const touchStart = useRef({ x: 0, y: 0 });
+  const gestureAxis = useRef<null | "horizontal" | "vertical">(null);
   const [dragPx, setDragPx] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const viewportWidthRef = useRef(0);
@@ -182,19 +183,44 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
     if (lockoutRef.current) return;
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     viewportWidthRef.current = viewportRef.current?.offsetWidth || window.innerWidth;
+    gestureAxis.current = null;
     setDragPx(0);
-    setIsDragging(true);
+    setIsDragging(false);
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const dx = e.touches[0].clientX - touchStart.current.x;
+    const dy = e.touches[0].clientY - touchStart.current.y;
+    // Decide axis the first time either delta crosses a small threshold.
+    // Horizontal must clearly dominate (>1.5x) AND exceed 12px before we
+    // take control, so natural vertical scrolling passes through.
+    if (gestureAxis.current === null) {
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+      if (ax < 12 && ay < 12) return;
+      if (ax > ay * 1.5) {
+        gestureAxis.current = "horizontal";
+        setIsDragging(true);
+      } else {
+        gestureAxis.current = "vertical";
+        return;
+      }
+    }
+    if (gestureAxis.current !== "horizontal") return;
     setDragPx(dx);
   }, []);
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
+      const wasHorizontal = gestureAxis.current === "horizontal";
+      gestureAxis.current = null;
+      if (!wasHorizontal) {
+        setIsDragging(false);
+        setDragPx(0);
+        return;
+      }
       const dx = e.changedTouches[0].clientX - touchStart.current.x;
-      const threshold = Math.max(50, viewportWidthRef.current * 0.2);
+      const threshold = Math.max(60, viewportWidthRef.current * 0.25);
       setIsDragging(false);
       setDragPx(0);
       if (Math.abs(dx) > threshold) {
