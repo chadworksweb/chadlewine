@@ -180,14 +180,8 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
       const dx = touchStart.current.x - e.changedTouches[0].clientX;
-      const dy = touchStart.current.y - e.changedTouches[0].clientY;
-      // Use the dominant axis. Horizontal swipe-left = next; swipe-right = prev.
-      // Vertical scroll-up = next; scroll-down = prev (kept for rail-based touch).
-      if (Math.abs(dx) > Math.abs(dy)) {
-        if (Math.abs(dx) > 40) advanceRef.current(dx > 0 ? "up" : "down");
-      } else {
-        if (Math.abs(dy) > 40) advanceRef.current(dy > 0 ? "up" : "down");
-      }
+      // Horizontal only. Swipe-left = next, swipe-right = prev.
+      if (Math.abs(dx) > 40) advanceRef.current(dx > 0 ? "up" : "down");
     },
     []
   );
@@ -226,13 +220,16 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
           {items.map((item, i) => {
             const offset = i - currentIndex;
             if (Math.abs(offset) > 1) return null;
-            const translateY = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
+            const translate = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
+            const transform = isMobile
+              ? `translateX(${translate})`
+              : `translateY(${translate})`;
             return (
               <div
                 key={item.slug}
                 className={`hero-lens__slide${i === currentIndex ? " hero-lens__slide--current" : ""}`}
                 style={{
-                  transform: `translateY(${translateY})`,
+                  transform,
                   zIndex: i === currentIndex ? 2 : 1,
                 }}
                 aria-hidden={i !== currentIndex}
