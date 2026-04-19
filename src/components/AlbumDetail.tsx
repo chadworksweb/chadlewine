@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface AlbumProps {
   id: string;
@@ -200,11 +201,14 @@ export function AlbumDetail({
         {/* Left — Album art */}
         <div className="track-detail__art-col">
           {album.cover_art_path && (
-            <img
+            <Image
               src={album.cover_art_path}
               alt={album.cover_art_alt || album.title}
               className="track-detail__cover"
-              loading="eager"
+              width={1200}
+              height={1200}
+              sizes="(max-width: 720px) 100vw, 600px"
+              priority
             />
           )}
         </div>

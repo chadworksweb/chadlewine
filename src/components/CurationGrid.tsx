@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { RisingCompassScoreBadge } from "./RisingCompassBadge";
 
 interface CuratedEntry {
@@ -62,7 +63,7 @@ export function CurationGrid({ entries }: { entries: CuratedEntry[] }) {
         {filtered.map(entry => (
           <Link key={entry.id} href={`/curation/${entry.slug}`} className="curation-card">
             {entry.cover_image_path ? (
-              <img src={entry.cover_image_path} alt={entry.title} className="curation-card__cover" loading="lazy" />
+              <Image src={entry.cover_image_path} alt={entry.title} className="curation-card__cover" width={800} height={800} sizes="(max-width: 720px) 50vw, 280px" loading="lazy" />
             ) : (
               <div className="curation-card__cover curation-card__cover--empty" />
             )}

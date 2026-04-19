@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { SlidingPortfolio, type PortfolioItem } from "@/lib/sliding-portfolio";
 import "./SlidingArtPortfolio.css";
 
@@ -99,10 +100,14 @@ export function SlidingArtPortfolio({ items }: { items: PortfolioItem[] }) {
                     </svg>
                   </button>
                 )}
-                <img
+                <Image
                   className="sarp-modal-main-image"
                   src={current.gallery[galleryIndex] || current.main}
                   alt={current.title}
+                  width={1600}
+                  height={1600}
+                  sizes="(max-width: 720px) 100vw, 1200px"
+                  priority
                 />
                 {hasGallery && (
                   <button
@@ -126,7 +131,7 @@ export function SlidingArtPortfolio({ items }: { items: PortfolioItem[] }) {
                       className={`sarp-modal-thumb${i === galleryIndex ? " is-active" : ""}`}
                       onClick={() => setGalleryIndex(i)}
                     >
-                      <img src={src} alt="" />
+                      <Image src={src} alt="" width={200} height={200} sizes="80px" loading="lazy" />
                     </div>
                   ))}
                 </div>

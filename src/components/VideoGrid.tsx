@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 interface Category { id: string; title: string; slug: string; }
 interface Video {
@@ -61,7 +62,7 @@ export function VideoGrid({ categories, videos }: { categories: Category[]; vide
           <div className="tvp__grid">
             {featured.map((v) => (
               <button key={v.id} className="tvp__card" onClick={() => setActiveVideo(v)}>
-                {v.thumbnail_path && <img src={v.thumbnail_path} alt={v.title} className="tvp__thumb" />}
+                {v.thumbnail_path && <Image src={v.thumbnail_path} alt={v.title} className="tvp__thumb" width={800} height={450} sizes="(max-width: 720px) 50vw, 320px" loading="lazy" />}
                 <span className="tvp__card-title">{v.title}</span>
                 {v.duration_seconds && <span className="tvp__card-dur">{formatDuration(v.duration_seconds)}</span>}
               </button>
@@ -95,7 +96,7 @@ export function VideoGrid({ categories, videos }: { categories: Category[]; vide
       <div className="tvp__grid">
         {filtered.map((v) => (
           <button key={v.id} className="tvp__card" onClick={() => setActiveVideo(v)}>
-            {v.thumbnail_path && <img src={v.thumbnail_path} alt={v.title} className="tvp__thumb" />}
+            {v.thumbnail_path && <Image src={v.thumbnail_path} alt={v.title} className="tvp__thumb" width={800} height={450} sizes="(max-width: 720px) 50vw, 320px" loading="lazy" />}
             <span className="tvp__card-title">{v.title}</span>
             {v.duration_seconds && <span className="tvp__card-dur">{formatDuration(v.duration_seconds)}</span>}
           </button>
