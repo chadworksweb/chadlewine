@@ -28,6 +28,7 @@ interface HeroLensProps {
 
 const SCROLL_THRESHOLD = 120;
 const TRANSITION_MS = 1500;
+const TRANSITION_MS_MOBILE = 350;
 
 function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boolean }) {
   const fx = item.focalX ?? 0.5;
@@ -164,24 +165,42 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
       setTimeout(() => {
         lockoutRef.current = false;
         accumulatedDelta.current = 0;
-      }, TRANSITION_MS);
+      }, isMobile ? TRANSITION_MS_MOBILE : TRANSITION_MS);
     },
-    [currentIndex, total]
+    [currentIndex, total, isMobile]
   );
 
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
 
   const touchStart = useRef({ x: 0, y: 0 });
+  const [dragPx, setDragPx] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const viewportWidthRef = useRef(0);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (lockoutRef.current) return;
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    viewportWidthRef.current = viewportRef.current?.offsetWidth || window.innerWidth;
+    setDragPx(0);
+    setIsDragging(true);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStart.current.x;
+    setDragPx(dx);
   }, []);
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
-      const dx = touchStart.current.x - e.changedTouches[0].clientX;
-      // Horizontal only. Swipe-left = next, swipe-right = prev.
-      if (Math.abs(dx) > 40) advanceRef.current(dx > 0 ? "up" : "down");
+      const dx = e.changedTouches[0].clientX - touchStart.current.x;
+      const threshold = Math.max(50, viewportWidthRef.current * 0.2);
+      setIsDragging(false);
+      setDragPx(0);
+      if (Math.abs(dx) > threshold) {
+        // Swipe-left (dx<0) → next (up); swipe-right (dx>0) → prev (down).
+        advanceRef.current(dx < 0 ? "up" : "down");
+      }
     },
     []
   );
@@ -214,15 +233,17 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
           ref={viewportRef}
           className="hero-lens__viewport"
           style={viewportHeight ? { height: viewportHeight } : undefined}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          onTouchStart={isMobile ? handleTouchStart : undefined}
+          onTouchMove={isMobile ? handleTouchMove : undefined}
+          onTouchEnd={isMobile ? handleTouchEnd : undefined}
         >
           {items.map((item, i) => {
             const offset = i - currentIndex;
             if (Math.abs(offset) > 1) return null;
             const translate = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
+            const dragOffset = isMobile && isDragging ? ` + ${dragPx}px` : "";
             const transform = isMobile
-              ? `translateX(${translate})`
+              ? `translateX(calc(${translate}${dragOffset}))`
               : `translateY(${translate})`;
             return (
               <div
@@ -230,6 +251,7 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
                 className={`hero-lens__slide${i === currentIndex ? " hero-lens__slide--current" : ""}`}
                 style={{
                   transform,
+                  transition: isMobile && isDragging ? "none" : undefined,
                   zIndex: i === currentIndex ? 2 : 1,
                 }}
                 aria-hidden={i !== currentIndex}
@@ -243,8 +265,6 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
         <div
           ref={railRef}
           className="hero-lens__rail"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
         >
           <div className="hero-lens__rail-label">SCROLL</div>
           <div className="hero-lens__pips">

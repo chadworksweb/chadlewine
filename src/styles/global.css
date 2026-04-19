@@ -83,11 +83,6 @@
   --duration-slow: 500ms;
 }
 
-@media (max-width: 768px) {
-  :root {
-    --sticky-top: calc((var(--nav-height) + var(--space-md)) / 2);
-  }
-}
 
 /* ============================================================
    LAYOUT PRIMITIVES
@@ -920,6 +915,12 @@ h2, h3, h4, h5, h6 {
 
   .hero-lens__viewport {
     touch-action: pan-y;
+    overflow: hidden;
+  }
+
+  .hero-lens__slide {
+    padding: 0 10px;
+    transition: transform 350ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .hero-lens__rail {
@@ -1608,6 +1609,12 @@ h2, h3, h4, h5, h6 {
   top: var(--sticky-top);
   background: var(--bg-primary, #000);
   z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .home-split__observations .home-split__section-heading {
+    --sticky-top: calc((var(--nav-height) + var(--space-md)) / 2);
+  }
 }
 
 .home-split__observations .home-split__section-heading::before {

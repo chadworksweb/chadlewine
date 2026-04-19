@@ -120,7 +120,7 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs }: HomepageFe
                 </div>
               ))}
               <div className="archive__feed-item archive__feed-item--viewAll">
-                <Link href="/music" className="archive__feed-view-all">
+                <Link href="/music/songs" className="archive__feed-view-all">
                   View All Songs →
                 </Link>
               </div>
