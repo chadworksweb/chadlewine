@@ -29,18 +29,30 @@ interface HeroLensProps {
 const SCROLL_THRESHOLD = 120;
 const TRANSITION_MS = 1500;
 
-function HeroLensSlide({ item }: { item: HeroLensItem }) {
+function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boolean }) {
+  const fx = item.focalX ?? 0.5;
+  const fy = item.focalY ?? 0.5;
   return (
     <>
       <div className="hero-lens__slide-art">
         {item.artImagePath && (
-          <CoverArtPlayground
-            src={item.artImagePath}
-            alt={item.artAlt || item.title}
-            className="cover-hero__art-wrap"
-            focalX={item.focalX}
-            focalY={item.focalY}
-          />
+          isMobile ? (
+            <img
+              src={item.artImagePath}
+              alt={item.artAlt || item.title}
+              className="hero-lens__slide-img"
+              style={{ objectPosition: `${fx * 100}% ${fy * 100}%` }}
+              loading="eager"
+            />
+          ) : (
+            <CoverArtPlayground
+              src={item.artImagePath}
+              alt={item.artAlt || item.title}
+              className="cover-hero__art-wrap"
+              focalX={item.focalX}
+              focalY={item.focalY}
+            />
+          )
         )}
       </div>
 
@@ -100,8 +112,17 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const lockoutRef = useRef(false);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const total = items.length;
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     const vp = viewportRef.current;
@@ -151,16 +172,21 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
 
-  const touchStartY = useRef(0);
+  const touchStart = useRef({ x: 0, y: 0 });
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   }, []);
 
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
-      const delta = touchStartY.current - e.changedTouches[0].clientY;
-      if (Math.abs(delta) > 40) {
-        advanceRef.current(delta > 0 ? "up" : "down");
+      const dx = touchStart.current.x - e.changedTouches[0].clientX;
+      const dy = touchStart.current.y - e.changedTouches[0].clientY;
+      // Use the dominant axis. Horizontal swipe-left = next; swipe-right = prev.
+      // Vertical scroll-up = next; scroll-down = prev (kept for rail-based touch).
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (Math.abs(dx) > 40) advanceRef.current(dx > 0 ? "up" : "down");
+      } else {
+        if (Math.abs(dy) > 40) advanceRef.current(dy > 0 ? "up" : "down");
       }
     },
     []
@@ -194,6 +220,8 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
           ref={viewportRef}
           className="hero-lens__viewport"
           style={viewportHeight ? { height: viewportHeight } : undefined}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           {items.map((item, i) => {
             const offset = i - currentIndex;
@@ -209,7 +237,7 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
                 }}
                 aria-hidden={i !== currentIndex}
               >
-                <HeroLensSlide item={item} />
+                <HeroLensSlide item={item} isMobile={isMobile} />
               </div>
             );
           })}

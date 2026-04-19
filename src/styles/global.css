@@ -894,15 +894,30 @@ h2, h3, h4, h5, h6 {
 
 @media (max-width: 768px) {
   .hero-lens__columns {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+  }
+
+  .hero-lens__slide-content {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+    padding-top: var(--space-md);
+    padding-bottom: var(--space-md);
+  }
+
+  .hero-lens__slide-img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1200 / 630;
+    object-fit: cover;
+  }
+
+  .hero-lens__viewport {
+    touch-action: pan-y;
   }
 
   .hero-lens__rail {
-    width: 48px;
-  }
-
-  .hero-lens__pips {
-    max-height: 120px;
+    display: none;
   }
 }
 
