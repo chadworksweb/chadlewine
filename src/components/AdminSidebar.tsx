@@ -35,6 +35,7 @@ const adminNav: NavItem[] = [
       { href: "/admin/music", label: "Overview" },
       { href: "/admin/music/albums", label: "Albums" },
       { href: "/admin/music/songs", label: "Songs" },
+      { href: "/admin/merch", label: "Merch" },
     ],
   },
   {
@@ -52,7 +53,6 @@ const adminNav: NavItem[] = [
   { href: "/admin/voice-profile", label: "Voice Profile" },
   { href: "/admin/voice-messages", label: "Voice Messages" },
   { href: "/admin/analytics", label: "Analytics" },
-  { href: "/admin/merch", label: "Merch" },
 ];
 
 export function AdminSidebar() {
