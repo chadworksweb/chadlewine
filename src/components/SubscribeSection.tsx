@@ -68,14 +68,51 @@ export function SubscribeSection() {
       }
     }
 
+    function onTouchStart(e: TouchEvent) {
+      const t = e.touches[0];
+      if (!t) return;
+      const rect = section!.getBoundingClientRect();
+      mouse.x = t.clientX - rect.left;
+      mouse.y = t.clientY - rect.top;
+      glowPos.x = mouse.x;
+      glowPos.y = mouse.y;
+      isHovering = true;
+      glow!.style.opacity = "1";
+      animate();
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      const t = e.touches[0];
+      if (!t) return;
+      const rect = section!.getBoundingClientRect();
+      mouse.x = t.clientX - rect.left;
+      mouse.y = t.clientY - rect.top;
+    }
+
+    function onTouchEnd() {
+      isHovering = false;
+      glow!.style.opacity = "0";
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    }
+
     section.addEventListener("mousemove", onMouseMove);
     section.addEventListener("mouseenter", onMouseEnter);
     section.addEventListener("mouseleave", onMouseLeave);
+    section.addEventListener("touchstart", onTouchStart, { passive: true });
+    section.addEventListener("touchmove", onTouchMove, { passive: true });
+    section.addEventListener("touchend", onTouchEnd);
+    section.addEventListener("touchcancel", onTouchEnd);
 
     return () => {
       section.removeEventListener("mousemove", onMouseMove);
       section.removeEventListener("mouseenter", onMouseEnter);
       section.removeEventListener("mouseleave", onMouseLeave);
+      section.removeEventListener("touchstart", onTouchStart);
+      section.removeEventListener("touchmove", onTouchMove);
+      section.removeEventListener("touchend", onTouchEnd);
+      section.removeEventListener("touchcancel", onTouchEnd);
       if (animationId) cancelAnimationFrame(animationId);
     };
   }, []);
