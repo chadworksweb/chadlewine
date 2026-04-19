@@ -10396,11 +10396,15 @@ h3.aw-heading {
     gap: var(--space-xs);
     padding: var(--space-md) var(--page-gutter);
   }
-  .explore-songs__heading,
-  .explore-songs__all {
+  .explore-songs__heading {
     white-space: normal;
     text-align: center;
     padding: 0 var(--space-sm);
+  }
+  .explore-songs__all {
+    white-space: normal;
+    text-align: center;
+    padding: 0 var(--space-xl);
   }
 }
 
@@ -10627,7 +10631,7 @@ h3.aw-heading {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 var(--space-md);
+  padding: 0 var(--space-xl);
   margin: 0;
   border: none;
   background: #000;
