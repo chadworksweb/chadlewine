@@ -2,43 +2,42 @@ import { createPublicClient } from "@/lib/supabase-server";
 import { isSectionLive } from "@/lib/feature-flags";
 import Link from "next/link";
 
-interface MerchSectionProps {
-  observationId: string;
+interface SongMerchSectionProps {
+  songId: string;
 }
 
-export async function MerchSection({ observationId }: MerchSectionProps) {
+export async function SongMerchSection({ songId }: SongMerchSectionProps) {
   if (!(await isSectionLive("merch"))) return null;
 
   const supabase = createPublicClient();
 
-  const [{ data: products }, { data: observation }] = await Promise.all([
+  const [{ data: products }, { data: song }] = await Promise.all([
     supabase
       .from("products")
       .select("id, tier, title, description, price")
-      .eq("source_observation_id", observationId)
+      .eq("source_song_id", songId)
       .eq("status", "active")
       .order("tier"),
     supabase
-      .from("observations")
+      .from("songs")
       .select("id, title, hook_line, merch_lines, merch_enabled, art_image_path")
-      .eq("id", observationId)
+      .eq("id", songId)
       .single(),
   ]);
 
   const hasProducts = products && products.length > 0;
   const hasPickLines =
-    observation?.merch_enabled &&
-    ((observation.merch_lines && observation.merch_lines.length > 0) || observation.hook_line);
+    song?.merch_enabled &&
+    ((song.merch_lines && song.merch_lines.length > 0) || song.hook_line);
 
   if (!hasProducts && !hasPickLines) return null;
 
   const pickLines: string[] = [];
-  if (observation?.hook_line) pickLines.push(observation.hook_line);
-  if (observation?.merch_lines) pickLines.push(...observation.merch_lines);
+  if (song?.hook_line) pickLines.push(song.hook_line);
+  if (song?.merch_lines) pickLines.push(...song.merch_lines);
 
   return (
     <section className="merch-section">
-      {/* Existing products */}
       {hasProducts && (
         <div className="merch-section__grid">
           {products.map((p) => (
@@ -58,17 +57,16 @@ export async function MerchSection({ observationId }: MerchSectionProps) {
         </div>
       )}
 
-      {/* The Pick — selectable lines */}
       {hasPickLines && (
         <div className="merch-pick">
           <div className="merch-pick__col">
-            <h2 className="merch-section__heading">Like what you just read?</h2>
+            <h2 className="merch-section__heading">Like what you just heard?</h2>
             <p className="merch-pick__tagline">Rep the vibe</p>
             <div className="merch-pick__lines">
               {pickLines.map((line, i) => (
                 <Link
                   key={i}
-                  href={`/merch/configure?tier=line&line=${encodeURIComponent(line)}&obs=${encodeURIComponent(observation.id)}`}
+                  href={`/merch/configure?tier=line&source=song&song=${encodeURIComponent(song.id)}&line=${encodeURIComponent(line)}`}
                   className="merch-pick__line"
                 >
                   <span className="merch-pick__line-text">&ldquo;{line}&rdquo;</span>

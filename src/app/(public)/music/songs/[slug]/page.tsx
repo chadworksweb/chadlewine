@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
+import { SongMerchSection } from "@/components/SongMerchSection";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge } from "@/lib/rising-compass";
 import { markdownToHtml } from "@/lib/markdown";
@@ -247,6 +248,7 @@ export default async function SongDetailPage({
           contaminated: badge.contaminated,
           contaminationNote: badge.contamination_note,
         } : null}
+        merchSlot={<SongMerchSection songId={song.id} />}
       />
       {badge && album && (
         <SongChargeJsonLd

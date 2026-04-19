@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
+import { SongMerchSection } from "@/components/SongMerchSection";
 
 export const revalidate = 60;
 
@@ -91,6 +92,8 @@ export default async function SongLyricsPage({
           Listen on Music Player
         </Link>
       </div>
+
+      <SongMerchSection songId={song.id} />
     </div>
   );
 }

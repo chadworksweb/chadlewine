@@ -62,6 +62,9 @@ interface SongData {
   portrait_focal_x: number | null;
   portrait_focal_y: number | null;
   portrait_zoom: number | null;
+  hook_line: string | null;
+  merch_lines: string[];
+  merch_enabled: boolean;
   updated_at: string | null;
 }
 
@@ -113,6 +116,9 @@ const emptySong: SongData = {
   portrait_focal_x: null,
   portrait_focal_y: null,
   portrait_zoom: 1.0,
+  hook_line: null,
+  merch_lines: [],
+  merch_enabled: false,
   updated_at: null,
 };
 
@@ -323,6 +329,9 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       portrait_focal_x: d.portrait_focal_x,
       portrait_focal_y: d.portrait_focal_y,
       portrait_zoom: d.portrait_zoom,
+      hook_line: d.hook_line,
+      merch_lines: d.merch_lines.map((l) => l.trim()).filter(Boolean),
+      merch_enabled: d.merch_enabled,
     }),
     []
   );
@@ -816,6 +825,75 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 onChange={(e) => set("is_single", e.target.checked)}
               />
               <label className="obsv-editor__label" htmlFor="is_single" style={{ margin: 0 }}>Is Single</label>
+            </div>
+          </div>
+
+          {/* The Pick */}
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">The Pick</h3>
+            <p style={{ margin: "0 0 var(--space-sm)", fontSize: "0.75rem", color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>
+              Curated lyric lines visitors can put on merch.
+            </p>
+
+            <div className="obsv-editor__field" style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                id="merch_enabled"
+                type="checkbox"
+                checked={form.merch_enabled}
+                onChange={(e) => set("merch_enabled", e.target.checked)}
+              />
+              <label className="obsv-editor__label" htmlFor="merch_enabled" style={{ margin: 0 }}>
+                Show The Pick on this song
+              </label>
+            </div>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="hook_line">Hook Line</label>
+              <textarea
+                id="hook_line"
+                className="obsv-editor__input"
+                value={form.hook_line || ""}
+                onChange={(e) => set("hook_line", e.target.value || null)}
+                rows={2}
+                placeholder="The most quotable line — appears first in The Pick."
+                style={{ fontFamily: "var(--font-body)" }}
+              />
+            </div>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label">Additional Lines</label>
+              {form.merch_lines.map((line, i) => (
+                <div key={i} style={{ display: "flex", gap: "0.5rem", marginBottom: "0.375rem" }}>
+                  <input
+                    type="text"
+                    className="obsv-editor__input"
+                    value={line}
+                    onChange={(e) => {
+                      const next = [...form.merch_lines];
+                      next[i] = e.target.value;
+                      set("merch_lines", next);
+                    }}
+                    style={{ flex: 1, fontFamily: "var(--font-body)" }}
+                  />
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--danger"
+                    onClick={() => set("merch_lines", form.merch_lines.filter((_, j) => j !== i))}
+                    style={{ fontSize: "0.6875rem", padding: "4px 10px" }}
+                    aria-label="Remove line"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="admin-btn"
+                onClick={() => set("merch_lines", [...form.merch_lines, ""])}
+                style={{ fontSize: "0.75rem", padding: "4px 12px", marginTop: "0.25rem" }}
+              >
+                + Add line
+              </button>
             </div>
           </div>
 

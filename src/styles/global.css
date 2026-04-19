@@ -6163,19 +6163,17 @@ h3.aw-heading {
 /* --- Merch Section (public) --- */
 
 .merch-section {
-  margin-top: var(--space-2xl);
-  padding-top: var(--space-xl);
-  border-top: 1px solid var(--border-subtle);
+  margin-top: calc(var(--space-2xl) / 2);
+  padding-top: calc(var(--space-xl) / 2);
+  padding-bottom: calc(var(--space-2xl) / 2);
 }
 
 .merch-section__heading {
-  font-family: var(--font-ui);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: var(--space-md);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.02em;
+  color: #00d4ff;
+  margin: 0 0 var(--space-sm);
 }
 
 .merch-section__grid {
@@ -6408,6 +6406,81 @@ h3.aw-heading {
 /* The Pick */
 .merch-pick {
   margin-top: var(--space-lg);
+  padding: var(--space-lg);
+  border: 2px solid #00d4ff;
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.18), inset 0 0 24px rgba(0, 212, 255, 0.04);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.merch-pick__col {
+  min-width: 0;
+}
+
+/* Right column — mockup placeholder (will become live preview) */
+.merch-pick__mockup {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 280px;
+}
+
+.merch-pick__mockup-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  background: rgba(0, 212, 255, 0.04);
+  border: 1px dashed rgba(0, 212, 255, 0.4);
+  border-radius: 8px;
+  width: 100%;
+}
+
+.merch-pick__mockup-placeholder {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: rgba(0, 212, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.merch-pick__mockup-nav {
+  background: transparent;
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  color: #00d4ff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.merch-pick__mockup-nav:hover:not(:disabled) {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: #00d4ff;
+}
+
+.merch-pick__mockup-nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .merch-pick {
+    grid-template-columns: 1fr;
+  }
+  .merch-pick__mockup {
+    min-height: 220px;
+  }
 }
 
 .merch-pick__heading {
@@ -6418,6 +6491,20 @@ h3.aw-heading {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin: 0 0 var(--space-xs);
+}
+
+.merch-pick__tagline {
+  margin: 0 0 var(--space-md);
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #00d4ff20;
+  font-family: var(--font-ui);
+  font-size: 4.32rem;
+  line-height: 1.05;
+  font-weight: 300;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: #f2f2f5;
 }
 
 .merch-pick__desc {
@@ -6452,7 +6539,7 @@ h3.aw-heading {
 
 .merch-pick__line-text {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: 1.4rem;
   color: var(--text-primary);
   font-style: italic;
   line-height: var(--leading-snug);
@@ -7995,10 +8082,14 @@ h3.aw-heading {
 
 /* --- Format picker + buy button pairing --- */
 .format-buy {
-  display: inline-flex;
+  display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
+}
+.format-buy > .track-detail__btn {
+  flex: none;
 }
 .format-buy__picker {
   display: inline-flex;

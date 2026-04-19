@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase-server";
+import { isSectionLive } from "@/lib/feature-flags";
 import Link from "next/link";
 
 interface MeditationMerchSectionProps {
@@ -10,6 +11,8 @@ export async function MeditationMerchSection({
   meditationId,
   meditationText,
 }: MeditationMerchSectionProps) {
+  if (!(await isSectionLive("merch"))) return null;
+
   const supabase = createPublicClient();
 
   // Check for Line-tier products linked to this meditation

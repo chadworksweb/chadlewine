@@ -52,11 +52,15 @@ export async function POST(request: Request) {
       config.tier === "art" ? "The Art" : config.tier === "line" ? "The Line" : "The Fusion";
     const title = `${tierLabel} — ${config.blueprint_title || "Custom Product"}`;
 
+    const sourceLabel =
+      config.source_type === "song"
+        ? config.song_title
+        : config.observation_title;
     const session = await createMerchCheckoutSession({
       product_config: config,
       title,
       price,
-      success_url: `${origin}/merch/checkout?success=true&config=${encodeURIComponent(JSON.stringify({ tier: config.tier, observation: config.observation_title }))}`,
+      success_url: `${origin}/merch/checkout?success=true&config=${encodeURIComponent(JSON.stringify({ tier: config.tier, source: sourceLabel }))}`,
       cancel_url: `${origin}/merch/configure`,
     });
 
