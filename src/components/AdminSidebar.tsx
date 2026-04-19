@@ -35,9 +35,9 @@ const adminNav: NavItem[] = [
       { href: "/admin/music", label: "Overview" },
       { href: "/admin/music/albums", label: "Albums" },
       { href: "/admin/music/songs", label: "Songs" },
-      { href: "/admin/merch", label: "Merch" },
     ],
   },
+  { href: "/admin/merch", label: "Merch" },
   {
     href: "/admin/curation",
     label: "Curation",
