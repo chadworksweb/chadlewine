@@ -13,11 +13,17 @@ interface NavItem {
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/launch-control", label: "Launch Control" },
-  { href: "/admin/observations", label: "Observations" },
-  { href: "/admin/meditations", label: "Meditations" },
-  { href: "/admin/categories", label: "Categories" },
-  { href: "/admin/thoughtlines", label: "Thoughtlines" },
-  { href: "/admin/tags", label: "Tags" },
+  {
+    href: "/admin/observations",
+    label: "Observations",
+    children: [
+      { href: "/admin/observations", label: "Overview" },
+      { href: "/admin/meditations", label: "Meditations" },
+      { href: "/admin/categories", label: "Categories" },
+      { href: "/admin/thoughtlines", label: "Thoughtlines" },
+      { href: "/admin/tags", label: "Tags" },
+    ],
+  },
   { href: "/admin/foundations", label: "Foundations" },
   { href: "/admin/door-pages", label: "Door Pages" },
   { href: "/admin/pages", label: "Pages (meta)" },
