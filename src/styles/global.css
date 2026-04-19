@@ -83,6 +83,12 @@
   --duration-slow: 500ms;
 }
 
+@media (max-width: 768px) {
+  :root {
+    --sticky-top: calc((var(--nav-height) + var(--space-md)) / 2);
+  }
+}
+
 /* ============================================================
    LAYOUT PRIMITIVES
    ============================================================ */
