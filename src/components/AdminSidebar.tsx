@@ -13,6 +13,20 @@ interface NavItem {
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", exact: true },
   {
+    href: "/admin/settings",
+    label: "Settings",
+    children: [
+      { href: "/admin/settings", label: "Overview" },
+      { href: "/admin/launch-control", label: "Launch Control" },
+      { href: "/admin/analytics", label: "Analytics" },
+      { href: "/admin/voice-profile", label: "Voice Profile" },
+      { href: "/admin/voice-messages", label: "Voice Messages" },
+      { href: "/admin/seo", label: "SEO" },
+      { href: "/admin/media", label: "Media" },
+      { href: "/admin/subscribers", label: "Subscribers" },
+    ],
+  },
+  {
     href: "/admin/observations",
     label: "Observations",
     children: [
@@ -46,20 +60,6 @@ const adminNav: NavItem[] = [
     ],
   },
   { href: "/admin/videos", label: "Videos" },
-  {
-    href: "/admin/settings",
-    label: "Settings",
-    children: [
-      { href: "/admin/settings", label: "Overview" },
-      { href: "/admin/launch-control", label: "Launch Control" },
-      { href: "/admin/analytics", label: "Analytics" },
-      { href: "/admin/voice-profile", label: "Voice Profile" },
-      { href: "/admin/voice-messages", label: "Voice Messages" },
-      { href: "/admin/seo", label: "SEO" },
-      { href: "/admin/media", label: "Media" },
-      { href: "/admin/subscribers", label: "Subscribers" },
-    ],
-  },
 ];
 
 export function AdminSidebar() {
