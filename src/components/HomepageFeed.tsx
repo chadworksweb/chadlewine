@@ -15,8 +15,8 @@ interface Song {
   release_date: string | null;
   art_image_path: string | null;
   art_alt: string | null;
-  art_focal_x?: number | null;
-  art_focal_y?: number | null;
+  hero_focal_x?: number | null;
+  hero_focal_y?: number | null;
   song_summary: string | null;
 }
 
@@ -75,8 +75,8 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs }: HomepageFe
         artAlt: s.art_alt || s.title,
         href: `/music/songs/${s.slug}`,
         ctaLabel: "Listen →",
-        focalX: s.art_focal_x != null ? s.art_focal_x / 100 : 0.5,
-        focalY: s.art_focal_y != null ? s.art_focal_y / 100 : 0.5,
+        focalX: s.hero_focal_x != null ? s.hero_focal_x / 100 : 0.5,
+        focalY: s.hero_focal_y != null ? s.hero_focal_y / 100 : 0.5,
       })),
     [feedSongs]
   );

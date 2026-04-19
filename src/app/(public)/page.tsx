@@ -18,7 +18,7 @@ async function getHomepageSongs() {
 
   const { data } = await supabase
     .from("songs")
-    .select("id, title, slug, release_date, art_image_path, art_alt, art_focal_x, art_focal_y, song_summary")
+    .select("id, title, slug, release_date, art_image_path, art_alt, hero_focal_x, hero_focal_y, song_summary")
     .in("status", ["unreleased", "published"])
     .order("release_date", { ascending: false, nullsFirst: false })
     .limit(10);
@@ -269,11 +269,6 @@ export default async function HomePage() {
         </section>
       )}
 
-      {songs.length === 0 && (
-        <section className="empty-state">
-          <p className="empty-state__message">No songs published yet.</p>
-        </section>
-      )}
     </div>
   );
 }
