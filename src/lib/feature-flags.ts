@@ -69,6 +69,7 @@ export function sectionForPath(pathname: string): string | null {
     "chad-lewine",
     "thinking",
     "discography",
+    "merch",
   ]);
 
   if (seg === "discography") return "music";
