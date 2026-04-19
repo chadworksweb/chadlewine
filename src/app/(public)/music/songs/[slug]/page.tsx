@@ -248,8 +248,8 @@ export default async function SongDetailPage({
           contaminated: badge.contaminated,
           contaminationNote: badge.contamination_note,
         } : null}
+        merchSlot={<SongMerchSection songId={song.id} />}
       />
-      <SongMerchSection songId={song.id} />
       {badge && album && (
         <SongChargeJsonLd
           songTitle={song.title}

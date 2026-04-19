@@ -6,13 +6,8 @@ export function SubscribeSection() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
-  const [isHome, setIsHome] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setIsHome(window.location.pathname === "/");
-  }, []);
 
   // Mouse-following glow effect — exact AES CTAGlow implementation
   useEffect(() => {
@@ -148,9 +143,7 @@ export function SubscribeSection() {
           Subscribe
         </h2>
         <p className="subscribe-section__text">
-          {isHome
-            ? "Find out where I'm headed."
-            : "New Observations delivered to your inbox."}
+          Find out where I&rsquo;m headed.
         </p>
 
         {status === "success" ? (

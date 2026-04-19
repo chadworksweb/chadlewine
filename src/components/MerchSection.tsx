@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase-server";
+import { isSectionLive } from "@/lib/feature-flags";
 import Link from "next/link";
 
 interface MerchSectionProps {
@@ -6,6 +7,8 @@ interface MerchSectionProps {
 }
 
 export async function MerchSection({ observationId }: MerchSectionProps) {
+  if (!(await isSectionLive("merch"))) return null;
+
   const supabase = createPublicClient();
 
   const [{ data: products }, { data: observation }] = await Promise.all([
@@ -35,8 +38,6 @@ export async function MerchSection({ observationId }: MerchSectionProps) {
 
   return (
     <section className="merch-section">
-      <h2 className="merch-section__heading">Like what you just read?</h2>
-
       {/* Existing products */}
       {hasProducts && (
         <div className="merch-section__grid">
@@ -60,30 +61,30 @@ export async function MerchSection({ observationId }: MerchSectionProps) {
       {/* The Pick — selectable lines */}
       {hasPickLines && (
         <div className="merch-pick">
-          <h3 className="merch-pick__heading">The Pick</h3>
-          <p className="merch-pick__desc">
-            Put it on a shirt. Or a mug. Or anything.
-          </p>
-          <div className="merch-pick__lines">
-            {pickLines.map((line, i) => (
-              <Link
-                key={i}
-                href={`/merch/configure?tier=line&line=${encodeURIComponent(line)}&obs=${encodeURIComponent(observation.id)}`}
-                className="merch-pick__line"
-              >
-                <span className="merch-pick__line-text">&ldquo;{line}&rdquo;</span>
-                <span className="merch-pick__line-cta">Configure &rarr;</span>
-              </Link>
-            ))}
+          <div className="merch-pick__col">
+            <h2 className="merch-section__heading">Like what you just read?</h2>
+            <p className="merch-pick__tagline">Rep the vibe</p>
+            <div className="merch-pick__lines">
+              {pickLines.map((line, i) => (
+                <Link
+                  key={i}
+                  href={`/merch/configure?tier=line&line=${encodeURIComponent(line)}&obs=${encodeURIComponent(observation.id)}`}
+                  className="merch-pick__line"
+                >
+                  <span className="merch-pick__line-text">&ldquo;{line}&rdquo;</span>
+                  <span className="merch-pick__line-cta">Configure &rarr;</span>
+                </Link>
+              ))}
+            </div>
           </div>
-          {observation.art_image_path && (
-            <Link
-              href={`/merch/configure?tier=art&obs=${encodeURIComponent(observation.id)}`}
-              className="merch-pick__art-link"
-            >
-              Put the art on something &rarr;
-            </Link>
-          )}
+
+          <div className="merch-pick__mockup" aria-hidden="true">
+            <button type="button" className="merch-pick__mockup-nav merch-pick__mockup-nav--prev" disabled>&larr;</button>
+            <div className="merch-pick__mockup-frame">
+              <span className="merch-pick__mockup-placeholder">Mockup preview</span>
+            </div>
+            <button type="button" className="merch-pick__mockup-nav merch-pick__mockup-nav--next" disabled>&rarr;</button>
+          </div>
         </div>
       )}
     </section>

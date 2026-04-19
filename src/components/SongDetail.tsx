@@ -106,6 +106,7 @@ export function SongDetail({
   pairedArt = [],
   songFormats = [],
   albumFormats = [],
+  merchSlot = null,
 }: {
   song: SongProps;
   album: AlbumProps | null;
@@ -118,6 +119,7 @@ export function SongDetail({
   albumFormats?: Array<"mp3" | "flac" | "wav">;
   geoFields?: GeoFieldsProps | null;
   pairedArt?: PairedArtProps[];
+  merchSlot?: React.ReactNode;
 }) {
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [buying, setBuying] = useState<"song" | "album" | null>(null);
@@ -397,6 +399,10 @@ export function SongDetail({
 
         </div>
       </div>
+
+      {merchSlot && (
+        <div className="song-landing__container">{merchSlot}</div>
+      )}
 
       {/* ═══ SONG LANDING PAGE — FORMAT STACK ═══
            Each section contains up to three extraction layers:
