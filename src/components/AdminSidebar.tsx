@@ -12,16 +12,20 @@ interface NavItem {
 
 const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", exact: true },
-  { href: "/admin/launch-control", label: "Launch Control" },
-  { href: "/admin/observations", label: "Observations" },
-  { href: "/admin/meditations", label: "Meditations" },
-  { href: "/admin/categories", label: "Categories" },
-  { href: "/admin/thoughtlines", label: "Thoughtlines" },
-  { href: "/admin/tags", label: "Tags" },
-  { href: "/admin/foundations", label: "Foundations" },
-  { href: "/admin/door-pages", label: "Door Pages" },
-  { href: "/admin/pages", label: "Pages (meta)" },
-  { href: "/admin/art", label: "Art" },
+  {
+    href: "/admin/settings",
+    label: "Settings",
+    children: [
+      { href: "/admin/settings", label: "Overview" },
+      { href: "/admin/launch-control", label: "Launch Control" },
+      { href: "/admin/analytics", label: "Analytics" },
+      { href: "/admin/voice-profile", label: "Voice Profile" },
+      { href: "/admin/voice-messages", label: "Voice Messages" },
+      { href: "/admin/seo", label: "SEO" },
+      { href: "/admin/media", label: "Media" },
+      { href: "/admin/subscribers", label: "Subscribers" },
+    ],
+  },
   {
     href: "/admin/music",
     label: "Music",
@@ -31,6 +35,22 @@ const adminNav: NavItem[] = [
       { href: "/admin/music/songs", label: "Songs" },
     ],
   },
+  { href: "/admin/art", label: "Art" },
+  { href: "/admin/merch", label: "Merch" },
+  {
+    href: "/admin/observations",
+    label: "Observations",
+    children: [
+      { href: "/admin/observations", label: "Overview" },
+      { href: "/admin/meditations", label: "Meditations" },
+      { href: "/admin/categories", label: "Categories" },
+      { href: "/admin/thoughtlines", label: "Thoughtlines" },
+      { href: "/admin/tags", label: "Tags" },
+    ],
+  },
+  { href: "/admin/foundations", label: "Foundations" },
+  { href: "/admin/door-pages", label: "Door Pages" },
+  { href: "/admin/pages", label: "Pages (meta)" },
   {
     href: "/admin/curation",
     label: "Curation",
@@ -40,13 +60,6 @@ const adminNav: NavItem[] = [
     ],
   },
   { href: "/admin/videos", label: "Videos" },
-  { href: "/admin/subscribers", label: "Subscribers" },
-  { href: "/admin/media", label: "Media" },
-  { href: "/admin/seo", label: "SEO" },
-  { href: "/admin/voice-profile", label: "Voice Profile" },
-  { href: "/admin/voice-messages", label: "Voice Messages" },
-  { href: "/admin/analytics", label: "Analytics" },
-  { href: "/admin/merch", label: "Merch" },
 ];
 
 export function AdminSidebar() {
