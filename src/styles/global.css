@@ -10391,20 +10391,16 @@ h3.aw-heading {
 
 @media (max-width: 768px) {
   .explore-songs__frame {
+    flex-direction: column;
     height: auto;
-    min-height: 48px;
-    padding: var(--space-sm) var(--page-gutter);
-  }
-  .explore-songs__frame-label {
-    display: none;
+    gap: var(--space-xs);
+    padding: var(--space-md) var(--page-gutter);
   }
   .explore-songs__heading,
   .explore-songs__all {
-    font-size: 1.1rem;
-    letter-spacing: 0.06em;
     white-space: normal;
-    padding: 0 var(--space-sm);
     text-align: center;
+    padding: 0 var(--space-sm);
   }
 }
 
