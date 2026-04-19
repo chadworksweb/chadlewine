@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface PatronageWidgetProps {
   observationId?: string;
@@ -13,11 +13,32 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
   const [amount, setAmount] = useState(5);
   const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const termsRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!termsOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (termsRef.current && !termsRef.current.contains(e.target as Node)) {
+        setTermsOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setTermsOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [termsOpen]);
 
   const effectiveAmount = custom ? parseFloat(custom) : amount;
 
   async function handlePatronage() {
-    if (effectiveAmount < 1 || loading) return;
+    if (effectiveAmount < 1 || loading || !agreed) return;
     setLoading(true);
 
     const res = await fetch("/api/patronage", {
@@ -85,10 +106,49 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
           </div>
         </div>
 
+        <label className="patronage__consent">
+          <input
+            type="checkbox"
+            className="patronage__checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+          />
+          <span className="patronage__consent-text">
+            I agree to the{" "}
+            <span
+              ref={termsRef}
+              className={`patronage__terms${termsOpen ? " patronage__terms--open" : ""}`}
+            >
+              <button
+                type="button"
+                className="patronage__terms-trigger"
+                onClick={() => setTermsOpen((v) => !v)}
+                onMouseEnter={() => setTermsOpen(true)}
+                onMouseLeave={() => setTermsOpen(false)}
+                aria-expanded={termsOpen}
+                aria-haspopup="true"
+              >
+                terms
+              </button>
+              <span
+                className="patronage__tooltip"
+                role="tooltip"
+                onMouseEnter={() => setTermsOpen(true)}
+                onMouseLeave={() => setTermsOpen(false)}
+              >
+                Patronage is a voluntary, non-refundable gift. It does not entitle the patron to
+                any goods, services, rights, or benefits, and creates no obligation on the part
+                of Chad Lewine to provide anything in return.
+              </span>
+            </span>{" "}
+            of patronage
+          </span>
+        </label>
+
         <button
           className="patronage__submit"
           onClick={handlePatronage}
-          disabled={loading || effectiveAmount < 1}
+          disabled={loading || effectiveAmount < 1 || !agreed}
         >
           {loading ? "Redirecting..." : `Give $${Number(effectiveAmount).toFixed(2)}`}
         </button>

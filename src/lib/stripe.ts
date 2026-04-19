@@ -49,7 +49,9 @@ export async function createCheckoutSession(params: {
 export async function createMusicCheckoutSession(params: {
   type: "song" | "album";
   item_id: string;
+  format?: "mp3" | "flac" | "wav";
   title: string;
+  description?: string;
   album_title?: string;
   price: number;
   cover_art_url?: string;
@@ -58,9 +60,10 @@ export async function createMusicCheckoutSession(params: {
 }) {
   const images = params.cover_art_url ? [params.cover_art_url] : [];
   const description =
-    params.type === "song" && params.album_title
+    params.description ||
+    (params.type === "song" && params.album_title
       ? `From ${params.album_title}`
-      : undefined;
+      : undefined);
 
   return getStripe().checkout.sessions.create({
     mode: "payment",
@@ -81,6 +84,7 @@ export async function createMusicCheckoutSession(params: {
     metadata: {
       type: params.type,
       item_id: params.item_id,
+      ...(params.format ? { format: params.format } : {}),
     },
     success_url: params.success_url,
     cancel_url: params.cancel_url,

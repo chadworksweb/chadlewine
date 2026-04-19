@@ -28,6 +28,9 @@ interface SongData {
   duration_seconds: number | null;
   streaming_path: string | null;
   download_path: string | null;
+  download_path_mp3: string | null;
+  download_path_flac: string | null;
+  download_path_wav: string | null;
   lyrics: string | null;
   instrumental: boolean;
   price: number | null;
@@ -76,6 +79,9 @@ const emptySong: SongData = {
   duration_seconds: null,
   streaming_path: null,
   download_path: null,
+  download_path_mp3: null,
+  download_path_flac: null,
+  download_path_wav: null,
   lyrics: null,
   instrumental: false,
   price: null,
@@ -283,6 +289,9 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       duration_seconds: d.duration_seconds,
       streaming_path: d.streaming_path,
       download_path: d.download_path,
+      download_path_mp3: d.download_path_mp3,
+      download_path_flac: d.download_path_flac,
+      download_path_wav: d.download_path_wav,
       lyrics: d.lyrics,
       instrumental: d.instrumental,
       price: d.price,
@@ -733,14 +742,50 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             </div>
 
             <div className="obsv-editor__field">
-              <label className="obsv-editor__label" htmlFor="download_path">Download File Path</label>
+              <label className="obsv-editor__label" htmlFor="download_path_mp3">Download — MP3</label>
+              <input
+                id="download_path_mp3"
+                className="obsv-editor__input obsv-editor__input--mono"
+                type="text"
+                value={form.download_path_mp3 || ""}
+                onChange={(e) => set("download_path_mp3", e.target.value || null)}
+                placeholder="https://cdn.bunny.net/...mp3"
+              />
+            </div>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="download_path_flac">Download — FLAC</label>
+              <input
+                id="download_path_flac"
+                className="obsv-editor__input obsv-editor__input--mono"
+                type="text"
+                value={form.download_path_flac || ""}
+                onChange={(e) => set("download_path_flac", e.target.value || null)}
+                placeholder="https://cdn.bunny.net/...flac"
+              />
+            </div>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="download_path_wav">Download — WAV</label>
+              <input
+                id="download_path_wav"
+                className="obsv-editor__input obsv-editor__input--mono"
+                type="text"
+                value={form.download_path_wav || ""}
+                onChange={(e) => set("download_path_wav", e.target.value || null)}
+                placeholder="https://cdn.bunny.net/...wav"
+              />
+            </div>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="download_path">Download (legacy)</label>
               <input
                 id="download_path"
                 className="obsv-editor__input obsv-editor__input--mono"
                 type="text"
                 value={form.download_path || ""}
                 onChange={(e) => set("download_path", e.target.value || null)}
-                placeholder="https://cdn.bunny.net/..."
+                placeholder="Used only if no MP3/FLAC/WAV set"
               />
             </div>
           </div>

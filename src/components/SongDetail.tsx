@@ -104,6 +104,8 @@ export function SongDetail({
   playbackMode = "preview",
   geoFields = null,
   pairedArt = [],
+  songFormats = [],
+  albumFormats = [],
 }: {
   song: SongProps;
   album: AlbumProps | null;
@@ -112,6 +114,8 @@ export function SongDetail({
   visibilitySections?: VisibilitySectionProps[];
   badge?: BadgeProps | null;
   playbackMode?: "preview" | "full";
+  songFormats?: Array<"mp3" | "flac" | "wav">;
+  albumFormats?: Array<"mp3" | "flac" | "wav">;
   geoFields?: GeoFieldsProps | null;
   pairedArt?: PairedArtProps[];
 }) {
@@ -119,6 +123,12 @@ export function SongDetail({
   const [buying, setBuying] = useState<"song" | "album" | null>(null);
   const [openExpansions, setOpenExpansions] = useState<Set<string>>(new Set());
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [songFormat, setSongFormat] = useState<"mp3" | "flac" | "wav">(
+    (songFormats[0] as "mp3" | "flac" | "wav") || "mp3"
+  );
+  const [albumFormat, setAlbumFormat] = useState<"mp3" | "flac" | "wav">(
+    (albumFormats[0] as "mp3" | "flac" | "wav") || "mp3"
+  );
 
   function toggleExpansion(id: string) {
     setOpenExpansions((prev) => {
@@ -136,7 +146,11 @@ export function SongDetail({
       const res = await fetch("/api/music-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, id: type === "song" ? song.id : album!.id }),
+        body: JSON.stringify({
+          type,
+          id: type === "song" ? song.id : album!.id,
+          format: type === "song" ? songFormat : albumFormat,
+        }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
@@ -244,15 +258,35 @@ export function SongDetail({
                   Buy Album{album.price ? ` — ${formatPrice(album.price)}` : ""}
                 </Link>
               )}
-              {song.price && (
-                <button
-                  type="button"
-                  className="track-detail__btn track-detail__btn--buy"
-                  onClick={() => handleBuy("song")}
-                  disabled={buying === "song"}
-                >
-                  {buying === "song" ? "..." : `Buy Song — ${formatPrice(song.price)}`}
-                </button>
+              {song.price && songFormats.length > 0 && (
+                <div className="format-buy">
+                  {songFormats.length > 1 && (
+                    <div className="format-buy__picker" role="radiogroup" aria-label="File format">
+                      {songFormats.map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          role="radio"
+                          aria-checked={songFormat === f}
+                          className={`format-buy__opt${songFormat === f ? " format-buy__opt--active" : ""}`}
+                          onClick={() => setSongFormat(f)}
+                        >
+                          {f.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="track-detail__btn track-detail__btn--buy"
+                    onClick={() => handleBuy("song")}
+                    disabled={buying === "song"}
+                  >
+                    {buying === "song"
+                      ? "..."
+                      : `Buy Song (${songFormat.toUpperCase()}) — ${formatPrice(song.price)}`}
+                  </button>
+                </div>
               )}
             </div>
 

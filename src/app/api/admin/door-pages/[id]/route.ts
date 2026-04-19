@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { isReservedSlug } from "@/lib/reserved-slugs";
+import { captureSlugChange } from "@/lib/redirects";
 
 export async function GET(
   _request: Request,
@@ -51,6 +52,8 @@ export async function PUT(
     }
   }
 
+  const { data: prev } = await supabase.from("door_pages").select("slug").eq("id", id).single();
+
   const { data, error } = await supabase
     .from("door_pages")
     .update(updates)
@@ -59,6 +62,11 @@ export async function PUT(
     .single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  if (typeof updates.slug === "string" && prev?.slug && prev.slug !== updates.slug) {
+    await captureSlugChange(`/${prev.slug}`, `/${updates.slug}`, "door_page", id);
+  }
+
   return Response.json(data);
 }
 

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { captureSlugChange } from "@/lib/redirects";
 
 // Resolve param as UUID or slug
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,13 +46,36 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!resolved) return Response.json({ error: "Song not found" }, { status: 404 });
   const id = resolved.id;
 
-  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "lyrics", "instrumental", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote"];
+  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "download_path_mp3", "download_path_flac", "download_path_wav", "lyrics", "instrumental", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote"];
   const updates: Record<string, unknown> = {};
   for (const f of songFields) { if (f in body) updates[f] = body[f]; }
+
+  const prevSlug = resolved.slug as string | null;
 
   if (Object.keys(updates).length > 0) {
     const { error } = await supabase.from("songs").update(updates).eq("id", id);
     if (error) return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  if (typeof updates.slug === "string" && prevSlug && prevSlug !== updates.slug) {
+    const newSlug = updates.slug;
+    await captureSlugChange(`/music/songs/${prevSlug}`, `/music/songs/${newSlug}`, "song", id);
+
+    // Mirror on lyrics URL (/lyrics/{albumSlug}/{songSlug})
+    const { data: albumLink } = await supabase
+      .from("album_songs")
+      .select("album:albums(slug)")
+      .eq("song_id", id)
+      .single();
+    const albumSlug = (albumLink as unknown as { album?: { slug?: string } })?.album?.slug;
+    if (albumSlug) {
+      await captureSlugChange(
+        `/lyrics/${albumSlug}/${prevSlug}`,
+        `/lyrics/${albumSlug}/${newSlug}`,
+        "lyrics",
+        id
+      );
+    }
   }
 
   // Junction updates

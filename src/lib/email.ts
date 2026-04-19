@@ -2,7 +2,7 @@
 // Uses Resend API (or SMTP) to send new Observation notifications
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.EMAIL_FROM || "chad@chadlewine.com";
+const FROM_EMAIL = process.env.EMAIL_FROM || "site@chadlewine.com";
 const SITE_URL = "https://chadlewine.com";
 
 interface SendEmailOptions {
@@ -32,6 +32,60 @@ export async function sendEmail({ to, subject, html }: SendEmailOptions): Promis
   });
 
   return res.ok;
+}
+
+function shell(innerHtml: string, footerNote: string): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0a0a14; color: #e0e0e8; padding: 40px 20px;">
+  <div style="max-width: 560px; margin: 0 auto;">
+    ${innerHtml}
+    <p style="font-size: 11px; color: #606070; margin-top: 40px; line-height: 1.6;">${footerNote}</p>
+    <p style="font-size: 11px; color: #606070; margin-top: 12px; line-height: 1.6;">
+      Customer support: email <a href="mailto:portal@chadlewine.com" style="color: #8b9cf7;">portal@chadlewine.com</a>
+    </p>
+  </div>
+</body>
+</html>`.trim();
+}
+
+export function buildPurchaseConfirmationHtml(params: {
+  itemTitle: string;
+  itemType: "song" | "album";
+  downloadUrl: string;
+  recoverUrl: string;
+}): string {
+  const { itemTitle, itemType, downloadUrl, recoverUrl } = params;
+  const inner = `
+    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b9cf7; margin-bottom: 8px;">Thank you for your purchase</p>
+    <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #e0e0e8;">${itemTitle}</h1>
+    <p style="font-size: 16px; color: #a0a0b0; line-height: 1.5; margin: 0 0 24px;">
+      Your ${itemType} is ready to download. This link is yours to keep — bookmark or save this email.
+    </p>
+    <a href="${downloadUrl}" style="display: inline-block; padding: 12px 28px; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;">Download</a>
+    <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.5;">
+      Lost the link? You can recover all your downloads anytime at
+      <a href="${recoverUrl}" style="color: #8b9cf7;">${recoverUrl}</a>
+    </p>
+  `;
+  return shell(inner, "You received this because you purchased music at chadlewine.com");
+}
+
+export function buildRecoveryEmailHtml(params: { verifyUrl: string }): string {
+  const inner = `
+    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b9cf7; margin-bottom: 8px;">Recover your downloads</p>
+    <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #e0e0e8;">Confirm it's you</h1>
+    <p style="font-size: 16px; color: #a0a0b0; line-height: 1.5; margin: 0 0 24px;">
+      Click below to see every download linked to this email. This link expires in 15 minutes.
+    </p>
+    <a href="${params.verifyUrl}" style="display: inline-block; padding: 12px 28px; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;">See my downloads</a>
+    <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.5;">
+      If you didn't request this, ignore the email — nothing happens.
+    </p>
+  `;
+  return shell(inner, "You received this because someone requested download recovery at chadlewine.com");
 }
 
 export function buildObservationEmailHtml(observation: {

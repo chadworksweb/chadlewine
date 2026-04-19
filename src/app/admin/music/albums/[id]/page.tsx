@@ -18,6 +18,9 @@ interface AlbumData {
   status: string;
   format_id: string | null;
   price: number | null;
+  download_path_mp3: string | null;
+  download_path_flac: string | null;
+  download_path_wav: string | null;
 }
 
 const emptyAlbum: AlbumData = {
@@ -31,6 +34,9 @@ const emptyAlbum: AlbumData = {
   status: "draft",
   format_id: null,
   price: null,
+  download_path_mp3: null,
+  download_path_flac: null,
+  download_path_wav: null,
 };
 
 export default function EditAlbumPage() {
@@ -68,6 +74,9 @@ export default function EditAlbumPage() {
       status: d.status,
       format_id: d.format_id,
       price: d.price,
+      download_path_mp3: d.download_path_mp3,
+      download_path_flac: d.download_path_flac,
+      download_path_wav: d.download_path_wav,
     }),
     []
   );
@@ -207,6 +216,25 @@ export default function EditAlbumPage() {
             <div className="obsv-editor__field">
               <label className="obsv-editor__label" htmlFor="price">Album Price ($)</label>
               <input id="price" className="obsv-editor__input" type="number" min={0} step="0.01" value={form.price ?? ""} onChange={e => set("price", e.target.value ? parseFloat(e.target.value) : null)} placeholder="9.99" />
+            </div>
+          </div>
+
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">Download Bundles</h3>
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "0 0 var(--space-sm)" }}>
+              One zip per format. Leave blank to hide that format at checkout.
+            </p>
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="download_path_mp3">MP3 zip</label>
+              <input id="download_path_mp3" className="obsv-editor__input obsv-editor__input--mono" type="text" value={form.download_path_mp3 || ""} onChange={e => set("download_path_mp3", e.target.value || null)} placeholder="https://cdn.bunny.net/...mp3.zip" />
+            </div>
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="download_path_flac">FLAC zip</label>
+              <input id="download_path_flac" className="obsv-editor__input obsv-editor__input--mono" type="text" value={form.download_path_flac || ""} onChange={e => set("download_path_flac", e.target.value || null)} placeholder="https://cdn.bunny.net/...flac.zip" />
+            </div>
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="download_path_wav">WAV zip</label>
+              <input id="download_path_wav" className="obsv-editor__input obsv-editor__input--mono" type="text" value={form.download_path_wav || ""} onChange={e => set("download_path_wav", e.target.value || null)} placeholder="https://cdn.bunny.net/...wav.zip" />
             </div>
           </div>
         </div>

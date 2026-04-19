@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getFeatureFlags, sectionForPath } from "@/lib/feature-flags";
+import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -14,6 +15,18 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
     return NextResponse.next();
+  }
+
+  // Redirect table: check before any route resolution, so renamed content
+  // preserves link equity. Runs on public paths only.
+  if (!pathname.startsWith("/api")) {
+    const redirect = await lookupRedirectEdge(pathname);
+    if (redirect && redirect.to_path !== pathname) {
+      void recordRedirectHit(pathname);
+      const target = new URL(redirect.to_path, request.url);
+      target.search = request.nextUrl.search;
+      return NextResponse.redirect(target, redirect.status_code);
+    }
   }
 
   // Only gate public routes on production. Staging/preview and local dev show everything.

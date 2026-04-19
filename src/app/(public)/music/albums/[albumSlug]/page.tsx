@@ -21,7 +21,7 @@ async function getAlbumData(albumSlug: string) {
   // Get songs via junction
   const { data: junctions } = await supabase
     .from("album_songs")
-    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status)")
+    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path)")
     .eq("album_id", album.id)
     .order("track_number");
 
@@ -37,7 +37,9 @@ async function getAlbumData(albumSlug: string) {
       price: j.song.price,
     }));
 
-  return { album, songs };
+  const anyLegacyDownload = (junctions || []).some((j: any) => j.song?.download_path);
+
+  return { album, songs, anyLegacyDownload };
 }
 
 export async function generateMetadata({
@@ -68,7 +70,7 @@ export default async function AlbumDetailPage({
   const result = await getAlbumData(albumSlug);
   if (!result) notFound();
 
-  const { album, songs } = result;
+  const { album, songs, anyLegacyDownload } = result;
 
   // Fetch album badge from Rising Compass API + per-song badges in parallel
   const [albumBadgeData, ...badgeResults] = await Promise.all([
@@ -118,6 +120,11 @@ export default async function AlbumDetailPage({
           price: s.price,
         }))}
         badge={albumBadge}
+        availableFormats={(() => {
+          const explicit = (["mp3", "flac", "wav"] as const).filter((f) => (album as Record<string, unknown>)[`download_path_${f}`]);
+          if (explicit.length > 0) return explicit;
+          return anyLegacyDownload ? ["mp3" as const] : [];
+        })()}
       />
       {Object.keys(songBadges).length > 0 && (
         <div style={{ maxWidth: "var(--content-width)", margin: "var(--space-xl) auto 0", padding: "0 var(--page-gutter)" }}>

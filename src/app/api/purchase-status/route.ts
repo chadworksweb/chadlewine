@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   const { data: purchase } = await supabase
     .from("purchases")
-    .select("id, download_url, download_expires_at")
+    .select("id, format, download_url, download_expires_at")
     .eq("item_type", type)
     .eq("item_id", id)
     .gte("created_at", oneHourAgo)
@@ -33,6 +33,7 @@ export async function GET(request: Request) {
   return Response.json({
     status: purchase.download_url ? "ready" : "processing",
     token: purchase.id,
+    format: purchase.format || null,
     has_download: !!purchase.download_url,
   });
 }

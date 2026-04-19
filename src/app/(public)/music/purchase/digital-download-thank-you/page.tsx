@@ -11,6 +11,7 @@ function ThankYouContent() {
 
   const [status, setStatus] = useState<"polling" | "ready" | "timeout">("polling");
   const [token, setToken] = useState<string | null>(null);
+  const [format, setFormat] = useState<string | null>(null);
   const [attempts, setAttempts] = useState(0);
 
   const poll = useCallback(async () => {
@@ -22,6 +23,7 @@ function ThankYouContent() {
     const data = await res.json();
     if (data.status === "ready" && data.token) {
       setToken(data.token);
+      setFormat(data.format || null);
       setStatus("ready");
     } else {
       setAttempts((prev) => prev + 1);
@@ -49,24 +51,27 @@ function ThankYouContent() {
       {status === "ready" && token && (
         <>
           <p style={{ color: "var(--text-secondary)", marginBottom: "var(--space-lg)" }}>
-            Your download is ready. Link expires in 7 days.
+            Your download is ready. This link is yours to keep — bookmark it or save the email.
           </p>
           <a
             href={`/api/download/${token}`}
             className="track-detail__btn track-detail__btn--buy"
             style={{ display: "inline-block", marginBottom: "var(--space-lg)", textDecoration: "none" }}
           >
-            Download Now
+            {format ? `Download ${format.toUpperCase()}` : "Download Now"}
           </a>
           <p style={{ color: "var(--text-tertiary)", fontSize: "var(--text-xs)", marginBottom: "var(--space-xl)" }}>
-            A download link has also been sent to your email.
+            A copy has been sent to your email. If you ever lose it, recover your downloads at{" "}
+            <Link href="/music/recover" style={{ color: "var(--text-accent)" }}>/music/recover</Link>.
           </p>
         </>
       )}
 
       {status === "timeout" && (
         <p style={{ color: "var(--text-secondary)", marginBottom: "var(--space-xl)" }}>
-          Your purchase is confirmed. A download link will be sent to your email shortly.
+          Your purchase is confirmed. Your download link is on its way by email. You can also
+          recover it at{" "}
+          <Link href="/music/recover" style={{ color: "var(--text-accent)" }}>/music/recover</Link>.
         </p>
       )}
 

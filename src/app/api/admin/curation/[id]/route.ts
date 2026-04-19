@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { captureSlugChange } from "@/lib/redirects";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,8 +34,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
   }
 
+  const { data: prev } = await supabase.from("curated_entries").select("slug").eq("id", id).single();
+
   const { data, error } = await supabase.from("curated_entries").update(updates).eq("id", id).select().single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  if (typeof updates.slug === "string" && prev?.slug && prev.slug !== updates.slug) {
+    await captureSlugChange(`/curation/${prev.slug}`, `/curation/${updates.slug}`, "curation", id);
+  }
+
   return Response.json(data);
 }
 

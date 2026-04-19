@@ -35,7 +35,7 @@ async function getSongData(songSlug: string) {
   // Get album via junction (optional — singles have no album)
   const { data: junction } = await supabase
     .from("album_songs")
-    .select("track_number, album:albums(id, title, slug, cover_art_path, cover_art_alt, price, status)")
+    .select("track_number, album:albums(id, title, slug, cover_art_path, cover_art_alt, price, status, download_path_mp3, download_path_flac, download_path_wav)")
     .eq("song_id", song.id)
     .maybeSingle();
 
@@ -220,6 +220,16 @@ export default async function SongDetailPage({
         visibilitySections={visibilitySections}
         pairedArt={pairedArt}
         playbackMode={playbackMode}
+        songFormats={(() => {
+          const explicit = (["mp3", "flac", "wav"] as const).filter((f) => song[`download_path_${f}`]);
+          if (explicit.length > 0) return explicit;
+          return song.download_path ? ["mp3" as const] : [];
+        })()}
+        albumFormats={album ? (() => {
+          const a = album as Record<string, unknown>;
+          const explicit = (["mp3", "flac", "wav"] as const).filter((f) => a[`download_path_${f}`]);
+          return explicit.length > 0 ? explicit : [];
+        })() : []}
         geoFields={{
           citation_summary: song.citation_summary,
           focus_keyphrase: song.focus_keyphrase,

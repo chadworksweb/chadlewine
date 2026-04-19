@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { captureSlugChange } from "@/lib/redirects";
 
 // GET /api/admin/observations/[id]
 export async function GET(
@@ -99,6 +100,12 @@ export async function PUT(
     related_music: related_music ?? [],
   };
 
+  const { data: prev } = await supabase
+    .from("observations")
+    .select("slug")
+    .eq("id", id)
+    .single();
+
   const { data: observation, error } = await supabase
     .from("observations")
     .update(updateData)
@@ -108,6 +115,15 @@ export async function PUT(
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  if (prev?.slug && slug && prev.slug !== slug) {
+    await captureSlugChange(
+      `/observations/${prev.slug}`,
+      `/observations/${slug}`,
+      "observation",
+      id
+    );
   }
 
   // Replace category mappings

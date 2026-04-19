@@ -1,5 +1,8 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { verifyWebhookSignature } from "@/lib/stripe";
+import { sendEmail, buildPurchaseConfirmationHtml } from "@/lib/email";
+
+const SITE_URL = "https://chadlewine.com";
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
@@ -75,51 +78,68 @@ export async function POST(request: Request) {
         }
       }
     } else if (itemType && itemId && ["song", "album"].includes(itemType)) {
-      // Music purchase — generate download URL
+      // Music purchase — permanent download link, recovery via /music/recover
       const CDN_BASE = "https://chadrising-audio-downloads.b-cdn.net";
+      const rawFormat = session.metadata?.format;
+      const format: "mp3" | "flac" | "wav" =
+        rawFormat === "flac" || rawFormat === "wav" ? rawFormat : "mp3";
       let downloadUrl: string | null = null;
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      let itemTitle = "";
+
+      const resolveUrl = (path: string | null | undefined): string | null => {
+        if (!path) return null;
+        return path.startsWith("http") ? path : `${CDN_BASE}/${path}`;
+      };
 
       if (itemType === "song") {
         const { data: song } = await supabase
           .from("songs")
-          .select("download_path")
+          .select("title, download_path, download_path_mp3, download_path_flac, download_path_wav")
           .eq("id", itemId)
           .single();
-        if (song?.download_path) {
-          downloadUrl = song.download_path.startsWith("http")
-            ? song.download_path
-            : `${CDN_BASE}/${song.download_path}`;
-        }
+        itemTitle = song?.title || "Your song";
+        const byFormat = (song as Record<string, string | null> | null)?.[`download_path_${format}`];
+        downloadUrl = resolveUrl(byFormat || song?.download_path || null);
       } else {
-        // Album — get all song download paths
-        const { data: albumSongs } = await supabase
-          .from("album_songs")
-          .select("song_id, songs(download_path, title)")
-          .eq("album_id", itemId)
-          .order("track_number");
-        // For album, store first track URL as primary download
-        // Full album download requires a zip — for now, point to first track
-        const firstWithPath = albumSongs?.find(
-          (as: unknown) => ((as as Record<string, unknown>).songs as Record<string, unknown>)?.download_path
-        );
-        if (firstWithPath) {
-          const songData = (firstWithPath as unknown as Record<string, unknown>).songs as Record<string, unknown>;
-          const path = songData.download_path as string;
-          downloadUrl = path.startsWith("http") ? path : `${CDN_BASE}/${path}`;
+        const { data: album } = await supabase
+          .from("albums")
+          .select("title, download_path_mp3, download_path_flac, download_path_wav")
+          .eq("id", itemId)
+          .single();
+        itemTitle = album?.title || "Your album";
+        const byFormat = (album as Record<string, string | null> | null)?.[`download_path_${format}`];
+        downloadUrl = resolveUrl(byFormat || null);
+
+        // Legacy fallback — no album-level format path, grab first track's download_path
+        if (!downloadUrl && format === "mp3") {
+          const { data: albumSongs } = await supabase
+            .from("album_songs")
+            .select("songs(download_path)")
+            .eq("album_id", itemId)
+            .order("track_number");
+          const firstWithPath = albumSongs?.find(
+            (as: unknown) => ((as as Record<string, unknown>).songs as Record<string, unknown>)?.download_path
+          );
+          if (firstWithPath) {
+            const songData = (firstWithPath as unknown as Record<string, unknown>).songs as Record<string, unknown>;
+            downloadUrl = resolveUrl(songData.download_path as string);
+          }
         }
       }
+
+      const buyerEmail = session.customer_details?.email || "unknown";
 
       const { data: purchase, error: purchaseError } = await supabase
         .from("purchases")
         .insert({
-          buyer_email: session.customer_details?.email || "unknown",
+          buyer_email: buyerEmail,
           item_type: itemType,
           item_id: itemId,
+          format,
           stripe_payment_intent_id: session.payment_intent || null,
           amount: (session.amount_total || 0) / 100,
           download_url: downloadUrl,
-          download_expires_at: expiresAt.toISOString(),
+          download_expires_at: null,
         })
         .select("id")
         .single();
@@ -129,10 +149,23 @@ export async function POST(request: Request) {
         return Response.json({ error: "Database insert failed" }, { status: 500 });
       }
 
-      // TODO: Send download email via Resend/Postmark
-      // Email would contain: https://chadlewine.com/music/purchase/download?token={purchase.id}
-      if (purchase) {
-        console.log(`[stripe-webhook] Download ready: /music/purchase/download?token=${purchase.id}`);
+      if (purchase && buyerEmail !== "unknown") {
+        const tokenUrl = `${SITE_URL}/api/download/${purchase.id}`;
+        const recoverUrl = `${SITE_URL}/music/recover`;
+        const html = buildPurchaseConfirmationHtml({
+          itemTitle: `${itemTitle} (${format.toUpperCase()})`,
+          itemType: itemType as "song" | "album",
+          downloadUrl: tokenUrl,
+          recoverUrl,
+        });
+        const sent = await sendEmail({
+          to: buyerEmail,
+          subject: `Your download — ${itemTitle} (${format.toUpperCase()})`,
+          html,
+        });
+        if (!sent) {
+          console.warn(`[stripe-webhook] Failed to send confirmation email to ${buyerEmail}`);
+        }
       }
     } else {
       // Patronage
