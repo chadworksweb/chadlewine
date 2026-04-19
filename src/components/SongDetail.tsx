@@ -278,7 +278,7 @@ export function SongDetail({
                     </button>
                     {summaryOpen && (
                       <div className="track-detail__rc-summary-tooltip">
-                        <p>{badge.chargeSummary}</p>
+                        <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
                         {badge.contaminated && badge.contaminationNote && (
                           <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
                         )}

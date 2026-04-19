@@ -205,12 +205,12 @@ export function MiniPlayer({
         <div className="mini-player__wf-layer mini-player__wf-bg">
           <div className="mini-player__wf-main">
             {bars.map((h, i) => (
-              <span key={i} style={{ height: `${h * 100}%` }} />
+              <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
             ))}
           </div>
           <div className="mini-player__wf-reflect">
             {bars.map((h, i) => (
-              <span key={i} style={{ height: `${h * 100}%` }} />
+              <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
             ))}
           </div>
         </div>
@@ -223,12 +223,12 @@ export function MiniPlayer({
           <div className="mini-player__wf-fg-inner">
             <div className="mini-player__wf-main">
               {bars.map((h, i) => (
-                <span key={i} style={{ height: `${h * 100}%` }} />
+                <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
               ))}
             </div>
             <div className="mini-player__wf-reflect">
               {bars.map((h, i) => (
-                <span key={i} style={{ height: `${h * 100}%` }} />
+                <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
               ))}
             </div>
           </div>
