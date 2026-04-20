@@ -394,7 +394,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo }:
               </span>
             </Link>
             <span className="album-cube__face-eyebrow">Plane 5</span>
-            <span className="album-cube__face-label">The Story</span>
+            <span className="album-cube__face-label">Message</span>
           </div>
         </div>
       </div>
