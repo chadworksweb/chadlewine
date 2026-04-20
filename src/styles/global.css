@@ -9119,86 +9119,527 @@ h3.aw-heading {
   margin-bottom: var(--space-lg);
 }
 
-.discography-grid__art-link {
-  display: block;
+/* --- Album Cube Radiant (first public Cube Radiant) --- */
+
+.album-cube {
   position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  margin-bottom: var(--space-sm);
+  perspective: 2600px;
+  perspective-origin: 50% 50%;
+  touch-action: none;
 }
 
-/* Glitch overlay — constrained to cover image */
-.discography-grid__art-link::before {
+.album-cube__flat {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--bg-glass-border);
+  opacity: 1;
+  transform-origin: 50% 50%;
+  transform: scale(1);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  will-change: opacity, transform;
+  z-index: 2;
+}
+
+.album-cube__flat-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.album-cube.is-active .album-cube__flat {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.8);
+}
+
+.album-cube__stage {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  will-change: transform;
+  z-index: 1;
+  visibility: hidden;
+}
+
+.album-cube.is-active .album-cube__stage {
+  pointer-events: auto;
+  z-index: 3;
+  visibility: visible;
+}
+
+.album-cube__box {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  transform-style: preserve-3d;
+  transition: none;
+  will-change: transform;
+}
+
+.album-cube__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.35rem;
+  border-radius: 4px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--text-primary);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-sizing: border-box;
+}
+
+.album-cube.is-active .album-cube__face {
+  will-change: transform;
+}
+
+.album-cube__face::after {
   content: '';
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+}
+
+.album-cube.is-loading .album-cube__face::after {
+  opacity: 0.75;
+}
+
+.album-cube__face-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  text-decoration: none;
+  z-index: 2;
+  overflow: hidden;
+  transition: background 0.18s ease;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.album-cube__face-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.album-cube__face-video {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  object-fit: cover;
+  object-position: center center;
+  transform: scale(1.8);
+  transform-origin: center center;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.album-cube__face--right:has(.album-cube__face-video)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 10, 20, 0.55) 0%, rgba(0, 10, 20, 0.3) 50%, rgba(0, 10, 20, 0.75) 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+
+.album-cube__face--right .album-cube__face-eyebrow,
+.album-cube__face--right .album-cube__face-label {
+  position: relative;
+  z-index: 2;
+}
+
+.album-cube__face--front {
+  transform: translateZ(var(--cube-half-z, 50cqw));
+  border: 1px solid var(--bg-glass-border);
+}
+
+.album-cube__face--top {
+  transform: rotateX(90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.album-cube__face--bottom {
+  transform: rotateX(-90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.album-cube__face--right {
+  transform: rotateY(90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.album-cube__face--left {
+  transform: rotateY(-90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.album-cube__face--top,
+.album-cube__face--bottom,
+.album-cube__face--right,
+.album-cube__face--left {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(0, 212, 255, 0.18), transparent 60%),
+    linear-gradient(155deg, rgba(18, 22, 36, 0.92), rgba(8, 10, 18, 0.96));
+  border: 1px solid rgba(0, 212, 255, 0.28);
+  box-shadow:
+    inset 0 0 30px rgba(0, 212, 255, 0.12),
+    0 0 24px rgba(0, 212, 255, 0.12);
+}
+
+.album-cube__face--top .album-cube__face-eyebrow,
+.album-cube__face--top .album-cube__face-label,
+.album-cube__face--bottom .album-cube__face-eyebrow,
+.album-cube__face--bottom .album-cube__face-label,
+.album-cube__face--right .album-cube__face-eyebrow,
+.album-cube__face--right .album-cube__face-label,
+.album-cube__face--left .album-cube__face-eyebrow,
+.album-cube__face--left .album-cube__face-label {
+  padding-left: 12%;
+  padding-right: 12%;
+}
+
+.album-cube__face-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 1.1rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(0, 212, 255, 0.7);
+}
+
+.album-cube__face-label {
+  font-family: var(--font-ui);
+  font-size: 2.1rem;
+  font-weight: 600;
+  color: #e6f7ff;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 18px rgba(0, 212, 255, 0.35);
+}
+
+.album-cube__face-hit {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: 4px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.album-cube__face-hit:focus-visible {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+}
+
+
+.album-cube__face-btn-label {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: rgba(230, 247, 255, 0.65);
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.35);
+  white-space: nowrap;
+  transition: color 0.18s ease, text-shadow 0.18s ease;
+}
+
+.album-cube__face-btn-arrows {
+  display: inline-flex;
+  gap: 0.28em;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: rgba(0, 212, 255, 0.4);
+}
+
+.album-cube__face-btn-arrows > span {
+  display: inline-block;
+  opacity: 0.15;
+  text-shadow: 0 0 4px rgba(0, 212, 255, 0.3);
+  animation: face-btn-arrow-flow 1.8s ease-in-out infinite;
+}
+
+.album-cube__face-btn-arrows > span:nth-child(1) { animation-delay: 0s; }
+.album-cube__face-btn-arrows > span:nth-child(2) { animation-delay: 0.18s; }
+.album-cube__face-btn-arrows > span:nth-child(3) { animation-delay: 0.36s; }
+.album-cube__face-btn-arrows > span:nth-child(4) { animation-delay: 0.54s; }
+
+@keyframes face-btn-arrow-flow {
+  0%   { opacity: 0.1; text-shadow: 0 0 3px rgba(0, 212, 255, 0.2); }
+  50%  { opacity: 0.75; text-shadow: 0 0 10px rgba(0, 212, 255, 0.85); }
+  100% { opacity: 0.1; text-shadow: 0 0 3px rgba(0, 212, 255, 0.2); }
+}
+
+/* Edge-strip placement per panel */
+
+.album-cube__face--top .album-cube__face-btn {
+  top: 0; left: 0; right: 0; height: 15%;
+  background: rgba(0, 20, 30, 0.55);
+}
+
+.album-cube__face--bottom .album-cube__face-btn {
+  bottom: 0; left: 0; right: 0; height: 15%;
+  background: rgba(0, 20, 30, 0.55);
+}
+
+.album-cube__face--left .album-cube__face-btn {
+  top: 0; bottom: 0; left: 0; width: 15%;
+  flex-direction: column;
+  background: rgba(0, 20, 30, 0.55);
+}
+
+.album-cube__face--right .album-cube__face-btn {
+  top: 0; bottom: 0; right: 0; width: 15%;
+  flex-direction: column;
+  background: rgba(0, 20, 30, 0.55);
+}
+
+/* Arrow direction per panel */
+
+.album-cube__face--bottom .album-cube__face-btn-arrows > span {
+  transform: rotate(180deg);
+}
+
+.album-cube__face--left .album-cube__face-btn-arrows > span {
+  transform: rotate(-90deg);
+}
+
+.album-cube__face--right .album-cube__face-btn-arrows > span {
+  transform: rotate(90deg);
+}
+
+/* Label direction for vertical panels */
+
+.album-cube__face--left .album-cube__face-btn-label,
+.album-cube__face--right .album-cube__face-btn-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.album-cube__face--right .album-cube__face-btn-label {
+  transform: none;
+}
+
+/* Hover amps the glow — driven by JS overCta state (via .is-over-cta) instead
+   of CSS :hover because native hit-testing on 3D-rotated elements isn't
+   reliable at the btn's flanks. */
+
+.album-cube.is-over-cta .album-cube__face-btn-label {
+  color: #fff;
+  text-shadow: 0 0 14px rgba(0, 212, 255, 0.75);
+}
+
+.album-cube.is-over-cta .album-cube__face-btn-arrows > span {
+  animation-duration: 1s;
+  color: #00d4ff;
+}
+
+.album-cube.is-over-cta .album-cube__face-btn {
+  background-color: rgba(0, 212, 255, 0.1);
+}
+
+/* --- Loading state: cube holds position while next page loads --- */
+
+.album-cube::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0 22px 2px rgba(0, 212, 255, 0.65);
+  transition: opacity 0.25s ease;
+  will-change: opacity, box-shadow;
+  z-index: 0;
+}
+
+.album-cube.is-loading::before {
+  opacity: 1;
+  animation: cube-loading-breath 0.9s ease-in-out infinite;
+}
+
+.album-cube.is-loading .album-cube__face-btn {
+  background: rgba(0, 212, 255, 0.42);
+  border-color: #00d4ff;
+  color: #fff;
+  box-shadow: 0 0 28px rgba(0, 212, 255, 0.95), inset 0 0 16px rgba(0, 212, 255, 0.4);
+  animation: cube-loading-pulse 0.6s ease-in-out infinite;
+}
+
+.album-cube.is-loading .cube-cursor__ring {
+  animation-duration: 0.55s !important;
+  border-color: rgba(0, 255, 255, 1);
+}
+
+.album-cube.is-loading .cube-cursor__dot {
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #00d4ff 55%, #007a99 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.6),
+    0 0 22px rgba(0, 212, 255, 1),
+    0 0 46px rgba(0, 212, 255, 0.7);
+}
+
+@keyframes cube-loading-breath {
+  0%, 100% { box-shadow: 0 0 20px 1px rgba(0, 212, 255, 0.45); }
+  50% { box-shadow: 0 0 44px 6px rgba(0, 212, 255, 0.95); }
+}
+
+@keyframes cube-loading-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.65), inset 0 0 12px rgba(0, 212, 255, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 42px rgba(0, 212, 255, 1), inset 0 0 22px rgba(0, 212, 255, 0.55);
+    transform: scale(1.04);
+  }
+}
+
+/* --- Cube cursor: radar-ping dot shown on hover over the hotspot --- */
+
+.album-cube,
+.album-cube * {
+  cursor: none;
+}
+
+.cube-cursor {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background: transparent;
+  width: 1px;
+  height: 1px;
   pointer-events: none;
+  z-index: 50;
+  will-change: transform;
   opacity: 0;
-  z-index: 10;
-  box-shadow: inset 0 0 40px rgba(0, 212, 255, 0.3);
-  mix-blend-mode: screen;
-  overflow: hidden;
-  border-radius: 4px;
+  visibility: hidden;
 }
 
-.discography-grid__art-link:hover::before {
+.album-cube.is-active .cube-cursor {
   opacity: 1;
-  animation: disco-glitch-cyan 0.4s steps(2) forwards;
+  visibility: visible;
 }
 
-.discography-grid__art-link:hover .discography-grid__cover {
-  animation: disco-glitch-image 0.4s steps(2) forwards;
-  filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.5));
+.cube-cursor__dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e6fbff 0%, #00d4ff 55%, #0090b3 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 14px rgba(0, 212, 255, 0.85),
+    0 0 28px rgba(0, 212, 255, 0.45);
 }
 
-@keyframes disco-glitch-cyan {
+.cube-cursor__ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 212, 255, 0.85);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.cube-cursor--ping .cube-cursor__ring {
+  animation: cube-cursor-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.cube-cursor--ping .cube-cursor__ring--2 {
+  animation-delay: 0.46s;
+}
+
+.cube-cursor--ping .cube-cursor__ring--3 {
+  animation-delay: 0.93s;
+}
+
+.cube-cursor--ping .cube-cursor__dot {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 0 18px rgba(0, 212, 255, 1),
+    0 0 36px rgba(0, 212, 255, 0.6);
+}
+
+@keyframes cube-cursor-ping {
   0% {
-    clip-path: inset(0 0 0 0);
-    opacity: 0.8;
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.4), 2px 0 0 rgba(0, 212, 255, 0.5);
+    transform: scale(0.6);
+    opacity: 0.9;
+    border-width: 1.5px;
   }
-  25% {
-    clip-path: inset(20% 0 60% 0);
-    transform: translateX(4px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.6), -2px 0 0 rgba(255, 0, 255, 0.3);
-  }
-  50% {
-    clip-path: inset(50% 0 20% 0);
-    transform: translateX(-3px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.5), 3px 0 0 rgba(0, 212, 255, 0.5);
-  }
-  75% {
-    clip-path: inset(10% 0 40% 0);
-    transform: translateX(2px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.4);
+  70% {
+    opacity: 0.25;
+    border-width: 1px;
   }
   100% {
-    clip-path: inset(0 0 0 0);
-    transform: translateX(0);
+    transform: scale(5);
     opacity: 0;
-    box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2);
+    border-width: 0.5px;
   }
 }
 
-@keyframes disco-glitch-image {
-  0% { transform: translateX(0); }
-  25% { transform: translateX(-2px); }
-  50% { transform: translateX(3px); }
-  75% { transform: translateX(-1px); }
-  100% { transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) {
+  .cube-cursor__ring { animation: none; opacity: 0.35; transform: scale(1.5); }
 }
 
-.discography-grid__cover {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid var(--bg-glass-border);
-  margin-bottom: var(--space-sm);
-  position: relative;
-  z-index: 1;
-  transition: filter 0.3s ease;
+.album-cube__debug {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  background: rgba(0, 0, 0, 0.85);
+  color: #0ff;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 255, 255, 0.4);
+  z-index: 20;
+  pointer-events: none;
+  max-width: 100%;
+}
+
+.album-cube__debug-matrix {
+  font-size: 9px;
+  color: #9ff;
+  white-space: normal;
+  word-break: break-all;
+  margin-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-cube__box { transition: none; }
+  .album-cube__flat,
+  .album-cube__stage { transition: opacity 0.15s linear; }
 }
 
 .discography-grid__info {

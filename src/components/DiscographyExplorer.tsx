@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { AlbumCubeRadiant } from "./AlbumCubeRadiant";
+
+// Per-album Plane 3 ("The Visual") video clips. Add entries as videos are created.
+const PLANE_THREE_VIDEOS: Record<string, string> = {
+  "choose-lit": "/videos/choose-lit_wilson_ct_master.mp4",
+};
 
 interface DiscographyItem {
   id: string;
@@ -114,19 +119,12 @@ export function DiscographyExplorer({ items, allFormats }: DiscographyExplorerPr
 
             return (
               <div key={item.id} className="discography-grid__card">
-                <Link href={item.href} className="discography-grid__art-link">
-                  {item.cover_art_path && (
-                    <Image
-                      src={item.cover_art_path}
-                      alt={item.title}
-                      className="discography-grid__cover"
-                      width={800}
-                      height={800}
-                      sizes="(max-width: 720px) 50vw, (max-width: 1200px) 33vw, 280px"
-                      loading="lazy"
-                    />
-                  )}
-                </Link>
+                <AlbumCubeRadiant
+                  title={item.title}
+                  href={item.href}
+                  coverArtPath={item.cover_art_path}
+                  planeThreeVideo={PLANE_THREE_VIDEOS[item.slug] ?? null}
+                />
                 <div className="discography-grid__info">
                   <span className="discography-grid__meta">
                     <Link href={item.href} className="discography-grid__title">
