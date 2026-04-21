@@ -9,6 +9,7 @@ interface AlbumCubeRadiantProps {
   href: string;
   coverArtPath: string | null;
   planeThreeVideo?: string | null;
+  chorus?: string | null;
 }
 
 const MAX_ANGLE = 90;
@@ -41,9 +42,10 @@ function axisResponse(abs: number) {
   return t * t * (3 - 2 * t);
 }
 
-export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo }: AlbumCubeRadiantProps) {
+export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, chorus }: AlbumCubeRadiantProps) {
   const [active, setActive] = useState(false);
   const [overCta, setOverCta] = useState(false);
+  const [overFront, setOverFront] = useState(false);
   const [loading, setLoading] = useState(false);
   const frozenRef = useRef(false);
   const loadingTimerRef = useRef<number | null>(null);
@@ -172,6 +174,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo }:
       ".album-cube__face-hit, .album-cube__face-btn"
     );
     let over = false;
+    let overFrontHit = false;
     for (const cta of ctas) {
       // Compute cumulative transform from root down to cta.
       let m = new DOMMatrix();
@@ -194,10 +197,12 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo }:
         e.clientY >= r.top && e.clientY <= r.bottom
       ) {
         over = true;
+        overFrontHit = cta.classList.contains("album-cube__face-hit");
         break;
       }
     }
     setOverCta(over);
+    setOverFront(overFrontHit);
 
     if (frozenRef.current) return;
     const nx = (localX / rect.width) * 2 - 1;
@@ -229,6 +234,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo }:
     }
     setActive(false);
     setOverCta(false);
+    setOverFront(false);
   }, []);
 
   const onCtaEnter = useCallback(() => setOverCta(true), []);
@@ -285,7 +291,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo }:
               onPointerEnter={onCtaEnter}
               onPointerLeave={onCtaLeave}
               onPointerDown={onCtaPress}
-              aria-label={`Open ${title}`}
+              aria-label={`Listen to ${title}`}
             >
               {coverArtPath && (
                 <Image
@@ -318,8 +324,12 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo }:
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
               </span>
             </Link>
-            <span className="album-cube__face-eyebrow">Plane 2</span>
-            <span className="album-cube__face-label">The Word</span>
+            <span className="album-cube__face-label">Lyrics</span>
+            {chorus && (
+              <div className="album-cube__face-chorus song-brief-card__chorus">
+                {chorus}
+              </div>
+            )}
           </div>
 
           <div className="album-cube__face album-cube__face--right">
@@ -401,13 +411,14 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo }:
 
       <div
         ref={cursorRef}
-        className={`cube-cursor${overCta ? " cube-cursor--ping" : ""}`}
+        className={`cube-cursor${overCta ? " cube-cursor--ping" : ""}${overFront ? " cube-cursor--listen" : ""}`}
         aria-hidden="true"
       >
         <span className="cube-cursor__ring cube-cursor__ring--1" />
         <span className="cube-cursor__ring cube-cursor__ring--2" />
         <span className="cube-cursor__ring cube-cursor__ring--3" />
         <span className="cube-cursor__dot" />
+        <span className="cube-cursor__label">Listen</span>
       </div>
 
       {debug && debugEnabledRef.current && (

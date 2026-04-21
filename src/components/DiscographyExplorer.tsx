@@ -18,6 +18,7 @@ interface DiscographyItem {
   cover_art_path: string | null;
   format_label: string | null;
   href: string;
+  chorus: string | null;
 }
 
 type SortMode = "newest" | "oldest" | "az" | "za";
@@ -124,6 +125,7 @@ export function DiscographyExplorer({ items, allFormats }: DiscographyExplorerPr
                   href={item.href}
                   coverArtPath={item.cover_art_path}
                   planeThreeVideo={PLANE_THREE_VIDEOS[item.slug] ?? null}
+                  chorus={item.chorus}
                 />
                 <div className="discography-grid__info">
                   <span className="discography-grid__meta">

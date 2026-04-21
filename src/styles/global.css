@@ -9352,6 +9352,41 @@ h3.aw-heading {
   outline-offset: 2px;
 }
 
+/* Chorus lyrics displayed on Plane 2 — inherits song-brief-card__chorus styling.
+   Local overrides just constrain width to the face and the color to face palette. */
+.album-cube__face-chorus {
+  max-width: 82%;
+  margin-top: 0.4rem;
+  color: rgba(230, 247, 255, 0.85);
+  border-left-color: rgba(0, 212, 255, 0.55);
+  font-size: 0.82rem;
+}
+
+/* Cursor "Listen" tooltip — shown when cursor is over Plane 0 (front face). */
+.cube-cursor__label {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.35em 0.7em;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 3px;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.cube-cursor--listen .cube-cursor__label {
+  opacity: 1;
+}
+
 
 .album-cube__face-btn-label {
   font-family: var(--font-ui);

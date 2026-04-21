@@ -24,6 +24,7 @@ export interface DiscographyItem {
   cover_art_path: string | null;
   format_label: string | null;
   href: string;
+  chorus: string | null;
 }
 
 async function getDiscography() {
@@ -45,12 +46,13 @@ async function getDiscography() {
     cover_art_path: a.cover_art_path,
     format_label: a.release_formats?.label || null,
     href: `/music/albums/${a.slug}`,
+    chorus: null,
   }));
 
   // Singles
   const { data: singles } = await supabase
     .from("songs")
-    .select("id, title, slug, release_date, art_image_path")
+    .select("id, title, slug, release_date, art_image_path, chorus")
     .eq("status", "published")
     .eq("is_single", true)
     .order("release_date", { ascending: false });
@@ -81,6 +83,7 @@ async function getDiscography() {
     cover_art_path: s.art_image_path || albumArtBySong[s.id] || null,
     format_label: "Digital Single",
     href: `/music/songs/${s.slug}`,
+    chorus: s.chorus || null,
   }));
 
   // Collect unique format labels
