@@ -92,6 +92,7 @@ export default async function AlbumDetailPage({
         chargeSummary: albumBadgeData.charge_summary,
         contaminated: albumBadgeData.contaminated,
         contaminationNote: albumBadgeData.contamination_note,
+        artistSlug: albumBadgeData.artist_slug ?? null,
       }
     : null;
 

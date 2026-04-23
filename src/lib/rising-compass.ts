@@ -76,6 +76,17 @@ export async function fetchBadge(
 export interface RisingCompassAlbumBadgeData extends RisingCompassBadgeData {
   track_count: number;
   contamination_count: number;
+  // Artist slug on RC — use to deep-link the album badge to the artist's
+  // trajectory page (risingcompass.net/artists/<artist_slug>). RC has no
+  // first-class album pages; artist page is the best next-step target.
+  artist_slug?: string | null;
+}
+
+export function rcAlbumBadgeHref(badge: RisingCompassAlbumBadgeData | null | undefined): string {
+  if (badge?.artist_slug) {
+    return `https://risingcompass.net/artists/${encodeURIComponent(badge.artist_slug)}`;
+  }
+  return "https://risingcompass.net";
 }
 
 export async function fetchAlbumBadge(
