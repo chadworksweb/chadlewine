@@ -258,7 +258,7 @@ export function SongDetail({
             <div className="track-detail__actions">
               {album && (
                 <Link href={`/music/albums/${album.slug}`} className="track-detail__btn track-detail__btn--buy-album">
-                  Buy Album{album.price ? ` — ${formatPrice(album.price)}` : ""}
+                  Buy Album
                 </Link>
               )}
               {song.price && songFormats.length > 0 && (
@@ -287,7 +287,7 @@ export function SongDetail({
                   >
                     {buying === "song"
                       ? "..."
-                      : `Buy Song (${songFormat.toUpperCase()}) — ${formatPrice(song.price)}`}
+                      : `Buy Song (${songFormat.toUpperCase()})`}
                   </button>
                 </div>
               )}

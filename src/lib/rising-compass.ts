@@ -27,7 +27,9 @@ export async function fetchBadge(
     const params = new URLSearchParams({ title, artist });
     const res = await fetch(`${RC_API_URL}/api/badge/lookup?${params}`, {
       headers: { "X-Api-Key": RC_KEY },
-      next: { revalidate: 3600 },
+      // RC is authoritative — always pull live so recalibrations surface
+      // immediately instead of lagging behind a stale cache.
+      cache: "no-store",
       signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
 
@@ -53,7 +55,7 @@ export async function fetchAlbumBadge(
     const params = new URLSearchParams({ title, artist });
     const res = await fetch(`${RC_API_URL}/api/badge/album-lookup?${params}`, {
       headers: { "X-Api-Key": RC_KEY },
-      next: { revalidate: 3600 },
+      cache: "no-store",
       signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
 
