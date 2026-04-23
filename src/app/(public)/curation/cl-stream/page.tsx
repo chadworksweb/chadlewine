@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { CLStreamEntry } from "@/components/CLStreamEntry";
+import { fetchBadge } from "@/lib/rising-compass";
 
 export const revalidate = 60;
 
@@ -17,21 +18,27 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function CLStreamPage() {
   const supabase = createPublicClient();
-  const { data: songs } = await supabase
+  const { data } = await supabase
     .from("cl_stream_songs")
-    .select("id, title, artist, album, note, source_url, rc_color, rc_charge, rc_charge_summary, created_at")
+    .select("id, title, artist, album, note, source_url, created_at")
     .eq("status", "published")
     .order("created_at", { ascending: false });
+
+  const rows = data || [];
+  // Live badge fetches — RC is authoritative. fetchBadge respects the 24h
+  // cache + pending-aware bypass defined in lib/rising-compass.
+  const badges = await Promise.all(rows.map((r) => fetchBadge(r.title, r.artist)));
+  const songs = rows.map((r, i) => ({ ...r, badge: badges[i] }));
 
   return (
     <div id="page-cl-stream" className="page-static">
       <h1 className="page-static__title">CL Stream</h1>
       <p className="curation-intro">Songs I&apos;ve been hearing — pointed at the compass.</p>
       <div className="cl-stream-page-feed">
-        {(songs || []).map((song) => (
+        {songs.map((song) => (
           <CLStreamEntry key={song.id} song={song} />
         ))}
-        {(!songs || songs.length === 0) && (
+        {songs.length === 0 && (
           <p style={{ opacity: 0.4 }}>Nothing in the stream yet.</p>
         )}
       </div>

@@ -9,8 +9,6 @@ interface StreamSong {
   artist: string;
   album: string | null;
   note: string | null;
-  rc_color: string | null;
-  rc_charge: number | null;
   created_at: string;
 }
 
@@ -51,9 +49,6 @@ export default function CLStreamAdminPage() {
       {!loading && songs.length > 0 && (
         <div className="cl-stream-admin-list">
           {songs.map((s) => {
-            const chargeStr = s.rc_charge != null
-              ? (s.rc_charge > 0 ? `+${s.rc_charge}` : `${s.rc_charge}`)
-              : null;
             return (
               <div key={s.id} className="cl-stream-admin-row">
                 <div className="cl-stream-admin-row__info">
@@ -61,11 +56,6 @@ export default function CLStreamAdminPage() {
                   <span className="cl-stream-admin-row__artist">
                     {s.artist}{s.album ? ` · ${s.album}` : ""}
                   </span>
-                  {s.rc_color && (
-                    <span className="cl-stream-admin-row__badge" data-color={s.rc_color}>
-                      {s.rc_color}{chargeStr ? ` ${chargeStr}` : ""}
-                    </span>
-                  )}
                   {s.note && <p className="cl-stream-admin-row__note">{s.note}</p>}
                 </div>
                 <div className="cl-stream-admin-row__actions">

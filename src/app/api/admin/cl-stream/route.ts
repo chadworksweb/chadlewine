@@ -28,29 +28,18 @@ export async function POST(request: Request) {
     return Response.json({ error: "title and artist required" }, { status: 400 });
   }
 
-  // 1. Check if Rising Compass already has this song
+  // RC ownership model: we do NOT store a local copy of tier/charge/summary.
+  // The only reason to call RC here is to decide whether the admin needs to
+  // paste lyrics — if RC already has the song we're good; if not we push
+  // the lyrics through calibrate-lyrics so RC gets the song. Either way,
+  // display-time reads come from fetchBadge live.
   const badge = await fetchBadge(title, artist);
-
-  // 2. No badge + no lyrics = ask for lyrics
   if (!badge && !body.lyrics?.trim()) {
     return Response.json({ needs_lyrics: true }, { status: 202 });
   }
-
-  let rcColor: string | null = null;
-  let rcCharge: number | null = null;
-  let rcContaminated = false;
-  let rcChargeSummary: string | null = null;
-
-  if (badge) {
-    // Use existing RC data
-    rcColor = badge.tier ?? null;
-    rcCharge = badge.charge ?? null;
-    rcContaminated = badge.contaminated ?? false;
-    rcChargeSummary = badge.charge_summary ?? null;
-  } else if (body.lyrics?.trim()) {
-    // Calibrate via RC using provided lyrics
+  if (!badge && body.lyrics?.trim()) {
     try {
-      const res = await fetch(`${RC_API_URL}/api/analyzer/calibrate-lyrics`, {
+      await fetch(`${RC_API_URL}/api/analyzer/calibrate-lyrics`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -63,15 +52,9 @@ export async function POST(request: Request) {
           source: "chadlewine",
         }),
       });
-      if (res.ok) {
-        const cal = await res.json();
-        rcColor = cal.tier ?? null;
-        rcCharge = cal.charge ?? null;
-        rcContaminated = cal.contaminated ?? false;
-        rcChargeSummary = cal.charge_summary ?? null;
-      }
     } catch {
-      // Calibration failed — store without RC data rather than blocking
+      // Calibration failed — entry still publishes; badge will appear once
+      // RC has the song, since reads are live.
     }
   }
 
@@ -84,10 +67,6 @@ export async function POST(request: Request) {
       note: body.note?.trim() || null,
       source_url: body.source_url || null,
       source_platform: body.source_platform || null,
-      rc_color: rcColor,
-      rc_charge: rcCharge,
-      rc_contaminated: rcContaminated,
-      rc_charge_summary: rcChargeSummary,
       status: "published",
     })
     .select()

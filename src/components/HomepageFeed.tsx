@@ -40,6 +40,8 @@ interface FeaturedTrackData {
   playbackMode: "preview" | "full";
 }
 
+import type { RisingCompassBadgeData } from "@/lib/rising-compass";
+
 interface CLStreamSong {
   id: string;
   title: string;
@@ -47,10 +49,8 @@ interface CLStreamSong {
   album: string | null;
   note: string | null;
   source_url: string | null;
-  rc_color: string | null;
-  rc_charge: number | null;
-  rc_charge_summary?: string | null;
   created_at: string;
+  badge: RisingCompassBadgeData | null;
 }
 
 interface HomepageFeedProps {
