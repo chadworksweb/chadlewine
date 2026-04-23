@@ -71,6 +71,8 @@ interface BadgeProps {
   chargeSummary: string | null;
   contaminated: boolean;
   contaminationNote: string | null;
+  pending?: boolean;
+  songSlug?: string | null;
 }
 
 interface PairedArtProps {
@@ -258,75 +260,71 @@ export function SongDetail({
             <div className="track-detail__actions">
               {album && (
                 <Link href={`/music/albums/${album.slug}`} className="track-detail__btn track-detail__btn--buy-album">
-                  Buy Album{album.price ? ` — ${formatPrice(album.price)}` : ""}
+                  Buy Album
                 </Link>
               )}
               {song.price && songFormats.length > 0 && (
-                <div className="format-buy">
-                  {songFormats.length > 1 && (
-                    <div className="format-buy__picker" role="radiogroup" aria-label="File format">
-                      {songFormats.map((f) => (
-                        <button
-                          key={f}
-                          type="button"
-                          role="radio"
-                          aria-checked={songFormat === f}
-                          className={`format-buy__opt${songFormat === f ? " format-buy__opt--active" : ""}`}
-                          onClick={() => setSongFormat(f)}
-                        >
-                          {f.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="track-detail__btn track-detail__btn--buy"
-                    onClick={() => handleBuy("song")}
-                    disabled={buying === "song"}
-                  >
-                    {buying === "song"
-                      ? "..."
-                      : `Buy Song (${songFormat.toUpperCase()}) — ${formatPrice(song.price)}`}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="track-detail__btn track-detail__btn--buy"
+                  onClick={() => handleBuy("song")}
+                  disabled={buying === "song"}
+                >
+                  {buying === "song" ? "..." : "Buy Song"}
+                </button>
               )}
             </div>
 
             {badge && (
               <div className="track-detail__rc-badge">
-                <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
+                {badge.pending && (
+                  <span
+                    className="track-detail__rc-pending-stamp"
+                    aria-label="Pending recalibration"
+                    title="This score is being contested — a recalibration is pending review."
+                  >
+                    PENDING
+                  </span>
+                )}
+                <a
+                  href={badge.songSlug ? `https://risingcompass.net/songs/${encodeURIComponent(badge.songSlug)}` : "https://risingcompass.net"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="track-detail__rc-compass-link"
+                >
                   <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
                 </a>
                 <div className="track-detail__rc-data">
                   <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
                     {badge.tierLabel}
                   </span>
-                  <span className="track-detail__rc-charge">
-                    {badge.charge > 0 ? "+" : ""}{badge.charge}
-                  </span>
-                </div>
-                {badge.chargeSummary && (
-                  <div className="track-detail__rc-summary-wrap">
-                    <button
-                      type="button"
-                      className="track-detail__rc-summary-btn"
-                      onClick={() => setSummaryOpen((v) => !v)}
-                      aria-label="Read charge summary"
-                      title="Charge summary"
-                    >
-                      &#x1F4AC;
-                    </button>
-                    {summaryOpen && (
-                      <div className="track-detail__rc-summary-tooltip">
-                        <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
-                        {badge.contaminated && badge.contaminationNote && (
-                          <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                  <div className="track-detail__rc-charge-row">
+                    <span className="track-detail__rc-charge">
+                      {badge.charge > 0 ? "+" : ""}{badge.charge}
+                    </span>
+                    {badge.chargeSummary && (
+                      <div className="track-detail__rc-summary-wrap">
+                        <button
+                          type="button"
+                          className="track-detail__rc-summary-btn"
+                          onClick={() => setSummaryOpen((v) => !v)}
+                          aria-label="Read charge summary"
+                          title="Charge summary"
+                        >
+                          &#x1F4AC;
+                        </button>
+                        {summaryOpen && (
+                          <div className="track-detail__rc-summary-tooltip">
+                            <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
+                            {badge.contaminated && badge.contaminationNote && (
+                              <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
@@ -421,6 +419,7 @@ export function SongDetail({
         const connections = sectionMap.get("connections");
         const culturalPosition = sectionMap.get("cultural-position");
         const ifYouLike = sectionMap.get("if-you-like");
+        const syncPlacements = sectionMap.get("sync-placements");
 
         return (
           <div className="song-landing">
@@ -686,7 +685,36 @@ export function SongDetail({
               </section>
             )}
 
-            {/* 10. People Also Ask — FAQ section */}
+            {/* 10. Sync Placements — GEO: where this song fits in film/TV/ads (format stack) */}
+            {(syncPlacements?.directAnswer || syncPlacements?.contentHtml || (syncPlacements?.keyPoints && syncPlacements.keyPoints.length > 0)) && (
+              <section className="song-landing__section song-landing__section--alt">
+                <div className="song-landing__container">
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">Where Could &ldquo;{song.title}&rdquo; Be Placed?</h2>
+                    {syncPlacements.directAnswer && (
+                      <p className="song-landing__direct-answer">{syncPlacements.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {syncPlacements.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(syncPlacements.contentHtml) }}
+                      />
+                    )}
+                    {syncPlacements.keyPoints && syncPlacements.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {syncPlacements.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* 11. People Also Ask — FAQ section */}
             {geoFields?.paa_pairs && geoFields.paa_pairs.length > 0 && (
               <section className="song-landing__section">
                 <div className="song-landing__container">

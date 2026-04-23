@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
 import { AlbumDetail } from "@/components/AlbumDetail";
 import { AdminEditButton } from "@/components/AdminEditButton";
-import { fetchBadge, fetchAlbumBadge, type RisingCompassBadgeData } from "@/lib/rising-compass";
+import { fetchBadge, fetchAlbumBadge, rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
 
 export const revalidate = 60;
 
@@ -92,6 +92,7 @@ export default async function AlbumDetailPage({
         chargeSummary: albumBadgeData.charge_summary,
         contaminated: albumBadgeData.contaminated,
         contaminationNote: albumBadgeData.contamination_note,
+        artistSlug: albumBadgeData.artist_slug ?? null,
       }
     : null;
 
@@ -136,7 +137,13 @@ export default async function AlbumDetailPage({
               const b = songBadges[s.id];
               if (!b) return null;
               return (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-md)" }}>
+                <a
+                  key={s.id}
+                  href={rcBadgeHref(b)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: "flex", alignItems: "center", gap: "var(--space-md)", textDecoration: "none", color: "inherit" }}
+                >
                   <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", minWidth: 24, textAlign: "right" }}>
                     {s.track_number}
                   </span>
@@ -151,7 +158,7 @@ export default async function AlbumDetailPage({
                       {b.charge > 0 ? "+" : ""}{b.charge}
                     </span>
                   </span>
-                </div>
+                </a>
               );
             })}
           </div>

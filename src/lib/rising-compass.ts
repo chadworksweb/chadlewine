@@ -15,7 +15,29 @@ export interface RisingCompassBadgeData {
   charge_summary: string | null;
   contaminated: boolean;
   contamination_note: string | null;
+  // True when RC has an open misread/satirical flag on this song — the score
+  // is being contested and may shift. Consumers render a "PENDING" stamp.
+  pending?: boolean;
+  // Canonical RC slug for this song. Use to deep-link the badge to the
+  // specific song page on risingcompass.net. Null when RC has no slug
+  // yet — fall back to risingcompass.net homepage.
+  song_slug?: string | null;
 }
+
+// Build a deep-link URL to the RC song page for a badge. Falls back to the
+// RC homepage when no slug is present.
+export function rcBadgeHref(badge: RisingCompassBadgeData | null | undefined): string {
+  if (badge?.song_slug) {
+    return `https://risingcompass.net/songs/${encodeURIComponent(badge.song_slug)}`;
+  }
+  return "https://risingcompass.net";
+}
+
+// 24-hour cache for stable badges (recalibrations are rare; caching at scale
+// cuts RC load by orders of magnitude). When a badge comes back with
+// pending=true, we re-fetch fresh on subsequent renders so recal resolutions
+// surface quickly instead of sitting behind a stale cached response.
+const BADGE_CACHE_SECONDS = 86400;
 
 export async function fetchBadge(
   title: string,
@@ -23,16 +45,29 @@ export async function fetchBadge(
 ): Promise<RisingCompassBadgeData | null> {
   if (!RC_KEY) return null;
 
+  const params = new URLSearchParams({ title, artist });
+  const url = `${RC_API_URL}/api/badge/lookup?${params}`;
+
   try {
-    const params = new URLSearchParams({ title, artist });
-    const res = await fetch(`${RC_API_URL}/api/badge/lookup?${params}`, {
+    const res = await fetch(url, {
       headers: { "X-Api-Key": RC_KEY },
-      next: { revalidate: 3600 },
+      next: { revalidate: BADGE_CACHE_SECONDS },
       signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
-
     if (!res.ok) return null;
-    return await res.json();
+    const data = (await res.json()) as RisingCompassBadgeData;
+
+    // Pending badges bypass the cache so an admin-applied recalibration
+    // surfaces on the next render instead of 24 hours later.
+    if (data.pending) {
+      const fresh = await fetch(url, {
+        headers: { "X-Api-Key": RC_KEY },
+        cache: "no-store",
+        signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
+      });
+      if (fresh.ok) return (await fresh.json()) as RisingCompassBadgeData;
+    }
+    return data;
   } catch {
     return null;
   }
@@ -41,6 +76,17 @@ export async function fetchBadge(
 export interface RisingCompassAlbumBadgeData extends RisingCompassBadgeData {
   track_count: number;
   contamination_count: number;
+  // Artist slug on RC — use to deep-link the album badge to the artist's
+  // trajectory page (risingcompass.net/artists/<artist_slug>). RC has no
+  // first-class album pages; artist page is the best next-step target.
+  artist_slug?: string | null;
+}
+
+export function rcAlbumBadgeHref(badge: RisingCompassAlbumBadgeData | null | undefined): string {
+  if (badge?.artist_slug) {
+    return `https://risingcompass.net/artists/${encodeURIComponent(badge.artist_slug)}`;
+  }
+  return "https://risingcompass.net";
 }
 
 export async function fetchAlbumBadge(
@@ -53,7 +99,7 @@ export async function fetchAlbumBadge(
     const params = new URLSearchParams({ title, artist });
     const res = await fetch(`${RC_API_URL}/api/badge/album-lookup?${params}`, {
       headers: { "X-Api-Key": RC_KEY },
-      next: { revalidate: 3600 },
+      cache: "no-store",
       signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
 

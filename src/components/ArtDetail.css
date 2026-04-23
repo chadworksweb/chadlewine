@@ -255,3 +255,101 @@
   font-family: var(--font-ui);
   font-size: 0.85rem;
 }
+
+/* Mural template additions */
+.art-detail__meta--mural { flex-wrap: wrap; gap: 0.5rem 0; }
+.art-detail__status-badge {
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+.art-detail__where { }
+.art-detail__where-venue { font-size: 1.05rem; font-weight: 600; margin: 0 0 var(--space-xs); }
+.art-detail__where-venue a { color: inherit; text-decoration: underline; }
+.art-detail__where-type { color: var(--text-tertiary); font-weight: 400; }
+.art-detail__where-addr, .art-detail__where-hours, .art-detail__where-commissioned {
+  margin: 0 0 var(--space-xs);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+.art-detail__where-commissioned { color: var(--text-tertiary); font-size: 0.85rem; }
+
+.art-detail__gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-sm);
+}
+.art-detail__gallery-img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.art-detail__topic-chips {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.art-detail__topic-chip {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  background: var(--surface-raised, rgba(255,255,255,0.04));
+  border: 1px solid var(--border-subtle, #2a2a35);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.art-detail__topic-chip:hover { background: var(--surface-hover, rgba(255,255,255,0.08)); }
+
+/* Murals index */
+.murals-index { padding: var(--space-lg) 0; }
+.murals-index__header { margin-bottom: var(--space-lg); }
+.murals-index__title { font-size: 2.5rem; margin: 0 0 var(--space-xs); }
+.murals-index__sub { color: var(--text-secondary); margin: 0; }
+.murals-index__empty { color: var(--text-tertiary); }
+.murals-index__grid {
+  list-style: none; padding: 0; margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+.murals-index__card a {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-raised, rgba(255,255,255,0.03));
+  transition: transform 0.15s ease;
+}
+.murals-index__card a:hover { transform: translateY(-2px); }
+.murals-index__img { width: 100%; height: 240px; object-fit: cover; display: block; }
+.murals-index__body { padding: var(--space-sm) var(--space-md) var(--space-md); }
+.murals-index__card-title { font-size: 1.2rem; margin: 0 0 0.25rem; }
+.murals-index__card-sub { color: var(--text-tertiary); font-size: 0.85rem; margin: 0 0 0.5rem; }
+.murals-index__card-summary { color: var(--text-secondary); font-size: 0.9rem; margin: 0; }
+
+/* Licensing section */
+.art-detail__licensing-direct {
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 0 0 var(--space-sm);
+  color: var(--text-primary);
+}
+.art-detail__licensing-prose { margin: 0 0 var(--space-sm); }
+.art-detail__licensing-prose p { margin: 0 0 var(--space-xs); }
+.art-detail__licensing-points {
+  list-style: disc;
+  padding-left: 1.2rem;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+.art-detail__licensing-points li { margin-bottom: 0.35rem; }

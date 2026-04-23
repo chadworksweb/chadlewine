@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
-import { CompassIcon, rcTierHex, rcTierLabel } from "@/components/RCBadge";
+import { CompassIcon } from "@/components/RCBadge";
+import { rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
 
 interface CLStreamSong {
   id: string;
@@ -11,20 +12,22 @@ interface CLStreamSong {
   album: string | null;
   note: string | null;
   source_url: string | null;
-  rc_color: string | null;
-  rc_charge: number | null;
-  rc_charge_summary?: string | null;
   created_at: string;
+  // Live badge data — fetched by the caller at render time from RC's
+  // badge API. Null when RC has no calibration yet (or the fetch timed out).
+  badge: RisingCompassBadgeData | null;
 }
 
 export function CLStreamEntry({ song }: { song: CLStreamSong }) {
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const tierHex = song.rc_color ? rcTierHex(song.rc_color) : null;
-  const tierLabel = song.rc_color ? rcTierLabel(song.rc_color) : null;
-  const charge = song.rc_charge ?? 0;
-  const chargeStr = song.rc_charge != null
-    ? (song.rc_charge > 0 ? `+${song.rc_charge}` : `${song.rc_charge}`)
+  const tierHex = song.badge?.tier_hex ?? null;
+  const tierLabel = song.badge?.tier_label ?? null;
+  const charge = song.badge?.charge ?? 0;
+  const chargeStr = song.badge && song.badge.charge != null
+    ? (song.badge.charge > 0 ? `+${song.badge.charge}` : `${song.badge.charge}`)
     : null;
+  const chargeSummary = song.badge?.charge_summary ?? null;
+  const pending = song.badge?.pending === true;
 
   const inner = (
     <div className="feed-entry feed-entry--stream">
@@ -47,32 +50,43 @@ export function CLStreamEntry({ song }: { song: CLStreamSong }) {
           </div>
           {tierHex && chargeStr && (
             <div className="track-detail__rc-badge" style={{ flexShrink: 0 }}>
-              <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
+              {pending && (
+                <span
+                  className="track-detail__rc-pending-stamp"
+                  aria-label="Pending recalibration"
+                  title="This score is being contested — a recalibration is pending review."
+                >
+                  PENDING
+                </span>
+              )}
+              <a href={rcBadgeHref(song.badge)} target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
                 <CompassIcon charge={charge} tierHex={tierHex} />
               </a>
               <div className="track-detail__rc-data">
                 <span className="track-detail__rc-tier" style={{ color: tierHex }}>
                   {tierLabel}
                 </span>
-                <span className="track-detail__rc-charge">{chargeStr}</span>
-                {song.rc_charge_summary && (
-                  <div className="track-detail__rc-summary-wrap">
-                    <button
-                      type="button"
-                      className="track-detail__rc-summary-btn"
-                      onClick={(e) => { e.preventDefault(); setSummaryOpen((v) => !v); }}
-                      aria-label="Read charge summary"
-                      title="Charge summary"
-                    >
-                      &#x1F4AC;
-                    </button>
-                    {summaryOpen && (
-                      <div className="track-detail__rc-summary-tooltip">
-                        <p>{song.rc_charge_summary}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div className="track-detail__rc-charge-row">
+                  <span className="track-detail__rc-charge">{chargeStr}</span>
+                  {chargeSummary && (
+                    <div className="track-detail__rc-summary-wrap">
+                      <button
+                        type="button"
+                        className="track-detail__rc-summary-btn"
+                        onClick={(e) => { e.preventDefault(); setSummaryOpen((v) => !v); }}
+                        aria-label="Read charge summary"
+                        title="Charge summary"
+                      >
+                        &#x1F4AC;
+                      </button>
+                      {summaryOpen && (
+                        <div className="track-detail__rc-summary-tooltip">
+                          <p>{chargeSummary}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { createPublicClient } from "@/lib/supabase-server";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
 import { ArtPieceJsonLd } from "@/components/ArtPieceJsonLd";
+import { ArtPairingsSections } from "@/components/ArtPairingsSections";
+import { ArtLicensingSection } from "@/components/ArtLicensingSection";
+import { MuralTemplate, type MuralDetails } from "@/components/MuralTemplate";
 import { focalCropStyle } from "@/lib/focal-crop";
+import { markdownToHtml } from "@/lib/markdown";
 
 export const revalidate = 60;
 
@@ -32,6 +35,11 @@ type ArtRow = {
   seo_title: string | null;
   seo_description: string | null;
   status: string;
+  format_id: string | null;
+  gallery_paths: string[] | null;
+  licensing_direct_answer: string | null;
+  licensing_content: string | null;
+  licensing_key_points: string[] | null;
 };
 
 type ProductRow = {
@@ -111,12 +119,28 @@ async function getArtData(slug: string) {
     .map((p) => p.art)
     .filter((a): a is PairedArt & { status: string } => !!a && (a.status === "published" || a.status === "unreleased"));
 
+  let formatSlug: string | null = null;
+  let muralDetails: MuralDetails | null = null;
+  if (art.format_id) {
+    const { data: fmt } = await supabase.from("art_formats").select("slug").eq("id", art.format_id).maybeSingle();
+    formatSlug = fmt?.slug || null;
+  }
+  if (formatSlug === "mural") {
+    const { data: mural } = await supabase.from("mural_details").select("*").eq("art_id", art.id).maybeSingle();
+    muralDetails = (mural as MuralDetails | null) || null;
+  }
+
+  const licensingHtml = art.licensing_content ? await markdownToHtml(art.licensing_content) : null;
+
   return {
     art: art as ArtRow,
     products: (products as ProductRow[] | null) || [],
     compositionHtml: composition?.content_html || null,
     pairedSongs,
     pairedArt,
+    formatSlug,
+    muralDetails,
+    licensingHtml,
   };
 }
 
@@ -149,27 +173,67 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const data = await getArtData(slug);
   if (!data) notFound();
-  const { art, products, compositionHtml, pairedSongs, pairedArt } = data;
+  const { art, products, compositionHtml, pairedSongs, pairedArt, formatSlug, muralDetails, licensingHtml } = data;
+
+  const isMural = formatSlug === "mural" && muralDetails;
+  const muralLocation = isMural && muralDetails ? {
+    venueName: muralDetails.venue_name,
+    venueUrl: muralDetails.venue_url,
+    streetAddress: muralDetails.street_address,
+    neighborhood: muralDetails.neighborhood,
+    city: muralDetails.city,
+    region: muralDetails.region,
+    country: muralDetails.country,
+    latitude: muralDetails.latitude,
+    longitude: muralDetails.longitude,
+    completionDate: muralDetails.completion_date,
+    publicTopics: muralDetails.public_topics,
+  } : null;
+
+  const jsonLd = (
+    <ArtPieceJsonLd
+      title={art.title}
+      url={`https://chadlewine.com/art/${art.slug}`}
+      image={art.image_path}
+      imageAlt={art.image_alt}
+      artSummary={art.art_summary}
+      description={art.description}
+      citationSummary={art.citation_summary}
+      medium={art.medium}
+      dimensions={art.dimensions}
+      yearCreated={art.year_created}
+      focusKeyphrase={art.focus_keyphrase}
+      secondaryKeyphrases={art.secondary_keyphrases || []}
+      paaPairs={art.paa_pairs || []}
+      muralLocation={muralLocation}
+    />
+  );
+
+  if (isMural && muralDetails) {
+    return (
+      <>
+        {jsonLd}
+        <AdminEditButton href={`/admin/art/${art.slug}`} />
+        <MuralTemplate
+          art={art}
+          mural={muralDetails}
+          products={products}
+          compositionHtml={compositionHtml}
+          pairedSongs={pairedSongs}
+          pairedArt={pairedArt}
+          licensingHtml={licensingHtml}
+          licensingDirectAnswer={art.licensing_direct_answer}
+          licensingKeyPoints={art.licensing_key_points}
+        />
+      </>
+    );
+  }
 
   const metaParts = [art.medium, art.dimensions, art.year_created ? String(art.year_created) : null].filter(Boolean) as string[];
 
   return (
     <>
-      <ArtPieceJsonLd
-        title={art.title}
-        url={`https://chadlewine.com/art/${art.slug}`}
-        image={art.image_path}
-        imageAlt={art.image_alt}
-        artSummary={art.art_summary}
-        description={art.description}
-        citationSummary={art.citation_summary}
-        medium={art.medium}
-        dimensions={art.dimensions}
-        yearCreated={art.year_created}
-        focusKeyphrase={art.focus_keyphrase}
-        secondaryKeyphrases={art.secondary_keyphrases || []}
-        paaPairs={art.paa_pairs || []}
-      />
+      {jsonLd}
       <AdminEditButton href={`/admin/art/${art.slug}`} />
       <article className="art-detail">
         <div className="art-detail__hero">
@@ -214,51 +278,14 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
             </section>
           )}
 
-          {pairedSongs.length > 0 && (
-            <section className="art-detail__section art-detail__pairings">
-              <h2>Songs you might like</h2>
-              <div className="art-detail__pairings-grid">
-                {pairedSongs.map((s) => (
-                  <Link key={s.id} href={`/music/songs/${s.slug}`} className="art-pairing-card">
-                    {s.art_image_path && (
-                      <img
-                        src={s.art_image_path}
-                        alt={s.art_alt || s.title}
-                        className="art-pairing-card__img"
-                        style={focalCropStyle(s.card_focal_x, s.card_focal_y, s.card_zoom)}
-                      />
-                    )}
-                    <div className="art-pairing-card__body">
-                      <h3 className="art-pairing-card__title">{s.title}</h3>
-                      {s.song_summary && <p className="art-pairing-card__summary">{s.song_summary}</p>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
+          <ArtLicensingSection
+            title={art.title}
+            directAnswer={art.licensing_direct_answer}
+            contentHtml={licensingHtml}
+            keyPoints={art.licensing_key_points}
+          />
 
-          {pairedArt.length > 0 && (
-            <section className="art-detail__section art-detail__pairings">
-              <h2>Other art you might like</h2>
-              <div className="art-detail__pairings-grid">
-                {pairedArt.map((a) => (
-                  <Link key={a.id} href={`/art/${a.slug}`} className="art-pairing-card">
-                    <img
-                      src={a.image_path}
-                      alt={a.image_alt || a.title}
-                      className="art-pairing-card__img"
-                      style={focalCropStyle(a.card_focal_x, a.card_focal_y, a.card_zoom)}
-                    />
-                    <div className="art-pairing-card__body">
-                      <h3 className="art-pairing-card__title">{a.title}</h3>
-                      {a.art_summary && <p className="art-pairing-card__summary">{a.art_summary}</p>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
+          <ArtPairingsSections pairedSongs={pairedSongs} pairedArt={pairedArt} />
 
           {art.paa_pairs && art.paa_pairs.length > 0 && (
             <section className="art-detail__section art-detail__faq">

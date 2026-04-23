@@ -4,6 +4,7 @@ import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { HomepageFeed } from "@/components/HomepageFeed";
 import { ExploreSongs } from "@/components/ExploreSongs";
 import { SongBriefCard, type SongBriefData } from "@/components/SongBriefCard";
+import { fetchBadge } from "@/lib/rising-compass";
 
 export const revalidate = 60;
 
@@ -60,12 +61,18 @@ async function getCLStreamSongs() {
 
   const { data } = await supabase
     .from("cl_stream_songs")
-    .select("id, title, artist, album, note, source_url, rc_color, rc_charge, rc_charge_summary, created_at")
+    .select("id, title, artist, album, note, source_url, created_at")
     .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(5);
 
-  return data || [];
+  const rows = data || [];
+  // Live-fetch the badge per entry at render time. RC is authoritative for
+  // tier/charge; chadlewine no longer stores a local copy.
+  const badges = await Promise.all(
+    rows.map((r) => fetchBadge(r.title, r.artist)),
+  );
+  return rows.map((r, i) => ({ ...r, badge: badges[i] }));
 }
 
 async function getSongBriefs(): Promise<SongBriefData[]> {

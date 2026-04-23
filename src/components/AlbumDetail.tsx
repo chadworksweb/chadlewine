@@ -34,6 +34,7 @@ interface AlbumBadgeProps {
   chargeSummary: string | null;
   contaminated: boolean;
   contaminationNote: string | null;
+  artistSlug?: string | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -291,7 +292,12 @@ export function AlbumDetail({
 
             {badge && (
               <div className="track-detail__rc-badge">
-                <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
+                <a
+                  href={badge.artistSlug ? `https://risingcompass.net/artists/${encodeURIComponent(badge.artistSlug)}` : "https://risingcompass.net"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="track-detail__rc-compass-link"
+                >
                   <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
                 </a>
                 <div className="track-detail__rc-data">
