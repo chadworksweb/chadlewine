@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 import { CompassIcon } from "@/components/RCBadge";
-import type { RisingCompassBadgeData } from "@/lib/rising-compass";
+import { rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
 
 interface CLStreamSong {
   id: string;
@@ -59,7 +59,7 @@ export function CLStreamEntry({ song }: { song: CLStreamSong }) {
                   PENDING
                 </span>
               )}
-              <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
+              <a href={rcBadgeHref(song.badge)} target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
                 <CompassIcon charge={charge} tierHex={tierHex} />
               </a>
               <div className="track-detail__rc-data">

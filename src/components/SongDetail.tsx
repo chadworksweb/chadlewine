@@ -72,6 +72,7 @@ interface BadgeProps {
   contaminated: boolean;
   contaminationNote: string | null;
   pending?: boolean;
+  songSlug?: string | null;
 }
 
 interface PairedArtProps {
@@ -285,7 +286,12 @@ export function SongDetail({
                     PENDING
                   </span>
                 )}
-                <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
+                <a
+                  href={badge.songSlug ? `https://risingcompass.net/songs/${encodeURIComponent(badge.songSlug)}` : "https://risingcompass.net"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="track-detail__rc-compass-link"
+                >
                   <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
                 </a>
                 <div className="track-detail__rc-data">

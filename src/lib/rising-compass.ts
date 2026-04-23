@@ -18,6 +18,19 @@ export interface RisingCompassBadgeData {
   // True when RC has an open misread/satirical flag on this song — the score
   // is being contested and may shift. Consumers render a "PENDING" stamp.
   pending?: boolean;
+  // Canonical RC slug for this song. Use to deep-link the badge to the
+  // specific song page on risingcompass.net. Null when RC has no slug
+  // yet — fall back to risingcompass.net homepage.
+  song_slug?: string | null;
+}
+
+// Build a deep-link URL to the RC song page for a badge. Falls back to the
+// RC homepage when no slug is present.
+export function rcBadgeHref(badge: RisingCompassBadgeData | null | undefined): string {
+  if (badge?.song_slug) {
+    return `https://risingcompass.net/songs/${encodeURIComponent(badge.song_slug)}`;
+  }
+  return "https://risingcompass.net";
 }
 
 // 24-hour cache for stable badges (recalibrations are rare; caching at scale

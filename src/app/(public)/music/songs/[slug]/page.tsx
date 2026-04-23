@@ -249,6 +249,7 @@ export default async function SongDetailPage({
           contaminated: badge.contaminated,
           contaminationNote: badge.contamination_note,
           pending: badge.pending ?? false,
+          songSlug: badge.song_slug ?? null,
         } : null}
         merchSlot={<SongMerchSection songId={song.id} />}
       />
