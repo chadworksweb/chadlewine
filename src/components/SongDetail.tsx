@@ -71,6 +71,7 @@ interface BadgeProps {
   chargeSummary: string | null;
   contaminated: boolean;
   contaminationNote: string | null;
+  pending?: boolean;
 }
 
 interface PairedArtProps {
@@ -275,6 +276,15 @@ export function SongDetail({
 
             {badge && (
               <div className="track-detail__rc-badge">
+                {badge.pending && (
+                  <span
+                    className="track-detail__rc-pending-stamp"
+                    aria-label="Pending recalibration"
+                    title="This score is being contested — a recalibration is pending review."
+                  >
+                    PENDING
+                  </span>
+                )}
                 <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer" className="track-detail__rc-compass-link">
                   <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
                 </a>

@@ -8582,6 +8582,33 @@ h3.aw-heading {
   position: relative;
 }
 
+/* Old-timey rubber-stamp, angled bottom-left → top-right, translucent so
+   the charge/tier show through. Activates only when the Badge API returns
+   pending=true (open misread/satirical flag on this song). */
+.track-detail__rc-pending-stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  pointer-events: none;
+  z-index: 2;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.22em;
+  padding: 0.2rem 0.6rem;
+  color: #c02020;
+  background: transparent;
+  border: 2.5px solid #c02020;
+  border-radius: 3px;
+  opacity: 0.55;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* Slightly uneven bleed — real stamps aren't perfectly opaque edges */
+  text-shadow: 0 0 1px rgba(192, 32, 32, 0.3);
+  mix-blend-mode: multiply;
+}
+
 .track-detail__rc-compass-link {
   flex-shrink: 0;
   display: block;
