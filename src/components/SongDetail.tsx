@@ -262,34 +262,14 @@ export function SongDetail({
                 </Link>
               )}
               {song.price && songFormats.length > 0 && (
-                <div className="format-buy">
-                  {songFormats.length > 1 && (
-                    <div className="format-buy__picker" role="radiogroup" aria-label="File format">
-                      {songFormats.map((f) => (
-                        <button
-                          key={f}
-                          type="button"
-                          role="radio"
-                          aria-checked={songFormat === f}
-                          className={`format-buy__opt${songFormat === f ? " format-buy__opt--active" : ""}`}
-                          onClick={() => setSongFormat(f)}
-                        >
-                          {f.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="track-detail__btn track-detail__btn--buy"
-                    onClick={() => handleBuy("song")}
-                    disabled={buying === "song"}
-                  >
-                    {buying === "song"
-                      ? "..."
-                      : `Buy Song (${songFormat.toUpperCase()})`}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="track-detail__btn track-detail__btn--buy"
+                  onClick={() => handleBuy("song")}
+                  disabled={buying === "song"}
+                >
+                  {buying === "song" ? "..." : "Buy Song"}
+                </button>
               )}
             </div>
 
