@@ -127,6 +127,11 @@ export default function EditArtPage() {
         </>
       )}
 
+      <h2 className="admin-page__section-title">Licensing Ideas</h2>
+      <div className="obsv-editor__field"><label className="obsv-editor__label">Direct Answer (40–60 words — one paragraph naming the 2–3 strongest placement types)</label><textarea className="obsv-editor__input" rows={3} value={val("licensing_direct_answer")} onChange={e => set({ licensing_direct_answer: e.target.value })} placeholder="e.g. This piece would land in a hospitality lobby, a boutique hotel corridor, or a lifestyle brand's editorial spread — anywhere a large-format work needs to set an emotional tone without competing for the viewer's focus." /></div>
+      <div className="obsv-editor__field"><label className="obsv-editor__label">Prose (markdown — expand on scene/space shape, reference styles or brands when useful)</label><textarea className="obsv-editor__input" rows={6} value={val("licensing_content")} onChange={e => set({ licensing_content: e.target.value })} /></div>
+      <div className="obsv-editor__field"><label className="obsv-editor__label">Placement Scenarios (one per line — concrete searchable phrases)</label><textarea className="obsv-editor__input" rows={5} value={jsonArray("licensing_key_points").join("\n")} onChange={e => set({ licensing_key_points: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) })} placeholder={"Editorial spread for a travel or lifestyle magazine\nBook cover for a literary fiction imprint\nLobby wall for a boutique hotel\nBrand environment for a premium hospitality group"} /></div>
+
       <h2 className="admin-page__section-title">Variants / Products</h2>
       <ArtVariantsManager slug={slug} />
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
 import { ArtPairingsSections, type PairedSong, type PairedArt } from "@/components/ArtPairingsSections";
+import { ArtLicensingSection } from "@/components/ArtLicensingSection";
 import { focalCropStyle } from "@/lib/focal-crop";
 
 export type MuralDetails = {
@@ -90,6 +91,9 @@ export function MuralTemplate({
   compositionHtml,
   pairedSongs,
   pairedArt,
+  licensingHtml = null,
+  licensingDirectAnswer = null,
+  licensingKeyPoints = null,
 }: {
   art: ArtRow;
   mural: MuralDetails;
@@ -97,6 +101,9 @@ export function MuralTemplate({
   compositionHtml: string | null;
   pairedSongs: PairedSong[];
   pairedArt: PairedArt[];
+  licensingHtml?: string | null;
+  licensingDirectAnswer?: string | null;
+  licensingKeyPoints?: string[] | null;
 }) {
   const subtitle = locationSubtitle(mural);
   const dims = formatDimensions(mural);
@@ -168,6 +175,13 @@ export function MuralTemplate({
             <div dangerouslySetInnerHTML={{ __html: compositionHtml }} />
           </section>
         )}
+
+        <ArtLicensingSection
+          title={art.title}
+          directAnswer={licensingDirectAnswer}
+          contentHtml={licensingHtml}
+          keyPoints={licensingKeyPoints}
+        />
 
         {gallery.length > 0 && (
           <section className="art-detail__section art-detail__gallery">

@@ -5,8 +5,10 @@ import { AdminEditButton } from "@/components/AdminEditButton";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
 import { ArtPieceJsonLd } from "@/components/ArtPieceJsonLd";
 import { ArtPairingsSections } from "@/components/ArtPairingsSections";
+import { ArtLicensingSection } from "@/components/ArtLicensingSection";
 import { MuralTemplate, type MuralDetails } from "@/components/MuralTemplate";
 import { focalCropStyle } from "@/lib/focal-crop";
+import { markdownToHtml } from "@/lib/markdown";
 
 export const revalidate = 60;
 
@@ -35,6 +37,9 @@ type ArtRow = {
   status: string;
   format_id: string | null;
   gallery_paths: string[] | null;
+  licensing_direct_answer: string | null;
+  licensing_content: string | null;
+  licensing_key_points: string[] | null;
 };
 
 type ProductRow = {
@@ -125,6 +130,8 @@ async function getArtData(slug: string) {
     muralDetails = (mural as MuralDetails | null) || null;
   }
 
+  const licensingHtml = art.licensing_content ? await markdownToHtml(art.licensing_content) : null;
+
   return {
     art: art as ArtRow,
     products: (products as ProductRow[] | null) || [],
@@ -133,6 +140,7 @@ async function getArtData(slug: string) {
     pairedArt,
     formatSlug,
     muralDetails,
+    licensingHtml,
   };
 }
 
@@ -165,7 +173,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const data = await getArtData(slug);
   if (!data) notFound();
-  const { art, products, compositionHtml, pairedSongs, pairedArt, formatSlug, muralDetails } = data;
+  const { art, products, compositionHtml, pairedSongs, pairedArt, formatSlug, muralDetails, licensingHtml } = data;
 
   const isMural = formatSlug === "mural" && muralDetails;
   const muralLocation = isMural && muralDetails ? {
@@ -213,6 +221,9 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
           compositionHtml={compositionHtml}
           pairedSongs={pairedSongs}
           pairedArt={pairedArt}
+          licensingHtml={licensingHtml}
+          licensingDirectAnswer={art.licensing_direct_answer}
+          licensingKeyPoints={art.licensing_key_points}
         />
       </>
     );
@@ -266,6 +277,13 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
               <div dangerouslySetInnerHTML={{ __html: compositionHtml }} />
             </section>
           )}
+
+          <ArtLicensingSection
+            title={art.title}
+            directAnswer={art.licensing_direct_answer}
+            contentHtml={licensingHtml}
+            keyPoints={art.licensing_key_points}
+          />
 
           <ArtPairingsSections pairedSongs={pairedSongs} pairedArt={pairedArt} />
 

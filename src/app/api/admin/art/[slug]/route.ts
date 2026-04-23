@@ -22,6 +22,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
     "portrait_focal_x", "portrait_focal_y", "portrait_zoom",
     "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary",
     "paa_pairs", "entity_tags", "seo_title", "seo_description",
+    "licensing_direct_answer", "licensing_content", "licensing_key_points",
   ];
   const updates: Record<string, unknown> = {};
   for (const f of fields) { if (f in body) updates[f] = body[f]; }
