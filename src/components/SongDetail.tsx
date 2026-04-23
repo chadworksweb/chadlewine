@@ -302,31 +302,33 @@ export function SongDetail({
                   <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
                     {badge.tierLabel}
                   </span>
-                  <span className="track-detail__rc-charge">
-                    {badge.charge > 0 ? "+" : ""}{badge.charge}
-                  </span>
-                </div>
-                {badge.chargeSummary && (
-                  <div className="track-detail__rc-summary-wrap">
-                    <button
-                      type="button"
-                      className="track-detail__rc-summary-btn"
-                      onClick={() => setSummaryOpen((v) => !v)}
-                      aria-label="Read charge summary"
-                      title="Charge summary"
-                    >
-                      &#x1F4AC;
-                    </button>
-                    {summaryOpen && (
-                      <div className="track-detail__rc-summary-tooltip">
-                        <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
-                        {badge.contaminated && badge.contaminationNote && (
-                          <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                  <div className="track-detail__rc-charge-row">
+                    <span className="track-detail__rc-charge">
+                      {badge.charge > 0 ? "+" : ""}{badge.charge}
+                    </span>
+                    {badge.chargeSummary && (
+                      <div className="track-detail__rc-summary-wrap">
+                        <button
+                          type="button"
+                          className="track-detail__rc-summary-btn"
+                          onClick={() => setSummaryOpen((v) => !v)}
+                          aria-label="Read charge summary"
+                          title="Charge summary"
+                        >
+                          &#x1F4AC;
+                        </button>
+                        {summaryOpen && (
+                          <div className="track-detail__rc-summary-tooltip">
+                            <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
+                            {badge.contaminated && badge.contaminationNote && (
+                              <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>

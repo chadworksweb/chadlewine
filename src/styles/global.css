@@ -8563,7 +8563,7 @@ h3.aw-heading {
 
 .track-detail__action-row {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr auto;
   gap: 1.5rem;
   align-items: start;
   margin-bottom: 1.5rem;
@@ -8617,6 +8617,13 @@ h3.aw-heading {
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.2;
+}
+
+/* Charge numeral + inline summary button, sit below the tier label */
+.track-detail__rc-charge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
 }
 
 /* Summary tooltip (comment bubble) */
