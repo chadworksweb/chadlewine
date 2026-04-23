@@ -5,16 +5,20 @@ import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/F
 import { ArtGalleryManager } from "@/components/ArtGalleryManager";
 import { ArtVariantsManager } from "@/components/ArtVariantsManager";
 import { FeaturedPicker } from "@/components/FeaturedPicker";
+import { MuralDetailsEditor } from "@/components/MuralDetailsEditor";
 
 type Form = Record<string, unknown>;
+type ArtFormat = { id: string; slug: string; label: string };
 
 export default function EditArtPage() {
   const { slug } = useParams() as { slug: string };
   const router = useRouter();
   const [form, setForm] = useState<Form | null>(null);
+  const [formats, setFormats] = useState<ArtFormat[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetch(`/api/admin/art/${slug}`).then(r => r.json()).then(setForm); }, [slug]);
+  useEffect(() => { fetch(`/api/admin/art-formats`).then(r => r.json()).then(setFormats).catch(() => setFormats([])); }, []);
 
   async function handleSave() {
     if (!form) return;
@@ -65,6 +69,13 @@ export default function EditArtPage() {
       <h2 className="admin-page__section-title">Basics</h2>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Title</label><input className="obsv-editor__input" value={val("title")} onChange={e => set({ title: e.target.value })} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Slug</label><input className="obsv-editor__input" value={val("slug")} onChange={e => set({ slug: e.target.value })} /></div>
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Format</label>
+        <select className="obsv-editor__input" value={val("format_id")} onChange={e => set({ format_id: e.target.value || null })}>
+          <option value="">—</option>
+          {formats.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+        </select>
+      </div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Status</label><select className="obsv-editor__input" value={val("status") || "draft"} onChange={e => set({ status: e.target.value })}><option value="draft">Draft</option><option value="unreleased">Unreleased</option><option value="published">Published</option></select></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Display Order</label><input className="obsv-editor__input" type="number" value={num("display_order") || 0} onChange={e => set({ display_order: parseInt(e.target.value) || 0 })} /></div>
 
@@ -108,6 +119,13 @@ export default function EditArtPage() {
       <div className="obsv-editor__field"><label className="obsv-editor__label">Art Summary (1–2 sentences — used in cards, meta descriptions)</label><textarea className="obsv-editor__input" rows={2} value={val("art_summary")} onChange={e => set({ art_summary: e.target.value })} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Description (longer-form)</label><textarea className="obsv-editor__input" rows={5} value={val("description")} onChange={e => set({ description: e.target.value })} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Chad Quote</label><textarea className="obsv-editor__input" rows={2} value={val("chad_quote")} onChange={e => set({ chad_quote: e.target.value })} placeholder="A short line in your voice about this piece" /></div>
+
+      {formats.find((f) => f.id === val("format_id"))?.slug === "mural" && (
+        <>
+          <h2 className="admin-page__section-title">Mural Details</h2>
+          <MuralDetailsEditor slug={slug} />
+        </>
+      )}
 
       <h2 className="admin-page__section-title">Variants / Products</h2>
       <ArtVariantsManager slug={slug} />

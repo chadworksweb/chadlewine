@@ -16,7 +16,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
   const fields = [
     "title", "slug", "medium", "image_path", "image_alt", "description",
     "display_order", "status", "dimensions", "year_created", "gallery_paths",
-    "art_summary", "chad_quote",
+    "art_summary", "chad_quote", "format_id",
     "hero_focal_x", "hero_focal_y", "hero_zoom",
     "card_focal_x", "card_focal_y", "card_zoom",
     "portrait_focal_x", "portrait_focal_y", "portrait_zoom",
