@@ -32,7 +32,8 @@ function styleFor(item: Item) {
   return focalCropStyle(item.focalX, item.focalY, item.zoom);
 }
 
-export function FeaturedPicker({ kind, parentRef }: { kind: Kind; parentRef: string }) {
+export function FeaturedPicker({ kind, parentRef, parentKind, excludeSlug }: { kind: Kind; parentRef: string; parentKind?: Kind; excludeSlug?: string }) {
+  const resolvedParentKind: Kind = parentKind ?? (kind === "art" ? "song" : "art");
   const [featured, setFeatured] = useState<Item[]>([]);
   const [candidates, setCandidates] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,10 +42,9 @@ export function FeaturedPicker({ kind, parentRef }: { kind: Kind; parentRef: str
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
-  const featuredUrl =
-    kind === "art"
-      ? `/api/admin/songs/${parentRef}/featured-art`
-      : `/api/admin/art/${parentRef}/featured-songs`;
+  const parentSegment = resolvedParentKind === "art" ? "art" : "songs";
+  const childSegment = kind === "art" ? "featured-art" : "featured-songs";
+  const featuredUrl = `/api/admin/${parentSegment}/${parentRef}/${childSegment}`;
   const candidatesUrl = kind === "art" ? "/api/admin/art" : "/api/admin/songs";
   const payloadKey = kind === "art" ? "art_ids" : "song_ids";
 
@@ -129,9 +129,10 @@ export function FeaturedPicker({ kind, parentRef }: { kind: Kind; parentRef: str
     const q = query.trim().toLowerCase();
     return candidates
       .filter((c) => !featuredIds.has(c.id))
+      .filter((c) => (excludeSlug ? c.slug !== excludeSlug : true))
       .filter((c) => (q ? c.title.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q) : true))
       .slice(0, 20);
-  }, [candidates, featuredIds, query]);
+  }, [candidates, featuredIds, query, excludeSlug]);
 
   if (loading) return <p className="featured-picker__status">Loading…</p>;
 

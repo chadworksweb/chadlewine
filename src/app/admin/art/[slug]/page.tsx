@@ -115,6 +115,9 @@ export default function EditArtPage() {
       <h2 className="admin-page__section-title">Songs you might like (shown on art detail page)</h2>
       <FeaturedPicker kind="song" parentRef={slug} />
 
+      <h2 className="admin-page__section-title">Other art you might like (shown on art detail page)</h2>
+      <FeaturedPicker kind="art" parentKind="art" parentRef={slug} excludeSlug={slug} />
+
       <h2 className="admin-page__section-title">GEO / SEO</h2>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Focus Keyphrase</label><input className="obsv-editor__input" value={val("focus_keyphrase")} onChange={e => set({ focus_keyphrase: e.target.value })} maxLength={80} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Secondary Keyphrases (one per line)</label><textarea className="obsv-editor__input" rows={3} value={secondary.join("\n")} onChange={e => set({ secondary_keyphrases: e.target.value.split("\n").map(s => s.trim()).filter(Boolean) })} /></div>
