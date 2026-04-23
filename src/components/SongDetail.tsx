@@ -421,6 +421,7 @@ export function SongDetail({
         const connections = sectionMap.get("connections");
         const culturalPosition = sectionMap.get("cultural-position");
         const ifYouLike = sectionMap.get("if-you-like");
+        const syncPlacements = sectionMap.get("sync-placements");
 
         return (
           <div className="song-landing">
@@ -686,7 +687,36 @@ export function SongDetail({
               </section>
             )}
 
-            {/* 10. People Also Ask — FAQ section */}
+            {/* 10. Sync Placements — GEO: where this song fits in film/TV/ads (format stack) */}
+            {(syncPlacements?.directAnswer || syncPlacements?.contentHtml || (syncPlacements?.keyPoints && syncPlacements.keyPoints.length > 0)) && (
+              <section className="song-landing__section song-landing__section--alt">
+                <div className="song-landing__container">
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">Where Could &ldquo;{song.title}&rdquo; Be Placed?</h2>
+                    {syncPlacements.directAnswer && (
+                      <p className="song-landing__direct-answer">{syncPlacements.directAnswer}</p>
+                    )}
+                  </aside>
+                  <div className="song-landing__main">
+                    {syncPlacements.contentHtml && (
+                      <div
+                        className="song-landing__prose reading-column"
+                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(syncPlacements.contentHtml) }}
+                      />
+                    )}
+                    {syncPlacements.keyPoints && syncPlacements.keyPoints.length > 0 && (
+                      <ul className="song-landing__key-points">
+                        {syncPlacements.keyPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* 11. People Also Ask — FAQ section */}
             {geoFields?.paa_pairs && geoFields.paa_pairs.length > 0 && (
               <section className="song-landing__section">
                 <div className="song-landing__container">

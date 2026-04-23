@@ -172,6 +172,7 @@ export default async function SongDetailPage({
     story: `What is the story behind "${song.title}"?`,
     breakdown: `What makes "${song.title}" work?`,
     connections: `What other songs connect to "${song.title}"?`,
+    "sync-placements": `Where could "${song.title}" be placed in film, TV, or ads?`,
   };
 
   const sectionQAPairs = visibilitySections

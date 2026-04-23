@@ -7,6 +7,7 @@ export const VISIBILITY_CATEGORIES = [
   { slug: "story", label: "The Story", description: "Origin & backstory", autoGenerate: false },
   { slug: "breakdown", label: "The Breakdown", description: "Craft & construction", autoGenerate: true },
   { slug: "connections", label: "The Connections", description: "Catalog cross-linking", autoGenerate: true },
+  { slug: "sync-placements", label: "Sync Placements", description: "Placement scenarios — film, TV, trailer, ad, game contexts this song fits", autoGenerate: true },
   { slug: "hooks", label: "The Hooks", description: "Door page discovery angles (internal)", autoGenerate: true },
 ] as const;
 
