@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Guardrail: prevent pushing to `master` unless the new tip is
+#   (a) a fast-forward to origin/staging, OR
+#   (b) a merge commit whose second parent is origin/staging.
+# Enforces staging → master as the only path to production.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+
+set -e
+
+remote="$1"
+protected_branch="master"
+staging_remote_ref="refs/remotes/$remote/staging"
+
+# Make sure our local view of origin/staging is current
+git fetch -q "$remote" staging 2>/dev/null || true
+
+zero="0000000000000000000000000000000000000000"
+
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" != "refs/heads/$protected_branch" ]; then
+    continue
+  fi
+
+  # Allow branch deletion
+  if [ "$local_sha" = "$zero" ]; then
+    continue
+  fi
+
+  if ! staging_sha=$(git rev-parse --verify --quiet "$staging_remote_ref"); then
+    echo ""
+    echo "pre-push: cannot resolve $staging_remote_ref — refusing push to $protected_branch."
+    exit 1
+  fi
+
+  # Case A: new master tip == origin/staging (fast-forward of staging into master)
+  if [ "$local_sha" = "$staging_sha" ]; then
+    continue
+  fi
+
+  # Case B: new master tip is a merge commit with origin/staging as a parent
+  parents=$(git cat-file -p "$local_sha" | awk '/^parent / {print $2}')
+  if echo "$parents" | grep -qx "$staging_sha"; then
+    continue
+  fi
+
+  cat <<EOF
+
+BLOCKED: push to '$protected_branch' must pass through staging.
+
+  new master tip : $local_sha
+  origin/staging : $staging_sha
+
+Allowed pushes to master:
+  • fast-forward to origin/staging, OR
+  • merge commit whose second parent is origin/staging
+
+To ship to prod:
+    git checkout $protected_branch
+    git pull --ff-only
+    git merge --no-ff origin/staging -m "Merge staging: <summary>"
+    git push origin $protected_branch
+
+Bypass (rare, use with care):
+    git push --no-verify origin $protected_branch
+
+EOF
+  exit 1
+done
+
+exit 0
