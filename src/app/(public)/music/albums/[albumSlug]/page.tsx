@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createPublicClient } from "@/lib/supabase-server";
+import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { AlbumDetail } from "@/components/AlbumDetail";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge, fetchAlbumBadge, rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
@@ -21,21 +21,28 @@ async function getAlbumData(albumSlug: string) {
   // Get songs via junction
   const { data: junctions } = await supabase
     .from("album_songs")
-    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path)")
+    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path, playback_mode)")
     .eq("album_id", album.id)
     .order("track_number");
 
-  const songs = (junctions || [])
-    .filter((j: any) => j.song?.status === "published" || j.song?.status === "unreleased")
-    .map((j: any) => ({
-      id: j.song.id,
-      title: j.song.title,
-      slug: j.song.slug,
-      track_number: j.track_number,
-      duration_seconds: j.song.duration_seconds,
-      streaming_path: j.song.streaming_path,
-      price: j.song.price,
-    }));
+  const filtered = (junctions || []).filter(
+    (j: any) => j.song?.status === "published" || j.song?.status === "unreleased",
+  );
+
+  const playbackModes = await Promise.all(
+    filtered.map((j: any) => getPlaybackMode(j.song.playback_mode ?? null)),
+  );
+
+  const songs = filtered.map((j: any, i: number) => ({
+    id: j.song.id,
+    title: j.song.title,
+    slug: j.song.slug,
+    track_number: j.track_number,
+    duration_seconds: j.song.duration_seconds,
+    streaming_path: j.song.streaming_path,
+    price: j.song.price,
+    playback_mode: playbackModes[i],
+  }));
 
   const anyLegacyDownload = (junctions || []).some((j: any) => j.song?.download_path);
 
@@ -119,6 +126,7 @@ export default async function AlbumDetailPage({
           duration_seconds: s.duration_seconds,
           streaming_path: s.streaming_path,
           price: s.price,
+          playback_mode: s.playback_mode,
         }))}
         badge={albumBadge}
         availableFormats={(() => {

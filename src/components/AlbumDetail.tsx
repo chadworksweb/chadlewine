@@ -24,6 +24,7 @@ interface SongProps {
   duration_seconds: number | null;
   streaming_path: string | null;
   price: number | null;
+  playback_mode?: "preview" | "full";
 }
 
 interface AlbumBadgeProps {
@@ -147,19 +148,33 @@ export function AlbumDetail({
     return () => { stopPlayback(); };
   }, [stopPlayback]);
 
+  // Track which song is playing in full-mode so tick() can scope its math
+  // to that song's duration instead of the preview window.
+  const fullPlayRef = useRef<{ duration: number } | null>(null);
+
   function tick() {
     const audio = audioRef.current;
     if (!audio || audio.paused) return;
-    const elapsed = audio.currentTime - PREVIEW_START;
-    const pct = Math.max(0, Math.min(1, elapsed / PREVIEW_DURATION));
-    setProgress(pct);
-    const remaining = PREVIEW_DURATION - elapsed;
-    if (remaining <= FADE_DURATION) {
-      audio.volume = Math.max(0, remaining / FADE_DURATION);
-    }
-    if (elapsed >= PREVIEW_DURATION) {
-      stopPlayback();
-      return;
+    const fp = fullPlayRef.current;
+    if (fp && fp.duration > 0) {
+      const pct = Math.max(0, Math.min(1, audio.currentTime / fp.duration));
+      setProgress(pct);
+      if (audio.ended) {
+        stopPlayback();
+        return;
+      }
+    } else {
+      const elapsed = audio.currentTime - PREVIEW_START;
+      const pct = Math.max(0, Math.min(1, elapsed / PREVIEW_DURATION));
+      setProgress(pct);
+      const remaining = PREVIEW_DURATION - elapsed;
+      if (remaining <= FADE_DURATION) {
+        audio.volume = Math.max(0, remaining / FADE_DURATION);
+      }
+      if (elapsed >= PREVIEW_DURATION) {
+        stopPlayback();
+        return;
+      }
     }
     rafRef.current = requestAnimationFrame(tick);
   }
@@ -174,22 +189,35 @@ export function AlbumDetail({
     stopPlayback();
     const audio = new Audio(song.streaming_path);
     audioRef.current = audio;
-    audio.currentTime = PREVIEW_START;
-    audio.volume = 0;
+    const isFullPlay = song.playback_mode === "full";
+    fullPlayRef.current = isFullPlay
+      ? { duration: song.duration_seconds ?? 0 }
+      : null;
+
+    if (isFullPlay) {
+      audio.currentTime = 0;
+      audio.volume = 1;
+    } else {
+      audio.currentTime = PREVIEW_START;
+      audio.volume = 0;
+    }
 
     audio.addEventListener("canplay", () => {
       audio.play().then(() => {
         setPlayingId(song.id);
-        let vol = 0;
-        const fadeIn = setInterval(() => {
-          vol += 0.05;
-          if (vol >= 1) { audio.volume = 1; clearInterval(fadeIn); }
-          else { audio.volume = vol; }
-        }, FADE_DURATION * 1000 / 20);
+        if (!isFullPlay) {
+          let vol = 0;
+          const fadeIn = setInterval(() => {
+            vol += 0.05;
+            if (vol >= 1) { audio.volume = 1; clearInterval(fadeIn); }
+            else { audio.volume = vol; }
+          }, FADE_DURATION * 1000 / 20);
+        }
         rafRef.current = requestAnimationFrame(tick);
       });
     }, { once: true });
 
+    audio.addEventListener("ended", () => { stopPlayback(); }, { once: true });
     audio.addEventListener("error", () => { stopPlayback(); }, { once: true });
     audio.load();
   }
