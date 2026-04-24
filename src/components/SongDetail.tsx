@@ -196,7 +196,7 @@ export function SongDetail({
       value: (
         <Link
           href={`/music/albums/${album.slug}`}
-          className="song-detail__glitch-link"
+          className="track-detail__glitch-link"
           data-text={album.title}
         >
           {album.title}
@@ -212,15 +212,15 @@ export function SongDetail({
   }
 
   return (
-    <div className="song-detail">
-      <div className="song-detail__grid">
+    <div className="track-detail">
+      <div className="track-detail__grid">
         {/* Left column — Cover art (song art overrides album art) */}
-        <div className="song-detail__art-col">
+        <div className="track-detail__art-col">
           {coverArtPath && (
             <img
               src={coverArtPath}
               alt={coverArtAlt}
-              className="song-detail__cover"
+              className="track-detail__cover"
               loading="eager"
               style={focalCropStyle(song.card_focal_x ?? null, song.card_focal_y ?? null, song.card_zoom ?? null)}
             />
@@ -228,18 +228,18 @@ export function SongDetail({
         </div>
 
         {/* Right column — Content */}
-        <div className="song-detail__content-col">
-          <h1 className="song-detail__title">{song.title}</h1>
+        <div className="track-detail__content-col">
+          <h1 className="track-detail__title">{song.title}</h1>
 
           {/* Info bar */}
           <div
-            className="song-detail__info-bar"
+            className="track-detail__info-bar"
             data-cols={infoCells.length}
           >
             {infoCells.map((cell) => (
-              <div key={cell.key} className={`song-detail__info-cell song-detail__info-cell--${cell.key}`}>
-                <span className={`song-detail__info-label song-detail__info-label--${cell.key}`}>{cell.label}</span>
-                <span className={`song-detail__info-value song-detail__info-value--${cell.key}`}>{cell.value}</span>
+              <div key={cell.key} className={`track-detail__info-cell track-detail__info-cell--${cell.key}`}>
+                <span className={`track-detail__info-label track-detail__info-label--${cell.key}`}>{cell.label}</span>
+                <span className={`track-detail__info-value track-detail__info-value--${cell.key}`}>{cell.value}</span>
               </div>
             ))}
           </div>
@@ -256,17 +256,17 @@ export function SongDetail({
           )}
 
           {/* Action row: buttons + badge */}
-          <div className="song-detail__action-row">
-            <div className="song-detail__actions">
+          <div className="track-detail__action-row">
+            <div className="track-detail__actions">
               {album && (
-                <Link href={`/music/albums/${album.slug}`} className="song-detail__btn song-detail__btn--buy-album">
+                <Link href={`/music/albums/${album.slug}`} className="track-detail__btn track-detail__btn--buy-album">
                   Buy Album
                 </Link>
               )}
               {song.price && songFormats.length > 0 && (
                 <button
                   type="button"
-                  className="song-detail__btn song-detail__btn--buy"
+                  className="track-detail__btn track-detail__btn--buy"
                   onClick={() => handleBuy("song")}
                   disabled={buying === "song"}
                 >
@@ -276,10 +276,10 @@ export function SongDetail({
             </div>
 
             {badge && (
-              <div className="song-detail__rc-badge">
+              <div className="track-detail__rc-badge">
                 {badge.pending && (
                   <span
-                    className="song-detail__rc-pending-stamp"
+                    className="track-detail__rc-pending-stamp"
                     aria-label="Pending recalibration"
                     title="This score is being contested — a recalibration is pending review."
                   >
@@ -290,23 +290,23 @@ export function SongDetail({
                   href={badge.songSlug ? `https://risingcompass.net/songs/${encodeURIComponent(badge.songSlug)}` : "https://risingcompass.net"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="song-detail__rc-compass-link"
+                  className="track-detail__rc-compass-link"
                 >
                   <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
                 </a>
-                <div className="song-detail__rc-data">
-                  <span className="song-detail__rc-tier" style={{ color: badge.tierHex }}>
+                <div className="track-detail__rc-data">
+                  <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
                     {badge.tierLabel}
                   </span>
-                  <div className="song-detail__rc-charge-row">
-                    <span className="song-detail__rc-charge">
+                  <div className="track-detail__rc-charge-row">
+                    <span className="track-detail__rc-charge">
                       {badge.charge > 0 ? "+" : ""}{badge.charge}
                     </span>
                     {badge.chargeSummary && (
-                      <div className="song-detail__rc-summary-wrap">
+                      <div className="track-detail__rc-summary-wrap">
                         <button
                           type="button"
-                          className="song-detail__rc-summary-btn"
+                          className="track-detail__rc-summary-btn"
                           onClick={() => setSummaryOpen((v) => !v)}
                           aria-label="Read charge summary"
                           title="Charge summary"
@@ -314,10 +314,10 @@ export function SongDetail({
                           &#x1F4AC;
                         </button>
                         {summaryOpen && (
-                          <div className="song-detail__rc-summary-tooltip">
-                            <p className="song-detail__rc-summary-text">{badge.chargeSummary}</p>
+                          <div className="track-detail__rc-summary-tooltip">
+                            <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
                             {badge.contaminated && badge.contaminationNote && (
-                              <p className="song-detail__rc-contam">{badge.contaminationNote}</p>
+                              <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
                             )}
                           </div>
                         )}
@@ -331,23 +331,23 @@ export function SongDetail({
 
           {/* Lyrics */}
           {song.instrumental ? (
-            <div className="song-detail__section">
-              <h3 className="song-detail__section-title">Lyrics</h3>
+            <div className="track-detail__section">
+              <h3 className="track-detail__section-title">Lyrics</h3>
               <p style={{ color: "var(--text-tertiary)", fontStyle: "italic" }}>
                 Instrumental — no lyrics.
               </p>
             </div>
           ) : song.lyrics && (
-            <div className="song-detail__section">
-              <h3 className="song-detail__section-title">Lyrics</h3>
+            <div className="track-detail__section">
+              <h3 className="track-detail__section-title">Lyrics</h3>
               <div
-                className={`song-detail__lyrics ${lyricsExpanded ? "song-detail__lyrics--expanded" : ""}`}
+                className={`track-detail__lyrics ${lyricsExpanded ? "track-detail__lyrics--expanded" : ""}`}
               >
-                <pre className="song-detail__lyrics-text">{song.lyrics.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n")}</pre>
+                <pre className="track-detail__lyrics-text">{song.lyrics.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n")}</pre>
               </div>
               <button
                 type="button"
-                className="song-detail__lyrics-toggle"
+                className="track-detail__lyrics-toggle"
                 onClick={() => setLyricsExpanded((v) => !v)}
               >
                 {lyricsExpanded ? "Show less" : "Show full lyrics"}
@@ -357,9 +357,9 @@ export function SongDetail({
 
           {/* Song Summary */}
           {song.song_summary && (
-            <div className="song-detail__section">
-              <h3 className="song-detail__section-title">About This Song</h3>
-              <div className="song-detail__summary-text">
+            <div className="track-detail__section">
+              <h3 className="track-detail__section-title">About This Song</h3>
+              <div className="track-detail__summary-text">
                 {song.song_summary}
               </div>
             </div>
@@ -367,24 +367,24 @@ export function SongDetail({
 
           {/* Expansions */}
           {expansions.length > 0 && (
-            <div className="song-detail__section">
-              <h3 className="song-detail__section-title">Deep Dive</h3>
-              <div className="song-detail__expansions">
+            <div className="track-detail__section">
+              <h3 className="track-detail__section-title">Deep Dive</h3>
+              <div className="track-detail__expansions">
                 {expansions.map((exp) => (
-                  <div key={exp.id} className="song-detail__expansion">
+                  <div key={exp.id} className="track-detail__expansion">
                     <button
                       type="button"
-                      className="song-detail__expansion-toggle"
+                      className="track-detail__expansion-toggle"
                       onClick={() => toggleExpansion(exp.id)}
                       aria-expanded={openExpansions.has(exp.id)}
                     >
-                      <span className="song-detail__expansion-arrow">
+                      <span className="track-detail__expansion-arrow">
                         {openExpansions.has(exp.id) ? "▾" : "▸"}
                       </span>
                       {exp.title}
                     </button>
                     {openExpansions.has(exp.id) && (
-                      <div className="song-detail__expansion-body">
+                      <div className="track-detail__expansion-body">
                         {exp.body.split("\n\n").map((paragraph, i) => (
                           <p key={i}>{paragraph}</p>
                         ))}
@@ -774,7 +774,7 @@ export function SongDetail({
 
       {/* Bare minimum CTA when no content exists */}
       {visibilitySections.length === 0 && !geoFields && (
-        <div className="song-detail__business-cta" style={{ maxWidth: "800px", margin: "0 auto" }}>
+        <div className="track-detail__business-cta" style={{ maxWidth: "800px", margin: "0 auto" }}>
           Interested in licensing or sync placement? <Link href="/business">Business inquiries</Link>
         </div>
       )}
