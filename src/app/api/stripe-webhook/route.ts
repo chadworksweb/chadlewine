@@ -78,53 +78,28 @@ export async function POST(request: Request) {
         }
       }
     } else if (itemType && itemId && ["song", "album"].includes(itemType)) {
-      // Music purchase — permanent download link, recovery via /music/recover
-      const CDN_BASE = "https://chadrising-audio-downloads.b-cdn.net";
+      // Music purchase — permanent token link, file resolved + signed at read time.
+      // We DO NOT freeze a download URL on the purchase row; /api/download/[token]
+      // re-resolves from songs/albums so file relocations don't break old purchases.
       const rawFormat = session.metadata?.format;
       const format: "mp3" | "flac" | "wav" =
         rawFormat === "flac" || rawFormat === "wav" ? rawFormat : "mp3";
-      let downloadUrl: string | null = null;
+
       let itemTitle = "";
-
-      const resolveUrl = (path: string | null | undefined): string | null => {
-        if (!path) return null;
-        return path.startsWith("http") ? path : `${CDN_BASE}/${path}`;
-      };
-
       if (itemType === "song") {
         const { data: song } = await supabase
           .from("songs")
-          .select("title, download_path, download_path_mp3, download_path_flac, download_path_wav")
+          .select("title")
           .eq("id", itemId)
           .single();
         itemTitle = song?.title || "Your song";
-        const byFormat = (song as Record<string, string | null> | null)?.[`download_path_${format}`];
-        downloadUrl = resolveUrl(byFormat || song?.download_path || null);
       } else {
         const { data: album } = await supabase
           .from("albums")
-          .select("title, download_path_mp3, download_path_flac, download_path_wav")
+          .select("title")
           .eq("id", itemId)
           .single();
         itemTitle = album?.title || "Your album";
-        const byFormat = (album as Record<string, string | null> | null)?.[`download_path_${format}`];
-        downloadUrl = resolveUrl(byFormat || null);
-
-        // Legacy fallback — no album-level format path, grab first track's download_path
-        if (!downloadUrl && format === "mp3") {
-          const { data: albumSongs } = await supabase
-            .from("album_songs")
-            .select("songs(download_path)")
-            .eq("album_id", itemId)
-            .order("track_number");
-          const firstWithPath = albumSongs?.find(
-            (as: unknown) => ((as as Record<string, unknown>).songs as Record<string, unknown>)?.download_path
-          );
-          if (firstWithPath) {
-            const songData = (firstWithPath as unknown as Record<string, unknown>).songs as Record<string, unknown>;
-            downloadUrl = resolveUrl(songData.download_path as string);
-          }
-        }
       }
 
       const buyerEmail = session.customer_details?.email || "unknown";
@@ -138,7 +113,7 @@ export async function POST(request: Request) {
           format,
           stripe_payment_intent_id: session.payment_intent || null,
           amount: (session.amount_total || 0) / 100,
-          download_url: downloadUrl,
+          download_url: null,
           download_expires_at: null,
         })
         .select("id")

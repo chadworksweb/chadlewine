@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { slugify } from "@/lib/utils";
 import { useAutosave } from "@/hooks/useAutosave";
+import { MediaLibrary } from "@/components/MediaLibrary";
 
 interface AlbumData {
   id?: string;
@@ -14,6 +15,7 @@ interface AlbumData {
   cover_art_path: string | null;
   cover_art_alt: string | null;
   description: string | null;
+  concept_statement: string | null;
   display_order: number;
   status: string;
   format_id: string | null;
@@ -30,6 +32,7 @@ const emptyAlbum: AlbumData = {
   cover_art_path: null,
   cover_art_alt: null,
   description: null,
+  concept_statement: null,
   display_order: 0,
   status: "draft",
   format_id: null,
@@ -45,6 +48,7 @@ export default function EditAlbumPage() {
   const [form, setForm] = useState<AlbumData | null>(null);
   const [songs, setSongs] = useState<{ id: string; title: string; slug: string; track_number: number; status: string }[]>([]);
   const [formats, setFormats] = useState<{ id: string; label: string }[]>([]);
+  const [mediaOpen, setMediaOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -70,6 +74,7 @@ export default function EditAlbumPage() {
       cover_art_path: d.cover_art_path,
       cover_art_alt: d.cover_art_alt,
       description: d.description,
+      concept_statement: d.concept_statement,
       display_order: d.display_order,
       status: d.status,
       format_id: d.format_id,
@@ -149,29 +154,75 @@ export default function EditAlbumPage() {
               rows={6}
               placeholder="About this album..."
             />
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "var(--space-2xs) 0 0" }}>
+              SEO meta description. Shown in search results + social shares.
+            </p>
           </div>
 
           <div className="obsv-editor__field">
-            <label className="obsv-editor__label" htmlFor="cover_art_path">Cover Art Path</label>
-            <input
-              id="cover_art_path"
-              className="obsv-editor__input obsv-editor__input--mono"
-              type="text"
-              value={form.cover_art_path || ""}
-              onChange={e => set("cover_art_path", e.target.value || null)}
-              placeholder="https://cdn.bunny.net/..."
-            />
-          </div>
-
-          <div className="obsv-editor__field">
-            <label className="obsv-editor__label" htmlFor="cover_art_alt">Cover Art Alt Text</label>
-            <input
-              id="cover_art_alt"
+            <label className="obsv-editor__label" htmlFor="concept_statement">Concept Statement</label>
+            <textarea
+              id="concept_statement"
               className="obsv-editor__input"
-              type="text"
-              value={form.cover_art_alt || ""}
-              onChange={e => set("cover_art_alt", e.target.value || null)}
+              value={form.concept_statement || ""}
+              onChange={e => set("concept_statement", e.target.value || null)}
+              rows={4}
+              placeholder="The 'why' of this record — the concept, theme, or idea behind the album..."
             />
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "var(--space-2xs) 0 0" }}>
+              Rendered on the Discography cube (Plane 5) when hovering the album. Keep it short.
+            </p>
+          </div>
+
+          <div className="obsv-editor__panel" style={{ padding: 0, border: 0, background: "transparent" }}>
+            <h3 className="obsv-editor__panel-title">Cover Art</h3>
+            {form.cover_art_path ? (
+              <div className="cover-art-preview">
+                <img
+                  src={form.cover_art_path}
+                  alt={form.cover_art_alt || "Album cover art preview"}
+                  className="cover-art-preview__img"
+                />
+                <div className="cover-art-preview__actions">
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--primary"
+                    onClick={() => setMediaOpen(true)}
+                    style={{ fontSize: "0.6875rem", padding: "4px 12px" }}
+                  >
+                    Replace
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--danger"
+                    onClick={() => set("cover_art_path", null)}
+                    style={{ fontSize: "0.6875rem", padding: "4px 12px" }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="cover-art-upload"
+                onClick={() => setMediaOpen(true)}
+              >
+                Choose Cover Art
+              </button>
+            )}
+
+            <div className="obsv-editor__field" style={{ marginTop: "var(--space-sm)" }}>
+              <label className="obsv-editor__label" htmlFor="cover_art_alt">Alt Text</label>
+              <input
+                id="cover_art_alt"
+                className="obsv-editor__input"
+                type="text"
+                value={form.cover_art_alt || ""}
+                onChange={e => set("cover_art_alt", e.target.value || null)}
+                placeholder="Describe the cover art"
+              />
+            </div>
           </div>
         </div>
 
@@ -255,6 +306,17 @@ export default function EditAlbumPage() {
           ))}
         </tbody>
       </table>
+
+      <MediaLibrary
+        open={mediaOpen}
+        onClose={() => setMediaOpen(false)}
+        uploadZone="cover-art"
+        onSelect={(url: string, alt?: string) => {
+          set("cover_art_path", url);
+          if (alt && !form.cover_art_alt) set("cover_art_alt", alt);
+          setMediaOpen(false);
+        }}
+      />
     </div>
   );
 }

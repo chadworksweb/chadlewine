@@ -21,7 +21,6 @@ export const RESERVED_SLUGS = new Set<string>([
   "merch",
   "music",
   "observations",
-  "thinking",
   "video",
   "doors",
 ]);

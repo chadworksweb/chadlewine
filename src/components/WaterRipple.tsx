@@ -9,11 +9,12 @@ interface WaterRippleProps {
   className?: string;
   focalX?: number; // 0-1, defaults to 0.5
   focalY?: number; // 0-1, defaults to 0.5
+  zoom?: number; // >= 1, defaults to 1
 }
 
-export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5 }: WaterRippleProps) {
-  const focalRef = useRef({ x: focalX, y: focalY });
-  focalRef.current = { x: focalX, y: focalY };
+export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 }: WaterRippleProps) {
+  const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
+  focalRef.current = { x: focalX, y: focalY, z: zoom };
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -114,7 +115,8 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5 }:
       img.naturalHeight,
       cw / ch,
       focalRef.current.x,
-      focalRef.current.y
+      focalRef.current.y,
+      focalRef.current.z,
     );
     ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cw, ch);
 

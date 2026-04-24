@@ -7,15 +7,20 @@ interface MediaImage {
   url: string;
   alt_text: string;
   title: string;
+  zone?: string;
+  tokenAuth?: boolean;
 }
+
+type UploadZone = "site-image" | "cover-art";
 
 interface MediaLibraryProps {
   open: boolean;
   onClose: () => void;
   onSelect: (url: string, alt?: string, title?: string) => void;
+  uploadZone?: UploadZone;
 }
 
-export function MediaLibrary({ open, onClose, onSelect }: MediaLibraryProps) {
+export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image" }: MediaLibraryProps) {
   const [images, setImages] = useState<MediaImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -25,15 +30,53 @@ export function MediaLibrary({ open, onClose, onSelect }: MediaLibraryProps) {
   const [editAlt, setEditAlt] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [saving, setSaving] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [generatingAlt, setGeneratingAlt] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function generateAlt() {
+    if (!selected) return;
+    setGeneratingAlt(true);
+    try {
+      const res = await fetch("/api/admin/media/generate-alt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: selected.url }),
+      });
+      const data = await res.json();
+      if (res.ok && data.alt_text) {
+        setEditAlt(data.alt_text);
+      } else {
+        alert(data.error || "Failed to generate alt text");
+      }
+    } catch {
+      alert("Failed to generate alt text");
+    }
+    setGeneratingAlt(false);
+  }
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTerm(searchInput.trim().toLowerCase()), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const visibleImages = searchTerm
+    ? images.filter((img) => {
+        const hay = `${img.name} ${img.alt_text} ${img.title}`.toLowerCase();
+        return hay.includes(searchTerm);
+      })
+    : images;
 
   const fetchImages = useCallback(async () => {
     setLoading(true);
     setError("");
     const res = await fetch("/api/admin/media");
     if (res.ok) {
-      const data = await res.json();
-      setImages(data);
+      const data = (await res.json()) as MediaImage[];
+      // Picker mode: exclude token-auth files — their signed URLs expire and
+      // can't be embedded as a permanent reference.
+      setImages(data.filter((img) => !img.tokenAuth));
     } else {
       setError("Failed to load images");
     }
@@ -100,8 +143,9 @@ export function MediaLibrary({ open, onClose, onSelect }: MediaLibraryProps) {
 
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("type", uploadZone);
 
-    const res = await fetch("/api/admin/media", {
+    const res = await fetch("/api/admin/media/upload", {
       method: "POST",
       body: formData,
     });
@@ -155,6 +199,24 @@ export function MediaLibrary({ open, onClose, onSelect }: MediaLibraryProps) {
       <div className="media-modal" onClick={(e) => e.stopPropagation()}>
         <div className="media-modal__header">
           <h2 className="media-modal__title">Media Library</h2>
+          <input
+            type="search"
+            placeholder="Search…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            style={{
+              marginLeft: "auto",
+              marginRight: 12,
+              width: 220,
+              padding: "4px 8px",
+              fontSize: "0.8125rem",
+              fontFamily: "var(--font-ui)",
+              border: "1px solid var(--border-subtle, #333)",
+              borderRadius: 4,
+              background: "transparent",
+              color: "var(--text-primary)",
+            }}
+          />
           <button className="media-modal__close" onClick={onClose} type="button">
             &times;
           </button>
@@ -189,7 +251,10 @@ export function MediaLibrary({ open, onClose, onSelect }: MediaLibraryProps) {
               {!loading && images.length === 0 && (
                 <p className="media-modal__empty">No images uploaded yet.</p>
               )}
-              {images.map((img) => (
+              {!loading && images.length > 0 && visibleImages.length === 0 && (
+                <p className="media-modal__empty">No matches.</p>
+              )}
+              {visibleImages.map((img) => (
                 <div
                   key={img.name}
                   className={`media-modal__item${selected?.name === img.name ? " media-modal__item--selected" : ""}`}
@@ -211,8 +276,27 @@ export function MediaLibrary({ open, onClose, onSelect }: MediaLibraryProps) {
               />
 
               <div className="media-modal__detail-fields">
-                <label className="media-modal__detail-label">
-                  Alt Text <span className="media-modal__required">*</span>
+                <label className="media-modal__detail-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Alt Text <span className="media-modal__required">*</span></span>
+                  <button
+                    type="button"
+                    onClick={generateAlt}
+                    disabled={generatingAlt}
+                    style={{
+                      fontSize: "0.6875rem",
+                      fontFamily: "var(--font-ui)",
+                      padding: "2px 8px",
+                      background: "transparent",
+                      border: "1px solid var(--text-accent, #3a4ed0)",
+                      color: "var(--text-accent, #3a4ed0)",
+                      borderRadius: 3,
+                      cursor: generatingAlt ? "wait" : "pointer",
+                      opacity: generatingAlt ? 0.6 : 1,
+                    }}
+                    title="Generate alt text with Claude"
+                  >
+                    {generatingAlt ? "Generating..." : "Generate"}
+                  </button>
                 </label>
                 <input
                   className="media-modal__detail-input"

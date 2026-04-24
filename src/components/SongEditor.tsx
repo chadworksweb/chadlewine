@@ -221,6 +221,7 @@ function SongCoverArtPanel({
       <MediaLibrary
         open={mediaOpen}
         onClose={() => setMediaOpen(false)}
+        uploadZone="cover-art"
         onSelect={(url: string) => {
           onImageChange(url);
           setMediaOpen(false);

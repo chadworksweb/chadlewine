@@ -2,17 +2,19 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    // proxy.ts buffers request bodies in memory; default 10MB cap cuts off
+    // large media uploads (print/wallpaper/art fullres). Match server-side
+    // MAX_BYTES in /api/admin/media/upload.
+    proxyClientMaxBodySize: "200mb",
+  },
   images: {
-    // Supabase Storage serves `Cache-Control: no-cache`, so Vercel re-fetches
-    // from origin every `minimumCacheTTL` window. Next.js 16 default is 4h;
-    // raise to 1 year — image updates go through admin flows that can trigger
-    // revalidation or swap the URL, so long-lived cache is safe.
+    // Images live on Bunny pull zones (*.b-cdn.net). Long cache is safe —
+    // admin flows rotate the URL when content changes.
     minimumCacheTTL: 31536000,
-    // Pull external images through Vercel's image optimizer so we cache them at
-    // the edge instead of hitting Supabase Storage on every request.
     remotePatterns: [
-      { protocol: "https", hostname: "dyjvcjbgnvjkubrsqnym.supabase.co" },
       { protocol: "https", hostname: "**.b-cdn.net" },
+      { protocol: "https", hostname: "**.supabase.co" },
     ],
   },
 };

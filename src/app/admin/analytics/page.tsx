@@ -40,7 +40,6 @@ interface Counts {
   subscribers: number;
   patrons: number;
   purchases: number;
-  voice_messages_new: number;
 }
 
 export default function AnalyticsPage() {
@@ -52,7 +51,7 @@ export default function AnalyticsPage() {
   const [totals, setTotals] = useState({ views: 0, sessions: 0, audio_plays: 0, merch_clicks: 0, share_clicks: 0, patronage_clicks: 0 });
   const [pages, setPages] = useState<PageRow[]>([]);
   const [observations, setObservations] = useState<ObservationRow[]>([]);
-  const [counts, setCounts] = useState<Counts>({ subscribers: 0, patrons: 0, purchases: 0, voice_messages_new: 0 });
+  const [counts, setCounts] = useState<Counts>({ subscribers: 0, patrons: 0, purchases: 0 });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -161,10 +160,6 @@ export default function AnalyticsPage() {
             <div className="admin-stats__card">
               <span className="admin-stats__value">{counts.purchases}</span>
               <span className="admin-stats__label">Purchases</span>
-            </div>
-            <div className={`admin-stats__card${counts.voice_messages_new > 0 ? " admin-stats__card--warn" : ""}`}>
-              <span className="admin-stats__value">{counts.voice_messages_new}</span>
-              <span className="admin-stats__label">New Voice Messages</span>
             </div>
           </div>
 

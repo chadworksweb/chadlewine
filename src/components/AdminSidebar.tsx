@@ -20,10 +20,8 @@ const adminNav: NavItem[] = [
       { href: "/admin/launch-control", label: "Launch Control" },
       { href: "/admin/analytics", label: "Analytics" },
       { href: "/admin/voice-profile", label: "Voice Profile" },
-      { href: "/admin/voice-messages", label: "Voice Messages" },
       { href: "/admin/seo", label: "SEO" },
       { href: "/admin/redirects", label: "Redirects" },
-      { href: "/admin/media", label: "Media" },
       { href: "/admin/subscribers", label: "Subscribers" },
     ],
   },
@@ -38,6 +36,7 @@ const adminNav: NavItem[] = [
   },
   { href: "/admin/art", label: "Art" },
   { href: "/admin/merch", label: "Merch" },
+  { href: "/admin/media", label: "Media" },
   {
     href: "/admin/observations",
     label: "Observations",

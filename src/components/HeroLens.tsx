@@ -17,6 +17,7 @@ export interface HeroLensItem {
   ctaLabel: string;
   focalX?: number; // 0-1
   focalY?: number; // 0-1
+  zoom?: number; // >= 1
   categories?: { title: string; slug: string }[];
   tags?: { label: string; slug: string }[];
 }
@@ -33,6 +34,12 @@ const TRANSITION_MS_MOBILE = 350;
 function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boolean }) {
   const fx = item.focalX ?? 0.5;
   const fy = item.focalY ?? 0.5;
+  const z = item.zoom && item.zoom >= 1 ? item.zoom : 1;
+  const mobileStyle: React.CSSProperties = { objectPosition: `${fx * 100}% ${fy * 100}%` };
+  if (z !== 1) {
+    mobileStyle.transform = `scale(${z})`;
+    mobileStyle.transformOrigin = `${fx * 100}% ${fy * 100}%`;
+  }
   return (
     <>
       <div className="hero-lens__slide-art">
@@ -42,7 +49,7 @@ function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boole
               src={item.artImagePath}
               alt={item.artAlt || item.title}
               className="hero-lens__slide-img"
-              style={{ objectPosition: `${fx * 100}% ${fy * 100}%` }}
+              style={mobileStyle}
               loading="eager"
             />
           ) : (
@@ -52,6 +59,7 @@ function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boole
               className="cover-hero__art-wrap"
               focalX={item.focalX}
               focalY={item.focalY}
+              zoom={item.zoom}
             />
           )
         )}

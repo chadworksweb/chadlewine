@@ -101,19 +101,16 @@ export async function GET(request: Request) {
       { count: subscriberCount },
       { count: patronCount },
       { count: purchaseCount },
-      { count: voiceCount },
     ] = await Promise.all([
       supabase.from("subscribers").select("*", { count: "exact", head: true }).eq("status", "active"),
       supabase.from("patrons").select("*", { count: "exact", head: true }),
       supabase.from("purchases").select("*", { count: "exact", head: true }),
-      supabase.from("voice_messages").select("*", { count: "exact", head: true }).eq("status", "new"),
     ]);
 
     return Response.json({
       subscribers: subscriberCount || 0,
       patrons: patronCount || 0,
       purchases: purchaseCount || 0,
-      voice_messages_new: voiceCount || 0,
     });
   }
 

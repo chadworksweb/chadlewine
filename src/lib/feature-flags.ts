@@ -67,7 +67,6 @@ export function sectionForPath(pathname: string): string | null {
     "foundations",
     "doors",
     "chad-lewine",
-    "thinking",
     "discography",
     "merch",
   ]);

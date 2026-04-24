@@ -6,6 +6,7 @@ import { ArtGalleryManager } from "@/components/ArtGalleryManager";
 import { ArtVariantsManager } from "@/components/ArtVariantsManager";
 import { FeaturedPicker } from "@/components/FeaturedPicker";
 import { MuralDetailsEditor } from "@/components/MuralDetailsEditor";
+import { MediaLibrary } from "@/components/MediaLibrary";
 
 type Form = Record<string, unknown>;
 type ArtFormat = { id: string; slug: string; label: string };
@@ -16,6 +17,7 @@ export default function EditArtPage() {
   const [form, setForm] = useState<Form | null>(null);
   const [formats, setFormats] = useState<ArtFormat[]>([]);
   const [saving, setSaving] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
 
   useEffect(() => { fetch(`/api/admin/art/${slug}`).then(r => r.json()).then(setForm); }, [slug]);
   useEffect(() => { fetch(`/api/admin/art-formats`).then(r => r.json()).then(setFormats).catch(() => setFormats([])); }, []);
@@ -80,7 +82,31 @@ export default function EditArtPage() {
       <div className="obsv-editor__field"><label className="obsv-editor__label">Display Order</label><input className="obsv-editor__input" type="number" value={num("display_order") || 0} onChange={e => set({ display_order: parseInt(e.target.value) || 0 })} /></div>
 
       <h2 className="admin-page__section-title">Image</h2>
-      <div className="obsv-editor__field"><label className="obsv-editor__label">Image Path</label><input className="obsv-editor__input" value={val("image_path")} onChange={e => set({ image_path: e.target.value })} /></div>
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Image</label>
+        {val("image_path") ? (
+          <div className="cover-art-preview">
+            <img src={val("image_path")} alt={val("image_alt") || "Art preview"} className="cover-art-preview__img" />
+            <div className="cover-art-preview__actions">
+              <button type="button" className="admin-btn admin-btn--primary" onClick={() => setMediaOpen(true)} style={{ fontSize: "0.6875rem", padding: "4px 12px" }}>Replace</button>
+              <button type="button" className="admin-btn admin-btn--danger" onClick={() => set({ image_path: "" })} style={{ fontSize: "0.6875rem", padding: "4px 12px" }}>Remove</button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="cover-art-upload" onClick={() => setMediaOpen(true)}>Choose Image</button>
+        )}
+        <input className="obsv-editor__input obsv-editor__input--mono" value={val("image_path")} onChange={e => set({ image_path: e.target.value })} placeholder="Raw path (advanced — prefer the picker)" style={{ marginTop: 8, fontSize: "0.75rem" }} />
+      </div>
+      <MediaLibrary
+        open={mediaOpen}
+        onClose={() => setMediaOpen(false)}
+        onSelect={(url: string, alt?: string) => {
+          const patch: Record<string, unknown> = { image_path: url };
+          if (alt && !val("image_alt")) patch.image_alt = alt;
+          set(patch);
+          setMediaOpen(false);
+        }}
+      />
       <div className="obsv-editor__field"><label className="obsv-editor__label">Image Alt</label><input className="obsv-editor__input" value={val("image_alt")} onChange={e => set({ image_alt: e.target.value })} /></div>
       {val("image_path") && (
         <div className="obsv-editor__field" style={{ maxWidth: 420 }}>

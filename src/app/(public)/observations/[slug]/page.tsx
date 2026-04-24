@@ -11,7 +11,6 @@ import { AdminEditButton } from "@/components/AdminEditButton";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
 import { MerchSection } from "@/components/MerchSection";
 import { DiddySection } from "@/components/DiddySection";
-import { ObservationAudioPlayer } from "@/components/ObservationAudioPlayer";
 
 
 
@@ -276,13 +275,6 @@ export default async function ObservationPage({
           </div>
         </div>
       </section>
-
-      {obsv.audio_file_path && (
-        <ObservationAudioPlayer
-          src={obsv.audio_file_path}
-          title={obsv.title}
-        />
-      )}
 
       <article className="observation-body">
         <MarkdownRenderer html={obsv.body} />

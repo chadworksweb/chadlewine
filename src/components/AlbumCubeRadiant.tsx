@@ -5,11 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 
 interface AlbumCubeRadiantProps {
+  variant?: "song" | "album";
   title: string;
   href: string;
   coverArtPath: string | null;
   planeThreeVideo?: string | null;
   chorus?: string | null;
+  tracklist?: string[] | null;
+  conceptStatement?: string | null;
 }
 
 const MAX_ANGLE = 90;
@@ -42,7 +45,8 @@ function axisResponse(abs: number) {
   return t * t * (3 - 2 * t);
 }
 
-export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, chorus }: AlbumCubeRadiantProps) {
+export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, planeThreeVideo, chorus, tracklist, conceptStatement }: AlbumCubeRadiantProps) {
+  const isAlbum = variant === "album";
   const [active, setActive] = useState(false);
   const [overCta, setOverCta] = useState(false);
   const [overFront, setOverFront] = useState(false);
@@ -324,11 +328,21 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
               </span>
             </Link>
-            <span className="album-cube__face-label">Lyrics</span>
-            {chorus && (
-              <div className="album-cube__face-chorus song-brief-card__chorus">
-                {chorus}
-              </div>
+            <span className="album-cube__face-label">{isAlbum ? "Tracklist" : "Lyrics"}</span>
+            {isAlbum ? (
+              tracklist && tracklist.length > 0 && (
+                <ol className="album-cube__face-tracklist">
+                  {tracklist.map((t, i) => (
+                    <li key={i}>{t}</li>
+                  ))}
+                </ol>
+              )
+            ) : (
+              chorus && (
+                <div className="album-cube__face-chorus song-brief-card__chorus">
+                  {chorus}
+                </div>
+              )
             )}
           </div>
 
@@ -405,6 +419,9 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
             </Link>
             <span className="album-cube__face-eyebrow">Plane 5</span>
             <span className="album-cube__face-label">Message</span>
+            {isAlbum && conceptStatement && (
+              <div className="album-cube__face-concept">{conceptStatement}</div>
+            )}
           </div>
         </div>
       </div>

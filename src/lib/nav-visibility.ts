@@ -13,7 +13,6 @@ const HREF_TO_SECTION: Record<string, string> = {
   "/art": "art",
   "/merch": "merch",
   "/chad-lewine": "chad-lewine",
-  "/thinking": "thinking",
   "/foundations": "foundations",
 };
 

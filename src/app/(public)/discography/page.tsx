@@ -25,6 +25,8 @@ export interface DiscographyItem {
   format_label: string | null;
   href: string;
   chorus: string | null;
+  tracklist: string[] | null;
+  concept_statement: string | null;
 }
 
 async function getDiscography() {
@@ -33,9 +35,27 @@ async function getDiscography() {
   // Albums
   const { data: albums } = await supabase
     .from("albums")
-    .select("id, title, slug, release_date, cover_art_path, release_formats(label)")
+    .select("id, title, slug, release_date, cover_art_path, concept_statement, release_formats(label)")
     .eq("status", "published")
     .order("release_date", { ascending: false });
+
+  const albumIds = (albums || []).map((a: any) => a.id);
+
+  // Tracklists for all albums in one query
+  let tracksByAlbum: Record<string, string[]> = {};
+  if (albumIds.length > 0) {
+    const { data: tracks } = await supabase
+      .from("album_songs")
+      .select("album_id, track_number, song:songs(title, status)")
+      .in("album_id", albumIds)
+      .order("track_number");
+    for (const t of tracks || []) {
+      const song = Array.isArray((t as any).song) ? (t as any).song[0] : (t as any).song;
+      if (!song || (song.status !== "published" && song.status !== "unreleased")) continue;
+      const aid = (t as any).album_id;
+      (tracksByAlbum[aid] ||= []).push(song.title);
+    }
+  }
 
   const albumItems: DiscographyItem[] = (albums || []).map((a: any) => ({
     id: a.id,
@@ -47,6 +67,8 @@ async function getDiscography() {
     format_label: a.release_formats?.label || null,
     href: `/music/albums/${a.slug}`,
     chorus: null,
+    tracklist: tracksByAlbum[a.id] || null,
+    concept_statement: a.concept_statement || null,
   }));
 
   // Singles
@@ -84,6 +106,8 @@ async function getDiscography() {
     format_label: "Digital Single",
     href: `/music/songs/${s.slug}`,
     chorus: s.chorus || null,
+    tracklist: null,
+    concept_statement: null,
   }));
 
   // Collect unique format labels

@@ -9,6 +9,7 @@ interface Props {
   className?: string;
   focalX?: number;
   focalY?: number;
+  zoom?: number;
 }
 
 type Point = [number, number];
@@ -221,12 +222,12 @@ function subdivideShard(shard: Shard, clickX: number, clickY: number): Shard[] {
   return newShards.length >= 2 ? newShards : [shard];
 }
 
-export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 }: Props) {
+export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const focalRef = useRef({ x: focalX, y: focalY });
-  focalRef.current = { x: focalX, y: focalY };
+  const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
+  focalRef.current = { x: focalX, y: focalY, z: zoom };
   const rafRef = useRef<number>(0);
   const shardsRef = useRef<Shard[]>([]);
   const initializedRef = useRef(false);
@@ -268,7 +269,7 @@ export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 
     ctx.clearRect(0, 0, w, h);
 
     if (!initializedRef.current || shards.length === 0) {
-      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y);
+      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y, focalRef.current.z);
       ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
       rafRef.current = requestAnimationFrame(draw);
       return;
@@ -294,7 +295,7 @@ export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 
       }
       ctx.closePath();
       ctx.clip();
-      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y);
+      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y, focalRef.current.z);
       ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
 
       if (s.generation > 0 && s.crackReveal > 0) {

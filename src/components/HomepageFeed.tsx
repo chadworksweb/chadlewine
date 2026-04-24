@@ -17,6 +17,10 @@ interface Song {
   art_alt: string | null;
   hero_focal_x?: number | null;
   hero_focal_y?: number | null;
+  hero_zoom?: number | null;
+  card_focal_x?: number | null;
+  card_focal_y?: number | null;
+  card_zoom?: number | null;
   song_summary: string | null;
 }
 
@@ -77,6 +81,7 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs }: HomepageFe
         ctaLabel: "Listen →",
         focalX: s.hero_focal_x != null ? s.hero_focal_x / 100 : 0.5,
         focalY: s.hero_focal_y != null ? s.hero_focal_y / 100 : 0.5,
+        zoom: s.hero_zoom != null && s.hero_zoom >= 1 ? s.hero_zoom : 1,
       })),
     [feedSongs]
   );
@@ -116,6 +121,9 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs }: HomepageFe
                     artImageUrl={song.art_image_path || ""}
                     artAlt={song.art_alt || song.title}
                     href={`/music/songs/${song.slug}`}
+                    focalX={song.hero_focal_x}
+                    focalY={song.hero_focal_y}
+                    zoom={song.hero_zoom}
                   />
                 </div>
               ))}

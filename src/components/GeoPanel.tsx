@@ -513,7 +513,7 @@ export function GeoPanel(props: GeoPanelProps) {
               <span className="geo-intent-desc">
                 {props.searchIntent === "informational" && "Searcher wants to learn or understand. Most Observations are this."}
                 {props.searchIntent === "navigational" && "Searcher wants a specific page or person. The /chad-lewine page is this."}
-                {props.searchIntent === "commercial" && "Searcher is researching before a decision. /thinking page territory."}
+                {props.searchIntent === "commercial" && "Searcher is researching before a decision."}
                 {props.searchIntent === "transactional" && "Searcher wants to buy or act. Future merch/patronage pages."}
               </span>
             </div>
