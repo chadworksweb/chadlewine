@@ -13,11 +13,6 @@ type Product = {
   editions_sold: number;
 };
 
-function priceLabel(p: Product): string {
-  if (!p.price) return "—";
-  return `$${p.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 function availability(p: Product): { label: string; soldOut: boolean } {
   if (p.edition_size === 0) return { label: "", soldOut: false };
   if (p.edition_size === 1) {
@@ -70,7 +65,6 @@ export function ArtBuyPanel({ products }: { products: Product[]; artTitle: strin
       <div key={p.id} className="art-buy-variant">
         <div className="art-buy-variant__meta">
           <span className="art-buy-variant__label">{label}</span>
-          <span className="art-buy-variant__price">{priceLabel(p)}</span>
           {avail.label && <span className={`art-buy-variant__avail${avail.soldOut ? " is-sold" : ""}`}>{avail.label}</span>}
         </div>
         <button

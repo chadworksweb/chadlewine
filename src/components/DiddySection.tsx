@@ -67,7 +67,6 @@ function DiddyBuyButton({
       <input type="hidden" name="format" value={format} />
       <button type="submit" className="diddy-section__buy-btn">
         <span className="diddy-section__buy-format">{labels[format]}</span>
-        <span className="diddy-section__buy-price">${price.toFixed(2)}</span>
       </button>
     </form>
   );

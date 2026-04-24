@@ -259,7 +259,7 @@ export function AlbumDetail({
                     }
                   }}
                 >
-                  {buying ? "..." : `Buy Album — $${Number(album.price).toFixed(2)}`}
+                  {buying ? "..." : "Buy Album"}
                 </button>
               ) : (
                 <button type="button" className="track-detail__btn track-detail__btn--buy-album" disabled>

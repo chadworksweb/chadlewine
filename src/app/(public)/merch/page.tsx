@@ -83,11 +83,6 @@ export default async function MerchPage() {
                 {p.description && (
                   <p className="merch-shop__card-desc">{p.description}</p>
                 )}
-                {p.price && (
-                  <span className="merch-section__price">
-                    ${Number(p.price).toFixed(2)}
-                  </span>
-                )}
               </div>
             </div>
           ))}

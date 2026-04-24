@@ -454,12 +454,6 @@ export function ProductConfigurator() {
               <span className="configurator__review-label">Color / Size</span>
               <span className="configurator__review-value">{selectedVariant?.title}</span>
             </div>
-            <div className="configurator__review-row">
-              <span className="configurator__review-label">Price</span>
-              <span className="configurator__review-value" style={{ color: "var(--text-accent)", fontWeight: 600 }}>
-                ${product.price.toFixed(2)}
-              </span>
-            </div>
           </div>
 
           <button

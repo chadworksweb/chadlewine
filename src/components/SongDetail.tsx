@@ -92,10 +92,6 @@ function stripLeadingHeading(html: string): string {
   return html.replace(/^\s*<h[1-3][^>]*>.*?<\/h[1-3]>\s*/i, "");
 }
 
-function formatPrice(dollars: number): string {
-  return `$${Number(dollars).toFixed(2)}`;
-}
-
 
 export function SongDetail({
   song,
@@ -179,9 +175,7 @@ export function SongDetail({
     });
   }
 
-  if (song.price) {
-    infoCells.push({ key: "price", label: "Price", value: formatPrice(song.price) });
-  }
+  // Price intentionally not shown — surfaces only at cart.
 
   if (album) {
     infoCells.push({

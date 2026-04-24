@@ -103,7 +103,7 @@ async function getDiscography() {
     type: "single" as const,
     release_date: s.release_date,
     cover_art_path: s.art_image_path || albumArtBySong[s.id] || null,
-    format_label: "Digital Single",
+    format_label: "Single",
     href: `/music/songs/${s.slug}`,
     chorus: s.chorus || null,
     tracklist: null,

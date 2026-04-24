@@ -102,7 +102,7 @@ export async function POST(request: Request) {
   const totalMins = Math.round(totalSecs / 60);
   const year = album.release_date ? new Date(album.release_date).getFullYear() : null;
 
-  const parts = ["Digital album download"];
+  const parts = ["Album download"];
   if (trackCount) parts.push(`${trackCount} ${trackCount === 1 ? "track" : "tracks"}`);
   if (year) parts.push(String(year));
   if (totalMins) parts.push(`${totalMins} min`);
