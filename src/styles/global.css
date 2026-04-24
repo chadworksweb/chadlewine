@@ -12106,9 +12106,3 @@ h3.aw-heading {
   font-size: var(--text-sm);
   color: var(--text-primary);
 }
-
-/* Format cell wraps onto two lines instead of getting clipped. */
-.track-detail__info-value--format {
-  white-space: normal;
-  line-height: 1.15;
-}

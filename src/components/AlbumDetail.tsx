@@ -229,9 +229,9 @@ export function AlbumDetail({
               </div>
             )}
             {album.format_label && (
-              <div className="track-detail__info-cell track-detail__info-cell--format">
+              <div className="track-detail__info-cell">
                 <span className="track-detail__info-label">Format</span>
-                <span className="track-detail__info-value track-detail__info-value--format">{album.format_label}</span>
+                <span className="track-detail__info-value">{album.format_label}</span>
               </div>
             )}
           </div>
