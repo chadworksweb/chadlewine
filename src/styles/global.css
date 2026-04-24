@@ -12039,3 +12039,70 @@ h3.aw-heading {
   opacity: 0.45;
   white-space: nowrap;
 }
+
+/* Album page — Rising Compass Classifications block.
+   Hidden for now; unhide by removing `display: none` or flipping to a flag. */
+.album-rc-classifications {
+  display: none;
+  max-width: var(--content-width);
+  margin: var(--space-xl) auto 0;
+  padding: 0 var(--page-gutter);
+}
+
+.album-rc-classifications__title {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-md);
+}
+
+.album-rc-classifications__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-rc-classifications__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  text-decoration: none;
+  color: inherit;
+}
+
+.album-rc-classifications__track-num {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  min-width: 24px;
+  text-align: right;
+}
+
+.album-rc-classifications__track-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.album-rc-classifications__tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.album-rc-classifications__tier-label {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: #000;
+}
+
+.album-rc-classifications__charge {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}

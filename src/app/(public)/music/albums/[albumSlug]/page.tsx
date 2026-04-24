@@ -128,11 +128,9 @@ export default async function AlbumDetailPage({
         })()}
       />
       {Object.keys(songBadges).length > 0 && (
-        <div style={{ maxWidth: "var(--content-width)", margin: "var(--space-xl) auto 0", padding: "0 var(--page-gutter)" }}>
-          <h3 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "var(--space-md)" }}>
-            Rising Compass Classifications
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
+        <section className="album-rc-classifications" aria-label="Rising Compass Classifications">
+          <h3 className="album-rc-classifications__title">Rising Compass Classifications</h3>
+          <div className="album-rc-classifications__list">
             {songs.map((s) => {
               const b = songBadges[s.id];
               if (!b) return null;
@@ -142,19 +140,18 @@ export default async function AlbumDetailPage({
                   href={rcBadgeHref(b)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: "flex", alignItems: "center", gap: "var(--space-md)", textDecoration: "none", color: "inherit" }}
+                  className="album-rc-classifications__row"
                 >
-                  <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", minWidth: 24, textAlign: "right" }}>
-                    {s.track_number}
-                  </span>
-                  <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-primary)", flex: 1 }}>
-                    {s.title}
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ backgroundColor: b.tier_hex, padding: "2px 8px", borderRadius: 4, fontSize: "var(--text-xs)", fontWeight: 600, color: "#000" }}>
+                  <span className="album-rc-classifications__track-num">{s.track_number}</span>
+                  <span className="album-rc-classifications__track-title">{s.title}</span>
+                  <span className="album-rc-classifications__tier">
+                    <span
+                      className="album-rc-classifications__tier-label"
+                      style={{ backgroundColor: b.tier_hex }}
+                    >
                       {b.tier_label}
                     </span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                    <span className="album-rc-classifications__charge">
                       {b.charge > 0 ? "+" : ""}{b.charge}
                     </span>
                   </span>
@@ -162,7 +159,7 @@ export default async function AlbumDetailPage({
               );
             })}
           </div>
-        </div>
+        </section>
       )}
     </>
   );
