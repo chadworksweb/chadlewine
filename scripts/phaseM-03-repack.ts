@@ -397,6 +397,18 @@ async function repackAlbumFormat(album: AlbumDef, fmt: Format): Promise<string> 
       const dst = join(internal, f);
       await embedCover(src, album.coverFile, dst, fmt);
     }
+    // For MP3 packs, also merge in any MP3s sitting loose in the Digital
+    // subfolder — lets us add MP3-only tracks (e.g. Gap's radiate-piano-demo)
+    // to an album that otherwise ships full-format (WAV/FLAC/MP3).
+    if (fmt === "mp3") {
+      const digitalAbs = join(RECORDS_ROOT, album.folder, album.digitalFolder);
+      for (const f of listFilesOf(digitalAbs)) {
+        if (!/\.mp3$/i.test(f)) continue;
+        const dst = join(internal, f);
+        if (existsSync(dst)) continue; // existing ZIP wins
+        await embedCover(join(digitalAbs, f), album.coverFile, dst, "mp3");
+      }
+    }
   }
 
   // --- loose files: new album cover at internal root ---

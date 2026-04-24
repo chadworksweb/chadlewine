@@ -54,17 +54,24 @@ function shell(innerHtml: string, footerNote: string): string {
 export function buildPurchaseConfirmationHtml(params: {
   itemTitle: string;
   itemType: "song" | "album";
-  downloadUrl: string;
+  formatLinks: Array<{ format: "mp3" | "flac" | "wav"; url: string }>;
   recoverUrl: string;
 }): string {
-  const { itemTitle, itemType, downloadUrl, recoverUrl } = params;
+  const { itemTitle, itemType, formatLinks, recoverUrl } = params;
+  const multiFormat = formatLinks.length > 1;
+  const buttons = formatLinks
+    .map(
+      (f) => `<a href="${f.url}" style="display: inline-block; padding: 12px 24px; margin: 0 8px 8px 0; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;">${multiFormat ? `Download ${f.format.toUpperCase()}` : "Download"}</a>`,
+    )
+    .join("");
+  const intro = multiFormat
+    ? `Your ${itemType} is ready to download. Pick the format you want — you can come back for the others anytime.`
+    : `Your ${itemType} is ready to download. This link is yours to keep — bookmark or save this email.`;
   const inner = `
     <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b9cf7; margin-bottom: 8px;">Thank you for your purchase</p>
     <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #e0e0e8;">${itemTitle}</h1>
-    <p style="font-size: 16px; color: #a0a0b0; line-height: 1.5; margin: 0 0 24px;">
-      Your ${itemType} is ready to download. This link is yours to keep — bookmark or save this email.
-    </p>
-    <a href="${downloadUrl}" style="display: inline-block; padding: 12px 28px; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;">Download</a>
+    <p style="font-size: 16px; color: #a0a0b0; line-height: 1.5; margin: 0 0 24px;">${intro}</p>
+    <div>${buttons}</div>
     <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.5;">
       Lost the link? You can recover all your downloads anytime at
       <a href="${recoverUrl}" style="color: #8b9cf7;">${recoverUrl}</a>

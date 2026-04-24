@@ -123,9 +123,7 @@ export function AlbumDetail({
   const [progress, setProgress] = useState(0);
   const [buying, setBuying] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [format, setFormat] = useState<"mp3" | "flac" | "wav">(
-    (availableFormats[0] as "mp3" | "flac" | "wav") || "mp3"
-  );
+  const hasAnyFormat = availableFormats.length > 0;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number>(0);
 
@@ -241,48 +239,28 @@ export function AlbumDetail({
           {/* Action row: buy button + RC badge */}
           <div className="track-detail__action-row">
             <div className="track-detail__actions">
-              {album.price && availableFormats.length > 0 ? (
-                <div className="format-buy">
-                  {availableFormats.length > 1 && (
-                    <div className="format-buy__picker" role="radiogroup" aria-label="File format">
-                      {availableFormats.map((f) => (
-                        <button
-                          key={f}
-                          type="button"
-                          role="radio"
-                          aria-checked={format === f}
-                          className={`format-buy__opt${format === f ? " format-buy__opt--active" : ""}`}
-                          onClick={() => setFormat(f)}
-                        >
-                          {f.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="track-detail__btn track-detail__btn--buy-album"
-                    disabled={buying}
-                    onClick={async () => {
-                      setBuying(true);
-                      try {
-                        const res = await fetch("/api/music-checkout", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ type: "album", id: album.id, format }),
-                        });
-                        const data = await res.json();
-                        if (data.url) window.location.href = data.url;
-                      } finally {
-                        setBuying(false);
-                      }
-                    }}
-                  >
-                    {buying
-                      ? "..."
-                      : `Buy Album (${format.toUpperCase()}) — $${Number(album.price).toFixed(2)}`}
-                  </button>
-                </div>
+              {album.price && hasAnyFormat ? (
+                <button
+                  type="button"
+                  className="track-detail__btn track-detail__btn--buy-album"
+                  disabled={buying}
+                  onClick={async () => {
+                    setBuying(true);
+                    try {
+                      const res = await fetch("/api/music-checkout", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ type: "album", id: album.id }),
+                      });
+                      const data = await res.json();
+                      if (data.url) window.location.href = data.url;
+                    } finally {
+                      setBuying(false);
+                    }
+                  }}
+                >
+                  {buying ? "..." : `Buy Album — $${Number(album.price).toFixed(2)}`}
+                </button>
               ) : (
                 <button type="button" className="track-detail__btn track-detail__btn--buy-album" disabled>
                   Not yet available

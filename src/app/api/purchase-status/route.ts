@@ -1,7 +1,9 @@
 import { createAdminClient } from "@/lib/supabase-server";
 
-// Public endpoint — looks up most recent purchase by type + id
-// Only returns download token, not the URL itself (URL is behind /api/download/[token])
+// Public endpoint — looks up most recent purchase by type + id.
+// Returns a token (purchase.id) that /api/download/[token] resolves + signs
+// on every request. For album purchases (format=null), also returns the
+// available formats so the thank-you page can render per-format buttons.
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
@@ -18,7 +20,7 @@ export async function GET(request: Request) {
 
   const { data: purchase } = await supabase
     .from("purchases")
-    .select("id, format, download_url, download_expires_at")
+    .select("id, format")
     .eq("item_type", type)
     .eq("item_id", id)
     .gte("created_at", oneHourAgo)
@@ -30,10 +32,27 @@ export async function GET(request: Request) {
     return Response.json({ status: "pending" });
   }
 
+  // Resolve per-format availability when the purchase didn't commit to a format
+  // at checkout (album flow).
+  let availableFormats: Array<"mp3" | "flac" | "wav"> = [];
+  if (!purchase.format) {
+    const table = type === "album" ? "albums" : "songs";
+    const { data: item } = await supabase
+      .from(table)
+      .select("download_path_mp3, download_path_flac, download_path_wav")
+      .eq("id", id)
+      .single();
+    if (item) {
+      availableFormats = (["mp3", "flac", "wav"] as const).filter(
+        (f) => (item as Record<string, unknown>)[`download_path_${f}`],
+      );
+    }
+  }
+
   return Response.json({
-    status: purchase.download_url ? "ready" : "processing",
+    status: "ready",
     token: purchase.id,
     format: purchase.format || null,
-    has_download: !!purchase.download_url,
+    availableFormats,
   });
 }

@@ -12,6 +12,7 @@ function ThankYouContent() {
   const [status, setStatus] = useState<"polling" | "ready" | "timeout">("polling");
   const [token, setToken] = useState<string | null>(null);
   const [format, setFormat] = useState<string | null>(null);
+  const [availableFormats, setAvailableFormats] = useState<Array<"mp3" | "flac" | "wav">>([]);
   const [attempts, setAttempts] = useState(0);
 
   const poll = useCallback(async () => {
@@ -24,6 +25,7 @@ function ThankYouContent() {
     if (data.status === "ready" && data.token) {
       setToken(data.token);
       setFormat(data.format || null);
+      setAvailableFormats(data.availableFormats || []);
       setStatus("ready");
     } else {
       setAttempts((prev) => prev + 1);
@@ -51,15 +53,40 @@ function ThankYouContent() {
       {status === "ready" && token && (
         <>
           <p style={{ color: "var(--text-secondary)", marginBottom: "var(--space-lg)" }}>
-            Your download is ready. This link is yours to keep — bookmark it or save the email.
+            {availableFormats.length > 1 && !format
+              ? "Your download is ready. Pick the format you want — you can come back for the others anytime."
+              : "Your download is ready. This link is yours to keep — bookmark it or save the email."}
           </p>
-          <a
-            href={`/api/download/${token}`}
-            className="track-detail__btn track-detail__btn--buy"
-            style={{ display: "inline-block", marginBottom: "var(--space-lg)", textDecoration: "none" }}
-          >
-            {format ? `Download ${format.toUpperCase()}` : "Download Now"}
-          </a>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-sm)", marginBottom: "var(--space-lg)" }}>
+            {format ? (
+              <a
+                href={`/api/download/${token}`}
+                className="track-detail__btn track-detail__btn--buy"
+                style={{ display: "inline-block", textDecoration: "none" }}
+              >
+                Download {format.toUpperCase()}
+              </a>
+            ) : availableFormats.length > 0 ? (
+              availableFormats.map((f) => (
+                <a
+                  key={f}
+                  href={`/api/download/${token}?format=${f}`}
+                  className="track-detail__btn track-detail__btn--buy"
+                  style={{ display: "inline-block", textDecoration: "none" }}
+                >
+                  Download {f.toUpperCase()}
+                </a>
+              ))
+            ) : (
+              <a
+                href={`/api/download/${token}`}
+                className="track-detail__btn track-detail__btn--buy"
+                style={{ display: "inline-block", textDecoration: "none" }}
+              >
+                Download Now
+              </a>
+            )}
+          </div>
           <p style={{ color: "var(--text-tertiary)", fontSize: "var(--text-xs)", marginBottom: "var(--space-xl)" }}>
             A copy has been sent to your email. If you ever lose it, recover your downloads at{" "}
             <Link href="/music/recover" style={{ color: "var(--text-accent)" }}>/music/recover</Link>.

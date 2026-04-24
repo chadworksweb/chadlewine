@@ -49,7 +49,7 @@ export async function createCheckoutSession(params: {
 export async function createMusicCheckoutSession(params: {
   type: "song" | "album";
   item_id: string;
-  format?: "mp3" | "flac" | "wav";
+  format?: "mp3" | "flac" | "wav" | null;
   title: string;
   description?: string;
   album_title?: string;

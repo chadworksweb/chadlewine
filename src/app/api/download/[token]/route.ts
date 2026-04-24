@@ -59,7 +59,7 @@ async function resolveDownloadPath(
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
@@ -88,10 +88,19 @@ export async function GET(
     return new Response("Download not available for this purchase", { status: 400 });
   }
 
+  // Resolve format: query param > purchase.format > default mp3.
+  // Query param lets buyers pick at download time — required for album
+  // purchases (format=null on the row).
+  const qsFormat = new URL(req.url).searchParams.get("format");
+  const requested: Format | null =
+    qsFormat === "mp3" || qsFormat === "flac" || qsFormat === "wav" ? qsFormat : null;
   const format: Format =
-    purchase.format === "flac" || purchase.format === "wav"
+    requested ??
+    (purchase.format === "flac" || purchase.format === "wav"
       ? (purchase.format as Format)
-      : "mp3";
+      : purchase.format === "mp3"
+      ? "mp3"
+      : "mp3");
 
   const pathOrUrl = await resolveDownloadPath(
     supabase,

@@ -29,37 +29,68 @@ export async function GET(request: Request) {
     return Response.json({ email: row.email, items: [] });
   }
 
-  // Resolve titles
+  // Resolve titles + per-format availability (so the view page can render the
+  // right buttons — single-format if purchase.format was set at checkout,
+  // multi-format if purchase.format is null and the item has several).
   const songIds = purchases.filter((p) => p.item_type === "song").map((p) => p.item_id);
   const albumIds = purchases.filter((p) => p.item_type === "album").map((p) => p.item_id);
 
+  type FormatKey = "mp3" | "flac" | "wav";
+  const FORMATS: FormatKey[] = ["mp3", "flac", "wav"];
+
   const [{ data: songs }, { data: albums }] = await Promise.all([
     songIds.length
-      ? supabase.from("songs").select("id, title, slug").in("id", songIds)
-      : Promise.resolve({ data: [] as Array<{ id: string; title: string; slug: string }> }),
+      ? supabase
+          .from("songs")
+          .select("id, title, slug, download_path_mp3, download_path_flac, download_path_wav, download_path")
+          .in("id", songIds)
+      : Promise.resolve({ data: [] as Array<{
+          id: string; title: string; slug: string;
+          download_path_mp3: string | null; download_path_flac: string | null; download_path_wav: string | null;
+          download_path: string | null;
+        }> }),
     albumIds.length
-      ? supabase.from("albums").select("id, title, slug, cover_art_path").in("id", albumIds)
-      : Promise.resolve({ data: [] as Array<{ id: string; title: string; slug: string; cover_art_path: string | null }> }),
+      ? supabase
+          .from("albums")
+          .select("id, title, slug, cover_art_path, download_path_mp3, download_path_flac, download_path_wav")
+          .in("id", albumIds)
+      : Promise.resolve({ data: [] as Array<{
+          id: string; title: string; slug: string; cover_art_path: string | null;
+          download_path_mp3: string | null; download_path_flac: string | null; download_path_wav: string | null;
+        }> }),
   ]);
 
   const songMap = new Map((songs || []).map((s) => [s.id, s]));
   const albumMap = new Map((albums || []).map((a) => [a.id, a]));
 
   const items = purchases.map((p) => {
+    const rec = p.item_type === "song" ? songMap.get(p.item_id) : albumMap.get(p.item_id);
+    const available = rec
+      ? FORMATS.filter((f) => (rec as Record<string, unknown>)[`download_path_${f}`])
+      : [];
+    // Song legacy fallback
+    if (!available.length && p.item_type === "song" && (rec as { download_path?: string | null } | undefined)?.download_path) {
+      available.push("mp3");
+    }
+
+    const tokenBase = `/api/download/${p.id}`;
+    const formatLinks: Array<{ format: FormatKey; url: string }> = p.format
+      ? [{ format: p.format as FormatKey, url: tokenBase }]
+      : available.map((f) => ({ format: f, url: `${tokenBase}?format=${f}` }));
+
     const base = {
       purchase_id: p.id,
       item_type: p.item_type,
       format: p.format || null,
       amount: p.amount,
       created_at: p.created_at,
-      download_url: `/api/download/${p.id}`,
+      formatLinks,
     };
     if (p.item_type === "song") {
-      const s = songMap.get(p.item_id);
-      return { ...base, title: s?.title || "Song", slug: s?.slug || null, cover_art_path: null };
+      return { ...base, title: rec?.title || "Song", slug: rec?.slug || null, cover_art_path: null };
     }
-    const a = albumMap.get(p.item_id);
-    return { ...base, title: a?.title || "Album", slug: a?.slug || null, cover_art_path: a?.cover_art_path || null };
+    const a = rec as { cover_art_path?: string | null } | undefined;
+    return { ...base, title: rec?.title || "Album", slug: rec?.slug || null, cover_art_path: a?.cover_art_path || null };
   });
 
   return Response.json({ email: row.email, items });

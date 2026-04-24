@@ -81,25 +81,38 @@ export async function POST(request: Request) {
       // Music purchase — permanent token link, file resolved + signed at read time.
       // We DO NOT freeze a download URL on the purchase row; /api/download/[token]
       // re-resolves from songs/albums so file relocations don't break old purchases.
+      //
+      // Format semantics:
+      //   song  — format set at checkout (unchanged)
+      //   album — format is null; buyer picks at download time
       const rawFormat = session.metadata?.format;
-      const format: "mp3" | "flac" | "wav" =
-        rawFormat === "flac" || rawFormat === "wav" ? rawFormat : "mp3";
+      const format: "mp3" | "flac" | "wav" | null =
+        rawFormat === "mp3" || rawFormat === "flac" || rawFormat === "wav" ? rawFormat : null;
 
+      type FormatKey = "mp3" | "flac" | "wav";
       let itemTitle = "";
+      let availableFormats: FormatKey[] = [];
       if (itemType === "song") {
         const { data: song } = await supabase
           .from("songs")
-          .select("title")
+          .select("title, download_path_mp3, download_path_flac, download_path_wav, download_path")
           .eq("id", itemId)
           .single();
         itemTitle = song?.title || "Your song";
+        availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
+          (f) => (song as Record<string, unknown> | null)?.[`download_path_${f}`],
+        );
+        if (!availableFormats.length && song?.download_path) availableFormats = ["mp3"];
       } else {
         const { data: album } = await supabase
           .from("albums")
-          .select("title")
+          .select("title, download_path_mp3, download_path_flac, download_path_wav")
           .eq("id", itemId)
           .single();
         itemTitle = album?.title || "Your album";
+        availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
+          (f) => (album as Record<string, unknown> | null)?.[`download_path_${f}`],
+        );
       }
 
       const buyerEmail = session.customer_details?.email || "unknown";
@@ -125,17 +138,23 @@ export async function POST(request: Request) {
       }
 
       if (purchase && buyerEmail !== "unknown") {
-        const tokenUrl = `${SITE_URL}/api/download/${purchase.id}`;
+        const tokenBase = `${SITE_URL}/api/download/${purchase.id}`;
         const recoverUrl = `${SITE_URL}/music/recover`;
+        // When format is preselected (song), single button. Otherwise (album),
+        // surface every available format as its own button.
+        const formatLinks = format
+          ? [{ format, url: tokenBase }]
+          : availableFormats.map((f) => ({ format: f, url: `${tokenBase}?format=${f}` }));
+        const subjectTitle = format ? `${itemTitle} (${format.toUpperCase()})` : itemTitle;
         const html = buildPurchaseConfirmationHtml({
-          itemTitle: `${itemTitle} (${format.toUpperCase()})`,
+          itemTitle: subjectTitle,
           itemType: itemType as "song" | "album",
-          downloadUrl: tokenUrl,
+          formatLinks,
           recoverUrl,
         });
         const sent = await sendEmail({
           to: buyerEmail,
-          subject: `Your download — ${itemTitle} (${format.toUpperCase()})`,
+          subject: `Your download — ${subjectTitle}`,
           html,
         });
         if (!sent) {

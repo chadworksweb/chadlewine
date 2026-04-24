@@ -13,7 +13,7 @@ interface RecoveryItem {
   cover_art_path: string | null;
   amount: number;
   created_at: string;
-  download_url: string;
+  formatLinks: Array<{ format: "mp3" | "flac" | "wav"; url: string }>;
 }
 
 function RecoverViewContent() {
@@ -102,13 +102,22 @@ function RecoverViewContent() {
                   {" · "}{new Date(it.created_at).toLocaleDateString()}
                 </div>
               </div>
-              <a
-                href={it.download_url}
-                className="patronage__submit"
-                style={{ textDecoration: "none", flexShrink: 0 }}
-              >
-                Download
-              </a>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-xs)", flexShrink: 0, justifyContent: "flex-end" }}>
+                {it.formatLinks.length > 0 ? (
+                  it.formatLinks.map((link) => (
+                    <a
+                      key={link.format}
+                      href={link.url}
+                      className="patronage__submit"
+                      style={{ textDecoration: "none" }}
+                    >
+                      {it.formatLinks.length > 1 ? link.format.toUpperCase() : "Download"}
+                    </a>
+                  ))
+                ) : (
+                  <span style={{ color: "var(--text-tertiary)", fontSize: "var(--text-sm)" }}>unavailable</span>
+                )}
+              </div>
             </li>
           ))}
         </ul>

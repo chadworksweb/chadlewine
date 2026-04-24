@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     return Response.json({ url: session.url });
   }
 
-  // Album
+  // Album — no format at checkout; buyer picks at download time.
   const { data: album } = await supabase
     .from("albums")
     .select("id, title, slug, cover_art_path, price, release_date, download_path_mp3, download_path_flac, download_path_wav")
@@ -76,22 +76,16 @@ export async function POST(request: Request) {
   if (!album) return Response.json({ error: "Album not found" }, { status: 404 });
   if (!album.price) return Response.json({ error: "Album has no price set" }, { status: 400 });
 
-  const formatPath = (album as Record<string, string | null>)[`download_path_${requested}`];
-  if (!formatPath) {
-    const noExplicitFormats =
-      !album.download_path_mp3 && !album.download_path_flac && !album.download_path_wav;
-    if (requested === "mp3" && noExplicitFormats) {
-      // Legacy fallback: at least one track has download_path (webhook will grab first).
-      const { count } = await supabase
-        .from("album_songs")
-        .select("songs!inner(download_path)", { count: "exact", head: true })
-        .eq("album_id", album.id)
-        .not("songs.download_path", "is", null);
-      if (!count) {
-        return Response.json({ error: "Album has no download available" }, { status: 400 });
-      }
-    } else {
-      return Response.json({ error: `Format ${requested.toUpperCase()} not available for this album` }, { status: 400 });
+  const hasAnyFormat =
+    album.download_path_mp3 || album.download_path_flac || album.download_path_wav;
+  if (!hasAnyFormat) {
+    const { count } = await supabase
+      .from("album_songs")
+      .select("songs!inner(download_path)", { count: "exact", head: true })
+      .eq("album_id", album.id)
+      .not("songs.download_path", "is", null);
+    if (!count) {
+      return Response.json({ error: "Album has no download available" }, { status: 400 });
     }
   }
 
@@ -108,16 +102,17 @@ export async function POST(request: Request) {
   const totalMins = Math.round(totalSecs / 60);
   const year = album.release_date ? new Date(album.release_date).getFullYear() : null;
 
-  const parts = [`Digital download (${requested.toUpperCase()})`];
+  const parts = ["Digital album download"];
   if (trackCount) parts.push(`${trackCount} ${trackCount === 1 ? "track" : "tracks"}`);
   if (year) parts.push(String(year));
   if (totalMins) parts.push(`${totalMins} min`);
+  parts.push("MP3 / FLAC / WAV");
   const description = parts.join(" · ");
 
   const session = await createMusicCheckoutSession({
     type: "album",
     item_id: album.id,
-    format: requested,
+    format: null,
     title: album.title,
     description,
     price: album.price,
