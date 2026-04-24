@@ -8442,10 +8442,18 @@ h3.aw-heading {
   scrollbar-color: var(--td-border) transparent;
 }
 
-.track-detail__content-col::-webkit-scrollbar { width: 6px; }
-.track-detail__content-col::-webkit-scrollbar-track { background: var(--td-bg); border-radius: 3px; }
-.track-detail__content-col::-webkit-scrollbar-thumb { background: var(--td-border); border-radius: 3px; }
-.track-detail__content-col::-webkit-scrollbar-thumb:hover { background: var(--td-cyan-alt); }
+.track-detail__content-col::-webkit-scrollbar,
+.album-detail__content-col::-webkit-scrollbar,
+.song-detail__content-col::-webkit-scrollbar { width: 6px; }
+.track-detail__content-col::-webkit-scrollbar-track,
+.album-detail__content-col::-webkit-scrollbar-track,
+.song-detail__content-col::-webkit-scrollbar-track { background: var(--td-bg); border-radius: 3px; }
+.track-detail__content-col::-webkit-scrollbar-thumb,
+.album-detail__content-col::-webkit-scrollbar-thumb,
+.song-detail__content-col::-webkit-scrollbar-thumb { background: var(--td-border); border-radius: 3px; }
+.track-detail__content-col::-webkit-scrollbar-thumb:hover,
+.album-detail__content-col::-webkit-scrollbar-thumb:hover,
+.song-detail__content-col::-webkit-scrollbar-thumb:hover { background: var(--td-cyan-alt); }
 
 /* --- Title --- */
 
@@ -8475,9 +8483,15 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.track-detail__info-bar[data-cols="1"] { grid-template-columns: 1fr; }
-.track-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 1fr; }
-.track-detail__info-bar[data-cols="3"] { grid-template-columns: 1fr 1fr 1fr; }
+.track-detail__info-bar[data-cols="1"],
+.album-detail__info-bar[data-cols="1"],
+.song-detail__info-bar[data-cols="1"] { grid-template-columns: 1fr; }
+.track-detail__info-bar[data-cols="2"],
+.album-detail__info-bar[data-cols="2"],
+.song-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 1fr; }
+.track-detail__info-bar[data-cols="3"],
+.album-detail__info-bar[data-cols="3"],
+.song-detail__info-bar[data-cols="3"] { grid-template-columns: 1fr 1fr 1fr; }
 
 .track-detail__info-cell,
 .album-detail__info-cell,
@@ -8551,8 +8565,12 @@ h3.aw-heading {
   text-shadow: none;
 }
 
-.track-detail__glitch-link::before { color: #0ff; z-index: -1; }
-.track-detail__glitch-link::after { color: #f0f; z-index: -1; }
+.track-detail__glitch-link::before,
+.album-detail__glitch-link::before,
+.song-detail__glitch-link::before { color: #0ff; z-index: -1; }
+.track-detail__glitch-link::after,
+.album-detail__glitch-link::after,
+.song-detail__glitch-link::after { color: #f0f; z-index: -1; }
 
 .track-detail__glitch-link:hover,
 .album-detail__glitch-link:hover,
