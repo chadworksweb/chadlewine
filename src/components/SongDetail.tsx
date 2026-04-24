@@ -195,7 +195,7 @@ export function SongDetail({
       label: "Album",
       value: (
         <Link
-          href="/discography"
+          href={`/music/albums/${album.slug}`}
           className="track-detail__glitch-link"
           data-text={album.title}
         >
