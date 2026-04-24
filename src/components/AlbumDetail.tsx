@@ -195,15 +195,15 @@ export function AlbumDetail({
   }
 
   return (
-    <div className="track-detail">
-      <div className="track-detail__grid">
+    <div className="album-detail">
+      <div className="album-detail__grid">
         {/* Left — Album art */}
-        <div className="track-detail__art-col">
+        <div className="album-detail__art-col">
           {album.cover_art_path && (
             <Image
               src={album.cover_art_path}
               alt={album.cover_art_alt || album.title}
-              className="track-detail__cover"
+              className="album-detail__cover"
               width={1200}
               height={1200}
               sizes="(max-width: 720px) 100vw, 600px"
@@ -213,36 +213,36 @@ export function AlbumDetail({
         </div>
 
         {/* Right — Album content */}
-        <div className="track-detail__content-col">
-          <h1 className="track-detail__title">{album.title}</h1>
+        <div className="album-detail__content-col">
+          <h1 className="album-detail__title">{album.title}</h1>
 
           {/* Info bar */}
-          <div className="track-detail__info-bar" data-cols={3}>
-            <div className="track-detail__info-cell">
-              <span className="track-detail__info-label">Tracks</span>
-              <span className="track-detail__info-value">{songs.length}</span>
+          <div className="album-detail__info-bar" data-cols={3}>
+            <div className="album-detail__info-cell">
+              <span className="album-detail__info-label">Tracks</span>
+              <span className="album-detail__info-value">{songs.length}</span>
             </div>
             {year && (
-              <div className="track-detail__info-cell">
-                <span className="track-detail__info-label">Released</span>
-                <span className="track-detail__info-value">{year}</span>
+              <div className="album-detail__info-cell">
+                <span className="album-detail__info-label">Released</span>
+                <span className="album-detail__info-value">{year}</span>
               </div>
             )}
             {album.format_label && (
-              <div className="track-detail__info-cell">
-                <span className="track-detail__info-label">Format</span>
-                <span className="track-detail__info-value">{album.format_label}</span>
+              <div className="album-detail__info-cell">
+                <span className="album-detail__info-label">Format</span>
+                <span className="album-detail__info-value">{album.format_label}</span>
               </div>
             )}
           </div>
 
           {/* Action row: buy button + RC badge */}
-          <div className="track-detail__action-row">
-            <div className="track-detail__actions">
+          <div className="album-detail__action-row">
+            <div className="album-detail__actions">
               {album.price && hasAnyFormat ? (
                 <button
                   type="button"
-                  className="track-detail__btn track-detail__btn--buy-album"
+                  className="album-detail__btn album-detail__btn--buy-album"
                   disabled={buying}
                   onClick={async () => {
                     setBuying(true);
@@ -262,35 +262,35 @@ export function AlbumDetail({
                   {buying ? "..." : `Buy Album — $${Number(album.price).toFixed(2)}`}
                 </button>
               ) : (
-                <button type="button" className="track-detail__btn track-detail__btn--buy-album" disabled>
+                <button type="button" className="album-detail__btn album-detail__btn--buy-album" disabled>
                   Not yet available
                 </button>
               )}
             </div>
 
             {badge && (
-              <div className="track-detail__rc-badge">
+              <div className="album-detail__rc-badge">
                 <a
                   href={badge.artistSlug ? `https://risingcompass.net/artists/${encodeURIComponent(badge.artistSlug)}` : "https://risingcompass.net"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="track-detail__rc-compass-link"
+                  className="album-detail__rc-compass-link"
                 >
                   <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
                 </a>
-                <div className="track-detail__rc-data">
-                  <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
+                <div className="album-detail__rc-data">
+                  <span className="album-detail__rc-tier" style={{ color: badge.tierHex }}>
                     {badge.tierLabel}
                   </span>
-                  <span className="track-detail__rc-charge">
+                  <span className="album-detail__rc-charge">
                     {badge.charge > 0 ? "+" : ""}{badge.charge}
                   </span>
                 </div>
                 {badge.chargeSummary && (
-                  <div className="track-detail__rc-summary-wrap">
+                  <div className="album-detail__rc-summary-wrap">
                     <button
                       type="button"
-                      className="track-detail__rc-summary-btn"
+                      className="album-detail__rc-summary-btn"
                       onClick={() => setSummaryOpen((v) => !v)}
                       aria-label="Read charge summary"
                       title="Charge summary"
@@ -298,10 +298,10 @@ export function AlbumDetail({
                       &#x1F4AC;
                     </button>
                     {summaryOpen && (
-                      <div className="track-detail__rc-summary-tooltip">
+                      <div className="album-detail__rc-summary-tooltip">
                         <p>{badge.chargeSummary}</p>
                         {badge.contaminated && badge.contaminationNote && (
-                          <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                          <p className="album-detail__rc-contam">{badge.contaminationNote}</p>
                         )}
                       </div>
                     )}
@@ -388,9 +388,9 @@ export function AlbumDetail({
 
           {/* Album description */}
           {album.description && (
-            <div className="track-detail__section">
-              <h3 className="track-detail__section-title">About This Album</h3>
-              <div className="track-detail__summary-text">{album.description}</div>
+            <div className="album-detail__section">
+              <h3 className="album-detail__section-title">About This Album</h3>
+              <div className="album-detail__summary-text">{album.description}</div>
             </div>
           )}
         </div>
