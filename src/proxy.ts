@@ -1,15 +1,38 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getFeatureFlags, sectionForPath } from "@/lib/feature-flags";
 import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
+
+// Cookie presence ≠ auth. Validate the JWT against Supabase before letting
+// admin requests through; otherwise any string in `sb-access-token` would
+// reach the service-role-keyed admin routes.
+async function jwtIsValid(token: string): Promise<boolean> {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
+    const { data, error } = await supabase.auth.getUser(token);
+    return !error && !!data?.user;
+  } catch {
+    return false;
+  }
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Admin/API-admin gate: unchanged
+  // Admin/API-admin gate
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const accessToken = request.cookies.get("sb-access-token")?.value;
-    if (!accessToken) {
+    const authorized = accessToken ? await jwtIsValid(accessToken) : false;
+    if (!authorized) {
+      // For API requests, return 401 instead of an HTML redirect — fetch()
+      // callers see a real error rather than following the redirect to HTML.
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       const loginUrl = new URL("/cl-admin-6nnn", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
