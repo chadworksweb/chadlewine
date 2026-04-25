@@ -239,12 +239,12 @@ export function SongDetail({
           </div>
 
           {/* Mini player */}
-          {song.streaming_path && song.duration_seconds && (
+          {song.streaming_path && (
             <MiniPlayer
               streamingUrl={song.streaming_path}
               trackNumber={song.track_number}
               trackTitle={song.title}
-              durationSeconds={song.duration_seconds}
+              durationSeconds={song.duration_seconds ?? 0}
               playbackMode={playbackMode}
             />
           )}

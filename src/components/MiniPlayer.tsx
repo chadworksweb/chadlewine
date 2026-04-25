@@ -72,6 +72,10 @@ export function MiniPlayer({
   const isFullPlay = playbackMode === "full";
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0–1 through preview window
+  // Live duration — falls back to durationSeconds prop, gets overwritten once
+  // the audio element resolves loadedmetadata. Lets songs with null
+  // duration_seconds in DB still display a duration after first play.
+  const [resolvedDuration, setResolvedDuration] = useState<number>(durationSeconds);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number>(0);
   const bars = generateBars(trackTitle, BAR_COUNT);
@@ -100,7 +104,8 @@ export function MiniPlayer({
     if (!audio || audio.paused) return;
 
     if (isFullPlay) {
-      const pct = Math.max(0, Math.min(1, audio.currentTime / durationSeconds));
+      const dur = resolvedDuration > 0 ? resolvedDuration : audio.duration;
+      const pct = dur > 0 ? Math.max(0, Math.min(1, audio.currentTime / dur)) : 0;
       setProgress(pct);
     } else {
       const elapsed = audio.currentTime - PREVIEW_START;
@@ -131,6 +136,12 @@ export function MiniPlayer({
 
     const audio = new Audio(streamingUrl);
     audioRef.current = audio;
+
+    audio.addEventListener("loadedmetadata", () => {
+      if (audio.duration && Number.isFinite(audio.duration)) {
+        setResolvedDuration(audio.duration);
+      }
+    }, { once: true });
 
     if (isFullPlay) {
       audio.currentTime = 0;
@@ -215,28 +226,28 @@ export function MiniPlayer({
           </div>
         </div>
 
-        {/* Foreground bars (played) — clipped by progress */}
+        {/* Foreground bars (played) — same full-width layer as bg, revealed
+            from the left via clip-path driven by `progress`. */}
         <div
-          className="mini-player__wf-layer mini-player__wf-fg-clip"
-          style={{ width: `${progress * 100}%` }}
+          className="mini-player__wf-layer mini-player__wf-fg"
+          style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
+          aria-hidden="true"
         >
-          <div className="mini-player__wf-fg-inner">
-            <div className="mini-player__wf-main">
-              {bars.map((h, i) => (
-                <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
-              ))}
-            </div>
-            <div className="mini-player__wf-reflect">
-              {bars.map((h, i) => (
-                <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
-              ))}
-            </div>
+          <div className="mini-player__wf-main">
+            {bars.map((h, i) => (
+              <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
+            ))}
+          </div>
+          <div className="mini-player__wf-reflect">
+            {bars.map((h, i) => (
+              <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
+            ))}
           </div>
         </div>
       </div>
 
       <span className="mini-player__duration">
-        {formatDuration(durationSeconds)}
+        {resolvedDuration > 0 ? formatDuration(Math.round(resolvedDuration)) : "—"}
       </span>
     </div>
   );

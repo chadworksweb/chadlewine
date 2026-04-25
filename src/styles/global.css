@@ -9087,38 +9087,28 @@ h3.aw-heading {
   border-radius: 0 0 1px 1px;
 }
 
-/* FG clip */
-.mini-player__wf-fg-clip {
-  overflow: hidden;
-  width: 0;
+/* FG layer — full-width overlay revealed from the left by clip-path inline */
+.mini-player__wf-fg {
+  pointer-events: none;
 }
 
-.mini-player__wf-fg-inner {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.mini-player__wf-fg-inner .mini-player__wf-main span,
-.mini-player__wf-fg-inner .mini-player__wf-reflect span {
-  flex: 0 0 auto;
+.mini-player__wf-fg .mini-player__wf-main span,
+.mini-player__wf-fg .mini-player__wf-reflect span {
+  flex: 1;
   min-width: 0;
   background: var(--td-teal);
 }
 
-.mini-player__wf-fg-inner .mini-player__wf-main span {
+.mini-player__wf-fg .mini-player__wf-main span {
   border-radius: 1px 1px 0 0;
 }
 
-.mini-player__wf-fg-inner .mini-player__wf-reflect span {
+.mini-player__wf-fg .mini-player__wf-reflect span {
   border-radius: 0 0 1px 1px;
 }
 
-.mini-player--active .mini-player__wf-fg-inner .mini-player__wf-main span,
-.mini-player--active .mini-player__wf-fg-inner .mini-player__wf-reflect span {
+.mini-player--active .mini-player__wf-fg .mini-player__wf-main span,
+.mini-player--active .mini-player__wf-fg .mini-player__wf-reflect span {
   background: var(--td-active);
 }
 
