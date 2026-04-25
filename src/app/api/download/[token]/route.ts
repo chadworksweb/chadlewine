@@ -9,9 +9,24 @@ import { signBunnyUrl } from "@/lib/bunny-token";
 // Legacy full URLs (pre-migration Chad Rising zones) are 302'd as-is.
 
 type Format = "mp3" | "flac" | "wav";
+type RingtoneFormat = "m4r" | "mp3";
 
 function isFullUrl(v: string | null | undefined): v is string {
   return typeof v === "string" && /^https?:\/\//i.test(v);
+}
+
+async function resolveRingtonePath(
+  supabase: ReturnType<typeof createAdminClient>,
+  itemId: string,
+  format: RingtoneFormat,
+): Promise<string | null> {
+  const col = `ringtone_path_${format}` as const;
+  const { data } = await supabase
+    .from("songs")
+    .select(col)
+    .eq("id", itemId)
+    .single<Record<string, string | null>>();
+  return data?.[col] || null;
 }
 
 async function resolveDownloadPath(
@@ -84,16 +99,31 @@ export async function GET(
     return Response.redirect(purchase.download_url, 302);
   }
 
-  if (!["song", "album"].includes(purchase.item_type) || !purchase.item_id) {
+  if (!["song", "album", "ringtone"].includes(purchase.item_type) || !purchase.item_id) {
     return new Response("Download not available for this purchase", { status: 400 });
+  }
+
+  const qs = new URL(req.url).searchParams.get("format");
+
+  // Ringtones are their own SKU. Buyer picks platform at download time
+  // (?format=m4r for iPhone, ?format=mp3 for Android). Default to m4r.
+  if (purchase.item_type === "ringtone") {
+    const ringtoneFormat: RingtoneFormat =
+      qs === "m4r" || qs === "mp3" ? qs : "m4r";
+    const ringtonePath = await resolveRingtonePath(supabase, purchase.item_id, ringtoneFormat);
+    if (!ringtonePath) {
+      return new Response("Ringtone not yet available", { status: 202 });
+    }
+    if (isFullUrl(ringtonePath)) return Response.redirect(ringtonePath, 302);
+    const signed = signBunnyUrl(getMediaConfig("music-download"), ringtonePath);
+    return Response.redirect(signed, 302);
   }
 
   // Resolve format: query param > purchase.format > default mp3.
   // Query param lets buyers pick at download time — required for album
   // purchases (format=null on the row).
-  const qsFormat = new URL(req.url).searchParams.get("format");
   const requested: Format | null =
-    qsFormat === "mp3" || qsFormat === "flac" || qsFormat === "wav" ? qsFormat : null;
+    qs === "mp3" || qs === "flac" || qs === "wav" ? qs : null;
   const format: Format =
     requested ??
     (purchase.format === "flac" || purchase.format === "wav"

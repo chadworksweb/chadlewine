@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useCart } from "@/components/Cart";
 
 type Tier = "art" | "line" | "fusion";
 type SourceType = "obs" | "song";
@@ -58,8 +59,8 @@ export function ProductConfigurator() {
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState("");
+  const cart = useCart();
 
   const product = CURATED_PRODUCTS[0];
   const searchParams = useSearchParams();
@@ -182,40 +183,41 @@ export function ProductConfigurator() {
     setStep("review");
   }
 
-  async function handleCheckout() {
-    if (!selectedSource || !selectedVariant || !tier) return;
-    setCheckoutLoading(true);
-    setError("");
-
-    const config = {
+  // Compact product_config — only fields the server can't re-derive go in.
+  // Titles/paths are looked up at webhook time from source_id and blueprint_id.
+  function buildConfig() {
+    if (!selectedSource || !selectedVariant || !tier) return null;
+    return {
       tier,
       source_type: sourceType,
-      ...(sourceType === "obs"
-        ? { observation_id: selectedSource.id, observation_title: selectedSource.title }
-        : { song_id: selectedSource.id, song_title: selectedSource.title }),
-      art_image_path: tier !== "line" ? selectedSource.art_image_path : null,
+      source_id: selectedSource.id,
       selected_line: tier !== "art" ? selectedLine : null,
       blueprint_id: product.blueprint_id,
-      blueprint_title: product.title,
-      provider_id: product.provider_id,
       variant_id: selectedVariant.id,
-      variant_title: selectedVariant.title,
-    };
+    } as Record<string, unknown>;
+  }
 
-    const res = await fetch("/api/merch-checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product_config: config, price: product.price }),
+  const currentConfig = buildConfig();
+  const tierLabel = tier === "art" ? "The Art" : tier === "line" ? "The Line" : "The Fusion";
+  const cartLineId = `cfg-${product.blueprint_id}`;
+  const inCart = currentConfig
+    ? cart.hasItem({ type: "merch", id: cartLineId, format: null, product_config: currentConfig })
+    : false;
+
+  function handleAddToCart() {
+    if (!currentConfig || !selectedSource || inCart) return;
+    setError("");
+    cart.add({
+      type: "merch",
+      id: cartLineId,
+      title: `${tierLabel} — ${product.title}`,
+      slug: "",
+      price: product.price,
+      format: null,
+      cover_art_path: tier !== "line" ? selectedSource.art_image_path : null,
+      variant_label: tierLabel,
+      product_config: currentConfig,
     });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } else {
-      const data = await res.json();
-      setError(data.error || "Checkout failed");
-    }
-    setCheckoutLoading(false);
   }
 
   function goBack() {
@@ -457,11 +459,12 @@ export function ProductConfigurator() {
           </div>
 
           <button
-            className="configurator__checkout-btn"
-            onClick={handleCheckout}
-            disabled={checkoutLoading}
+            className={`configurator__checkout-btn${inCart ? " configurator__checkout-btn--in-cart" : ""}`}
+            onClick={handleAddToCart}
+            disabled={inCart}
+            aria-disabled={inCart}
           >
-            {checkoutLoading ? "Redirecting to checkout..." : "Proceed to Checkout"}
+            {inCart ? "Already in Cart" : "Add to Cart"}
           </button>
         </div>
       )}

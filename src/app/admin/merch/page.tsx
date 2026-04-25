@@ -67,7 +67,7 @@ export default function AdminMerchPage() {
           <span className="admin-stats__value">{products.length}</span>
           <span className="admin-stats__label">Total Products</span>
         </div>
-        {["art", "line", "fusion", "pick", "diddy"].map((tier) => (
+        {["art", "line", "fusion", "pick"].map((tier) => (
           <div key={tier} className="admin-stats__card">
             <span className="admin-stats__value">{tierCounts[tier] || 0}</span>
             <span className="admin-stats__label">{tier.charAt(0).toUpperCase() + tier.slice(1)}</span>

@@ -21,6 +21,9 @@ interface DiscographyItem {
   chorus: string | null;
   tracklist: string[] | null;
   concept_statement: string | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
 }
 
 type SortMode = "newest" | "oldest" | "az" | "za";
@@ -131,6 +134,9 @@ export function DiscographyExplorer({ items, allFormats }: DiscographyExplorerPr
                   chorus={item.chorus}
                   tracklist={item.tracklist}
                   conceptStatement={item.concept_statement}
+                  cardFocalX={item.card_focal_x}
+                  cardFocalY={item.card_focal_y}
+                  cardZoom={item.card_zoom}
                 />
                 <div className="discography-grid__info">
                   <span className="discography-grid__meta">

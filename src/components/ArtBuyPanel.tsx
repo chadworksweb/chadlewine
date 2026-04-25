@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCart } from "@/components/Cart";
 import "./ArtDetail.css";
 
 type Product = {
@@ -11,6 +11,7 @@ type Product = {
   variant_label: string | null;
   edition_size: number;
   editions_sold: number;
+  image_url?: string | null;
 };
 
 function availability(p: Product): { label: string; soldOut: boolean } {
@@ -23,9 +24,8 @@ function availability(p: Product): { label: string; soldOut: boolean } {
   return { label: `${remaining} of ${p.edition_size} remaining`, soldOut: false };
 }
 
-export function ArtBuyPanel({ products }: { products: Product[]; artTitle: string }) {
-  const [buyingId, setBuyingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export function ArtBuyPanel({ products, artTitle }: { products: Product[]; artTitle: string }) {
+  const cart = useCart();
 
   if (products.length === 0) {
     return <div className="art-buy-panel art-buy-panel--empty">Not currently for sale.</div>;
@@ -35,32 +35,28 @@ export function ArtBuyPanel({ products }: { products: Product[]; artTitle: strin
   const prints = products.filter((p) => p.variant_type === "print");
   const other = products.filter((p) => !originals.includes(p) && !prints.includes(p));
 
-  async function handleBuy(productId: string) {
-    setBuyingId(productId);
-    setError(null);
-    try {
-      const res = await fetch("/api/merch-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: productId }),
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        window.location.href = data.url;
-        return;
-      }
-      setError(data.error || "Checkout failed");
-      setBuyingId(null);
-    } catch {
-      setError("Checkout failed");
-      setBuyingId(null);
-    }
-  }
-
   function renderProduct(p: Product, kindLabel: string | null) {
     const avail = availability(p);
-    const disabled = avail.soldOut || buyingId !== null;
+    const lineType: "merch" | "art_original" =
+      p.variant_type === "original" ? "art_original" : "merch";
+    const inCart = cart.hasItem({ type: lineType, id: p.id, format: null, product_config: null });
+    const disabled = avail.soldOut || inCart || !p.price;
     const label = p.variant_label || kindLabel || p.title;
+
+    function handleAdd() {
+      if (disabled || !p.price) return;
+      cart.add({
+        type: lineType,
+        id: p.id,
+        title: artTitle && lineType === "art_original" ? artTitle : p.title,
+        slug: "",
+        price: p.price,
+        format: null,
+        cover_art_path: p.image_url || null,
+        variant_label: p.variant_label || kindLabel || null,
+      });
+    }
+
     return (
       <div key={p.id} className="art-buy-variant">
         <div className="art-buy-variant__meta">
@@ -69,11 +65,16 @@ export function ArtBuyPanel({ products }: { products: Product[]; artTitle: strin
         </div>
         <button
           type="button"
-          className="art-buy-variant__btn"
-          onClick={() => handleBuy(p.id)}
+          className={`art-buy-variant__btn${inCart ? " art-buy-variant__btn--in-cart" : ""}`}
+          onClick={handleAdd}
           disabled={disabled}
+          aria-disabled={disabled}
         >
-          {avail.soldOut ? "Unavailable" : buyingId === p.id ? "Redirecting…" : "Buy"}
+          {avail.soldOut
+            ? "Unavailable"
+            : inCart
+              ? "Already in Cart"
+              : "Add to Cart"}
         </button>
       </div>
     );
@@ -98,7 +99,6 @@ export function ArtBuyPanel({ products }: { products: Product[]; artTitle: strin
           {other.map((p) => renderProduct(p, null))}
         </div>
       )}
-      {error && <p className="art-buy-panel__error">{error}</p>}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { slugify } from "@/lib/utils";
 import { useAutosave } from "@/hooks/useAutosave";
 import { TaxonomyPicker } from "@/components/TaxonomyPicker";
 import { MediaLibrary } from "@/components/MediaLibrary";
+import { BunnyMusicUploader } from "@/components/BunnyMusicUploader";
 import { SongVisibilityChat } from "@/components/SongVisibilityChat";
 import { SongVisibilitySections, type SongVisibilitySectionsHandle } from "@/components/SongVisibilitySections";
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
@@ -31,6 +32,9 @@ interface SongData {
   download_path_mp3: string | null;
   download_path_flac: string | null;
   download_path_wav: string | null;
+  ringtone_path_m4r: string | null;
+  ringtone_path_mp3: string | null;
+  ringtone_price: number | null;
   lyrics: string | null;
   instrumental: boolean;
   price: number | null;
@@ -85,6 +89,9 @@ const emptySong: SongData = {
   download_path_mp3: null,
   download_path_flac: null,
   download_path_wav: null,
+  ringtone_path_m4r: null,
+  ringtone_path_mp3: null,
+  ringtone_price: null,
   lyrics: null,
   instrumental: false,
   price: null,
@@ -299,6 +306,9 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       download_path_mp3: d.download_path_mp3,
       download_path_flac: d.download_path_flac,
       download_path_wav: d.download_path_wav,
+      ringtone_path_m4r: d.ringtone_path_m4r,
+      ringtone_path_mp3: d.ringtone_path_mp3,
+      ringtone_price: d.ringtone_price,
       lyrics: d.lyrics,
       instrumental: d.instrumental,
       price: d.price,
@@ -751,41 +761,32 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               />
             </div>
 
-            <div className="obsv-editor__field">
-              <label className="obsv-editor__label" htmlFor="download_path_mp3">Download — MP3</label>
-              <input
-                id="download_path_mp3"
-                className="obsv-editor__input obsv-editor__input--mono"
-                type="text"
-                value={form.download_path_mp3 || ""}
-                onChange={(e) => set("download_path_mp3", e.target.value || null)}
-                placeholder="https://cdn.bunny.net/...mp3"
-              />
-            </div>
+            <BunnyMusicUploader
+              fieldId="download_path_mp3"
+              label="Download — MP3"
+              folder={form.slug ? `songs/${form.slug}` : ""}
+              acceptExtension=".mp3"
+              value={form.download_path_mp3}
+              onChange={(p) => set("download_path_mp3", p)}
+            />
 
-            <div className="obsv-editor__field">
-              <label className="obsv-editor__label" htmlFor="download_path_flac">Download — FLAC</label>
-              <input
-                id="download_path_flac"
-                className="obsv-editor__input obsv-editor__input--mono"
-                type="text"
-                value={form.download_path_flac || ""}
-                onChange={(e) => set("download_path_flac", e.target.value || null)}
-                placeholder="https://cdn.bunny.net/...flac"
-              />
-            </div>
+            <BunnyMusicUploader
+              fieldId="download_path_flac"
+              label="Download — FLAC"
+              folder={form.slug ? `songs/${form.slug}` : ""}
+              acceptExtension=".flac"
+              value={form.download_path_flac}
+              onChange={(p) => set("download_path_flac", p)}
+            />
 
-            <div className="obsv-editor__field">
-              <label className="obsv-editor__label" htmlFor="download_path_wav">Download — WAV</label>
-              <input
-                id="download_path_wav"
-                className="obsv-editor__input obsv-editor__input--mono"
-                type="text"
-                value={form.download_path_wav || ""}
-                onChange={(e) => set("download_path_wav", e.target.value || null)}
-                placeholder="https://cdn.bunny.net/...wav"
-              />
-            </div>
+            <BunnyMusicUploader
+              fieldId="download_path_wav"
+              label="Download — WAV"
+              folder={form.slug ? `songs/${form.slug}` : ""}
+              acceptExtension=".wav"
+              value={form.download_path_wav}
+              onChange={(p) => set("download_path_wav", p)}
+            />
 
             <div className="obsv-editor__field">
               <label className="obsv-editor__label" htmlFor="download_path">Download (legacy)</label>
@@ -796,6 +797,50 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 value={form.download_path || ""}
                 onChange={(e) => set("download_path", e.target.value || null)}
                 placeholder="Used only if no MP3/FLAC/WAV set"
+              />
+            </div>
+          </div>
+
+          {/* Ringtone — separate SKU sold inline with the song.
+              Two audio files because iPhone needs .m4r and Android needs .mp3.
+              Surfaces only when both a price and at least one path are set. */}
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">Ringtone</h3>
+            <p style={{ margin: "0 0 var(--space-sm)", fontSize: "0.75rem", color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>
+              Sold as its own product alongside the song download. Upload both
+              formats so iPhone and Android buyers each get the file their
+              phone accepts.
+            </p>
+
+            <BunnyMusicUploader
+              fieldId="ringtone_path_m4r"
+              label="Ringtone — M4R (iPhone)"
+              folder={form.slug ? `ringtones/${form.slug}` : ""}
+              acceptExtension=".m4r"
+              value={form.ringtone_path_m4r}
+              onChange={(p) => set("ringtone_path_m4r", p)}
+            />
+
+            <BunnyMusicUploader
+              fieldId="ringtone_path_mp3"
+              label="Ringtone — MP3 (Android)"
+              folder={form.slug ? `ringtones/${form.slug}` : ""}
+              acceptExtension=".mp3"
+              value={form.ringtone_path_mp3}
+              onChange={(p) => set("ringtone_path_mp3", p)}
+            />
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="ringtone_price">Ringtone Price ($)</label>
+              <input
+                id="ringtone_price"
+                className="obsv-editor__input"
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.ringtone_price ?? ""}
+                onChange={(e) => set("ringtone_price", e.target.value ? parseFloat(e.target.value) : null)}
+                placeholder="0.99"
               />
             </div>
           </div>

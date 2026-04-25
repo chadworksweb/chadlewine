@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const TIERS = ["art", "line", "fusion", "pick", "diddy"] as const;
+const TIERS = ["art", "line", "fusion", "pick"] as const;
 const FULFILLMENTS = ["manual", "printify_curated", "printify_configurator"] as const;
 
 export default function NewProductPage() {

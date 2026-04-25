@@ -21,7 +21,7 @@ async function getAlbumData(albumSlug: string) {
   // Get songs via junction
   const { data: junctions } = await supabase
     .from("album_songs")
-    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path, playback_mode)")
+    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path, download_path_mp3, download_path_flac, download_path_wav, ringtone_path_m4r, ringtone_path_mp3, ringtone_price, playback_mode)")
     .eq("album_id", album.id)
     .order("track_number");
 
@@ -33,16 +33,29 @@ async function getAlbumData(albumSlug: string) {
     filtered.map((j: any) => getPlaybackMode(j.song.playback_mode ?? null)),
   );
 
-  const songs = filtered.map((j: any, i: number) => ({
-    id: j.song.id,
-    title: j.song.title,
-    slug: j.song.slug,
-    track_number: j.track_number,
-    duration_seconds: j.song.duration_seconds,
-    streaming_path: j.song.streaming_path,
-    price: j.song.price,
-    playback_mode: playbackModes[i],
-  }));
+  const songs = filtered.map((j: any, i: number) => {
+    const explicit = (["mp3", "flac", "wav"] as const).filter(
+      (f) => j.song[`download_path_${f}`],
+    );
+    const formats: Array<"mp3" | "flac" | "wav"> =
+      explicit.length > 0 ? explicit : j.song.download_path ? ["mp3"] : [];
+    const ringtoneAvailable =
+      !!j.song.ringtone_price &&
+      !!(j.song.ringtone_path_m4r || j.song.ringtone_path_mp3);
+    return {
+      id: j.song.id,
+      title: j.song.title,
+      slug: j.song.slug,
+      track_number: j.track_number,
+      duration_seconds: j.song.duration_seconds,
+      streaming_path: j.song.streaming_path,
+      price: j.song.price,
+      playback_mode: playbackModes[i],
+      download_formats: formats,
+      ringtone_available: ringtoneAvailable,
+      ringtone_price: ringtoneAvailable ? j.song.ringtone_price : null,
+    };
+  });
 
   const anyLegacyDownload = (junctions || []).some((j: any) => j.song?.download_path);
 
@@ -127,6 +140,9 @@ export default async function AlbumDetailPage({
           streaming_path: s.streaming_path,
           price: s.price,
           playback_mode: s.playback_mode,
+          download_formats: s.download_formats,
+          ringtone_available: s.ringtone_available,
+          ringtone_price: s.ringtone_price,
         }))}
         badge={albumBadge}
         availableFormats={(() => {

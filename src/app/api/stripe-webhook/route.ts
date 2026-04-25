@@ -1,8 +1,8 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { verifyWebhookSignature } from "@/lib/stripe";
-import { sendEmail, buildPurchaseConfirmationHtml } from "@/lib/email";
+import { sendEmail, buildCartConfirmationHtml } from "@/lib/email";
 
-const SITE_URL = "https://chadlewine.com";
+const SITE_URL = process.env.SITE_URL || "https://chadlewine.com";
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
@@ -29,140 +29,210 @@ export async function POST(request: Request) {
     }
 
     const itemType = session.metadata?.type;
-    const itemId = session.metadata?.item_id;
 
-    if (itemType === "merch") {
-      // Merch purchase
-      const productId = session.metadata?.product_id || null;
-      const productConfig = session.metadata?.product_config || null;
-
-      const { error: purchaseError } = await supabase.from("purchases").insert({
-        buyer_email: session.customer_details?.email || "unknown",
-        item_type: "merch",
-        item_id: productId,
-        stripe_payment_intent_id: session.payment_intent || null,
-        amount: (session.amount_total || 0) / 100,
-      });
-
-      if (purchaseError) {
-        console.error("[stripe-webhook] Failed to insert merch purchase:", purchaseError.message);
-        return Response.json({ error: "Database insert failed" }, { status: 500 });
+    if (itemType === "cart") {
+      // Multi-item cart — one purchase row per line. Music lines also get
+      // download tokens + per-format buttons in the email; merch/art lines
+      // record the order and send a fulfillment-pending note.
+      // Cart payload is in session.metadata.cart_items as compact JSON. Any
+      // configurator merch line stores its full product_config in cfg_<idx>.
+      const rawCart = session.metadata?.cart_items;
+      type CartLine = {
+        t: "s" | "a" | "r" | "m" | "o";
+        i: string | null;
+        f?: "mp3" | "flac" | "wav" | null;
+        c?: number;
+      };
+      let cartLines: CartLine[] = [];
+      try {
+        const parsed = rawCart ? JSON.parse(rawCart) : [];
+        if (Array.isArray(parsed)) cartLines = parsed as CartLine[];
+      } catch {
+        console.error("[stripe-webhook] Failed to parse cart_items metadata");
       }
 
-      if (productId) {
-        const { error: rpcErr } = await supabase.rpc("increment_editions_sold", { p_product_id: productId });
-        if (rpcErr) console.error("[stripe-webhook] increment_editions_sold failed:", rpcErr.message);
-
-        const { data: product } = await supabase
-          .from("products")
-          .select("variant_type, source_art_id")
-          .eq("id", productId)
-          .single();
-
-        if (product?.variant_type === "original" && product.source_art_id) {
-          await supabase.from("art_pieces").update({ sold: true }).eq("id", product.source_art_id);
-        }
-      }
-
-      // If configurator purchase, auto-create product_submission for catalog review
-      if (productConfig && session.customer_details?.email) {
-        let config: Record<string, unknown> = {};
-        try { config = JSON.parse(productConfig); } catch { /* ignore */ }
-
-        if (config.tier && config.blueprint_id) {
-          await supabase.from("product_submissions").insert({
-            buyer_email: session.customer_details.email,
-            product_config: config,
-            status: "pending",
-          });
-        }
-      }
-    } else if (itemType && itemId && ["song", "album"].includes(itemType)) {
-      // Music purchase — permanent token link, file resolved + signed at read time.
-      // We DO NOT freeze a download URL on the purchase row; /api/download/[token]
-      // re-resolves from songs/albums so file relocations don't break old purchases.
-      //
-      // Format semantics:
-      //   song  — format set at checkout (unchanged)
-      //   album — format is null; buyer picks at download time
-      const rawFormat = session.metadata?.format;
-      const format: "mp3" | "flac" | "wav" | null =
-        rawFormat === "mp3" || rawFormat === "flac" || rawFormat === "wav" ? rawFormat : null;
-
-      type FormatKey = "mp3" | "flac" | "wav";
-      let itemTitle = "";
-      let availableFormats: FormatKey[] = [];
-      if (itemType === "song") {
-        const { data: song } = await supabase
-          .from("songs")
-          .select("title, download_path_mp3, download_path_flac, download_path_wav, download_path")
-          .eq("id", itemId)
-          .single();
-        itemTitle = song?.title || "Your song";
-        availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-          (f) => (song as Record<string, unknown> | null)?.[`download_path_${f}`],
-        );
-        if (!availableFormats.length && song?.download_path) availableFormats = ["mp3"];
-      } else {
-        const { data: album } = await supabase
-          .from("albums")
-          .select("title, download_path_mp3, download_path_flac, download_path_wav")
-          .eq("id", itemId)
-          .single();
-        itemTitle = album?.title || "Your album";
-        availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-          (f) => (album as Record<string, unknown> | null)?.[`download_path_${f}`],
-        );
+      if (cartLines.length === 0) {
+        return Response.json({ error: "Empty cart payload" }, { status: 400 });
       }
 
       const buyerEmail = session.customer_details?.email || "unknown";
+      type FormatKey = "mp3" | "flac" | "wav";
+      type RingtoneFormat = "m4r" | "mp3";
+      type EmailItemType = "song" | "album" | "ringtone" | "merch" | "art_original";
+      const emailItems: Array<{
+        title: string;
+        type: EmailItemType;
+        formatLinks?: Array<{ format: FormatKey | RingtoneFormat; url: string }>;
+        fulfillmentNote?: string;
+      }> = [];
 
-      const { data: purchase, error: purchaseError } = await supabase
-        .from("purchases")
-        .insert({
-          buyer_email: buyerEmail,
-          item_type: itemType,
-          item_id: itemId,
-          format,
-          stripe_payment_intent_id: session.payment_intent || null,
-          amount: (session.amount_total || 0) / 100,
-          download_url: null,
-          download_expires_at: null,
-        })
-        .select("id")
-        .single();
+      for (const line of cartLines) {
+        const lineType: EmailItemType =
+          line.t === "s"
+            ? "song"
+            : line.t === "a"
+              ? "album"
+              : line.t === "r"
+                ? "ringtone"
+                : line.t === "o"
+                  ? "art_original"
+                  : "merch";
+        const format: FormatKey | null =
+          line.f === "mp3" || line.f === "flac" || line.f === "wav" ? line.f : null;
 
-      if (purchaseError) {
-        console.error("[stripe-webhook] Failed to insert purchase:", purchaseError.message);
-        return Response.json({ error: "Database insert failed" }, { status: 500 });
+        let itemTitle = "";
+        let availableFormats: FormatKey[] = [];
+        let ringtonePlatforms: RingtoneFormat[] = [];
+
+        if (lineType === "song") {
+          const { data: song } = await supabase
+            .from("songs")
+            .select("title, download_path_mp3, download_path_flac, download_path_wav, download_path")
+            .eq("id", line.i!)
+            .single();
+          itemTitle = song?.title || "Your song";
+          availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
+            (f) => (song as Record<string, unknown> | null)?.[`download_path_${f}`],
+          );
+          if (!availableFormats.length && song?.download_path) availableFormats = ["mp3"];
+        } else if (lineType === "ringtone") {
+          const { data: song } = await supabase
+            .from("songs")
+            .select("title, ringtone_path_m4r, ringtone_path_mp3")
+            .eq("id", line.i!)
+            .single();
+          itemTitle = song?.title ? `${song.title} — Ringtone` : "Your ringtone";
+          ringtonePlatforms = (["m4r", "mp3"] as RingtoneFormat[]).filter(
+            (f) => (song as Record<string, unknown> | null)?.[`ringtone_path_${f}`],
+          );
+        } else if (lineType === "album") {
+          const { data: album } = await supabase
+            .from("albums")
+            .select("title, download_path_mp3, download_path_flac, download_path_wav")
+            .eq("id", line.i!)
+            .single();
+          itemTitle = album?.title || "Your album";
+          availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
+            (f) => (album as Record<string, unknown> | null)?.[`download_path_${f}`],
+          );
+        } else if (lineType === "merch" && typeof line.c === "number") {
+          // Configurator product — title from cfg_<idx>.
+          const cfgRaw = session.metadata?.[`cfg_${line.c}`];
+          let cfg: Record<string, unknown> = {};
+          try { if (cfgRaw) cfg = JSON.parse(cfgRaw); } catch { /* ignore */ }
+          const tierLabel =
+            cfg.tier === "art" ? "The Art" : cfg.tier === "line" ? "The Line" : "The Fusion";
+          itemTitle = `${tierLabel} — Custom merch`;
+        } else {
+          // Existing product (merch print or art_original) — title from products.
+          if (line.i) {
+            const { data: product } = await supabase
+              .from("products")
+              .select("title")
+              .eq("id", line.i)
+              .single();
+            itemTitle = product?.title || (lineType === "art_original" ? "Original artwork" : "Merch");
+          } else {
+            itemTitle = lineType === "art_original" ? "Original artwork" : "Merch";
+          }
+        }
+
+        // Insert purchase row
+        const { data: purchase, error: purchaseError } = await supabase
+          .from("purchases")
+          .insert({
+            buyer_email: buyerEmail,
+            item_type: lineType,
+            item_id: line.i,
+            format,
+            stripe_payment_intent_id: session.payment_intent || null,
+            amount: 0,
+            download_url: null,
+            download_expires_at: null,
+          })
+          .select("id")
+          .single();
+
+        if (purchaseError || !purchase) {
+          console.error("[stripe-webhook] Failed to insert cart purchase:", purchaseError?.message);
+          continue;
+        }
+
+        // Side-effects for physical lines: edition counter, art_piece sold flag,
+        // configurator product_submission row.
+        if ((lineType === "merch" || lineType === "art_original") && line.i) {
+          const { error: rpcErr } = await supabase.rpc("increment_editions_sold", { p_product_id: line.i });
+          if (rpcErr) console.error("[stripe-webhook] increment_editions_sold failed:", rpcErr.message);
+
+          if (lineType === "art_original") {
+            const { data: product } = await supabase
+              .from("products")
+              .select("source_art_id")
+              .eq("id", line.i)
+              .single();
+            if (product?.source_art_id) {
+              await supabase.from("art_pieces").update({ sold: true }).eq("id", product.source_art_id);
+            }
+          }
+        }
+        if (lineType === "merch" && typeof line.c === "number" && buyerEmail !== "unknown") {
+          const cfgRaw = session.metadata?.[`cfg_${line.c}`];
+          let cfg: Record<string, unknown> = {};
+          try { if (cfgRaw) cfg = JSON.parse(cfgRaw); } catch { /* ignore */ }
+          if (cfg.tier && cfg.blueprint_id) {
+            await supabase.from("product_submissions").insert({
+              buyer_email: buyerEmail,
+              product_config: cfg,
+              status: "pending",
+            });
+          }
+        }
+
+        // Build email entry
+        if (buyerEmail !== "unknown") {
+          if (lineType === "merch" || lineType === "art_original") {
+            emailItems.push({
+              title: itemTitle,
+              type: lineType,
+              fulfillmentNote: lineType === "art_original"
+                ? "We'll be in touch shortly to arrange shipping for your original."
+                : "Custom production takes 1–2 weeks. We'll email you when it ships.",
+            });
+          } else {
+            const tokenBase = `${SITE_URL}/api/download/${purchase.id}`;
+            let formatLinks: Array<{ format: FormatKey | RingtoneFormat; url: string }>;
+            if (lineType === "ringtone") {
+              formatLinks = ringtonePlatforms.map((f) => ({
+                format: f,
+                url: `${tokenBase}?format=${f}`,
+              }));
+            } else if (format) {
+              formatLinks = [{ format, url: tokenBase }];
+            } else {
+              formatLinks = availableFormats.map((f) => ({
+                format: f,
+                url: `${tokenBase}?format=${f}`,
+              }));
+            }
+            emailItems.push({ title: itemTitle, type: lineType, formatLinks });
+          }
+        }
       }
 
-      if (purchase && buyerEmail !== "unknown") {
-        const tokenBase = `${SITE_URL}/api/download/${purchase.id}`;
+      if (emailItems.length > 0 && buyerEmail !== "unknown") {
         const recoverUrl = `${SITE_URL}/music/recover`;
-        // When format is preselected (song), single button. Otherwise (album),
-        // surface every available format as its own button.
-        const formatLinks = format
-          ? [{ format, url: tokenBase }]
-          : availableFormats.map((f) => ({ format: f, url: `${tokenBase}?format=${f}` }));
-        const subjectTitle = format ? `${itemTitle} (${format.toUpperCase()})` : itemTitle;
-        const html = buildPurchaseConfirmationHtml({
-          itemTitle: subjectTitle,
-          itemType: itemType as "song" | "album",
-          formatLinks,
-          recoverUrl,
-        });
+        const html = buildCartConfirmationHtml({ items: emailItems, recoverUrl });
         const sent = await sendEmail({
           to: buyerEmail,
-          subject: `Your download — ${subjectTitle}`,
+          subject: `Your order — ${emailItems.length} item${emailItems.length === 1 ? "" : "s"}`,
           html,
         });
         if (!sent) {
-          console.warn(`[stripe-webhook] Failed to send confirmation email to ${buyerEmail}`);
+          console.warn(`[stripe-webhook] Failed to send cart confirmation to ${buyerEmail}`);
         }
       }
     } else {
-      // Patronage
+      // Patronage — only path that doesn't go through the cart (donation flow).
       const observationId = session.metadata?.observation_id || null;
 
       const { error: insertError } = await supabase.from("patrons").insert({

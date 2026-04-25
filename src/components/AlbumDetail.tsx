@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useCart } from "@/components/Cart";
 
 interface AlbumProps {
   id: string;
@@ -25,6 +26,9 @@ interface SongProps {
   streaming_path: string | null;
   price: number | null;
   playback_mode?: "preview" | "full";
+  download_formats?: Array<"mp3" | "flac" | "wav">;
+  ringtone_available?: boolean;
+  ringtone_price?: number | null;
 }
 
 interface AlbumBadgeProps {
@@ -122,9 +126,10 @@ export function AlbumDetail({
 }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [buying, setBuying] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const hasAnyFormat = availableFormats.length > 0;
+  const cart = useCart();
+  const albumInCart = cart.hasItem({ type: "album", id: album.id, format: null });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number>(0);
 
@@ -270,24 +275,23 @@ export function AlbumDetail({
               {album.price && hasAnyFormat ? (
                 <button
                   type="button"
-                  className="track-detail__btn track-detail__btn--buy-album"
-                  disabled={buying}
-                  onClick={async () => {
-                    setBuying(true);
-                    try {
-                      const res = await fetch("/api/music-checkout", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ type: "album", id: album.id }),
-                      });
-                      const data = await res.json();
-                      if (data.url) window.location.href = data.url;
-                    } finally {
-                      setBuying(false);
-                    }
+                  className={`track-detail__btn track-detail__btn--buy-album${albumInCart ? " track-detail__btn--in-cart" : ""}`}
+                  disabled={albumInCart}
+                  aria-disabled={albumInCart}
+                  onClick={() => {
+                    if (albumInCart || !album.price) return;
+                    cart.add({
+                      type: "album",
+                      id: album.id,
+                      title: album.title,
+                      slug: album.slug,
+                      price: album.price,
+                      format: null,
+                      cover_art_path: album.cover_art_path,
+                    });
                   }}
                 >
-                  {buying ? "..." : "Buy Album"}
+                  {albumInCart ? "Already in Cart" : "Add to Cart"}
                 </button>
               ) : (
                 <button type="button" className="track-detail__btn track-detail__btn--buy-album" disabled>
@@ -310,31 +314,33 @@ export function AlbumDetail({
                   <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
                     {badge.tierLabel}
                   </span>
-                  <span className="track-detail__rc-charge">
-                    {badge.charge > 0 ? "+" : ""}{badge.charge}
-                  </span>
-                </div>
-                {badge.chargeSummary && (
-                  <div className="track-detail__rc-summary-wrap">
-                    <button
-                      type="button"
-                      className="track-detail__rc-summary-btn"
-                      onClick={() => setSummaryOpen((v) => !v)}
-                      aria-label="Read charge summary"
-                      title="Charge summary"
-                    >
-                      &#x1F4AC;
-                    </button>
-                    {summaryOpen && (
-                      <div className="track-detail__rc-summary-tooltip">
-                        <p>{badge.chargeSummary}</p>
-                        {badge.contaminated && badge.contaminationNote && (
-                          <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                  <div className="track-detail__rc-charge-row">
+                    <span className="track-detail__rc-charge">
+                      {badge.charge > 0 ? "+" : ""}{badge.charge}
+                    </span>
+                    {badge.chargeSummary && (
+                      <div className="track-detail__rc-summary-wrap">
+                        <button
+                          type="button"
+                          className="track-detail__rc-summary-btn"
+                          onClick={() => setSummaryOpen((v) => !v)}
+                          aria-label="Read charge summary"
+                          title="Charge summary"
+                        >
+                          &#x1F4AC;
+                        </button>
+                        {summaryOpen && (
+                          <div className="track-detail__rc-summary-tooltip">
+                            <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
+                            {badge.contaminated && badge.contaminationNote && (
+                              <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
@@ -348,6 +354,15 @@ export function AlbumDetail({
                 const bars = generateBars(song.title, BAR_COUNT);
                 const songProgress = isActive ? progress : 0;
                 const ringOffset = CIRCUMFERENCE - songProgress * CIRCUMFERENCE;
+                const downloadFormats = song.download_formats || [];
+                const canDownload = !!song.price && downloadFormats.length > 0;
+                const inCart = canDownload
+                  ? cart.hasItem({ type: "song", id: song.id, format: null })
+                  : false;
+                const ringtoneAvailable = !!song.ringtone_available && !!song.ringtone_price;
+                const ringtoneInCart = ringtoneAvailable
+                  ? cart.hasItem({ type: "ringtone", id: song.id, format: null })
+                  : false;
 
                 return (
                   <div
@@ -408,6 +423,100 @@ export function AlbumDetail({
                     <span className="mini-player__duration">
                       {song.duration_seconds ? formatDuration(song.duration_seconds) : "—"}
                     </span>
+
+                    <button
+                      type="button"
+                      className={`mini-player__download${inCart ? " mini-player__download--in-cart" : ""}`}
+                      onClick={() => {
+                        if (inCart || !canDownload || !song.price) return;
+                        cart.add({
+                          type: "song",
+                          id: song.id,
+                          title: song.title,
+                          slug: song.slug,
+                          price: song.price,
+                          format: null,
+                          cover_art_path: album.cover_art_path,
+                        });
+                      }}
+                      disabled={!canDownload || inCart}
+                      aria-disabled={inCart}
+                      aria-label={
+                        !canDownload
+                          ? "Download not available"
+                          : inCart
+                            ? `${song.title} already in cart`
+                            : `Add ${song.title} to cart`
+                      }
+                      title={
+                        !canDownload
+                          ? "Download not available"
+                          : inCart
+                            ? "Already in cart"
+                            : "Add to cart"
+                      }
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    </button>
+
+                    {ringtoneAvailable && (
+                      <button
+                        type="button"
+                        className={`mini-player__ringtone${ringtoneInCart ? " mini-player__ringtone--in-cart" : ""}`}
+                        onClick={() => {
+                          if (ringtoneInCart || !song.ringtone_price) return;
+                          cart.add({
+                            type: "ringtone",
+                            id: song.id,
+                            title: song.title,
+                            slug: song.slug,
+                            price: song.ringtone_price,
+                            format: null,
+                            cover_art_path: album.cover_art_path,
+                          });
+                        }}
+                        disabled={ringtoneInCart}
+                        aria-disabled={ringtoneInCart}
+                        aria-label={
+                          ringtoneInCart
+                            ? `${song.title} ringtone already in cart`
+                            : `Add ${song.title} ringtone to cart`
+                        }
+                        title={ringtoneInCart ? "Ringtone already in cart" : "Add ringtone to cart"}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M5 2h7a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2.5 2.25a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1h-2zM9.5 9 6 12l3.5 3z"
+                          />
+                          <path d="M16.46 8.46a1 1 0 0 1 1.41 0 5 5 0 0 1 0 7.07 1 1 0 0 1-1.41-1.41 3 3 0 0 0 0-4.24 1 1 0 0 1 0-1.41z" />
+                          <path d="M19.29 5.64a1 1 0 0 1 1.41 0 9 9 0 0 1 0 12.73 1 1 0 0 1-1.41-1.41 7 7 0 0 0 0-9.9 1 1 0 0 1 0-1.41z" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 );
               })}

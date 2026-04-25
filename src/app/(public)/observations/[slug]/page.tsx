@@ -10,7 +10,6 @@ import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
 import { MerchSection } from "@/components/MerchSection";
-import { DiddySection } from "@/components/DiddySection";
 
 
 
@@ -281,7 +280,6 @@ export default async function ObservationPage({
       </article>
 
       <SynapseDisplay sourceType="observation" sourceId={obsv.id} />
-      <DiddySection observationId={obsv.id} />
 
       <div className="obsv-celestial-anchor">
         <div className="obsv-celestial-wrap" aria-hidden="true">

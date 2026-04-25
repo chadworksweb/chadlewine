@@ -48,6 +48,7 @@ type ProductRow = {
   variant_label: string | null;
   edition_size: number;
   editions_sold: number;
+  image_url?: string | null;
 };
 
 function formatDimensions(mural: MuralDetails): string | null {

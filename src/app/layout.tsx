@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "@/styles/global.css";
 import { SiteJsonLd } from "@/components/SiteJsonLd";
+import { CartProvider, CartUI } from "@/components/Cart";
 
 const GA_ID = "G-9EE3EK7X3R";
 
@@ -50,7 +51,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <SiteJsonLd />
-        {children}
+        <CartProvider>
+          {children}
+          <CartUI />
+        </CartProvider>
         <Analytics />
         <SpeedInsights />
         <Script

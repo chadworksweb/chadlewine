@@ -204,6 +204,10 @@ export default async function SongDetailPage({
           card_focal_x: song.card_focal_x,
           card_focal_y: song.card_focal_y,
           card_zoom: song.card_zoom,
+          ringtone_price: song.ringtone_price ?? null,
+          ringtone_available:
+            !!song.ringtone_price &&
+            !!(song.ringtone_path_m4r || song.ringtone_path_mp3),
         }}
         album={
           album

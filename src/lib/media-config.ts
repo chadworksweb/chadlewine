@@ -36,6 +36,12 @@ const AUDIO_MIME_TYPES = [
   "audio/wav",
   "audio/wave",
   "audio/x-wav",
+  // Ringtone formats — m4r is AAC-in-MP4 with renamed extension, so browsers
+  // serve it under any of these depending on platform.
+  "audio/mp4",
+  "audio/x-m4a",
+  "audio/aac",
+  "application/octet-stream",
 ] as const;
 
 export const STORAGE_HOSTNAME =

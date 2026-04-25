@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { focalCropStyle } from "@/lib/focal-crop";
 
 interface Topic {
   id: string;
@@ -19,6 +20,9 @@ interface SongCardData {
   created_at: string;
   art_image_path: string | null;
   art_alt: string | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
   song_summary: string | null;
   citation_summary: string | null;
   focus_keyphrase: string | null;
@@ -47,10 +51,25 @@ function songDate(s: SongCardData): number {
   return d ? new Date(d).getTime() : 0;
 }
 
-function resolveArt(s: SongCardData): { src: string | null; alt: string } {
-  const src = s.art_image_path || s.album?.cover_art_path || null;
-  const alt = s.art_alt || s.album?.cover_art_alt || s.title;
-  return { src, alt };
+// Focal data is calibrated against the song's own art. When art falls back
+// to the album cover, the song's focal coords don't apply — return null
+// so the consumer can skip applying them.
+function resolveArt(s: SongCardData): {
+  src: string | null;
+  alt: string;
+  ownArt: boolean;
+} {
+  if (s.art_image_path) {
+    return { src: s.art_image_path, alt: s.art_alt || s.title, ownArt: true };
+  }
+  if (s.album?.cover_art_path) {
+    return {
+      src: s.album.cover_art_path,
+      alt: s.album.cover_art_alt || s.title,
+      ownArt: false,
+    };
+  }
+  return { src: null, alt: s.title, ownArt: false };
 }
 
 /**
@@ -197,7 +216,7 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
           </thead>
           <tbody>
             {visible.map((s) => {
-              const { src, alt } = resolveArt(s);
+              const { src, alt, ownArt } = resolveArt(s);
               const href = `/music/songs/${s.slug}`;
               const isOpen = expandedId === s.id;
               return (
@@ -207,6 +226,7 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
                   href={href}
                   artSrc={src}
                   artAlt={alt}
+                  artOwn={ownArt}
                   isOpen={isOpen}
                   navigable={canClickThrough(s)}
                   onToggle={() => toggleRow(s.id)}
@@ -225,6 +245,7 @@ function SongRow({
   href,
   artSrc,
   artAlt,
+  artOwn,
   isOpen,
   navigable,
   onToggle,
@@ -233,10 +254,14 @@ function SongRow({
   href: string;
   artSrc: string | null;
   artAlt: string;
+  artOwn: boolean;
   isOpen: boolean;
   navigable: boolean;
   onToggle: () => void;
 }) {
+  const cardStyle = artOwn
+    ? focalCropStyle(song.card_focal_x, song.card_focal_y, song.card_zoom)
+    : undefined;
   return (
     <>
       <tr
@@ -259,6 +284,7 @@ function SongRow({
               alt={artAlt}
               className="songs-explorer__row-art"
               loading="lazy"
+              style={cardStyle}
             />
           ) : (
             <div className="songs-explorer__row-art songs-explorer__row-art--empty" />
@@ -333,6 +359,7 @@ function SongRow({
                       alt={artAlt}
                       className="songs-explorer__drawer-art"
                       loading="lazy"
+                      style={cardStyle}
                     />
                   ) : (
                     <div className="songs-explorer__drawer-art songs-explorer__drawer-art--empty" />

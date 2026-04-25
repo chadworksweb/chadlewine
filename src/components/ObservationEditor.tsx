@@ -493,7 +493,7 @@ export function ObservationEditor({
               value={form.hook_line}
               onChange={(e) => set("hook_line", e.target.value)}
               rows={3}
-              placeholder="Most provocative sentence — feeds Hook fragment + Diddy"
+              placeholder="Most provocative sentence — feeds Hook fragment"
             />
           </div>
 

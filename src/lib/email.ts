@@ -51,33 +51,74 @@ function shell(innerHtml: string, footerNote: string): string {
 </html>`.trim();
 }
 
-export function buildPurchaseConfirmationHtml(params: {
-  itemTitle: string;
-  itemType: "song" | "album";
-  formatLinks: Array<{ format: "mp3" | "flac" | "wav"; url: string }>;
+export function buildCartConfirmationHtml(params: {
+  items: Array<{
+    title: string;
+    type: "song" | "album" | "ringtone" | "merch" | "art_original";
+    // Digital lines have formatLinks; physical lines have a fulfillmentNote instead.
+    formatLinks?: Array<{ format: "mp3" | "flac" | "wav" | "m4r"; url: string }>;
+    fulfillmentNote?: string;
+  }>;
   recoverUrl: string;
 }): string {
-  const { itemTitle, itemType, formatLinks, recoverUrl } = params;
-  const multiFormat = formatLinks.length > 1;
-  const buttons = formatLinks
-    .map(
-      (f) => `<a href="${f.url}" style="display: inline-block; padding: 12px 24px; margin: 0 8px 8px 0; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;">${multiFormat ? `Download ${f.format.toUpperCase()}` : "Download"}</a>`,
-    )
+  const { items, recoverUrl } = params;
+
+  const ringtonePlatformLabel = (f: "m4r" | "mp3") =>
+    f === "m4r" ? "Download for iPhone (M4R)" : "Download for Android (MP3)";
+
+  const typeLabel = (t: string) => (t === "art_original" ? "ART" : t.toUpperCase());
+
+  const hasDigital = items.some((i) => (i.formatLinks?.length ?? 0) > 0);
+
+  const blocks = items
+    .map((item) => {
+      let body = "";
+      if (item.formatLinks && item.formatLinks.length > 0) {
+        const multi = item.formatLinks.length > 1;
+        body = item.formatLinks
+          .map((f) => {
+            const label =
+              item.type === "ringtone"
+                ? ringtonePlatformLabel(f.format as "m4r" | "mp3")
+                : multi
+                  ? `Download ${f.format.toUpperCase()}`
+                  : "Download";
+            return `<a href="${f.url}" style="display: inline-block; padding: 10px 20px; margin: 0 6px 6px 0; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 13px;">${label}</a>`;
+          })
+          .join("");
+      } else if (item.fulfillmentNote) {
+        body = `<p style="font-size: 13px; color: #a0a0b0; margin: 4px 0 0;">${item.fulfillmentNote}</p>`;
+      }
+      return `
+        <div style="padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.08);">
+          <p style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b9cf7; margin: 0 0 4px;">${typeLabel(item.type)}</p>
+          <h2 style="font-size: 18px; font-weight: 600; margin: 0 0 10px; color: #e0e0e8;">${item.title}</h2>
+          <div>${body}</div>
+        </div>
+      `;
+    })
     .join("");
-  const intro = multiFormat
-    ? `Your ${itemType} is ready to download. Pick the format you want — you can come back for the others anytime.`
-    : `Your ${itemType} is ready to download. This link is yours to keep — bookmark or save this email.`;
+
+  const heading = hasDigital ? "Your downloads are ready" : "Order received";
+  const intro = hasDigital
+    ? "Pick the format you want for each item — links are yours to keep. Bookmark this email or recover anytime."
+    : "We'll email you again as your physical items ship.";
+
+  const recoveryLine = hasDigital
+    ? `<p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.5;">
+      Lost the email? Recover all your downloads at
+      <a href="${recoverUrl}" style="color: #8b9cf7;">${recoverUrl}</a>
+    </p>`
+    : "";
+
   const inner = `
     <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b9cf7; margin-bottom: 8px;">Thank you for your purchase</p>
-    <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #e0e0e8;">${itemTitle}</h1>
+    <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #e0e0e8;">${heading}</h1>
     <p style="font-size: 16px; color: #a0a0b0; line-height: 1.5; margin: 0 0 24px;">${intro}</p>
-    <div>${buttons}</div>
-    <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.5;">
-      Lost the link? You can recover all your downloads anytime at
-      <a href="${recoverUrl}" style="color: #8b9cf7;">${recoverUrl}</a>
-    </p>
+    <div style="border-top: 1px solid rgba(255,255,255,0.08);">${blocks}</div>
+    ${recoveryLine}
   `;
-  return shell(inner, "You received this because you purchased music at chadlewine.com");
+  return shell(inner, "You received this because you purchased at chadlewine.com");
 }
 
 export function buildRecoveryEmailHtml(params: { verifyUrl: string }): string {

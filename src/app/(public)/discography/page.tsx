@@ -27,6 +27,9 @@ export interface DiscographyItem {
   chorus: string | null;
   tracklist: string[] | null;
   concept_statement: string | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
 }
 
 async function getDiscography() {
@@ -69,12 +72,15 @@ async function getDiscography() {
     chorus: null,
     tracklist: tracksByAlbum[a.id] || null,
     concept_statement: a.concept_statement || null,
+    card_focal_x: null,
+    card_focal_y: null,
+    card_zoom: null,
   }));
 
   // Singles
   const { data: singles } = await supabase
     .from("songs")
-    .select("id, title, slug, release_date, art_image_path, chorus")
+    .select("id, title, slug, release_date, art_image_path, chorus, card_focal_x, card_focal_y, card_zoom")
     .eq("status", "published")
     .eq("is_single", true)
     .order("release_date", { ascending: false });
@@ -108,6 +114,9 @@ async function getDiscography() {
     chorus: s.chorus || null,
     tracklist: null,
     concept_statement: null,
+    card_focal_x: s.card_focal_x ?? null,
+    card_focal_y: s.card_focal_y ?? null,
+    card_zoom: s.card_zoom ?? null,
   }));
 
   // Collect unique format labels
