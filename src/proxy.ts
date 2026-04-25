@@ -23,19 +23,19 @@ async function jwtIsValid(token: string): Promise<boolean> {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Admin/API-admin gate
+  // Admin/API-admin gate. Unauth requests return 404 (not a redirect) so the
+  // secret login URL never appears in a browser bar via guess-the-path probes.
+  // Direct hits to /cl-admin-6nnn are how admins log in.
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const accessToken = request.cookies.get("sb-access-token")?.value;
     const authorized = accessToken ? await jwtIsValid(accessToken) : false;
     if (!authorized) {
-      // For API requests, return 401 instead of an HTML redirect — fetch()
-      // callers see a real error rather than following the redirect to HTML.
       if (pathname.startsWith("/api/")) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ error: "Not Found" }, { status: 404 });
       }
-      const loginUrl = new URL("/cl-admin-6nnn", request.url);
-      loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+      // Rewrite to a guaranteed-nonexistent path so Next renders its default
+      // 404 page. URL bar still shows whatever the user typed.
+      return NextResponse.rewrite(new URL("/__404_admin_mask__", request.url));
     }
     return NextResponse.next();
   }
