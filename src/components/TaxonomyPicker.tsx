@@ -19,6 +19,9 @@ interface TaxonomyPickerProps {
   createPlaceholder: string;
   /** Field used for display and creation payload. "title" for categories/thoughtlines, "label" for tags. */
   nameField?: "title" | "label";
+  /** Optional. When set, available chips get a delete × that calls DELETE `${deleteEndpoint}/${id}`. */
+  deleteEndpoint?: string;
+  onDelete?: (id: string) => void;
 }
 
 function slugify(text: string): string {
@@ -38,8 +41,18 @@ export function TaxonomyPicker({
   createEndpoint,
   createPlaceholder,
   nameField = "title",
+  deleteEndpoint,
+  onDelete,
 }: TaxonomyPickerProps) {
   const [newValue, setNewValue] = useState("");
+
+  async function handleDelete(item: TaxonomyItem) {
+    if (!deleteEndpoint) return;
+    if (!confirm(`Delete "${displayName(item)}"? This also removes it from every item that uses it.`)) return;
+    const res = await fetch(`${deleteEndpoint}/${item.id}`, { method: "DELETE" });
+    if (res.ok) onDelete?.(item.id);
+    else alert("Delete failed");
+  }
 
   function displayName(item: TaxonomyItem): string {
     return (nameField === "label" ? item.label : item.title) || "";
@@ -92,14 +105,28 @@ export function TaxonomyPicker({
         <span className="obsv-editor__chip-label">Available</span>
         <div className="obsv-editor__chip-grid">
           {availableItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="obsv-editor__chip"
-              onClick={() => onToggle(item.id)}
-            >
-              {displayName(item)}
-            </button>
+            <span key={item.id} className="obsv-editor__chip-wrap" style={{ display: "inline-flex", alignItems: "stretch" }}>
+              <button
+                type="button"
+                className="obsv-editor__chip"
+                onClick={() => onToggle(item.id)}
+                style={deleteEndpoint ? { borderTopRightRadius: 0, borderBottomRightRadius: 0 } : undefined}
+              >
+                {displayName(item)}
+              </button>
+              {deleteEndpoint && (
+                <button
+                  type="button"
+                  className="obsv-editor__chip obsv-editor__chip--delete"
+                  onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
+                  aria-label={`Delete ${displayName(item)}`}
+                  title="Delete"
+                  style={{ padding: "0 6px", borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: "0", color: "var(--err, #ff6b6b)" }}
+                >
+                  ×
+                </button>
+              )}
+            </span>
           ))}
           <input
             type="text"

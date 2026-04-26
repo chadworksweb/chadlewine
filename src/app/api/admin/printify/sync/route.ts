@@ -58,11 +58,31 @@ function normalizeVariants(p: PrintifyShopProduct): NormalizedVariant[] {
 }
 
 export async function POST() {
+  // Quick env presence check — surface root cause loudly when a key is missing
+  // or has whitespace baggage from a CLI paste.
+  const rawToken = process.env.PRINTIFY_API_TOKEN || "";
+  const rawShop = process.env.PRINTIFY_SHOP_ID || "";
+  if (!rawToken || !rawShop) {
+    return Response.json({
+      error: `Printify env not set (token_present=${!!rawToken}, shop_present=${!!rawShop})`,
+    }, { status: 500 });
+  }
+  const tokenTrimmedLen = rawToken.trim().length;
+  const shopTrimmedLen = rawShop.trim().length;
+  if (tokenTrimmedLen !== rawToken.length || shopTrimmedLen !== rawShop.length) {
+    return Response.json({
+      error: `Printify env has surrounding whitespace (token_len=${rawToken.length} trimmed=${tokenTrimmedLen}, shop_len=${rawShop.length} trimmed=${shopTrimmedLen}). Re-add via vercel env to clean it up.`,
+    }, { status: 500 });
+  }
+
   let shopProducts;
   try {
     shopProducts = await getShopProducts();
   } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 502 });
+    return Response.json({
+      error: (err as Error).message,
+      hint: `shop=${rawShop.slice(0, 12)}, token_len=${rawToken.length}, token_prefix=${rawToken.slice(0, 12)}`,
+    }, { status: 502 });
   }
 
   const supabase = createAdminClient();

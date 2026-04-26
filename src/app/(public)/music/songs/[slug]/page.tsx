@@ -29,7 +29,7 @@ async function getSongData(songSlug: string) {
     .from("songs")
     .select("*")
     .eq("slug", songSlug)
-    .in("status", ["unreleased", "published"])
+    .in("status", ["demo", "unreleased", "published"])
     .single();
   if (!song) return null;
 
@@ -208,6 +208,9 @@ export default async function SongDetailPage({
           ringtone_available:
             !!song.ringtone_price &&
             !!(song.ringtone_path_m4r || song.ringtone_path_mp3),
+          status: song.status,
+          demo_surfaced: song.demo_surfaced === true,
+          demo_vote_count: song.demo_vote_count ?? 0,
         }}
         album={
           album

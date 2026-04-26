@@ -40,7 +40,10 @@ export default function AdminMerchPage() {
       const res = await fetch("/api/admin/printify/sync", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        setSyncResult(`Sync failed: ${data.error || "unknown"}`);
+        setSyncResult(
+          `Sync failed: ${data.error || "unknown"}` +
+          (data.hint ? ` — ${data.hint}` : ""),
+        );
       } else {
         setSyncResult(
           `Fetched ${data.fetched}, created ${data.created}, updated ${data.updated}` +

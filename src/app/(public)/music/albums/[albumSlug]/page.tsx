@@ -26,7 +26,10 @@ async function getAlbumData(albumSlug: string) {
     .order("track_number");
 
   const filtered = (junctions || []).filter(
-    (j: any) => j.song?.status === "published" || j.song?.status === "unreleased",
+    (j: any) =>
+      j.song?.status === "published" ||
+      j.song?.status === "unreleased" ||
+      j.song?.status === "demo",
   );
 
   const playbackModes = await Promise.all(
