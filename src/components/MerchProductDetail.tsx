@@ -25,7 +25,6 @@ export function MerchProductDetail({
   description,
   image_url,
   image_alt,
-  tier,
   price,
   variants,
 }: Props) {
@@ -45,11 +44,6 @@ export function MerchProductDetail({
     });
   }, [variants]);
 
-  const colors = useMemo(
-    () => Array.from(new Set(variants.map((v) => v.color).filter(Boolean) as string[])),
-    [variants],
-  );
-
   const variantForSize = (s: string | null): ProductVariant | null =>
     s ? variants.find((v) => v.size === s) || null : null;
 
@@ -59,7 +53,6 @@ export function MerchProductDetail({
   const displayedPrice = selectedVariant
     ? selectedVariant.price_cents / 100
     : lowestPrice;
-  const showFromLabel = !selectedVariant && sortedSizes.length > 1;
 
   const inCart = selectedVariant
     ? hasItem({
@@ -98,15 +91,14 @@ export function MerchProductDetail({
       : "Add to cart";
 
   return (
-    <div className="track-detail">
-      <div className="track-detail__grid">
-        {/* Left — Product image */}
-        <div className="track-detail__art-col">
+    <div className="product-detail">
+      <div className="product-detail__grid">
+        <div className="product-detail__art-col">
           {image_url && (
             <Image
               src={image_url}
               alt={image_alt || title}
-              className="track-detail__cover"
+              className="product-detail__cover"
               width={1200}
               height={1200}
               sizes="(max-width: 720px) 100vw, 600px"
@@ -115,59 +107,39 @@ export function MerchProductDetail({
           )}
         </div>
 
-        {/* Right — Product content */}
-        <div className="track-detail__content-col">
-          <h1 className="track-detail__title">{title}</h1>
+        <div className="product-detail__content-col">
+          <h1 className="product-detail__title">{title}</h1>
 
-          <div className="track-detail__info-bar" data-cols={colors.length > 0 ? 3 : 2}>
-            <div className="track-detail__info-cell">
-              <span className="track-detail__info-label">Tier</span>
-              <span className="track-detail__info-value">{tier}</span>
-            </div>
-            {colors.length > 0 && (
-              <div className="track-detail__info-cell">
-                <span className="track-detail__info-label">Color</span>
-                <span className="track-detail__info-value">{colors[0]}</span>
+          <div className="product-detail__info-bar" data-cols={sortedSizes.length > 0 ? 2 : 1}>
+            {sortedSizes.length > 0 && (
+              <div className="product-detail__info-cell">
+                <span className="product-detail__info-label">Size</span>
+                <select
+                  className="product-detail__size-select"
+                  value={selectedSize || ""}
+                  onChange={(e) => { setSelectedSize(e.target.value || null); setStatus("idle"); }}
+                  aria-label="Size"
+                >
+                  <option value="">Pick a size</option>
+                  {sortedSizes.map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
               </div>
             )}
-            <div className="track-detail__info-cell">
-              <span className="track-detail__info-label">Price</span>
-              <span className="track-detail__info-value">
-                {showFromLabel ? `from $${displayedPrice?.toFixed(2)}` : `$${displayedPrice?.toFixed(2)}`}
+            <div className="product-detail__info-cell">
+              <span className="product-detail__info-label">Price</span>
+              <span className="product-detail__info-value">
+                ${displayedPrice?.toFixed(2)}
               </span>
             </div>
           </div>
 
-          {sortedSizes.length > 0 && (
-            <div className="merch-detail__size-row">
-              <span className="merch-detail__size-label">Size</span>
-              <div className="merch-shop__sizes" role="radiogroup" aria-label="Size">
-                {sortedSizes.map((size) => {
-                  const variant = variantForSize(size);
-                  if (!variant) return null;
-                  const selected = selectedSize === size;
-                  return (
-                    <button
-                      key={size}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => { setSelectedSize(size); setStatus("idle"); }}
-                      className={`merch-shop__size-btn${selected ? " merch-shop__size-btn--selected" : ""}`}
-                    >
-                      {size}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="track-detail__action-row">
-            <div className="track-detail__actions">
+          <div className="product-detail__action-row">
+            <div className="product-detail__actions">
               <button
                 type="button"
-                className={`track-detail__btn track-detail__btn--buy-album${inCart ? " track-detail__btn--in-cart" : ""}`}
+                className={`product-detail__btn product-detail__btn--buy-album${inCart ? " product-detail__btn--in-cart" : ""}`}
                 disabled={!selectedVariant && sortedSizes.length > 0}
                 onClick={handleBuy}
               >
@@ -177,8 +149,8 @@ export function MerchProductDetail({
           </div>
 
           {description && (
-            <div className="track-detail__summary">
-              <div className="track-detail__summary-text">{description}</div>
+            <div className="product-detail__summary">
+              <div className="product-detail__summary-text">{description}</div>
             </div>
           )}
 

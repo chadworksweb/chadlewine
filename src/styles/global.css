@@ -7191,19 +7191,27 @@ h3.aw-heading {
   opacity: 0.85;
 }
 
-.merch-detail__size-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: var(--space-md) 0;
+.product-detail__size-select {
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 600;
+  border: none;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  width: 100%;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='currentColor' d='M5 6 0 0h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right center;
+  padding-right: 16px;
 }
 
-.merch-detail__size-label {
-  font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-tertiary);
+.product-detail__size-select:focus {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
 }
 
 .merch-detail__disclaimer {
@@ -8474,7 +8482,8 @@ h3.aw-heading {
    Scoped under .track-detail to avoid conflicts with main site theme
    ============================================================ */
 
-.track-detail {
+.track-detail,
+.product-detail {
   --td-bg: #0d0d1a;
   --td-bg-card: #12121a;
   --td-border: #3a3a5c;
@@ -8492,7 +8501,8 @@ h3.aw-heading {
   padding: 0 0 var(--space-4xl);
 }
 
-.track-detail__grid {
+.track-detail__grid,
+.product-detail__grid {
   --td-art-size: min(calc((var(--site-width) - 18px) / 2), calc(100vh - var(--nav-height) - 3rem));
   display: grid;
   grid-template-columns: var(--td-art-size) 1fr;
@@ -8505,10 +8515,12 @@ h3.aw-heading {
 
 /* --- Album art --- */
 
-.track-detail__art-col {
+.track-detail__art-col,
+.product-detail__art-col {
 }
 
-.track-detail__cover {
+.track-detail__cover,
+.product-detail__cover {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
@@ -8518,7 +8530,8 @@ h3.aw-heading {
 
 /* --- Content column --- */
 
-.track-detail__content-col {
+.track-detail__content-col,
+.product-detail__content-col {
   grid-column: 2;
   min-height: 0;
   background:
@@ -8545,7 +8558,8 @@ h3.aw-heading {
 
 /* --- Title --- */
 
-.track-detail__title {
+.track-detail__title,
+.product-detail__title {
   font-family: var(--td-font-mono);
   font-size: clamp(1.5rem, 2vw + 1rem, 2.5rem);
   font-weight: 400;
@@ -8557,7 +8571,8 @@ h3.aw-heading {
 
 /* --- Info bar --- */
 
-.track-detail__info-bar {
+.track-detail__info-bar,
+.product-detail__info-bar {
   display: grid;
   width: 100%;
   background: var(--td-bg-card);
@@ -8571,7 +8586,8 @@ h3.aw-heading {
 .track-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 1fr; }
 .track-detail__info-bar[data-cols="3"] { grid-template-columns: 1fr 1fr 1fr; }
 
-.track-detail__info-cell {
+.track-detail__info-cell,
+.product-detail__info-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -8583,7 +8599,8 @@ h3.aw-heading {
   border-right: none;
 }
 
-.track-detail__info-label {
+.track-detail__info-label,
+.product-detail__info-label {
   font-family: var(--td-font-mono);
   font-size: 0.55rem;
   text-transform: uppercase;
@@ -8592,7 +8609,8 @@ h3.aw-heading {
   margin-bottom: 0.25rem;
 }
 
-.track-detail__info-value {
+.track-detail__info-value,
+.product-detail__info-value {
   font-family: var(--td-font-mono);
   font-size: 1.275rem;
   color: var(--td-cyan-alt);
@@ -8600,13 +8618,15 @@ h3.aw-heading {
   white-space: nowrap;
 }
 
-.track-detail__info-value--released {
+.track-detail__info-value--released,
+.product-detail__info-value--released {
   font-size: 0.95625rem; /* 25% smaller than base 1.275rem */
 }
 
 /* Glitch link on album name */
 
-.track-detail__glitch-link {
+.track-detail__glitch-link,
+.product-detail__glitch-link {
   color: var(--td-cyan-alt);
   text-decoration: none;
   text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
@@ -8615,7 +8635,8 @@ h3.aw-heading {
 }
 
 .track-detail__glitch-link::before,
-.track-detail__glitch-link::after {
+.track-detail__glitch-link::after,
+.product-detail__glitch-link::after {
   content: attr(data-text);
   position: absolute;
   top: 0;
@@ -8630,7 +8651,8 @@ h3.aw-heading {
 .track-detail__glitch-link::before { color: #0ff; z-index: -1; }
 .track-detail__glitch-link::after { color: #f0f; z-index: -1; }
 
-.track-detail__glitch-link:hover {
+.track-detail__glitch-link:hover,
+.product-detail__glitch-link:hover {
   color: rgba(255, 255, 255, 0.5);
   text-shadow: none;
   animation: td-glitch-text 0.4s steps(2) both;
@@ -8671,7 +8693,8 @@ h3.aw-heading {
 
 /* --- Action row: buttons + RC badge --- */
 
-.track-detail__action-row {
+.track-detail__action-row,
+.product-detail__action-row {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 1.5rem;
@@ -8679,13 +8702,15 @@ h3.aw-heading {
   margin-bottom: 1.5rem;
 }
 
-.track-detail__actions {
+.track-detail__actions,
+.product-detail__actions {
   display: flex;
   gap: 0.75rem;
 }
 
 /* Rising Compass inline badge */
-.track-detail__rc-badge {
+.track-detail__rc-badge,
+.product-detail__rc-badge {
   display: flex;
   align-items: center;
   gap: 0.625rem;
@@ -8695,7 +8720,8 @@ h3.aw-heading {
 /* Old-timey rubber-stamp, angled bottom-left → top-right, translucent so
    the charge/tier show through. Activates only when the Badge API returns
    pending=true (open misread/satirical flag on this song). */
-.track-detail__rc-pending-stamp {
+.track-detail__rc-pending-stamp,
+.product-detail__rc-pending-stamp {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -8719,14 +8745,16 @@ h3.aw-heading {
   mix-blend-mode: multiply;
 }
 
-.track-detail__rc-compass-link {
+.track-detail__rc-compass-link,
+.product-detail__rc-compass-link {
   flex-shrink: 0;
   display: block;
   line-height: 0;
   transition: opacity 0.2s var(--ease-out);
 }
 
-.track-detail__rc-compass-link:hover {
+.track-detail__rc-compass-link:hover,
+.product-detail__rc-compass-link:hover {
   opacity: 0.8;
 }
 
@@ -8734,13 +8762,15 @@ h3.aw-heading {
   display: block;
 }
 
-.track-detail__rc-data {
+.track-detail__rc-data,
+.product-detail__rc-data {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 
-.track-detail__rc-tier {
+.track-detail__rc-tier,
+.product-detail__rc-tier {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -8748,7 +8778,8 @@ h3.aw-heading {
   line-height: 1.2;
 }
 
-.track-detail__rc-charge {
+.track-detail__rc-charge,
+.product-detail__rc-charge {
   font-family: var(--font-mono);
   font-size: calc(var(--text-lg) * 0.85);
   font-weight: 600;
@@ -8757,18 +8788,21 @@ h3.aw-heading {
 }
 
 /* Charge numeral + inline summary button, sit below the tier label */
-.track-detail__rc-charge-row {
+.track-detail__rc-charge-row,
+.product-detail__rc-charge-row {
   display: flex;
   align-items: center;
   gap: 0.375rem;
 }
 
 /* Summary tooltip (comment bubble) */
-.track-detail__rc-summary-wrap {
+.track-detail__rc-summary-wrap,
+.product-detail__rc-summary-wrap {
   position: relative;
 }
 
-.track-detail__rc-summary-btn {
+.track-detail__rc-summary-btn,
+.product-detail__rc-summary-btn {
   background: none;
   border: none;
   padding: 0.3rem;
@@ -8783,12 +8817,14 @@ h3.aw-heading {
   line-height: 1;
 }
 
-.track-detail__rc-summary-btn:hover {
+.track-detail__rc-summary-btn:hover,
+.product-detail__rc-summary-btn:hover {
   opacity: 0.85;
   transform: scale(1.15);
 }
 
-.track-detail__rc-summary-tooltip {
+.track-detail__rc-summary-tooltip,
+.product-detail__rc-summary-tooltip {
   position: absolute;
   bottom: calc(100% + 8px);
   right: 0;
@@ -8809,7 +8845,8 @@ h3.aw-heading {
   margin: 0;
 }
 
-.track-detail__rc-contam {
+.track-detail__rc-contam,
+.product-detail__rc-contam {
   margin-top: var(--space-xs) !important;
   font-style: italic;
   color: var(--text-tertiary) !important;
@@ -8820,7 +8857,8 @@ h3.aw-heading {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.track-detail__btn {
+.track-detail__btn,
+.product-detail__btn {
   flex: 1;
   height: 48px;
   display: flex;
@@ -8837,13 +8875,15 @@ h3.aw-heading {
   text-decoration: none;
 }
 
-.track-detail__btn--buy {
+.track-detail__btn--buy,
+.product-detail__btn--buy {
   background: var(--td-active);
   color: #0d0d1a;
   border: 2px solid var(--td-active);
 }
 
-.track-detail__btn--buy:hover {
+.track-detail__btn--buy:hover,
+.product-detail__btn--buy:hover {
   background: #ffc040;
   color: #000;
   border-color: #ffc040;
@@ -8851,28 +8891,32 @@ h3.aw-heading {
   transform: translateY(-2px);
 }
 
-.track-detail__btn--stream {
+.track-detail__btn--stream,
+.product-detail__btn--stream {
   background: transparent;
   color: var(--td-cyan-alt);
   border: 2px solid var(--td-cyan-alt);
   box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
 }
 
-.track-detail__btn--stream:hover {
+.track-detail__btn--stream:hover,
+.product-detail__btn--stream:hover {
   background: rgba(0, 212, 255, 0.1);
   color: #00e5ff;
   box-shadow: 0 0 15px rgba(0, 212, 255, 0.25);
   text-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
 }
 
-.track-detail__btn--buy-album {
+.track-detail__btn--buy-album,
+.product-detail__btn--buy-album {
   background: var(--td-active);
   color: #0d0d1a;
   border: 2px solid var(--td-active);
   text-decoration: none;
 }
 
-.track-detail__btn--buy-album:hover {
+.track-detail__btn--buy-album:hover,
+.product-detail__btn--buy-album:hover {
   background: #ffc040;
   color: #000;
   border-color: #ffc040;
@@ -8882,7 +8926,8 @@ h3.aw-heading {
 
 /* Ringtone — distinct cyan accent so it reads as a separate product
    from the main song/album buy buttons. */
-.track-detail__btn--ringtone {
+.track-detail__btn--ringtone,
+.product-detail__btn--ringtone {
   background: var(--td-cyan-alt);
   color: #0d0d1a;
   border: 2px solid var(--td-cyan-alt);
@@ -8900,7 +8945,8 @@ h3.aw-heading {
    so the button stays inert while making clear it's already added. */
 .track-detail__btn--in-cart,
 .track-detail__btn--in-cart:hover,
-.track-detail__btn--in-cart:disabled {
+.track-detail__btn--in-cart:disabled,
+.product-detail__btn--in-cart:disabled {
   background: rgba(255, 149, 0, 0.12);
   color: #ff9500;
   border: 2px solid #ff9500;
@@ -8921,13 +8967,15 @@ h3.aw-heading {
 
 /* --- Sections (Lyrics, Song Summary) --- */
 
-.track-detail__section {
+.track-detail__section,
+.product-detail__section {
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--td-border);
 }
 
-.track-detail__section-title {
+.track-detail__section-title,
+.product-detail__section-title {
   font-family: var(--td-font-mono);
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -8938,25 +8986,29 @@ h3.aw-heading {
 
 /* Lyrics — collapsible */
 
-.track-detail__lyrics {
+.track-detail__lyrics,
+.product-detail__lyrics {
   max-height: 20rem;
   overflow: hidden;
   position: relative;
   transition: max-height 0.4s ease;
 }
 
-.track-detail__lyrics {
+.track-detail__lyrics,
+.product-detail__lyrics {
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 4rem), transparent 100%);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 4rem), transparent 100%);
 }
 
-.track-detail__lyrics--expanded {
+.track-detail__lyrics--expanded,
+.product-detail__lyrics--expanded {
   max-height: none;
   -webkit-mask-image: none;
   mask-image: none;
 }
 
-.track-detail__lyrics-text {
+.track-detail__lyrics-text,
+.product-detail__lyrics-text {
   font-family: var(--td-font-mono);
   font-size: 0.85rem;
   line-height: 1.8;
@@ -8969,7 +9021,8 @@ h3.aw-heading {
   padding: 0;
 }
 
-.track-detail__lyrics-toggle {
+.track-detail__lyrics-toggle,
+.product-detail__lyrics-toggle {
   display: inline-block;
   margin-top: 0.75rem;
   padding: 0;
@@ -8984,14 +9037,16 @@ h3.aw-heading {
   transition: color 0.2s ease;
 }
 
-.track-detail__lyrics-toggle:hover {
+.track-detail__lyrics-toggle:hover,
+.product-detail__lyrics-toggle:hover {
   color: #ff00ff;
   text-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
 }
 
 /* Song Summary */
 
-.track-detail__summary-text {
+.track-detail__summary-text,
+.product-detail__summary-text {
   color: var(--td-text);
   font-size: 0.95rem;
   line-height: 1.7;
@@ -8999,19 +9054,22 @@ h3.aw-heading {
 
 /* Expansions (Deep Dive) */
 
-.track-detail__expansions {
+.track-detail__expansions,
+.product-detail__expansions {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.track-detail__expansion {
+.track-detail__expansion,
+.product-detail__expansion {
   border: 1px solid var(--td-border);
   border-radius: 4px;
   overflow: hidden;
 }
 
-.track-detail__expansion-toggle {
+.track-detail__expansion-toggle,
+.product-detail__expansion-toggle {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -9029,17 +9087,20 @@ h3.aw-heading {
   transition: color 0.15s ease;
 }
 
-.track-detail__expansion-toggle:hover {
+.track-detail__expansion-toggle:hover,
+.product-detail__expansion-toggle:hover {
   color: #ff00ff;
 }
 
-.track-detail__expansion-arrow {
+.track-detail__expansion-arrow,
+.product-detail__expansion-arrow {
   font-size: 0.75rem;
   line-height: 1;
   flex-shrink: 0;
 }
 
-.track-detail__expansion-body {
+.track-detail__expansion-body,
+.product-detail__expansion-body {
   padding: 0 1rem 1rem;
   color: var(--td-text);
   font-size: 0.95rem;
@@ -9932,7 +9993,8 @@ h3.aw-heading {
 
 /* --- Title row + format badge --- */
 
-.track-detail__title-row {
+.track-detail__title-row,
+.product-detail__title-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -9944,7 +10006,8 @@ h3.aw-heading {
   margin-bottom: 0;
 }
 
-.track-detail__format-badge {
+.track-detail__format-badge,
+.product-detail__format-badge {
   font-family: var(--td-font-mono);
   font-size: 0.75rem;
   color: var(--td-cyan-alt);
@@ -9958,21 +10021,24 @@ h3.aw-heading {
 
 /* --- Release date --- */
 
-.track-detail__release-date {
+.track-detail__release-date,
+.product-detail__release-date {
   font-family: var(--td-font-mono);
   font-size: 0.85rem;
   color: var(--td-text-muted);
   margin-bottom: 1rem;
 }
 
-.track-detail__release-label {
+.track-detail__release-label,
+.product-detail__release-label {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   font-size: 0.65rem;
   margin-right: 0.5rem;
 }
 
-.track-detail__release-value {
+.track-detail__release-value,
+.product-detail__release-value {
   color: var(--td-cyan-alt);
   text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
 }
@@ -10015,19 +10081,22 @@ h3.aw-heading {
 /* --- Responsive --- */
 
 @media (max-width: 900px) {
-  .track-detail__grid {
+  .track-detail__grid,
+  .product-detail__grid {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
     gap: var(--space-lg);
   }
 
-  .track-detail__art-col {
+  .track-detail__art-col,
+  .product-detail__art-col {
     position: static;
     max-width: 400px;
     margin: 0 auto;
   }
 
-  .track-detail__content-col {
+  .track-detail__content-col,
+  .product-detail__content-col {
     aspect-ratio: unset;
     overflow-y: visible;
   }
@@ -10038,7 +10107,8 @@ h3.aw-heading {
     grid-template-columns: 1fr;
   }
 
-  .track-detail__info-cell {
+  .track-detail__info-cell,
+  .product-detail__info-cell {
     border-right: none;
     border-bottom: 1px solid var(--td-border);
   }
@@ -10047,15 +10117,18 @@ h3.aw-heading {
     border-bottom: none;
   }
 
-  .track-detail__action-row {
+  .track-detail__action-row,
+  .product-detail__action-row {
     grid-template-columns: 1fr;
   }
 
-  .track-detail__actions {
+  .track-detail__actions,
+  .product-detail__actions {
     flex-direction: column;
   }
 
-  .track-detail__rc-summary-tooltip {
+  .track-detail__rc-summary-tooltip,
+  .product-detail__rc-summary-tooltip {
     right: auto;
     left: 0;
     width: 240px;
@@ -11141,7 +11214,8 @@ h3.aw-heading {
 
 /* Fallback CTA when no visibility sections */
 
-.track-detail__business-cta {
+.track-detail__business-cta,
+.product-detail__business-cta {
   font-family: var(--font-ui);
   font-size: 0.75rem;
   color: #555;
