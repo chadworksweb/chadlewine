@@ -4,11 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 8888 --webpack",
-    "prebuild": "tsx scripts/prose-sections-build-export.ts",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "prose:export": "tsx scripts/prose-sections-build-export.ts"
+    "lint": "eslint"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.0",
