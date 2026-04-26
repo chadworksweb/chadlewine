@@ -58,6 +58,24 @@ export default function EditProductPage() {
       <div className="admin-page__header">
         <h1 className="admin-page__title">Edit Product</h1>
         <div style={{ display: "flex", gap: 8 }}>
+          <a
+            className="admin-btn admin-btn--secondary"
+            href="/merch"
+            target="_blank"
+            rel="noopener"
+          >
+            View on Site
+          </a>
+          {typeof form.printify_product_id === "string" && form.printify_product_id && (
+            <a
+              className="admin-btn admin-btn--secondary"
+              href={`https://printify.com/app/store/products/${form.printify_product_id}`}
+              target="_blank"
+              rel="noopener"
+            >
+              View on Printify
+            </a>
+          )}
           <button className="admin-btn admin-btn--danger" onClick={handleDelete}>Delete</button>
           <button className="admin-btn admin-btn--primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save"}
