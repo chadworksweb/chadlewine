@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 31536000,
     remotePatterns: [
       { protocol: "https", hostname: "**.b-cdn.net" },
+      { protocol: "https", hostname: "images-api.printify.com" },
+      { protocol: "https", hostname: "images.printify.com" },
     ],
   },
 };

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { getShopProducts, type PrintifyShopProduct } from "@/lib/printify";
+import { slugify } from "@/lib/utils";
 
 interface NormalizedVariant {
   id: number;
@@ -100,13 +101,33 @@ export async function POST() {
 
     const { data: existing } = await supabase
       .from("products")
-      .select("id, tier")
+      .select("id, tier, slug")
       .eq("printify_product_id", p.id)
       .maybeSingle();
+
+    const baseSlug = slugify(p.title);
+    let slug = existing?.slug || baseSlug;
+    if (!existing?.slug) {
+      // First-time sync — pick a non-colliding slug. Append -2, -3, ... if taken
+      // by another product (sub-range of total products is tiny so this loop is
+      // bounded by a couple of tries in practice).
+      let n = 2;
+      while (true) {
+        const { data: clash } = await supabase
+          .from("products")
+          .select("id")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (!clash) break;
+        slug = `${baseSlug}-${n++}`;
+        if (n > 50) break;
+      }
+    }
 
     const payload = {
       printify_product_id: p.id,
       title: p.title,
+      slug,
       description: stripHtml(p.description || ""),
       image_url: pickImage(p),
       price,

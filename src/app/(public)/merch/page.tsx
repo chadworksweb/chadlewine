@@ -24,6 +24,7 @@ export const revalidate = 60;
 
 interface ProductRow {
   id: string;
+  slug: string | null;
   tier: string;
   title: string;
   description: string | null;
@@ -41,7 +42,7 @@ export default async function MerchPage() {
   const { data: products } = await supabase
     .from("products")
     .select(
-      "id, tier, title, description, price, image_url, image_alt, fulfillment, is_catalog_item, source_observation_id, variants"
+      "id, slug, tier, title, description, price, image_url, image_alt, fulfillment, is_catalog_item, source_observation_id, variants"
     )
     .in("fulfillment", ["manual", "printify_curated"])
     .eq("status", "active")
@@ -50,7 +51,7 @@ export default async function MerchPage() {
   const { data: catalogPicks } = await supabase
     .from("products")
     .select(
-      "id, tier, title, description, price, image_url, image_alt, fulfillment, is_catalog_item, variants"
+      "id, slug, tier, title, description, price, image_url, image_alt, fulfillment, is_catalog_item, variants"
     )
     .eq("fulfillment", "printify_configurator")
     .eq("is_catalog_item", true)
@@ -82,6 +83,7 @@ export default async function MerchPage() {
                 <MerchProductCard
                   key={p.id}
                   id={p.id}
+                  slug={p.slug}
                   title={p.title}
                   description={p.description}
                   image_url={p.image_url}

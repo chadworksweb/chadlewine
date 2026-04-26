@@ -16,6 +16,7 @@ export interface ProductVariant {
 
 interface Props {
   id: string;
+  slug: string | null;
   title: string;
   description: string | null;
   image_url: string | null;
@@ -26,6 +27,7 @@ interface Props {
 
 export function MerchProductCard({
   id,
+  slug,
   title,
   description,
   image_url,
@@ -33,6 +35,7 @@ export function MerchProductCard({
   tier,
   variants,
 }: Props) {
+  const href = `/merch/${slug || id}`;
   const { add, open, hasItem } = useCart();
 
   const sortedSizes = useMemo(() => {
@@ -94,7 +97,7 @@ export function MerchProductCard({
   return (
     <div className="merch-shop__card">
       {image_url && (
-        <Link href={`/merch/${id}`}>
+        <Link href={href}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={image_url}
@@ -108,7 +111,7 @@ export function MerchProductCard({
           <span className="merch-section__tier">{tier}</span>
         </div>
         <h3 className="merch-shop__card-title">
-          <Link href={`/merch/${id}`} className="merch-shop__card-title-link">
+          <Link href={href} className="merch-shop__card-title-link">
             {title}
           </Link>
         </h3>

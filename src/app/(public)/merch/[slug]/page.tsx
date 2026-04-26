@@ -9,6 +9,7 @@ export const revalidate = 60;
 
 interface ProductRow {
   id: string;
+  slug: string | null;
   tier: string;
   title: string;
   description: string | null;
@@ -21,16 +22,16 @@ interface ProductRow {
   created_at: string;
 }
 
-async function getProduct(id: string): Promise<ProductRow | null> {
-  // UUID-shape guard so we don't query Supabase with garbage paths
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-    return null;
-  }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function getProduct(key: string): Promise<ProductRow | null> {
   const supabase = createPublicClient();
+  const isUuid = UUID_RE.test(key);
+  // Look up by slug first; fall back to id so old UUID URLs don't 404 mid-rollout.
   const { data } = await supabase
     .from("products")
-    .select("id, tier, title, description, price, image_url, image_alt, fulfillment, status, variants, created_at")
-    .eq("id", id)
+    .select("id, slug, tier, title, description, price, image_url, image_alt, fulfillment, status, variants, created_at")
+    .eq(isUuid ? "id" : "slug", key)
     .eq("status", "active")
     .single();
   return (data as ProductRow | null) || null;
@@ -39,15 +40,16 @@ async function getProduct(id: string): Promise<ProductRow | null> {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
-  const product = await getProduct(id);
+  const { slug } = await params;
+  const product = await getProduct(slug);
   if (!product) return {};
+  const canonicalKey = product.slug || product.id;
   return {
     title: `${product.title} — Chad Lewine`,
     description: product.description || `${product.title} by Chad Lewine.`,
-    alternates: { canonical: `https://chadlewine.com/merch/${id}` },
+    alternates: { canonical: `https://chadlewine.com/merch/${canonicalKey}` },
     openGraph: {
       title: product.title,
       description: product.description || undefined,
@@ -59,10 +61,10 @@ export async function generateMetadata({
 export default async function MerchProductPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = await params;
-  const product = await getProduct(id);
+  const { slug } = await params;
+  const product = await getProduct(slug);
   if (!product) notFound();
 
   return (

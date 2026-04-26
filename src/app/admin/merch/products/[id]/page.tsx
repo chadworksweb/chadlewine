@@ -60,7 +60,7 @@ export default function EditProductPage() {
         <div style={{ display: "flex", gap: 8 }}>
           <a
             className="admin-btn admin-btn--secondary"
-            href={`/merch/${id}`}
+            href={`/merch/${(typeof form.slug === "string" && form.slug) ? form.slug : id}`}
             target="_blank"
             rel="noopener"
           >
