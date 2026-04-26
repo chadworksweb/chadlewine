@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useCart } from "@/components/Cart";
 
@@ -93,18 +94,24 @@ export function MerchProductCard({
   return (
     <div className="merch-shop__card">
       {image_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={image_url}
-          alt={image_alt || title}
-          className="merch-shop__card-img"
-        />
+        <Link href={`/merch/${id}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={image_url}
+            alt={image_alt || title}
+            className="merch-shop__card-img"
+          />
+        </Link>
       )}
       <div className="merch-shop__card-body">
         <div className="merch-shop__card-meta">
           <span className="merch-section__tier">{tier}</span>
         </div>
-        <h3 className="merch-shop__card-title">{title}</h3>
+        <h3 className="merch-shop__card-title">
+          <Link href={`/merch/${id}`} className="merch-shop__card-title-link">
+            {title}
+          </Link>
+        </h3>
         {description && <p className="merch-shop__card-desc">{description}</p>}
 
         <p className="merch-shop__card-price" aria-live="polite">

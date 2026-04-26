@@ -7121,6 +7121,15 @@ h3.aw-heading {
   margin: 0 0 var(--space-sm);
 }
 
+.merch-shop__card-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.merch-shop__card-title-link:hover {
+  text-decoration: underline;
+}
+
 .merch-shop__card-price {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
@@ -7180,6 +7189,44 @@ h3.aw-heading {
 
 .merch-shop__add-btn:hover:not(:disabled) {
   opacity: 0.85;
+}
+
+.merch-detail__size-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: var(--space-md) 0;
+}
+
+.merch-detail__size-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.merch-detail__disclaimer {
+  margin-top: var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.merch-detail__back {
+  margin-top: var(--space-lg);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+}
+
+.merch-detail__back a {
+  color: var(--text-tertiary);
+  text-decoration: none;
+}
+
+.merch-detail__back a:hover {
+  color: var(--text-primary);
 }
 
 .merch-shop__configure-cta {
