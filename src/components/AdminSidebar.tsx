@@ -34,8 +34,24 @@ const adminNav: NavItem[] = [
       { href: "/admin/music/songs", label: "Songs" },
     ],
   },
+  {
+    href: "/admin/arc",
+    label: "Arc",
+    children: [
+      { href: "/admin/arc", label: "Overview" },
+      { href: "/admin/arc/capture", label: "Capture" },
+      { href: "/admin/arc/sections", label: "Sections" },
+    ],
+  },
   { href: "/admin/art", label: "Art" },
-  { href: "/admin/merch", label: "Merch" },
+  {
+    href: "/admin/merch",
+    label: "Merch",
+    children: [
+      { href: "/admin/merch", label: "Products" },
+      { href: "/admin/merch/orders", label: "Orders" },
+    ],
+  },
   { href: "/admin/media", label: "Media" },
   {
     href: "/admin/observations",

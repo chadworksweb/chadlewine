@@ -31,9 +31,9 @@ export async function POST(request: Request) {
     const itemType = session.metadata?.type;
 
     if (itemType === "cart") {
-      // Multi-item cart — one purchase row per line. Music lines also get
-      // download tokens + per-format buttons in the email; merch/art lines
-      // record the order and send a fulfillment-pending note.
+      // Multi-item cart — one orders row + one purchase row per line.
+      // Pure-digital orders auto-complete; orders with any physical line land
+      // in pending_review so admin can approve before pushing to Printify.
       // Cart payload is in session.metadata.cart_items as compact JSON. Any
       // configurator merch line stores its full product_config in cfg_<idx>.
       const rawCart = session.metadata?.cart_items;
@@ -56,6 +56,100 @@ export async function POST(request: Request) {
       }
 
       const buyerEmail = session.customer_details?.email || "unknown";
+
+      // Idempotency: if we already have an order for this Stripe session, skip.
+      // Stripe retries webhooks, and we don't want duplicate purchase rows.
+      const sessionId = session.id;
+      let orderId: string | null = null;
+      if (sessionId) {
+        const { data: existing } = await supabase
+          .from("orders")
+          .select("id")
+          .eq("stripe_session_id", sessionId)
+          .maybeSingle();
+        if (existing) {
+          return Response.json({ received: true, deduped: true });
+        }
+      }
+
+      const hasPhysicalLines = cartLines.some(
+        (l) => l.t === "m" || l.t === "o",
+      );
+      const hasDigitalLines = cartLines.some(
+        (l) => l.t === "s" || l.t === "a" || l.t === "r",
+      );
+
+      const orderStatus = hasPhysicalLines ? "pending_review" : "completed";
+
+      // Stripe's TS types renamed/moved shipping_details across API versions;
+      // the field is still on the wire so we read it via a narrowed cast.
+      const sessionWithShipping = session as typeof session & {
+        shipping_details?: {
+          name?: string | null;
+          address?: {
+            line1?: string | null;
+            line2?: string | null;
+            city?: string | null;
+            state?: string | null;
+            postal_code?: string | null;
+            country?: string | null;
+          };
+        } | null;
+        collected_information?: {
+          shipping_details?: {
+            name?: string | null;
+            address?: {
+              line1?: string | null;
+              line2?: string | null;
+              city?: string | null;
+              state?: string | null;
+              postal_code?: string | null;
+              country?: string | null;
+            };
+          };
+        } | null;
+      };
+      const shippingDetails =
+        sessionWithShipping.shipping_details ||
+        sessionWithShipping.collected_information?.shipping_details ||
+        null;
+      const ship = shippingDetails?.address || null;
+      const shipName = shippingDetails?.name || session.customer_details?.name || null;
+
+      const subtotal = (session.amount_subtotal || 0) / 100;
+      const shipping = (session.total_details?.amount_shipping || 0) / 100;
+      const tax = (session.total_details?.amount_tax || 0) / 100;
+      const total = (session.amount_total || 0) / 100;
+
+      const { data: orderRow, error: orderErr } = await supabase
+        .from("orders")
+        .insert({
+          status: orderStatus,
+          buyer_email: buyerEmail,
+          buyer_name: shipName,
+          ship_line1: ship?.line1 || null,
+          ship_line2: ship?.line2 || null,
+          ship_city: ship?.city || null,
+          ship_state: ship?.state || null,
+          ship_zip: ship?.postal_code || null,
+          ship_country: ship?.country || null,
+          subtotal,
+          shipping,
+          tax,
+          total,
+          stripe_session_id: sessionId || null,
+          stripe_payment_intent_id: session.payment_intent || null,
+          has_printify_lines: hasPhysicalLines,
+          has_digital_lines: hasDigitalLines,
+        })
+        .select("id")
+        .single();
+
+      if (orderErr || !orderRow) {
+        console.error("[stripe-webhook] Failed to insert order:", orderErr?.message);
+        return Response.json({ error: "Order insert failed" }, { status: 500 });
+      }
+      orderId = orderRow.id;
       type FormatKey = "mp3" | "flac" | "wav";
       type RingtoneFormat = "m4r" | "mp3";
       type EmailItemType = "song" | "album" | "ringtone" | "merch" | "art_original";
@@ -137,16 +231,26 @@ export async function POST(request: Request) {
           }
         }
 
-        // Insert purchase row
+        // Capture configurator config snapshot if this is a configurator line
+        let configSnapshot: Record<string, unknown> | null = null;
+        if (lineType === "merch" && typeof line.c === "number") {
+          const cfgRaw = session.metadata?.[`cfg_${line.c}`];
+          try { if (cfgRaw) configSnapshot = JSON.parse(cfgRaw); } catch { /* ignore */ }
+        }
+
+        // Insert purchase row, linked to the parent order
         const { data: purchase, error: purchaseError } = await supabase
           .from("purchases")
           .insert({
+            order_id: orderId,
             buyer_email: buyerEmail,
             item_type: lineType,
             item_id: line.i,
             format,
             stripe_payment_intent_id: session.payment_intent || null,
             amount: 0,
+            title_snapshot: itemTitle,
+            product_config_snapshot: configSnapshot,
             download_url: null,
             download_expires_at: null,
           })
@@ -175,19 +279,6 @@ export async function POST(request: Request) {
             }
           }
         }
-        if (lineType === "merch" && typeof line.c === "number" && buyerEmail !== "unknown") {
-          const cfgRaw = session.metadata?.[`cfg_${line.c}`];
-          let cfg: Record<string, unknown> = {};
-          try { if (cfgRaw) cfg = JSON.parse(cfgRaw); } catch { /* ignore */ }
-          if (cfg.tier && cfg.blueprint_id) {
-            await supabase.from("product_submissions").insert({
-              buyer_email: buyerEmail,
-              product_config: cfg,
-              status: "pending",
-            });
-          }
-        }
-
         // Build email entry
         if (buyerEmail !== "unknown") {
           if (lineType === "merch" || lineType === "art_original") {

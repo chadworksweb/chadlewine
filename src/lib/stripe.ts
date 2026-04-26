@@ -57,6 +57,9 @@ export async function createCartCheckoutSession(params: {
   // Extra Stripe metadata keys — used by configurator merch lines to carry
   // their full product_config (one cfg_<idx> key per configurator line).
   extra_metadata?: Record<string, string>;
+  // True when the cart has any physical line; flips on Stripe shipping address
+  // collection so the webhook + Printify push have an address.
+  collect_shipping?: boolean;
   success_url: string;
   cancel_url: string;
 }) {
@@ -87,6 +90,14 @@ export async function createCartCheckoutSession(params: {
       cart_items: params.cart_items_metadata,
       ...(params.extra_metadata || {}),
     },
+    ...(params.collect_shipping
+      ? {
+          shipping_address_collection: {
+            allowed_countries: ["US", "CA", "GB", "AU", "NZ", "IE"] as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
+          },
+          phone_number_collection: { enabled: true },
+        }
+      : {}),
     success_url: params.success_url,
     cancel_url: params.cancel_url,
   });

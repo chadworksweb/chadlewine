@@ -106,3 +106,74 @@ export async function getShopProducts(): Promise<{ data: { id: string; title: st
   if (!res.ok) throw new Error(`Printify error: ${res.status}`);
   return res.json();
 }
+
+export interface PrintifyOrderLineItem {
+  product_id: string;
+  variant_id: number;
+  quantity: number;
+}
+
+export interface PrintifyShipping {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  country: string;
+  region: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  zip: string;
+}
+
+export interface PrintifyOrderPayload {
+  external_id: string;
+  label?: string;
+  line_items: PrintifyOrderLineItem[];
+  shipping_method: number;
+  is_printify_express?: boolean;
+  is_economy_shipping?: boolean;
+  send_shipping_notification: boolean;
+  address_to: PrintifyShipping;
+}
+
+export async function createOrder(payload: PrintifyOrderPayload): Promise<{ id: string }> {
+  const res = await fetch(`${PRINTIFY_API}/shops/${shopId()}/orders.json`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Printify order error: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+export async function sendOrderToProduction(printifyOrderId: string): Promise<void> {
+  const res = await fetch(
+    `${PRINTIFY_API}/shops/${shopId()}/orders/${printifyOrderId}/send_to_production.json`,
+    { method: "POST", headers: headers() },
+  );
+  if (!res.ok) throw new Error(`Printify send-to-production error: ${res.status}`);
+}
+
+export interface PrintifyOrderRecord {
+  id: string;
+  status: string;
+  shipments?: Array<{
+    carrier: string;
+    number: string;
+    url: string;
+    delivered_at?: string | null;
+  }>;
+}
+
+export async function getOrder(printifyOrderId: string): Promise<PrintifyOrderRecord> {
+  const res = await fetch(
+    `${PRINTIFY_API}/shops/${shopId()}/orders/${printifyOrderId}.json`,
+    { headers: headers() },
+  );
+  if (!res.ok) throw new Error(`Printify get-order error: ${res.status}`);
+  return res.json();
+}

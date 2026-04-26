@@ -291,6 +291,10 @@ export async function POST(request: Request) {
     );
   }
 
+  const hasPhysical = resolved.some(
+    (r) => r.type === "merch" || r.type === "art_original",
+  );
+
   const session = await createCartCheckoutSession({
     line_items: resolved.map((r) => ({
       title: r.title,
@@ -300,6 +304,7 @@ export async function POST(request: Request) {
     })),
     cart_items_metadata: metaJson,
     extra_metadata: cfgKeys,
+    collect_shipping: hasPhysical,
     success_url: `${origin}/music/purchase/cart-thank-you?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/music`,
   });

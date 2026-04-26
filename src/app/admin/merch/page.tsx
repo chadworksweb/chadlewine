@@ -15,25 +15,19 @@ interface Product {
   created_at: string;
 }
 
-interface Submission {
-  id: string;
-  buyer_email: string;
-  status: string;
-  created_at: string;
-}
-
 export default function AdminMerchPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [pendingOrders, setPendingOrders] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    const [prodRes, subRes] = await Promise.all([
+    const [prodRes, ordRes] = await Promise.all([
       fetch("/api/admin/products"),
-      fetch("/api/admin/merch-queue"),
+      fetch("/api/admin/orders?status=pending_review&limit=1"),
     ]);
     setProducts(await prodRes.json());
-    setSubmissions(await subRes.json());
+    const ord = await ordRes.json();
+    setPendingOrders(ord.total || 0);
     setLoading(false);
   }, []);
 
@@ -47,7 +41,6 @@ export default function AdminMerchPage() {
     );
   }
 
-  const pending = submissions.filter((s) => s.status === "pending");
   const tierCounts = products.reduce<Record<string, number>>((acc, p) => {
     acc[p.tier] = (acc[p.tier] || 0) + 1;
     return acc;
@@ -73,16 +66,19 @@ export default function AdminMerchPage() {
             <span className="admin-stats__label">{tier.charAt(0).toUpperCase() + tier.slice(1)}</span>
           </div>
         ))}
-        <div className={`admin-stats__card${pending.length > 0 ? " admin-stats__card--warn" : ""}`}>
-          <span className="admin-stats__value">{pending.length}</span>
+        <div className={`admin-stats__card${pendingOrders > 0 ? " admin-stats__card--warn" : ""}`}>
+          <span className="admin-stats__value">{pendingOrders}</span>
           <span className="admin-stats__label">Pending Review</span>
         </div>
       </div>
 
       {/* Quick links */}
       <div style={{ display: "flex", gap: 8, marginBottom: "var(--space-xl)" }}>
-        <Link href="/admin/merch/queue" className="admin-btn admin-btn--secondary">
-          Review Queue ({pending.length})
+        <Link href="/admin/merch/orders" className="admin-btn admin-btn--secondary">
+          All Orders
+        </Link>
+        <Link href="/admin/merch/orders?status=pending_review" className="admin-btn admin-btn--secondary">
+          Pending Review ({pendingOrders})
         </Link>
       </div>
 
