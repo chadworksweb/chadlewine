@@ -75,13 +75,19 @@ export async function POST(request: Request) {
   }
 
   const shipment = event.resource?.data?.shipments?.[0];
+  const printifyStatus = (event.resource?.data?.status || "").toLowerCase();
+  const isCancelled = printifyStatus === "cancelled" || printifyStatus === "canceled";
 
   switch (event.type) {
     case "order:sent-to-production":
     case "order:created":
     case "order:updated": {
-      // Stay in or move to in_production unless we're already further along.
-      if (order.status === "approved" || order.status === "pending_review") {
+      if (isCancelled) {
+        await supabase
+          .from("orders")
+          .update({ status: "cancelled" })
+          .eq("id", order.id);
+      } else if (order.status === "approved" || order.status === "pending_review") {
         await supabase
           .from("orders")
           .update({ status: "in_production" })
@@ -112,15 +118,7 @@ export async function POST(request: Request) {
         .eq("id", order.id);
       break;
     }
-    case "order:cancelled": {
-      await supabase
-        .from("orders")
-        .update({ status: "cancelled" })
-        .eq("id", order.id);
-      break;
-    }
     default:
-      // Unknown event type — ack so Printify stops retrying.
       break;
   }
 
