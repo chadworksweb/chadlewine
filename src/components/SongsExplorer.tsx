@@ -75,14 +75,12 @@ function resolveArt(s: SongCardData): {
 /**
  * Click-through rules:
  *  - published songs always navigate to their detail page
- *  - demo songs always navigate (vote/listen surfaces live there)
  *  - unreleased songs navigate only if they're singles (they have their own release surface)
  *  - unreleased album tracks do NOT navigate (listed only)
  *  - draft songs never appear here
  */
 function canClickThrough(s: SongCardData): boolean {
   if (s.status === "published") return true;
-  if (s.status === "demo") return true;
   if (s.status === "unreleased" && s.is_single) return true;
   return false;
 }

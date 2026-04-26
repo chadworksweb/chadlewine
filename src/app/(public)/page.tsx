@@ -20,7 +20,7 @@ async function getHomepageSongs() {
   const { data } = await supabase
     .from("songs")
     .select("id, title, slug, release_date, art_image_path, art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, song_summary")
-    .in("status", ["demo", "unreleased", "published"])
+    .in("status", ["unreleased", "published"])
     .order("release_date", { ascending: false, nullsFirst: false })
     .limit(10);
 
@@ -81,7 +81,7 @@ async function getSongBriefs(): Promise<SongBriefData[]> {
   const { data: songs } = await supabase
     .from("songs")
     .select("id, slug, title, song_summary, chorus, chad_quote, art_image_path, art_alt")
-    .in("status", ["demo", "unreleased", "published"])
+    .in("status", ["unreleased", "published"])
     .order("release_date", { ascending: false, nullsFirst: false })
     .limit(9);
 

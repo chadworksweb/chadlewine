@@ -7,7 +7,6 @@ import { MiniPlayer } from "@/components/MiniPlayer";
 import { VISIBILITY_CATEGORIES } from "@/lib/song-visibility";
 import { CompassIcon } from "@/components/RCBadge";
 import { useCart } from "@/components/Cart";
-import { DemoVoteControl } from "@/components/DemoVoteControl";
 import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
 
@@ -31,9 +30,6 @@ interface SongProps {
   card_zoom?: number | null;
   ringtone_price?: number | null;
   ringtone_available?: boolean;
-  status?: string;
-  demo_surfaced?: boolean;
-  demo_vote_count?: number;
 }
 
 interface AlbumProps {
@@ -189,7 +185,7 @@ export function SongDetail({
     infoCells.push({
       key: "release",
       label: "Release",
-      value: song.status === "demo" ? "Demo" : "Single",
+      value: "Single",
     });
   }
 
@@ -226,27 +222,14 @@ export function SongDetail({
             ))}
           </div>
 
-          {/* Mini player — gated when this is a vaulted demo (audio not yet surfaced) */}
-          {song.status === "demo" && !song.demo_surfaced ? null : (
-            song.streaming_path && (
-              <MiniPlayer
-                streamingUrl={song.streaming_path}
-                trackNumber={song.track_number}
-                trackTitle={song.title}
-                durationSeconds={song.duration_seconds ?? 0}
-                playbackMode={playbackMode}
-              />
-            )
-          )}
-
-          {/* Demo vote control — only on demo-status songs */}
-          {song.status === "demo" && (
-            <DemoVoteControl
-              songId={song.id}
-              songTitle={song.title}
-              songSlug={song.slug}
-              initialVoteCount={song.demo_vote_count ?? 0}
-              surfaced={song.demo_surfaced === true}
+          {/* Mini player */}
+          {song.streaming_path && (
+            <MiniPlayer
+              streamingUrl={song.streaming_path}
+              trackNumber={song.track_number}
+              trackTitle={song.title}
+              durationSeconds={song.duration_seconds ?? 0}
+              playbackMode={playbackMode}
             />
           )}
 

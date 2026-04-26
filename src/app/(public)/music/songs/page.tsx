@@ -51,7 +51,7 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
   const { data: songs } = await supabase
     .from("songs")
     .select("id, title, slug, status, is_single, release_date, created_at, art_image_path, art_alt, card_focal_x, card_focal_y, card_zoom, song_summary, citation_summary, focus_keyphrase, secondary_keyphrases, paa_pairs, entity_tags")
-    .in("status", ["demo", "unreleased", "published"]);
+    .in("status", ["unreleased", "published"]);
 
   if (!songs || songs.length === 0) {
     return { songs: [], allTopics: [] };

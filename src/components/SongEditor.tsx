@@ -69,9 +69,6 @@ interface SongData {
   hook_line: string | null;
   merch_lines: string[];
   merch_enabled: boolean;
-  demo_surfaced: boolean;
-  demo_vote_count: number;
-  demo_investment_score: number;
   updated_at: string | null;
 }
 
@@ -129,9 +126,6 @@ const emptySong: SongData = {
   hook_line: null,
   merch_lines: [],
   merch_enabled: false,
-  demo_surfaced: false,
-  demo_vote_count: 0,
-  demo_investment_score: 0,
   updated_at: null,
 };
 
@@ -349,7 +343,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       hook_line: d.hook_line,
       merch_lines: d.merch_lines.map((l) => l.trim()).filter(Boolean),
       merch_enabled: d.merch_enabled,
-      demo_surfaced: d.demo_surfaced,
     }),
     []
   );
@@ -622,42 +615,10 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 onChange={(e) => set("status", e.target.value)}
               >
                 <option value="draft">Draft</option>
-                <option value="demo">Demo</option>
                 <option value="unreleased">Unreleased</option>
                 <option value="published">Published</option>
               </select>
             </div>
-
-            {form.status === "demo" && (
-              <>
-                <div className="obsv-editor__field" style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
-                  <input
-                    id="demo_surfaced"
-                    type="checkbox"
-                    checked={form.demo_surfaced}
-                    onChange={(e) => set("demo_surfaced", e.target.checked)}
-                  />
-                  <label className="obsv-editor__label" htmlFor="demo_surfaced" style={{ margin: 0 }}>
-                    Surfaced (audio playable)
-                  </label>
-                </div>
-                <p style={{ margin: "0.25rem 0 0", fontSize: "0.7rem", color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", lineHeight: 1.4 }}>
-                  {form.demo_surfaced
-                    ? "Audio plays publicly."
-                    : "Vaulted — listed publicly, no audio playback."}
-                </p>
-
-                <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-subtle, #2a2a2a)" }}>
-                  <p style={{ margin: "0 0 0.25rem", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>
-                    Vote signal
-                  </p>
-                  <div style={{ display: "flex", gap: "1rem", fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>
-                    <span><strong>{form.demo_vote_count}</strong> votes</span>
-                    <span><strong>{form.demo_investment_score}</strong> investment</span>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
 
           {/* Content Freshness */}
@@ -758,11 +719,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             createEndpoint="/api/admin/topics"
             createPlaceholder="+ New topic"
             nameField="label"
-            deleteEndpoint="/api/admin/topics"
-            onDelete={(id) => {
-              setAllTopics((prev) => prev.filter((t) => t.id !== id));
-              setForm((prev) => ({ ...prev, topic_ids: prev.topic_ids.filter((tid) => tid !== id) }));
-            }}
           />
 
           <SongCoverArtPanel

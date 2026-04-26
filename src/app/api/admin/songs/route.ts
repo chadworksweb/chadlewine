@@ -67,7 +67,6 @@ export async function POST(request: Request) {
     hook_line: body.hook_line || null,
     merch_lines: body.merch_lines || [],
     merch_enabled: body.merch_enabled === true,
-    demo_surfaced: body.demo_surfaced === true,
   }).select().single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
