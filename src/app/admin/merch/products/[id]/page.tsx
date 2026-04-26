@@ -110,18 +110,14 @@ export default function EditProductPage() {
         </div>
       )}
 
-      {(form.fulfillment as string) === "manual" && (
-        <>
-          <div className="obsv-editor__field">
-            <label className="obsv-editor__label">Product Image URL</label>
-            <input className="obsv-editor__input" value={(form.image_url as string) || ""} onChange={(e) => setForm({ ...form, image_url: e.target.value || null })} placeholder="https://..." />
-          </div>
-          <div className="obsv-editor__field">
-            <label className="obsv-editor__label">Image Alt Text</label>
-            <input className="obsv-editor__input" value={(form.image_alt as string) || ""} onChange={(e) => setForm({ ...form, image_alt: e.target.value || null })} />
-          </div>
-        </>
-      )}
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Product Image URL</label>
+        <input className="obsv-editor__input" value={(form.image_url as string) || ""} onChange={(e) => setForm({ ...form, image_url: e.target.value || null })} placeholder="https://images.printify.com/mockup/..." />
+      </div>
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Image Alt Text</label>
+        <input className="obsv-editor__input" value={(form.image_alt as string) || ""} onChange={(e) => setForm({ ...form, image_alt: e.target.value || null })} />
+      </div>
 
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">
