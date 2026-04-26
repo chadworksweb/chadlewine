@@ -19,6 +19,8 @@ export default function AdminMerchPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [pendingOrders, setPendingOrders] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     const [prodRes, ordRes] = await Promise.all([
@@ -30,6 +32,28 @@ export default function AdminMerchPage() {
     setPendingOrders(ord.total || 0);
     setLoading(false);
   }, []);
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/printify/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncResult(`Sync failed: ${data.error || "unknown"}`);
+      } else {
+        setSyncResult(
+          `Fetched ${data.fetched}, created ${data.created}, updated ${data.updated}` +
+          (data.errors?.length ? ` (${data.errors.length} errors)` : ""),
+        );
+        fetchData();
+      }
+    } catch (err) {
+      setSyncResult(`Sync failed: ${(err as Error).message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -50,10 +74,26 @@ export default function AdminMerchPage() {
     <div className="admin-page">
       <div className="admin-page__header">
         <h1 className="admin-page__title">Merch</h1>
-        <Link href="/admin/merch/products/new" className="admin-btn admin-btn--primary">
-          New Product
-        </Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="admin-btn admin-btn--secondary"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            {syncing ? "Syncing…" : "Sync from Printify"}
+          </button>
+          <Link href="/admin/merch/products/new" className="admin-btn admin-btn--primary">
+            New Product
+          </Link>
+        </div>
       </div>
+
+      {syncResult && (
+        <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: 13, marginTop: 0 }}>
+          {syncResult}
+        </p>
+      )}
 
       <div className="admin-stats">
         <div className="admin-stats__card">

@@ -209,29 +209,37 @@ export async function POST(request: Request) {
           availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
             (f) => (album as Record<string, unknown> | null)?.[`download_path_${f}`],
           );
-        } else if (lineType === "merch" && typeof line.c === "number") {
-          // Configurator product — title from cfg_<idx>.
-          const cfgRaw = session.metadata?.[`cfg_${line.c}`];
-          let cfg: Record<string, unknown> = {};
-          try { if (cfgRaw) cfg = JSON.parse(cfgRaw); } catch { /* ignore */ }
-          const tierLabel =
-            cfg.tier === "art" ? "The Art" : cfg.tier === "line" ? "The Line" : "The Fusion";
-          itemTitle = `${tierLabel} — Custom merch`;
         } else {
-          // Existing product (merch print or art_original) — title from products.
-          if (line.i) {
+          // Resolve any cfg payload first — it may carry a configurator config
+          // (tier + blueprint_id) or a curated size pick (variant_id).
+          let cfg: Record<string, unknown> | null = null;
+          if (lineType === "merch" && typeof line.c === "number") {
+            const cfgRaw = session.metadata?.[`cfg_${line.c}`];
+            try { if (cfgRaw) cfg = JSON.parse(cfgRaw); } catch { /* ignore */ }
+          }
+          const isConfiguratorLine = !!(cfg && cfg.tier && cfg.blueprint_id);
+
+          if (isConfiguratorLine) {
+            const tierLabel =
+              cfg!.tier === "art" ? "The Art" : cfg!.tier === "line" ? "The Line" : "The Fusion";
+            itemTitle = `${tierLabel} — Custom merch`;
+          } else if (line.i) {
             const { data: product } = await supabase
               .from("products")
               .select("title")
               .eq("id", line.i)
               .single();
             itemTitle = product?.title || (lineType === "art_original" ? "Original artwork" : "Merch");
+            if (cfg && typeof cfg.size === "string") {
+              itemTitle += ` (Size ${cfg.size})`;
+            }
           } else {
             itemTitle = lineType === "art_original" ? "Original artwork" : "Merch";
           }
         }
 
-        // Capture configurator config snapshot if this is a configurator line
+        // Snapshot any cfg attached to this line — configurator config or
+        // curated sized variant.
         let configSnapshot: Record<string, unknown> | null = null;
         if (lineType === "merch" && typeof line.c === "number") {
           const cfgRaw = session.metadata?.[`cfg_${line.c}`];

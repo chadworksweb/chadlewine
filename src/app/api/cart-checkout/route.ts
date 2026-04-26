@@ -216,25 +216,52 @@ export async function POST(request: Request) {
         product_config: cfg,
       });
     } else if (raw.type === "merch" || raw.type === "art_original") {
-      // Existing product row (print, mural, original).
+      // Existing product row (print, mural, original, or Printify-curated).
       if (!raw.id) {
         return Response.json({ error: "Invalid cart item" }, { status: 400 });
       }
       const { data: product } = await supabase
         .from("products")
-        .select("id, title, price, status, image_url, variant_type, edition_size, editions_sold")
+        .select("id, title, price, status, image_url, variant_type, edition_size, editions_sold, fulfillment, variants")
         .eq("id", raw.id)
         .eq("status", "active")
         .single();
 
       if (!product) return Response.json({ error: "Product not found" }, { status: 404 });
-      if (!product.price) return Response.json({ error: `Product "${product.title}" has no price set` }, { status: 400 });
       if (product.edition_size > 0 && product.editions_sold >= product.edition_size) {
         return Response.json({ error: `"${product.title}" is sold out` }, { status: 400 });
       }
 
       const isOriginal = product.variant_type === "original";
-      const desc = isOriginal ? "Original artwork" : product.variant_type === "print" ? "Print" : undefined;
+
+      // Curated merch with sized variants — caller must pass variant_id;
+      // we look up that variant on the product row and use its price as the
+      // server-authoritative line price.
+      const productVariants = Array.isArray(product.variants) ? product.variants : [];
+      let chosenVariant: { id: number; size: string | null; color: string | null; price_cents: number; title: string } | null = null;
+      if (raw.type === "merch" && product.fulfillment === "printify_curated" && productVariants.length > 0) {
+        const variantId = raw.product_config?.variant_id;
+        if (typeof variantId !== "number") {
+          return Response.json({ error: `"${product.title}" requires a size selection` }, { status: 400 });
+        }
+        chosenVariant = productVariants.find((v: { id: number }) => v.id === variantId) || null;
+        if (!chosenVariant) {
+          return Response.json({ error: `Selected variant not available for "${product.title}"` }, { status: 400 });
+        }
+      }
+
+      const linePrice = chosenVariant ? chosenVariant.price_cents / 100 : product.price;
+      if (!linePrice) {
+        return Response.json({ error: `Product "${product.title}" has no price set` }, { status: 400 });
+      }
+
+      const desc = isOriginal
+        ? "Original artwork"
+        : chosenVariant && chosenVariant.size
+          ? `Size ${chosenVariant.size}`
+          : product.variant_type === "print"
+            ? "Print"
+            : undefined;
 
       resolved.push({
         type: isOriginal ? "art_original" : "merch",
@@ -242,8 +269,11 @@ export async function POST(request: Request) {
         format: null,
         title: product.title,
         description: desc,
-        price: product.price,
+        price: linePrice,
         cover_art_url: product.image_url || undefined,
+        product_config: chosenVariant
+          ? { variant_id: chosenVariant.id, size: chosenVariant.size, color: chosenVariant.color }
+          : undefined,
       });
     }
   }

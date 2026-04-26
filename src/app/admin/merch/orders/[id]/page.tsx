@@ -113,15 +113,16 @@ export default function OrderDetailPage() {
     setLines(incomingLines);
     setNotes(data.order?.notes || "");
 
-    // Pre-fill Printify form for any physical line whose product row already
-    // has a printify_product_id. Variant_id stays blank — non-configurator
-    // checkout doesn't capture which variant the customer picked.
+    // Pre-fill the Printify push form: product_id from the products row,
+    // variant_id from the snapshot the buyer saved at checkout (size pick).
     const prefill: Record<string, PrintifyLineForm> = {};
     for (const l of incomingLines) {
       if (!isPhysical(l.item_type)) continue;
       const pid = l.product?.printify_product_id || "";
-      if (pid) {
-        prefill[l.id] = { product_id: pid, variant_id: "", quantity: "1" };
+      const cfg = l.product_config_snapshot || {};
+      const vid = typeof cfg.variant_id === "number" ? String(cfg.variant_id) : "";
+      if (pid || vid) {
+        prefill[l.id] = { product_id: pid, variant_id: vid, quantity: "1" };
       }
     }
     if (Object.keys(prefill).length) setPrintifyForm(prefill);

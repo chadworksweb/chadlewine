@@ -101,7 +101,28 @@ export async function publishProduct(productId: string): Promise<void> {
   if (!res.ok) throw new Error(`Printify publish error: ${res.status}`);
 }
 
-export async function getShopProducts(): Promise<{ data: { id: string; title: string; images: { src: string }[]; variants: { id: number; title: string; price: number }[] }[] }> {
+export interface PrintifyShopProduct {
+  id: string;
+  title: string;
+  description: string;
+  visible: boolean;
+  is_locked: boolean;
+  images: { src: string; is_default?: boolean; position?: string }[];
+  variants: {
+    id: number;
+    title: string;
+    price: number;
+    is_enabled: boolean;
+    options?: number[];
+  }[];
+  options?: {
+    name: string;
+    type: string;
+    values: { id: number; title: string }[];
+  }[];
+}
+
+export async function getShopProducts(): Promise<{ data: PrintifyShopProduct[] }> {
   const res = await fetch(`${PRINTIFY_API}/shops/${shopId()}/products.json`, { headers: headers() });
   if (!res.ok) throw new Error(`Printify error: ${res.status}`);
   return res.json();
