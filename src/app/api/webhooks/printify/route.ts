@@ -1,5 +1,7 @@
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase-server";
+import { publishingSucceeded, publishingFailed } from "@/lib/printify";
+import { syncPrintifyProducts } from "@/lib/printify-sync";
 
 // Printify ships HMAC-SHA256 over the raw body; secret is the value the user
 // pastes in when configuring the webhook in Printify (saved as
@@ -55,19 +57,49 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const printifyOrderId = event.resource?.id;
-  if (!printifyOrderId) {
+  const resourceId = event.resource?.id;
+  if (!resourceId) {
     return Response.json({ received: true, ignored: "no resource.id" });
   }
 
   const supabase = createAdminClient();
+
+  // Product publish flow — Printify locks the product as "Publishing" until we ack.
+  if (event.type === "product:publish:started") {
+    const siteUrl = process.env.SITE_URL || "https://chadlewine.com";
+    try {
+      const sync = await syncPrintifyProducts(supabase);
+      if (!sync.ok) {
+        await publishingFailed(resourceId, sync.error || "sync failed");
+        return Response.json({ received: true, action: "publishing_failed", error: sync.error });
+      }
+      const { data: row } = await supabase
+        .from("products")
+        .select("slug")
+        .eq("printify_product_id", resourceId)
+        .maybeSingle();
+      const slug = row?.slug || resourceId;
+      await publishingSucceeded(resourceId, {
+        id: resourceId,
+        handle: `${siteUrl}/merch/${slug}`,
+      });
+      return Response.json({ received: true, action: "publishing_succeeded", slug });
+    } catch (err) {
+      const msg = (err as Error).message;
+      console.error("[printify-webhook] publish ack failed:", msg);
+      try {
+        await publishingFailed(resourceId, msg);
+      } catch {}
+      return Response.json({ received: true, action: "publishing_failed", error: msg });
+    }
+  }
 
   // Locate the local order. If we don't have one yet (e.g. event arrives before
   // the createOrder response is persisted), ack and let a later event re-trigger.
   const { data: order } = await supabase
     .from("orders")
     .select("id, status")
-    .eq("printify_order_id", printifyOrderId)
+    .eq("printify_order_id", resourceId)
     .maybeSingle();
 
   if (!order) {
