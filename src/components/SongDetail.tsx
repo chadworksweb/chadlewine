@@ -225,10 +225,14 @@ export function SongDetail({
           {/* Mini player */}
           {song.streaming_path && (
             <MiniPlayer
+              songId={song.id}
+              songSlug={song.slug}
               streamingUrl={song.streaming_path}
               trackNumber={song.track_number}
               trackTitle={song.title}
               durationSeconds={song.duration_seconds ?? 0}
+              artImagePath={coverArtPath}
+              artAlt={coverArtAlt}
               playbackMode={playbackMode}
             />
           )}

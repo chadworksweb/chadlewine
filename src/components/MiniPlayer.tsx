@@ -1,13 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { usePlayer, type PlaybackMode } from "@/components/PlayerContext";
 
 interface MiniPlayerProps {
+  songId: string;
+  songSlug: string;
   streamingUrl: string;
   trackNumber: number;
   trackTitle: string;
   durationSeconds: number;
-  playbackMode?: "preview" | "full";
+  artImagePath: string | null;
+  artAlt: string | null;
+  playbackMode?: PlaybackMode;
 }
 
 // Seeded PRNG (mulberry32) — deterministic waveform per track
@@ -34,13 +38,11 @@ function generateBars(title: string, count: number): number[] {
   const raw: number[] = [];
 
   for (let i = 0; i < count; i++) {
-    // Layer two noise passes for organic feel
     const base = rng() * 0.6 + 0.2;
     const detail = (rng() - 0.5) * 0.3;
     raw.push(Math.max(0.15, Math.min(1, base + detail)));
   }
 
-  // Smooth pass
   const smoothed: number[] = [];
   for (let i = 0; i < raw.length; i++) {
     const prev = raw[i - 1] ?? raw[i];
@@ -52,140 +54,49 @@ function generateBars(title: string, count: number): number[] {
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-const PREVIEW_START = 13;
-const PREVIEW_DURATION = 30;
-const FADE_DURATION = 2; // seconds
 const BAR_COUNT = 50;
 const CIRCUMFERENCE = 2 * Math.PI * 18; // r=18
 
 export function MiniPlayer({
+  songId,
+  songSlug,
   streamingUrl,
   trackNumber,
   trackTitle,
   durationSeconds,
+  artImagePath,
+  artAlt,
   playbackMode = "preview",
 }: MiniPlayerProps) {
-  const isFullPlay = playbackMode === "full";
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0); // 0–1 through preview window
-  // Live duration — falls back to durationSeconds prop, gets overwritten once
-  // the audio element resolves loadedmetadata. Lets songs with null
-  // duration_seconds in DB still display a duration after first play.
-  const [resolvedDuration, setResolvedDuration] = useState<number>(durationSeconds);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const rafRef = useRef<number>(0);
+  const player = usePlayer();
+  const isThis = player.isCurrent(songId);
+  const playing = isThis && player.playing;
+  const progress = isThis ? player.progress : 0;
   const bars = generateBars(trackTitle, BAR_COUNT);
 
-  const stopPlayback = useCallback(() => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
-    }
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    setPlaying(false);
-    setProgress(0);
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopPlayback();
-    };
-  }, [stopPlayback]);
-
-  function tick() {
-    const audio = audioRef.current;
-    if (!audio || audio.paused) return;
-
-    if (isFullPlay) {
-      const dur = resolvedDuration > 0 ? resolvedDuration : audio.duration;
-      const pct = dur > 0 ? Math.max(0, Math.min(1, audio.currentTime / dur)) : 0;
-      setProgress(pct);
-    } else {
-      const elapsed = audio.currentTime - PREVIEW_START;
-      const pct = Math.max(0, Math.min(1, elapsed / PREVIEW_DURATION));
-      setProgress(pct);
-
-      // Fade out near end
-      const remaining = PREVIEW_DURATION - elapsed;
-      if (remaining <= FADE_DURATION) {
-        audio.volume = Math.max(0, remaining / FADE_DURATION);
-      }
-
-      // Stop at end of preview
-      if (elapsed >= PREVIEW_DURATION) {
-        stopPlayback();
-        return;
-      }
-    }
-
-    rafRef.current = requestAnimationFrame(tick);
-  }
-
-  async function handleToggle() {
-    if (playing) {
-      stopPlayback();
+  function handleToggle() {
+    if (isThis) {
+      if (player.playing) player.pause();
+      else player.resume();
       return;
     }
-
-    const audio = new Audio(streamingUrl);
-    audioRef.current = audio;
-
-    audio.addEventListener("loadedmetadata", () => {
-      if (audio.duration && Number.isFinite(audio.duration)) {
-        setResolvedDuration(audio.duration);
-      }
-    }, { once: true });
-
-    if (isFullPlay) {
-      audio.currentTime = 0;
-      audio.volume = 1;
-    } else {
-      audio.currentTime = PREVIEW_START;
-      audio.volume = 0;
-    }
-
-    audio.addEventListener("canplay", () => {
-      audio.play().then(() => {
-        setPlaying(true);
-
-        if (!isFullPlay) {
-          // Fade in for preview
-          let vol = 0;
-          const fadeIn = setInterval(() => {
-            vol += 0.05;
-            if (vol >= 1) {
-              audio.volume = 1;
-              clearInterval(fadeIn);
-            } else {
-              audio.volume = vol;
-            }
-          }, FADE_DURATION * 1000 / 20);
-        }
-
-        rafRef.current = requestAnimationFrame(tick);
-      });
-    }, { once: true });
-
-    audio.addEventListener("ended", () => {
-      stopPlayback();
-    }, { once: true });
-
-    audio.addEventListener("error", () => {
-      stopPlayback();
-    }, { once: true });
-
-    audio.load();
+    player.play({
+      id: songId,
+      slug: songSlug,
+      title: trackTitle,
+      streamingUrl,
+      durationSeconds,
+      artImagePath,
+      artAlt,
+      playbackMode,
+    });
   }
 
   const ringOffset = CIRCUMFERENCE - progress * CIRCUMFERENCE;
-  const playedBarCount = Math.floor(progress * BAR_COUNT);
 
   return (
     <div className={`mini-player ${playing ? "mini-player--active" : ""}`}>
@@ -193,7 +104,7 @@ export function MiniPlayer({
         type="button"
         className="mini-player__play-btn"
         onClick={handleToggle}
-        aria-label={playing ? "Stop preview" : "Play preview"}
+        aria-label={playing ? "Pause" : `Play ${playbackMode === "preview" ? "preview" : ""}`}
       >
         <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
           <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
@@ -212,7 +123,6 @@ export function MiniPlayer({
       <span className="mini-player__name">{trackTitle}</span>
 
       <div className="mini-player__waveform">
-        {/* Background bars (unplayed) */}
         <div className="mini-player__wf-layer mini-player__wf-bg">
           <div className="mini-player__wf-main">
             {bars.map((h, i) => (
@@ -226,8 +136,6 @@ export function MiniPlayer({
           </div>
         </div>
 
-        {/* Foreground bars (played) — same full-width layer as bg, revealed
-            from the left via clip-path driven by `progress`. */}
         <div
           className="mini-player__wf-layer mini-player__wf-fg"
           style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
@@ -247,7 +155,7 @@ export function MiniPlayer({
       </div>
 
       <span className="mini-player__duration">
-        {resolvedDuration > 0 ? formatDuration(Math.round(resolvedDuration)) : "—"}
+        {durationSeconds > 0 ? formatDuration(durationSeconds) : "—"}
       </span>
     </div>
   );

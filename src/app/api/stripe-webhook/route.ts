@@ -1,8 +1,14 @@
 import { createAdminClient } from "@/lib/supabase-server";
-import { verifyWebhookSignature } from "@/lib/stripe";
-import { sendEmail, buildCartConfirmationHtml } from "@/lib/email";
+import { verifyWebhookSignature, listSessionLineItems } from "@/lib/stripe";
+import {
+  sendEmail,
+  buildOrderConfirmationHtml,
+  buildAdminOrderNotificationHtml,
+  type OrderEmailLine,
+} from "@/lib/email";
 
 const SITE_URL = process.env.SITE_URL || "https://chadlewine.com";
+const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || "portal@chadlewine.com";
 
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
@@ -142,7 +148,7 @@ export async function POST(request: Request) {
           has_printify_lines: hasPhysicalLines,
           has_digital_lines: hasDigitalLines,
         })
-        .select("id")
+        .select("id, order_number")
         .single();
 
       if (orderErr || !orderRow) {
@@ -150,17 +156,26 @@ export async function POST(request: Request) {
         return Response.json({ error: "Order insert failed" }, { status: 500 });
       }
       orderId = orderRow.id;
+      const orderNumber: string = orderRow.order_number;
+
+      // Fetch per-line prices for the email — Stripe returns line_items in the
+      // same order we created them, which matches cartLines.
+      let stripeLineAmounts: number[] = [];
+      try {
+        if (sessionId) {
+          const li = await listSessionLineItems(sessionId);
+          stripeLineAmounts = li.data.map((x) => (x.amount_total ?? 0) / 100);
+        }
+      } catch (e) {
+        console.warn("[stripe-webhook] listLineItems failed:", (e as Error).message);
+      }
       type FormatKey = "mp3" | "flac" | "wav";
       type RingtoneFormat = "m4r" | "mp3";
       type EmailItemType = "song" | "album" | "ringtone" | "merch" | "art_original";
-      const emailItems: Array<{
-        title: string;
-        type: EmailItemType;
-        formatLinks?: Array<{ format: FormatKey | RingtoneFormat; url: string }>;
-        fulfillmentNote?: string;
-      }> = [];
+      const emailItems: OrderEmailLine[] = [];
 
-      for (const line of cartLines) {
+      for (let idx = 0; idx < cartLines.length; idx++) {
+        const line = cartLines[idx];
         const lineType: EmailItemType =
           line.t === "s"
             ? "song"
@@ -175,37 +190,63 @@ export async function POST(request: Request) {
           line.f === "mp3" || line.f === "flac" || line.f === "wav" ? line.f : null;
 
         let itemTitle = "";
+        let variantNote: string | undefined;
+        let imageUrl: string | undefined;
         let availableFormats: FormatKey[] = [];
         let ringtonePlatforms: RingtoneFormat[] = [];
 
         if (lineType === "song") {
           const { data: song } = await supabase
             .from("songs")
-            .select("title, download_path_mp3, download_path_flac, download_path_wav, download_path")
+            .select("title, art_image_path, download_path_mp3, download_path_flac, download_path_wav, download_path")
             .eq("id", line.i!)
             .single();
           itemTitle = song?.title || "Your song";
+          imageUrl = song?.art_image_path || undefined;
           availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
             (f) => (song as Record<string, unknown> | null)?.[`download_path_${f}`],
           );
           if (!availableFormats.length && song?.download_path) availableFormats = ["mp3"];
+
+          if (!imageUrl) {
+            const { data: assoc } = await supabase
+              .from("album_songs")
+              .select("album:albums(cover_art_path)")
+              .eq("song_id", line.i!)
+              .single();
+            imageUrl =
+              (assoc as { album?: { cover_art_path?: string | null } } | null)?.album
+                ?.cover_art_path || undefined;
+          }
         } else if (lineType === "ringtone") {
           const { data: song } = await supabase
             .from("songs")
-            .select("title, ringtone_path_m4r, ringtone_path_mp3")
+            .select("title, art_image_path, ringtone_path_m4r, ringtone_path_mp3")
             .eq("id", line.i!)
             .single();
           itemTitle = song?.title ? `${song.title} — Ringtone` : "Your ringtone";
+          imageUrl = song?.art_image_path || undefined;
           ringtonePlatforms = (["m4r", "mp3"] as RingtoneFormat[]).filter(
             (f) => (song as Record<string, unknown> | null)?.[`ringtone_path_${f}`],
           );
+          if (!imageUrl) {
+            const { data: assoc } = await supabase
+              .from("album_songs")
+              .select("album:albums(cover_art_path)")
+              .eq("song_id", line.i!)
+              .single();
+            imageUrl =
+              (assoc as { album?: { cover_art_path?: string | null } } | null)?.album
+                ?.cover_art_path || undefined;
+          }
         } else if (lineType === "album") {
           const { data: album } = await supabase
             .from("albums")
-            .select("title, download_path_mp3, download_path_flac, download_path_wav")
+            .select("title, cover_art_path, download_path_mp3, download_path_flac, download_path_wav")
             .eq("id", line.i!)
             .single();
           itemTitle = album?.title || "Your album";
+          imageUrl = album?.cover_art_path || undefined;
           availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
             (f) => (album as Record<string, unknown> | null)?.[`download_path_${f}`],
           );
@@ -223,15 +264,28 @@ export async function POST(request: Request) {
             const tierLabel =
               cfg!.tier === "art" ? "The Art" : cfg!.tier === "line" ? "The Line" : "The Fusion";
             itemTitle = `${tierLabel} — Custom merch`;
+            // Source art comes from the song or observation chosen in the configurator.
+            const sourceType = cfg!.source_type as string | undefined;
+            const sourceId = cfg!.source_id as string | undefined;
+            if (sourceType && sourceId) {
+              const table = sourceType === "song" ? "songs" : "observations";
+              const { data: src } = await supabase
+                .from(table)
+                .select("art_image_path")
+                .eq("id", sourceId)
+                .single();
+              imageUrl = (src as { art_image_path?: string } | null)?.art_image_path || undefined;
+            }
           } else if (line.i) {
             const { data: product } = await supabase
               .from("products")
-              .select("title")
+              .select("title, image_url")
               .eq("id", line.i)
               .single();
             itemTitle = product?.title || (lineType === "art_original" ? "Original artwork" : "Merch");
+            imageUrl = product?.image_url || undefined;
             if (cfg && typeof cfg.size === "string") {
-              itemTitle += ` (Size ${cfg.size})`;
+              variantNote = `Size ${cfg.size}`;
             }
           } else {
             itemTitle = lineType === "art_original" ? "Original artwork" : "Merch";
@@ -246,6 +300,8 @@ export async function POST(request: Request) {
           try { if (cfgRaw) configSnapshot = JSON.parse(cfgRaw); } catch { /* ignore */ }
         }
 
+        const lineTotal = stripeLineAmounts[idx] ?? 0;
+
         // Insert purchase row, linked to the parent order
         const { data: purchase, error: purchaseError } = await supabase
           .from("purchases")
@@ -256,7 +312,10 @@ export async function POST(request: Request) {
             item_id: line.i,
             format,
             stripe_payment_intent_id: session.payment_intent || null,
-            amount: 0,
+            amount: lineTotal,
+            unit_price: lineTotal,
+            line_total: lineTotal,
+            quantity: 1,
             title_snapshot: itemTitle,
             product_config_snapshot: configSnapshot,
             download_url: null,
@@ -270,8 +329,7 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // Side-effects for physical lines: edition counter, art_piece sold flag,
-        // configurator product_submission row.
+        // Side-effects for physical lines: edition counter, art_piece sold flag.
         if ((lineType === "merch" || lineType === "art_original") && line.i) {
           const { error: rpcErr } = await supabase.rpc("increment_editions_sold", { p_product_id: line.i });
           if (rpcErr) console.error("[stripe-webhook] increment_editions_sold failed:", rpcErr.message);
@@ -287,47 +345,98 @@ export async function POST(request: Request) {
             }
           }
         }
-        // Build email entry
-        if (buyerEmail !== "unknown") {
-          if (lineType === "merch" || lineType === "art_original") {
-            emailItems.push({
-              title: itemTitle,
-              type: lineType,
-              fulfillmentNote: lineType === "art_original"
-                ? "We'll be in touch shortly to arrange shipping for your original."
-                : "Custom production takes 1–2 weeks. We'll email you when it ships.",
-            });
+
+        // Build email entry — every line lands in the same shape so customer +
+        // admin emails can render the same data.
+        let formatLinks: Array<{ format: FormatKey | RingtoneFormat; url: string }> | undefined;
+        let fulfillmentNote: string | undefined;
+        if (lineType === "merch" || lineType === "art_original") {
+          fulfillmentNote = lineType === "art_original"
+            ? "We'll be in touch shortly to arrange shipping for your original."
+            : "Custom production takes 1–2 weeks. We'll email you when it ships.";
+        } else {
+          const tokenBase = `${SITE_URL}/api/download/${purchase.id}`;
+          if (lineType === "ringtone") {
+            formatLinks = ringtonePlatforms.map((f) => ({
+              format: f,
+              url: `${tokenBase}?format=${f}`,
+            }));
+          } else if (format) {
+            formatLinks = [{ format, url: tokenBase }];
           } else {
-            const tokenBase = `${SITE_URL}/api/download/${purchase.id}`;
-            let formatLinks: Array<{ format: FormatKey | RingtoneFormat; url: string }>;
-            if (lineType === "ringtone") {
-              formatLinks = ringtonePlatforms.map((f) => ({
-                format: f,
-                url: `${tokenBase}?format=${f}`,
-              }));
-            } else if (format) {
-              formatLinks = [{ format, url: tokenBase }];
-            } else {
-              formatLinks = availableFormats.map((f) => ({
-                format: f,
-                url: `${tokenBase}?format=${f}`,
-              }));
-            }
-            emailItems.push({ title: itemTitle, type: lineType, formatLinks });
+            formatLinks = availableFormats.map((f) => ({
+              format: f,
+              url: `${tokenBase}?format=${f}`,
+            }));
           }
         }
+
+        emailItems.push({
+          title: itemTitle,
+          type: lineType,
+          quantity: 1,
+          lineTotal,
+          variantNote,
+          imageUrl,
+          formatLinks,
+          fulfillmentNote,
+        });
       }
 
-      if (emailItems.length > 0 && buyerEmail !== "unknown") {
+      // Send customer + admin emails. Customer email is skipped if the buyer
+      // checked out as guest with no email captured.
+      if (emailItems.length > 0) {
         const recoverUrl = `${SITE_URL}/music/recover`;
-        const html = buildCartConfirmationHtml({ items: emailItems, recoverUrl });
-        const sent = await sendEmail({
-          to: buyerEmail,
-          subject: `Your order — ${emailItems.length} item${emailItems.length === 1 ? "" : "s"}`,
-          html,
+        const orderData = {
+          orderNumber,
+          orderId: orderId!,
+          buyerEmail,
+          buyerName: shipName,
+          shipping: ship
+            ? {
+                name: shipName,
+                line1: ship.line1 || null,
+                line2: ship.line2 || null,
+                city: ship.city || null,
+                state: ship.state || null,
+                postal_code: ship.postal_code || null,
+                country: ship.country || null,
+              }
+            : null,
+          subtotal,
+          shippingCost: shipping,
+          tax,
+          total,
+          items: emailItems,
+          recoverUrl,
+        };
+
+        if (buyerEmail !== "unknown") {
+          const customerHtml = buildOrderConfirmationHtml(orderData);
+          const sent = await sendEmail({
+            to: buyerEmail,
+            subject: `Your order ${orderNumber} — chadlewine.com`,
+            html: customerHtml,
+            replyTo: ADMIN_NOTIFY_EMAIL,
+          });
+          if (!sent) {
+            console.warn(`[stripe-webhook] Failed to send order confirmation to ${buyerEmail}`);
+          }
+        }
+
+        const adminHtml = buildAdminOrderNotificationHtml({
+          ...orderData,
+          hasPhysical: hasPhysicalLines,
+          hasDigital: hasDigitalLines,
         });
-        if (!sent) {
-          console.warn(`[stripe-webhook] Failed to send cart confirmation to ${buyerEmail}`);
+        const adminSent = await sendEmail({
+          to: ADMIN_NOTIFY_EMAIL,
+          subject: `New order ${orderNumber} · ${total ? `$${total.toFixed(2)} ` : ""}${buyerEmail}`,
+          html: adminHtml,
+          replyTo: buyerEmail !== "unknown" ? buyerEmail : undefined,
+        });
+        if (!adminSent) {
+          console.warn(`[stripe-webhook] Failed to send admin notification for ${orderNumber}`);
         }
       }
     } else {

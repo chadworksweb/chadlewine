@@ -324,6 +324,16 @@ export async function POST(request: Request) {
   const hasPhysical = resolved.some(
     (r) => r.type === "merch" || r.type === "art_original",
   );
+  const hasDigital = resolved.some(
+    (r) => r.type === "song" || r.type === "album" || r.type === "ringtone",
+  );
+
+  // Physical-only carts get a merch-flavored thank-you (production lead time copy).
+  // Digital-only or mixed carts go to the music thank-you that talks about downloads.
+  const successPath =
+    hasPhysical && !hasDigital
+      ? "/merch/thank-you"
+      : "/music/purchase/cart-thank-you";
 
   const session = await createCartCheckoutSession({
     line_items: resolved.map((r) => ({
@@ -335,7 +345,7 @@ export async function POST(request: Request) {
     cart_items_metadata: metaJson,
     extra_metadata: cfgKeys,
     collect_shipping: hasPhysical,
-    success_url: `${origin}/music/purchase/cart-thank-you?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${origin}${successPath}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/music`,
   });
 

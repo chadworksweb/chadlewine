@@ -31,12 +31,13 @@ export async function GET(
 
   const { data: linesRaw } = await supabase
     .from("purchases")
-    .select("id, item_type, item_id, format, title_snapshot, product_config_snapshot, printify_line_item_id, created_at")
+    .select("id, item_type, item_id, format, title_snapshot, product_config_snapshot, line_total, unit_price, printify_line_item_id, created_at")
     .eq("order_id", id)
     .order("created_at", { ascending: true });
 
   const lines = linesRaw || [];
 
+  // Fetch product/song/album metadata for thumbnails + Printify pre-fill.
   const productIds = Array.from(
     new Set(
       lines
@@ -44,30 +45,87 @@ export async function GET(
         .map((l) => l.item_id as string),
     ),
   );
+  const songIds = Array.from(
+    new Set(
+      lines
+        .filter((l) => (l.item_type === "song" || l.item_type === "ringtone") && l.item_id)
+        .map((l) => l.item_id as string),
+    ),
+  );
+  const albumIds = Array.from(
+    new Set(
+      lines
+        .filter((l) => l.item_type === "album" && l.item_id)
+        .map((l) => l.item_id as string),
+    ),
+  );
 
-  let productMap: Record<string, { printify_product_id: string | null; fulfillment: string | null; title: string | null }> = {};
+  let productMap: Record<string, {
+    printify_product_id: string | null;
+    fulfillment: string | null;
+    title: string | null;
+    image_url: string | null;
+  }> = {};
   if (productIds.length) {
     const { data: products } = await supabase
       .from("products")
-      .select("id, printify_product_id, fulfillment, title")
+      .select("id, printify_product_id, fulfillment, title, image_url")
       .in("id", productIds);
     productMap = (products || []).reduce<typeof productMap>((acc, p) => {
       acc[p.id] = {
         printify_product_id: p.printify_product_id,
         fulfillment: p.fulfillment,
         title: p.title,
+        image_url: p.image_url,
       };
       return acc;
     }, {});
   }
 
-  const enriched = lines.map((l) => ({
-    ...l,
-    product:
-      l.item_id && productMap[l.item_id]
-        ? productMap[l.item_id]
-        : null,
-  }));
+  let songMap: Record<string, { art_image_path: string | null }> = {};
+  if (songIds.length) {
+    const { data: songs } = await supabase
+      .from("songs")
+      .select("id, art_image_path")
+      .in("id", songIds);
+    songMap = (songs || []).reduce<typeof songMap>((acc, s) => {
+      acc[s.id] = { art_image_path: s.art_image_path };
+      return acc;
+    }, {});
+  }
+
+  let albumMap: Record<string, { cover_art_path: string | null }> = {};
+  if (albumIds.length) {
+    const { data: albums } = await supabase
+      .from("albums")
+      .select("id, cover_art_path")
+      .in("id", albumIds);
+    albumMap = (albums || []).reduce<typeof albumMap>((acc, a) => {
+      acc[a.id] = { cover_art_path: a.cover_art_path };
+      return acc;
+    }, {});
+  }
+
+  const enriched = lines.map((l) => {
+    let image_url: string | null = null;
+    if (l.item_id) {
+      if (productMap[l.item_id]) image_url = productMap[l.item_id].image_url;
+      else if (songMap[l.item_id]) image_url = songMap[l.item_id].art_image_path;
+      else if (albumMap[l.item_id]) image_url = albumMap[l.item_id].cover_art_path;
+    }
+    return {
+      ...l,
+      image_url,
+      product:
+        l.item_id && productMap[l.item_id]
+          ? {
+              printify_product_id: productMap[l.item_id].printify_product_id,
+              fulfillment: productMap[l.item_id].fulfillment,
+              title: productMap[l.item_id].title,
+            }
+          : null,
+    };
+  });
 
   return Response.json({ order, lines: enriched });
 }

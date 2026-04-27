@@ -1,0 +1,104 @@
+.demo-vote {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-subtle, #2a2a2a);
+  border-radius: 6px;
+  background: var(--surface-1, rgba(255, 255, 255, 0.02));
+}
+
+.demo-vote__state {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.demo-vote__badge {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft, rgba(255, 200, 50, 0.15));
+  color: var(--accent, #ffc832);
+}
+
+.demo-vote__count {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.demo-vote__btn {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--accent, #ffc832);
+  background: var(--accent, #ffc832);
+  color: var(--bg, #0a0a0a);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.demo-vote__btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.demo-vote__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.demo-vote__btn--share {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-strong, #444);
+}
+
+.demo-vote__btn--pay {
+  background: transparent;
+  color: var(--text-tertiary);
+  border-color: var(--border-subtle, #2a2a2a);
+}
+
+.demo-vote__activations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.demo-vote__activation-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.demo-vote__prompt {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.demo-vote__msg {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+}
+
+.demo-vote__msg--ok {
+  background: rgba(50, 200, 100, 0.1);
+  color: var(--ok, #5cba7d);
+}
+
+.demo-vote__msg--err {
+  background: rgba(220, 70, 70, 0.1);
+  color: var(--err, #ff6b6b);
+}

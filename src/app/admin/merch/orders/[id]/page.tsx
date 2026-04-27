@@ -55,6 +55,9 @@ interface Line {
   format: string | null;
   title_snapshot: string | null;
   product_config_snapshot: Record<string, unknown> | null;
+  line_total: number | null;
+  unit_price: number | null;
+  image_url: string | null;
   printify_line_item_id: string | null;
   product: {
     printify_product_id: string | null;
@@ -62,6 +65,37 @@ interface Line {
     title: string | null;
   } | null;
   created_at: string;
+}
+
+const TIER_LABEL: Record<string, string> = {
+  art: "The Art",
+  line: "The Line",
+  fusion: "The Fusion",
+};
+
+interface ConfigRow {
+  label: string;
+  value: string;
+}
+
+function configRows(cfg: Record<string, unknown> | null): ConfigRow[] {
+  if (!cfg) return [];
+  const rows: ConfigRow[] = [];
+  if (typeof cfg.size === "string") rows.push({ label: "Size", value: cfg.size });
+  if (typeof cfg.color === "string") rows.push({ label: "Color", value: cfg.color });
+  if (typeof cfg.tier === "string") {
+    rows.push({ label: "Tier", value: TIER_LABEL[cfg.tier] || cfg.tier });
+  }
+  if (typeof cfg.blueprint_id === "number") {
+    rows.push({ label: "Blueprint", value: String(cfg.blueprint_id) });
+  }
+  if (typeof cfg.variant_id === "number") {
+    rows.push({ label: "Variant", value: String(cfg.variant_id) });
+  }
+  if (typeof cfg.source_type === "string" && typeof cfg.source_id === "string") {
+    rows.push({ label: "Source", value: `${cfg.source_type} · ${cfg.source_id.slice(0, 8)}` });
+  }
+  return rows;
 }
 
 interface PrintifyLineForm {
@@ -100,37 +134,48 @@ export default function OrderDetailPage() {
   const [printifyForm, setPrintifyForm] = useState<Record<string, PrintifyLineForm>>({});
   const [shippingMethod, setShippingMethod] = useState("1");
 
-  const fetchData = useCallback(async () => {
-    const res = await fetch(`/api/admin/orders/${id}`);
-    if (!res.ok) {
-      setError("Order not found");
-      setLoading(false);
-      return;
-    }
-    const data = await res.json();
-    setOrder(data.order);
-    const incomingLines: Line[] = data.lines || [];
-    setLines(incomingLines);
-    setNotes(data.order?.notes || "");
+  // Effect-driven loader keyed on `id` plus a tick that handlers bump after
+  // mutations (status change, approve, save notes) to refresh.
+  const [loadTick, setLoadTick] = useState(0);
+  const refresh = useCallback(() => setLoadTick((t) => t + 1), []);
 
-    // Pre-fill the Printify push form: product_id from the products row,
-    // variant_id from the snapshot the buyer saved at checkout (size pick).
-    const prefill: Record<string, PrintifyLineForm> = {};
-    for (const l of incomingLines) {
-      if (!isPhysical(l.item_type)) continue;
-      const pid = l.product?.printify_product_id || "";
-      const cfg = l.product_config_snapshot || {};
-      const vid = typeof cfg.variant_id === "number" ? String(cfg.variant_id) : "";
-      if (pid || vid) {
-        prefill[l.id] = { product_id: pid, variant_id: vid, quantity: "1" };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch(`/api/admin/orders/${id}`);
+      if (cancelled) return;
+      if (!res.ok) {
+        setError("Order not found");
+        setLoading(false);
+        return;
       }
-    }
-    if (Object.keys(prefill).length) setPrintifyForm(prefill);
+      const data = await res.json();
+      if (cancelled) return;
+      setOrder(data.order);
+      const incomingLines: Line[] = data.lines || [];
+      setLines(incomingLines);
+      setNotes(data.order?.notes || "");
 
-    setLoading(false);
-  }, [id]);
+      // Pre-fill the Printify push form: product_id from the products row,
+      // variant_id from the snapshot the buyer saved at checkout (size pick).
+      const prefill: Record<string, PrintifyLineForm> = {};
+      for (const l of incomingLines) {
+        if (!isPhysical(l.item_type)) continue;
+        const pid = l.product?.printify_product_id || "";
+        const cfg = l.product_config_snapshot || {};
+        const vid = typeof cfg.variant_id === "number" ? String(cfg.variant_id) : "";
+        if (pid || vid) {
+          prefill[l.id] = { product_id: pid, variant_id: vid, quantity: "1" };
+        }
+      }
+      if (Object.keys(prefill).length) setPrintifyForm(prefill);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, loadTick]);
 
   async function handleStatusChange(status: Status) {
     if (!order) return;
@@ -146,7 +191,7 @@ export default function OrderDetailPage() {
       setError(data.error || "Update failed");
     }
     setBusy(false);
-    fetchData();
+    refresh();
   }
 
   async function handleSaveNotes() {
@@ -157,7 +202,7 @@ export default function OrderDetailPage() {
       body: JSON.stringify({ notes }),
     });
     setBusy(false);
-    fetchData();
+    refresh();
   }
 
   async function handleApprove(pushToPrintify: boolean) {
@@ -193,7 +238,7 @@ export default function OrderDetailPage() {
       setError(data.error || "Approval failed");
     }
     setBusy(false);
-    fetchData();
+    refresh();
   }
 
   async function handleReject() {
@@ -205,7 +250,7 @@ export default function OrderDetailPage() {
       body: JSON.stringify({ decision: "reject" }),
     });
     setBusy(false);
-    fetchData();
+    refresh();
   }
 
   if (loading) {
@@ -273,28 +318,63 @@ export default function OrderDetailPage() {
         <table className="admin-table">
           <thead>
             <tr>
+              <th className="admin-table__th" style={{ width: 72 }}></th>
               <th className="admin-table__th">Item</th>
-              <th className="admin-table__th">Type</th>
-              <th className="admin-table__th">Format / Config</th>
+              <th className="admin-table__th" style={{ width: 110 }}>Type</th>
+              <th className="admin-table__th">Details</th>
+              <th className="admin-table__th" style={{ width: 90, textAlign: "right" }}>Total</th>
             </tr>
           </thead>
           <tbody>
-            {lines.map((l) => (
-              <tr key={l.id} className="admin-table__row">
-                <td className="admin-table__td">{l.title_snapshot || "—"}</td>
-                <td className="admin-table__td">
-                  <span className="admin-meta-chip">{l.item_type}</span>
-                </td>
-                <td className="admin-table__td">
-                  {l.format && <span className="admin-meta-chip">{l.format.toUpperCase()}</span>}
-                  {l.product_config_snapshot && (
-                    <pre style={{ fontSize: 11, margin: 0, color: "var(--text-tertiary)" }}>
-                      {JSON.stringify(l.product_config_snapshot, null, 2)}
-                    </pre>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {lines.map((l) => {
+              const rows = configRows(l.product_config_snapshot);
+              const total =
+                typeof l.line_total === "number" ? `$${Number(l.line_total).toFixed(2)}` : "—";
+              return (
+                <tr key={l.id} className="admin-table__row">
+                  <td className="admin-table__td" style={{ verticalAlign: "top" }}>
+                    {l.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={l.image_url}
+                        alt=""
+                        width={56}
+                        height={56}
+                        style={{ display: "block", width: 56, height: 56, borderRadius: 6, objectFit: "cover", background: "var(--surface-2, #f0eee9)" }}
+                      />
+                    ) : (
+                      <div style={{ width: 56, height: 56, borderRadius: 6, background: "var(--surface-2, #f0eee9)" }} />
+                    )}
+                  </td>
+                  <td className="admin-table__td" style={{ verticalAlign: "top" }}>
+                    {l.title_snapshot || "—"}
+                  </td>
+                  <td className="admin-table__td" style={{ verticalAlign: "top" }}>
+                    <span className="admin-meta-chip">{l.item_type}</span>
+                  </td>
+                  <td className="admin-table__td" style={{ verticalAlign: "top" }}>
+                    {l.format && (
+                      <span className="admin-meta-chip" style={{ marginRight: 6 }}>{l.format.toUpperCase()}</span>
+                    )}
+                    {rows.length > 0 ? (
+                      <dl style={{ margin: 0, fontFamily: "var(--font-ui)", fontSize: 13, lineHeight: 1.5 }}>
+                        {rows.map((r) => (
+                          <div key={r.label} style={{ display: "flex", gap: 8 }}>
+                            <dt style={{ color: "var(--text-tertiary)", minWidth: 64 }}>{r.label}</dt>
+                            <dd style={{ margin: 0 }}>{r.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : !l.format ? (
+                      <span style={{ color: "var(--text-tertiary)" }}>—</span>
+                    ) : null}
+                  </td>
+                  <td className="admin-table__td" style={{ textAlign: "right", verticalAlign: "top", fontFamily: "var(--font-ui)" }}>
+                    {total}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 

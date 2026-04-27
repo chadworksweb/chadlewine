@@ -110,3 +110,7 @@ export function verifyWebhookSignature(payload: string, signature: string) {
     process.env.STRIPE_WEBHOOK_SECRET!
   );
 }
+
+export async function listSessionLineItems(sessionId: string) {
+  return getStripe().checkout.sessions.listLineItems(sessionId, { limit: 25 });
+}

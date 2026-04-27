@@ -5,6 +5,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "@/styles/global.css";
 import { SiteJsonLd } from "@/components/SiteJsonLd";
 import { CartProvider, CartUI } from "@/components/Cart";
+import { PlayerProvider } from "@/components/PlayerContext";
+import { StickyPlayer } from "@/components/StickyPlayer";
 
 const GA_ID = "G-9EE3EK7X3R";
 
@@ -52,7 +54,10 @@ export default function RootLayout({
       <body>
         <SiteJsonLd />
         <CartProvider>
-          {children}
+          <PlayerProvider>
+            {children}
+            <StickyPlayer />
+          </PlayerProvider>
           <CartUI />
         </CartProvider>
         <Analytics />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { formatDate } from "@/lib/utils";
 
 type Status =
@@ -63,21 +63,26 @@ export default function AdminOrdersPage() {
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
 
-  const fetchData = useCallback(async () => {
-    const qs = new URLSearchParams();
-    qs.set("page", String(page));
-    qs.set("limit", "25");
-    if (search) qs.set("search", search);
-    if (statusFilter) qs.set("status", statusFilter);
-    const res = await fetch(`/api/admin/orders?${qs.toString()}`);
-    const data = await res.json();
-    setOrders(data.orders || []);
-    setTotal(data.total || 0);
-    setPages(data.pages || 1);
-    setLoading(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const qs = new URLSearchParams();
+      qs.set("page", String(page));
+      qs.set("limit", "25");
+      if (search) qs.set("search", search);
+      if (statusFilter) qs.set("status", statusFilter);
+      const res = await fetch(`/api/admin/orders?${qs.toString()}`);
+      const data = await res.json();
+      if (cancelled) return;
+      setOrders(data.orders || []);
+      setTotal(data.total || 0);
+      setPages(data.pages || 1);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [page, search, statusFilter]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
 
   const pendingCount = orders.filter((o) => o.status === "pending_review").length;
 
