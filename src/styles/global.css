@@ -7500,6 +7500,13 @@ h3.aw-heading {
   }
 }
 
+@media (max-width: 720px) {
+  .merch-shop__grid,
+  .page-merch__explore-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* --- Social Share --- */
 
 .social-share {
