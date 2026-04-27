@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
-// import Link from "next/link"; // re-enable with the Design Your Own section below
 import { createPublicClient } from "@/lib/supabase-server";
 import { MerchProductCard } from "@/components/MerchProductCard";
 
@@ -203,19 +202,6 @@ export default async function MerchPage() {
         </section>
       )}
 
-      {/* Design Your Own — hidden from public view; re-enable when configurator ships
-      <section className="merch-shop__configure-cta">
-        <h2 className="configurator__heading">Design Your Own</h2>
-        <p className="configurator__subtext">
-          Pick any art or line from an Observation. Put it on a Comfort Colors
-          1717. If it&rsquo;s good, it enters the permanent catalog &mdash; and
-          you earn revenue share.
-        </p>
-        <Link href="/merch/configure" className="configurator__checkout-btn" style={{ display: "inline-block", textAlign: "center", textDecoration: "none", maxWidth: 280 }}>
-          Open Configurator
-        </Link>
-      </section>
-      */}
     </div>
   );
 }

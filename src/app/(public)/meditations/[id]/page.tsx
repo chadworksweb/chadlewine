@@ -126,7 +126,7 @@ export default async function MeditationPermalinkPage({
 
       <SynapseDisplay sourceType="meditation" sourceId={id} />
 
-      <MeditationMerchSection meditationId={id} meditationText={meditation.plain_text} />
+      <MeditationMerchSection meditationId={id} />
 
       <SocialShare
         url={`https://chadlewine.com/meditations/${id}`}
