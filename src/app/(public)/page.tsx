@@ -19,7 +19,7 @@ async function getHomepageSongs() {
 
   const { data } = await supabase
     .from("songs")
-    .select("id, title, slug, release_date, art_image_path, art_alt, hero_focal_x, hero_focal_y, song_summary")
+    .select("id, title, slug, release_date, art_image_path, art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, song_summary")
     .in("status", ["unreleased", "published"])
     .order("release_date", { ascending: false, nullsFirst: false })
     .limit(10);

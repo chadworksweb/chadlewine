@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-const TIERS = ["art", "line", "fusion", "pick", "diddy"] as const;
+const TIERS = ["art", "line", "fusion", "pick"] as const;
 const STATUSES = ["active", "inactive", "pending_review"] as const;
 const FULFILLMENTS = ["manual", "printify_curated", "printify_configurator"] as const;
 
@@ -58,6 +58,24 @@ export default function EditProductPage() {
       <div className="admin-page__header">
         <h1 className="admin-page__title">Edit Product</h1>
         <div style={{ display: "flex", gap: 8 }}>
+          <a
+            className="admin-btn admin-btn--secondary"
+            href={`/merch/${(typeof form.slug === "string" && form.slug) ? form.slug : id}`}
+            target="_blank"
+            rel="noopener"
+          >
+            View on Site
+          </a>
+          {typeof form.printify_product_id === "string" && form.printify_product_id && (
+            <a
+              className="admin-btn admin-btn--secondary"
+              href={`https://printify.com/app/store/products/${form.printify_product_id}`}
+              target="_blank"
+              rel="noopener"
+            >
+              View on Printify
+            </a>
+          )}
           <button className="admin-btn admin-btn--danger" onClick={handleDelete}>Delete</button>
           <button className="admin-btn admin-btn--primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save"}
@@ -110,18 +128,14 @@ export default function EditProductPage() {
         </div>
       )}
 
-      {(form.fulfillment as string) === "manual" && (
-        <>
-          <div className="obsv-editor__field">
-            <label className="obsv-editor__label">Product Image URL</label>
-            <input className="obsv-editor__input" value={(form.image_url as string) || ""} onChange={(e) => setForm({ ...form, image_url: e.target.value || null })} placeholder="https://..." />
-          </div>
-          <div className="obsv-editor__field">
-            <label className="obsv-editor__label">Image Alt Text</label>
-            <input className="obsv-editor__input" value={(form.image_alt as string) || ""} onChange={(e) => setForm({ ...form, image_alt: e.target.value || null })} />
-          </div>
-        </>
-      )}
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Product Image URL</label>
+        <input className="obsv-editor__input" value={(form.image_url as string) || ""} onChange={(e) => setForm({ ...form, image_url: e.target.value || null })} placeholder="https://images.printify.com/mockup/..." />
+      </div>
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Image Alt Text</label>
+        <input className="obsv-editor__input" value={(form.image_alt as string) || ""} onChange={(e) => setForm({ ...form, image_alt: e.target.value || null })} />
+      </div>
 
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">

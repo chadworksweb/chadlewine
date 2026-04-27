@@ -20,10 +20,8 @@ const adminNav: NavItem[] = [
       { href: "/admin/launch-control", label: "Launch Control" },
       { href: "/admin/analytics", label: "Analytics" },
       { href: "/admin/voice-profile", label: "Voice Profile" },
-      { href: "/admin/voice-messages", label: "Voice Messages" },
       { href: "/admin/seo", label: "SEO" },
       { href: "/admin/redirects", label: "Redirects" },
-      { href: "/admin/media", label: "Media" },
       { href: "/admin/subscribers", label: "Subscribers" },
     ],
   },
@@ -36,8 +34,25 @@ const adminNav: NavItem[] = [
       { href: "/admin/music/songs", label: "Songs" },
     ],
   },
+  {
+    href: "/admin/arc",
+    label: "Arc",
+    children: [
+      { href: "/admin/arc", label: "Overview" },
+      { href: "/admin/arc/capture", label: "Capture" },
+      { href: "/admin/arc/sections", label: "Sections" },
+    ],
+  },
   { href: "/admin/art", label: "Art" },
-  { href: "/admin/merch", label: "Merch" },
+  {
+    href: "/admin/merch",
+    label: "Merch",
+    children: [
+      { href: "/admin/merch", label: "Products" },
+      { href: "/admin/merch/orders", label: "Orders" },
+    ],
+  },
+  { href: "/admin/media", label: "Media" },
   {
     href: "/admin/observations",
     label: "Observations",

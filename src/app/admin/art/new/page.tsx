@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/utils";
+import { MediaLibrary } from "@/components/MediaLibrary";
 
 export default function NewArtPage() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function NewArtPage() {
     dimensions: "", year_created: "", price: "", sold: false, buy_original_url: "", gallery_paths: [] as string[],
   });
   const [saving, setSaving] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
 
   async function handleSave() {
     if (!form.title.trim() || !form.image_path.trim()) return;
@@ -29,7 +31,28 @@ export default function NewArtPage() {
     <div className="admin-page">
       <div className="admin-page__header"><h1 className="admin-page__title">New Art Piece</h1><button className="admin-btn admin-btn--primary" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</button></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Title</label><input className="obsv-editor__input" value={form.title} onChange={e => setForm({...form, title: e.target.value})} /></div>
-      <div className="obsv-editor__field"><label className="obsv-editor__label">Image Path</label><input className="obsv-editor__input" value={form.image_path} onChange={e => setForm({...form, image_path: e.target.value})} placeholder="Supabase Storage URL" /></div>
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Image</label>
+        {form.image_path ? (
+          <div className="cover-art-preview">
+            <img src={form.image_path} alt={form.image_alt || "Art preview"} className="cover-art-preview__img" />
+            <div className="cover-art-preview__actions">
+              <button type="button" className="admin-btn admin-btn--primary" onClick={() => setMediaOpen(true)} style={{ fontSize: "0.6875rem", padding: "4px 12px" }}>Replace</button>
+              <button type="button" className="admin-btn admin-btn--danger" onClick={() => setForm({ ...form, image_path: "" })} style={{ fontSize: "0.6875rem", padding: "4px 12px" }}>Remove</button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="cover-art-upload" onClick={() => setMediaOpen(true)}>Choose Image</button>
+        )}
+      </div>
+      <MediaLibrary
+        open={mediaOpen}
+        onClose={() => setMediaOpen(false)}
+        onSelect={(url: string, alt?: string) => {
+          setForm((f) => ({ ...f, image_path: url, image_alt: alt && !f.image_alt ? alt : f.image_alt }));
+          setMediaOpen(false);
+        }}
+      />
       <div className="obsv-editor__field"><label className="obsv-editor__label">Image Alt</label><input className="obsv-editor__input" value={form.image_alt} onChange={e => setForm({...form, image_alt: e.target.value})} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Medium</label><input className="obsv-editor__input" value={form.medium} onChange={e => setForm({...form, medium: e.target.value})} placeholder="Digital, Acrylic, etc." /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Dimensions</label><input className="obsv-editor__input" value={form.dimensions} onChange={e => setForm({...form, dimensions: e.target.value})} placeholder="e.g. 24×30 in" /></div>

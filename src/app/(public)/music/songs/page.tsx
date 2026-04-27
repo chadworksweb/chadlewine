@@ -32,6 +32,9 @@ export interface SongCardData {
   created_at: string;
   art_image_path: string | null;
   art_alt: string | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
   song_summary: string | null;
   citation_summary: string | null;
   focus_keyphrase: string | null;
@@ -47,7 +50,7 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
 
   const { data: songs } = await supabase
     .from("songs")
-    .select("id, title, slug, status, is_single, release_date, created_at, art_image_path, art_alt, song_summary, citation_summary, focus_keyphrase, secondary_keyphrases, paa_pairs, entity_tags")
+    .select("id, title, slug, status, is_single, release_date, created_at, art_image_path, art_alt, card_focal_x, card_focal_y, card_zoom, song_summary, citation_summary, focus_keyphrase, secondary_keyphrases, paa_pairs, entity_tags")
     .in("status", ["unreleased", "published"]);
 
   if (!songs || songs.length === 0) {
@@ -103,6 +106,9 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
     created_at: s.created_at,
     art_image_path: s.art_image_path,
     art_alt: s.art_alt,
+    card_focal_x: s.card_focal_x ?? null,
+    card_focal_y: s.card_focal_y ?? null,
+    card_zoom: s.card_zoom ?? null,
     song_summary: s.song_summary,
     citation_summary: s.citation_summary,
     focus_keyphrase: s.focus_keyphrase,

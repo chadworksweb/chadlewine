@@ -48,11 +48,6 @@ export async function MerchSection({ observationId }: MerchSectionProps) {
               {p.description && (
                 <p className="merch-section__desc">{p.description}</p>
               )}
-              {p.price && (
-                <span className="merch-section__price">
-                  ${Number(p.price).toFixed(2)}
-                </span>
-              )}
             </div>
           ))}
         </div>

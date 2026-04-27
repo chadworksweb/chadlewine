@@ -68,9 +68,6 @@ export async function MerchTierPage({ tier }: { tier: string }) {
               <span className="merch-section__tier">{tier}</span>
               <h3 className="merch-section__title">{p.title}</h3>
               {p.description && <p className="merch-section__desc">{p.description}</p>}
-              {p.price && (
-                <span className="merch-section__price">${Number(p.price).toFixed(2)}</span>
-              )}
               {p.is_catalog_item && (
                 <span className="merch-section__tier" style={{ marginTop: 4 }}>Community Pick</span>
               )}

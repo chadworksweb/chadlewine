@@ -15,27 +15,48 @@ interface Product {
   created_at: string;
 }
 
-interface Submission {
-  id: string;
-  buyer_email: string;
-  status: string;
-  created_at: string;
-}
-
 export default function AdminMerchPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [pendingOrders, setPendingOrders] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    const [prodRes, subRes] = await Promise.all([
+    const [prodRes, ordRes] = await Promise.all([
       fetch("/api/admin/products"),
-      fetch("/api/admin/merch-queue"),
+      fetch("/api/admin/orders?status=pending_review&limit=1"),
     ]);
     setProducts(await prodRes.json());
-    setSubmissions(await subRes.json());
+    const ord = await ordRes.json();
+    setPendingOrders(ord.total || 0);
     setLoading(false);
   }, []);
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/printify/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncResult(
+          `Sync failed: ${data.error || "unknown"}` +
+          (data.hint ? ` — ${data.hint}` : ""),
+        );
+      } else {
+        setSyncResult(
+          `Fetched ${data.fetched}, created ${data.created}, updated ${data.updated}` +
+          (data.errors?.length ? ` (${data.errors.length} errors)` : ""),
+        );
+        fetchData();
+      }
+    } catch (err) {
+      setSyncResult(`Sync failed: ${(err as Error).message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -47,7 +68,6 @@ export default function AdminMerchPage() {
     );
   }
 
-  const pending = submissions.filter((s) => s.status === "pending");
   const tierCounts = products.reduce<Record<string, number>>((acc, p) => {
     acc[p.tier] = (acc[p.tier] || 0) + 1;
     return acc;
@@ -57,32 +77,51 @@ export default function AdminMerchPage() {
     <div className="admin-page">
       <div className="admin-page__header">
         <h1 className="admin-page__title">Merch</h1>
-        <Link href="/admin/merch/products/new" className="admin-btn admin-btn--primary">
-          New Product
-        </Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="admin-btn admin-btn--secondary"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            {syncing ? "Syncing…" : "Sync from Printify"}
+          </button>
+          <Link href="/admin/merch/products/new" className="admin-btn admin-btn--primary">
+            New Product
+          </Link>
+        </div>
       </div>
+
+      {syncResult && (
+        <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: 13, marginTop: 0 }}>
+          {syncResult}
+        </p>
+      )}
 
       <div className="admin-stats">
         <div className="admin-stats__card">
           <span className="admin-stats__value">{products.length}</span>
           <span className="admin-stats__label">Total Products</span>
         </div>
-        {["art", "line", "fusion", "pick", "diddy"].map((tier) => (
+        {["art", "line", "fusion", "pick"].map((tier) => (
           <div key={tier} className="admin-stats__card">
             <span className="admin-stats__value">{tierCounts[tier] || 0}</span>
             <span className="admin-stats__label">{tier.charAt(0).toUpperCase() + tier.slice(1)}</span>
           </div>
         ))}
-        <div className={`admin-stats__card${pending.length > 0 ? " admin-stats__card--warn" : ""}`}>
-          <span className="admin-stats__value">{pending.length}</span>
+        <div className={`admin-stats__card${pendingOrders > 0 ? " admin-stats__card--warn" : ""}`}>
+          <span className="admin-stats__value">{pendingOrders}</span>
           <span className="admin-stats__label">Pending Review</span>
         </div>
       </div>
 
       {/* Quick links */}
       <div style={{ display: "flex", gap: 8, marginBottom: "var(--space-xl)" }}>
-        <Link href="/admin/merch/queue" className="admin-btn admin-btn--secondary">
-          Review Queue ({pending.length})
+        <Link href="/admin/merch/orders" className="admin-btn admin-btn--secondary">
+          All Orders
+        </Link>
+        <Link href="/admin/merch/orders?status=pending_review" className="admin-btn admin-btn--secondary">
+          Pending Review ({pendingOrders})
         </Link>
       </div>
 

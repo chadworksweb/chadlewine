@@ -45,3 +45,7 @@ next-env.d.ts
 
 .vercel
 .env.local
+
+# script-generated artifacts (mapping dumps, logs)
+scripts/*.log
+scripts/*.out.json

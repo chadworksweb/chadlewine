@@ -9,11 +9,12 @@ interface Props {
   className?: string;
   focalX?: number;
   focalY?: number;
+  zoom?: number;
 }
 
-export function GlitchEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 }: Props) {
-  const focalRef = useRef({ x: focalX, y: focalY });
-  focalRef.current = { x: focalX, y: focalY };
+export function GlitchEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 }: Props) {
+  const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
+  focalRef.current = { x: focalX, y: focalY, z: zoom };
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -51,7 +52,7 @@ export function GlitchEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 }
     const intensity = intensityRef.current;
 
     // Base image — cover-crop with focal to preserve aspect.
-    const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y);
+    const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y, focalRef.current.z);
     ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
 
     if (intensity < 0.01) {

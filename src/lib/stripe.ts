@@ -46,82 +46,58 @@ export async function createCheckoutSession(params: {
   });
 }
 
-export async function createMusicCheckoutSession(params: {
-  type: "song" | "album";
-  item_id: string;
-  format?: "mp3" | "flac" | "wav";
-  title: string;
-  description?: string;
-  album_title?: string;
-  price: number;
-  cover_art_url?: string;
+export async function createCartCheckoutSession(params: {
+  line_items: Array<{
+    title: string;
+    description?: string;
+    price: number;
+    cover_art_url?: string;
+  }>;
+  cart_items_metadata: string;
+  // Extra Stripe metadata keys — used by configurator merch lines to carry
+  // their full product_config (one cfg_<idx> key per configurator line).
+  extra_metadata?: Record<string, string>;
+  // True when the cart has any physical line; flips on Stripe shipping address
+  // collection so the webhook + Printify push have an address.
+  collect_shipping?: boolean;
   success_url: string;
   cancel_url: string;
 }) {
-  const images = params.cover_art_url ? [params.cover_art_url] : [];
-  const description =
-    params.description ||
-    (params.type === "song" && params.album_title
-      ? `From ${params.album_title}`
-      : undefined);
-
-  return getStripe().checkout.sessions.create({
-    mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: params.title,
-            ...(description ? { description } : {}),
-            ...(images.length ? { images } : {}),
-          },
-          unit_amount: toCents(params.price),
+  const stripeLineItems = params.line_items.map((li) => {
+    const images = li.cover_art_url ? [li.cover_art_url] : [];
+    return {
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: li.title,
+          ...(li.description ? { description: li.description } : {}),
+          ...(images.length ? { images } : {}),
         },
-        quantity: 1,
+        unit_amount: toCents(li.price),
       },
-    ],
-    metadata: {
-      type: params.type,
-      item_id: params.item_id,
-      ...(params.format ? { format: params.format } : {}),
-    },
-    success_url: params.success_url,
-    cancel_url: params.cancel_url,
+      // Digital + physical goods — quantity always 1; the same SKU can't be
+      // bought twice in one cart (configurator items differ by config so they're
+      // distinct lines).
+      quantity: 1,
+    };
   });
-}
-
-export async function createMerchCheckoutSession(params: {
-  product_config: Record<string, unknown>;
-  product_id?: string;
-  title: string;
-  price: number;
-  image_url?: string;
-  success_url: string;
-  cancel_url: string;
-}) {
-  const images = params.image_url ? [params.image_url] : [];
 
   return getStripe().checkout.sessions.create({
     mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: params.title,
-            ...(images.length ? { images } : {}),
-          },
-          unit_amount: toCents(params.price),
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: stripeLineItems,
     metadata: {
-      type: "merch",
-      product_id: params.product_id || "",
-      product_config: JSON.stringify(params.product_config),
+      type: "cart",
+      cart_items: params.cart_items_metadata,
+      ...(params.extra_metadata || {}),
     },
+    ...(params.collect_shipping
+      ? {
+          shipping_address_collection: {
+            allowed_countries: ["US", "CA", "GB", "AU", "NZ", "IE"] as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
+          },
+          phone_number_collection: { enabled: true },
+        }
+      : {}),
     success_url: params.success_url,
     cancel_url: params.cancel_url,
   });
@@ -133,4 +109,8 @@ export function verifyWebhookSignature(payload: string, signature: string) {
     signature,
     process.env.STRIPE_WEBHOOK_SECRET!
   );
+}
+
+export async function listSessionLineItems(sessionId: string) {
+  return getStripe().checkout.sessions.listLineItems(sessionId, { limit: 25 });
 }

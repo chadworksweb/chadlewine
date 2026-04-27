@@ -9,6 +9,7 @@ interface LightningEffectProps {
   className?: string;
   focalX?: number;
   focalY?: number;
+  zoom?: number;
 }
 
 function generateBoltPath(
@@ -76,14 +77,14 @@ function generateStrike(w: number, h: number) {
   return { mainPath, branches, thickness };
 }
 
-export function LightningEffect({ src, alt, className, focalX = 0.5, focalY = 0.5 }: LightningEffectProps) {
+export function LightningEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 }: LightningEffectProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [striking, setStriking] = useState(false);
-  const focalRef = useRef({ x: focalX, y: focalY });
-  focalRef.current = { x: focalX, y: focalY };
+  const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
+  focalRef.current = { x: focalX, y: focalY, z: zoom };
 
   useEffect(() => {
     const img = new Image();
@@ -101,7 +102,7 @@ export function LightningEffect({ src, alt, className, focalX = 0.5, focalY = 0.
       }
       canvas.width = container.offsetWidth;
       canvas.height = container.offsetHeight;
-      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, canvas.width / canvas.height, focalRef.current.x, focalRef.current.y);
+      const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, canvas.width / canvas.height, focalRef.current.x, focalRef.current.y, focalRef.current.z);
       ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, canvas.width, canvas.height);
     };
 

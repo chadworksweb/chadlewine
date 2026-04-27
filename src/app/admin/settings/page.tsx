@@ -4,9 +4,7 @@ const ITEMS = [
   { href: "/admin/launch-control", label: "Launch Control", blurb: "Toggle site sections live." },
   { href: "/admin/analytics", label: "Analytics", blurb: "Traffic, conversions, events." },
   { href: "/admin/voice-profile", label: "Voice Profile", blurb: "Chad Lewine voice persona." },
-  { href: "/admin/voice-messages", label: "Voice Messages", blurb: "Voice-composed outgoing messages." },
   { href: "/admin/seo", label: "SEO", blurb: "Sitemap, metadata, structured data." },
-  { href: "/admin/media", label: "Media", blurb: "Images and uploads." },
   { href: "/admin/subscribers", label: "Subscribers", blurb: "Newsletter + patronage." },
 ];
 

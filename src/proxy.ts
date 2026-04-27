@@ -1,18 +1,41 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getFeatureFlags, sectionForPath } from "@/lib/feature-flags";
 import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
+
+// Cookie presence ≠ auth. Validate the JWT against Supabase before letting
+// admin requests through; otherwise any string in `sb-access-token` would
+// reach the service-role-keyed admin routes.
+async function jwtIsValid(token: string): Promise<boolean> {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
+    const { data, error } = await supabase.auth.getUser(token);
+    return !error && !!data?.user;
+  } catch {
+    return false;
+  }
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Admin/API-admin gate: unchanged
+  // Admin/API-admin gate. Unauth requests return 404 (not a redirect) so the
+  // secret login URL never appears in a browser bar via guess-the-path probes.
+  // Direct hits to /cl-admin-6nnn are how admins log in.
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const accessToken = request.cookies.get("sb-access-token")?.value;
-    if (!accessToken) {
-      const loginUrl = new URL("/cl-admin-6nnn", request.url);
-      loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+    const authorized = accessToken ? await jwtIsValid(accessToken) : false;
+    if (!authorized) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Not Found" }, { status: 404 });
+      }
+      // Rewrite to a guaranteed-nonexistent path so Next renders its default
+      // 404 page. URL bar still shows whatever the user typed.
+      return NextResponse.rewrite(new URL("/__404_admin_mask__", request.url));
     }
     return NextResponse.next();
   }

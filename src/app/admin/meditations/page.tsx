@@ -67,36 +67,41 @@ function MeditationsContent() {
   const heroInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = useCallback(async () => {
-    const [medsRes, catsRes, tlsRes, tagsRes, heroRes] = await Promise.all([
+    const [medsRes, catsRes, tlsRes, tagsRes] = await Promise.all([
       fetch("/api/admin/meditations"),
       fetch("/api/admin/categories"),
       fetch("/api/admin/thoughtlines"),
       fetch("/api/admin/tags"),
-      fetch("/api/admin/page-hero?page=meditations"),
     ]);
 
     const meds = await medsRes.json();
     const cats = await catsRes.json();
     const tls = await tlsRes.json();
     const tags = await tagsRes.json();
-    const hero = await heroRes.json();
 
     setMeditations(meds);
     setAllCategories(cats);
     setAllThoughtlines(tls);
     setAllTags(tags);
-    setHeroUrl(hero.url || "");
+    setHeroUrl(`${process.env.NEXT_PUBLIC_BUNNY_PULL_ZONE_SITE_IMAGES}/page-heroes/meditations.webp`);
     setLoading(false);
   }, []);
 
   async function handleHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.type !== "image/webp") {
+      alert("Page hero must be a .webp file.");
+      e.target.value = "";
+      return;
+    }
     setHeroUploading(true);
     const fd = new FormData();
     fd.append("file", file);
-    fd.append("page", "meditations");
-    const res = await fetch("/api/admin/page-hero", { method: "POST", body: fd });
+    fd.append("type", "site-image");
+    fd.append("folder", "page-heroes");
+    fd.append("filename", "meditations.webp");
+    const res = await fetch("/api/admin/media/upload", { method: "POST", body: fd });
     if (res.ok) {
       const data = await res.json();
       setHeroUrl(data.url + "?t=" + Date.now());

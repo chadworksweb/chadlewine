@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/admin/", "/api/", "/cl-admin-", "/thinking"],
+      disallow: ["/admin/", "/api/", "/cl-admin-"],
     },
     sitemap: "https://chadlewine.com/sitemap.xml",
   };

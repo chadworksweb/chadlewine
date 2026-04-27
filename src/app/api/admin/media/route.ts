@@ -1,95 +1,157 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { getMediaConfig, type MediaType } from "@/lib/media-config";
+import { deleteFromBunny, listBunny } from "@/lib/bunny";
+import { signBunnyUrl } from "@/lib/bunny-token";
 
-const BUCKET = "observation-images";
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+// Image zones the Media Library manages. Music zones live in the Audio Library.
+const IMAGE_ZONES: MediaType[] = ["site-image", "cover-art", "art-fullres"];
 
-// GET /api/admin/media — list all images with meta
+export type Pillar =
+  | "observations"
+  | "songs"
+  | "albums"
+  | "art"
+  | "pages"
+  | "merch";
+
+// Normalize a DB-stored image reference to `{hostname}::{path}` so pillar
+// matching works across multiple pull zones.
+function toFileKey(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const u = new URL(value);
+    if (!/\bb-cdn\.net$/i.test(u.hostname)) return null;
+    const path = decodeURIComponent(u.pathname.replace(/^\/+/, "").split("?")[0]);
+    return `${u.hostname}::${path}`;
+  } catch {
+    // Raw path, no host — leave hostname empty so only path-only files match.
+    return `::${value.replace(/^\/+/, "").split("?")[0]}`;
+  }
+}
+
+function fileKey(pullHost: string, path: string): string {
+  return `${pullHost}::${path}`;
+}
+
+async function buildPillarMap(
+  supabase: ReturnType<typeof createAdminClient>,
+  filenames: string[],
+): Promise<Map<string, Set<Pillar>>> {
+  const map = new Map<string, Set<Pillar>>();
+  for (const f of filenames) map.set(f, new Set());
+
+  const tag = (value: string | null | undefined, pillar: Pillar) => {
+    const key = toFileKey(value);
+    if (key && map.has(key)) map.get(key)!.add(pillar);
+  };
+
+  const sources: Array<{
+    table: string;
+    col: string;
+    pillar: Pillar;
+  }> = [
+    { table: "observations", col: "art_image_path", pillar: "observations" },
+    { table: "songs", col: "art_image_path", pillar: "songs" },
+    { table: "albums", col: "cover_art_path", pillar: "albums" },
+    { table: "art_pieces", col: "image_path", pillar: "art" },
+    { table: "page_meta", col: "og_image_path", pillar: "pages" },
+    { table: "products", col: "image_url", pillar: "merch" },
+  ];
+
+  for (const { table, col, pillar } of sources) {
+    const { data } = await supabase.from(table).select(col);
+    for (const row of (data ?? []) as unknown as Array<Record<string, string | null>>) {
+      tag(row[col], pillar);
+    }
+  }
+
+  // Convention: anything under page-heroes/ (on any zone) is page-owned media
+  // even if no page_meta row points at it yet.
+  for (const k of filenames) {
+    const path = k.split("::")[1] ?? k;
+    if (path.startsWith("page-heroes/") && map.has(k)) map.get(k)!.add("pages");
+    if (path.startsWith("art-thumbnails/") && map.has(k)) map.get(k)!.add("art");
+  }
+
+  return map;
+}
+
+type ListedFile = {
+  zone: MediaType;
+  name: string;
+  url: string;
+  tokenAuth: boolean;
+  dateCreated: string;
+  pullHost: string;
+};
+
+async function listZone(zone: MediaType): Promise<ListedFile[]> {
+  const config = getMediaConfig(zone);
+  const items = await listBunny(config, "", { recursive: true });
+  const pullHost = (() => {
+    try { return new URL(config.pullZoneUrl).hostname; } catch { return ""; }
+  })();
+  return items
+    .filter((i) => !i.isDirectory)
+    .map((f) => ({
+      zone,
+      name: f.name,
+      // For token-auth zones (art-fullres), sign a short-lived URL for the
+      // admin preview. Re-signed on every list; safe for admin-only route.
+      url: config.tokenAuth ? signBunnyUrl(config, f.name, 900) : f.url,
+      tokenAuth: config.tokenAuth,
+      dateCreated: f.dateCreated,
+      pullHost,
+    }));
+}
+
+// GET /api/admin/media — aggregate all chadlewine-* image zones + merged meta + pillars
 export async function GET() {
   const supabase = createAdminClient();
 
-  const { data: files, error } = await supabase.storage
-    .from(BUCKET)
-    .list("", { limit: 500, sortBy: { column: "created_at", order: "desc" } });
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+  let allFiles: ListedFile[] = [];
+  try {
+    const perZone = await Promise.all(IMAGE_ZONES.map((z) => listZone(z)));
+    allFiles = perZone.flat();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to list images";
+    return Response.json({ error: message }, { status: 500 });
   }
 
-  const baseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}`;
+  const keyOf = (f: ListedFile) => fileKey(f.pullHost, f.name);
+  const keys = allFiles.map(keyOf);
+  const filenamesForMeta = allFiles.map((f) => f.name);
 
-  const filenames = (files || [])
-    .filter((f) => !f.id?.endsWith("/") && f.name !== ".emptyFolderPlaceholder")
-    .map((f) => f.name);
-
-  // Fetch meta for all files
-  const { data: metaRows } = await supabase
-    .from("media_meta")
-    .select("filename, alt_text, title")
-    .in("filename", filenames);
+  const [metaResult, pillarMap] = await Promise.all([
+    supabase
+      .from("media_meta")
+      .select("filename, alt_text, title")
+      .in("filename", filenamesForMeta),
+    buildPillarMap(supabase, keys),
+  ]);
 
   const metaMap = new Map<string, { alt_text: string; title: string }>();
-  metaRows?.forEach((m) => metaMap.set(m.filename, m));
+  metaResult.data?.forEach((m) => metaMap.set(m.filename, m));
 
-  const cacheBust = Date.now();
-  const images = filenames.map((name) => {
-    const meta = metaMap.get(name);
-    return {
-      name,
-      url: `${baseUrl}/${name}?v=${cacheBust}`,
-      alt_text: meta?.alt_text || "",
-      title: meta?.title || "",
-    };
-  });
+  const images = allFiles
+    .sort((a, b) => (a.dateCreated < b.dateCreated ? 1 : -1))
+    .map((f) => {
+      const meta = metaMap.get(f.name);
+      return {
+        zone: f.zone,
+        name: f.name,
+        url: f.url,
+        tokenAuth: f.tokenAuth,
+        alt_text: meta?.alt_text || "",
+        title: meta?.title || "",
+        pillars: [...(pillarMap.get(keyOf(f)) ?? [])],
+      };
+    });
 
   return Response.json(images);
 }
 
-// POST /api/admin/media — upload an image
-export async function POST(request: Request) {
-  const supabase = createAdminClient();
-
-  const formData = await request.formData();
-  const file = formData.get("file") as File | null;
-
-  if (!file) {
-    return Response.json({ error: "No file provided" }, { status: 400 });
-  }
-
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return Response.json(
-      { error: "Only jpg, png, gif, and webp files are allowed" },
-      { status: 400 }
-    );
-  }
-
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase();
-  const filename = safeName;
-
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(filename, file, {
-      contentType: file.type,
-      cacheControl: "0",
-      upsert: true,
-    });
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-
-  // Create meta row
-  await supabase.from("media_meta").insert({
-    filename,
-    alt_text: "",
-    title: "",
-  });
-
-  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${filename}?v=${Date.now()}`;
-
-  return Response.json({ url, name: filename }, { status: 201 });
-}
-
-// PUT /api/admin/media — update image meta (alt_text, title)
+// PUT /api/admin/media — upsert alt_text + title for a filename
 export async function PUT(request: Request) {
   const supabase = createAdminClient();
   const { filename, alt_text, title } = await request.json();
@@ -98,7 +160,6 @@ export async function PUT(request: Request) {
     return Response.json({ error: "No filename provided" }, { status: 400 });
   }
 
-  // Upsert — create if missing, update if exists
   const { error } = await supabase
     .from("media_meta")
     .upsert(
@@ -113,22 +174,26 @@ export async function PUT(request: Request) {
   return Response.json({ ok: true });
 }
 
-// DELETE /api/admin/media — delete an image + its meta
+// DELETE /api/admin/media — remove file from its zone + its meta row
 export async function DELETE(request: Request) {
   const supabase = createAdminClient();
-  const { name } = await request.json();
+  const { name, zone } = await request.json();
 
   if (!name) {
     return Response.json({ error: "No filename provided" }, { status: 400 });
   }
 
-  const { error } = await supabase.storage.from(BUCKET).remove([name]);
+  const targetZone: MediaType =
+    zone === "cover-art" || zone === "art-fullres" ? zone : "site-image";
+  const config = getMediaConfig(targetZone);
 
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+  try {
+    await deleteFromBunny(config, name);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Bunny delete failed";
+    return Response.json({ error: message }, { status: 500 });
   }
 
-  // Clean up meta
   await supabase.from("media_meta").delete().eq("filename", name);
 
   return Response.json({ ok: true });

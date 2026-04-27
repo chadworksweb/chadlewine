@@ -19,6 +19,11 @@ interface DiscographyItem {
   format_label: string | null;
   href: string;
   chorus: string | null;
+  tracklist: string[] | null;
+  concept_statement: string | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
 }
 
 type SortMode = "newest" | "oldest" | "az" | "za";
@@ -121,11 +126,17 @@ export function DiscographyExplorer({ items, allFormats }: DiscographyExplorerPr
             return (
               <div key={item.id} className="discography-grid__card">
                 <AlbumCubeRadiant
+                  variant={item.type === "album" ? "album" : "song"}
                   title={item.title}
                   href={item.href}
                   coverArtPath={item.cover_art_path}
                   planeThreeVideo={PLANE_THREE_VIDEOS[item.slug] ?? null}
                   chorus={item.chorus}
+                  tracklist={item.tracklist}
+                  conceptStatement={item.concept_statement}
+                  cardFocalX={item.card_focal_x}
+                  cardFocalY={item.card_focal_y}
+                  cardZoom={item.card_zoom}
                 />
                 <div className="discography-grid__info">
                   <span className="discography-grid__meta">

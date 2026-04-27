@@ -75,6 +75,8 @@ export async function PUT(
     entity_tags,
     article_type,
     related_music,
+    art_fullres_print_path,
+    art_fullres_wallpaper_path,
   } = body;
 
   const updateData: Record<string, unknown> = {
@@ -98,6 +100,8 @@ export async function PUT(
     entity_tags: entity_tags ?? [],
     article_type: article_type || "article",
     related_music: related_music ?? [],
+    art_fullres_print_path: art_fullres_print_path || null,
+    art_fullres_wallpaper_path: art_fullres_wallpaper_path || null,
   };
 
   const { data: prev } = await supabase

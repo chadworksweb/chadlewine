@@ -58,7 +58,6 @@ interface ObservationData {
   related_music: { type: "song" | "album"; id: string }[];
   art_fullres_print_path: string;
   art_fullres_wallpaper_path: string;
-  audio_file_path: string;
 }
 
 const emptyObservation: ObservationData = {
@@ -88,7 +87,6 @@ const emptyObservation: ObservationData = {
   related_music: [],
   art_fullres_print_path: "",
   art_fullres_wallpaper_path: "",
-  audio_file_path: "",
 };
 
 function CoverArtPanel({
@@ -156,128 +154,83 @@ function CoverArtPanel({
   );
 }
 
-function AudioUploadPanel({
-  slug,
-  observationId,
-  audioPath,
-  onUploadComplete,
-}: {
-  slug: string;
-  observationId: string | undefined;
-  audioPath: string;
-  onUploadComplete: (url: string) => void;
-}) {
-  const [uploading, setUploading] = useState(false);
-
-  async function handleUpload(file: File) {
-    if (!observationId || !slug) return;
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("slug", slug);
-    fd.append("observation_id", observationId);
-    const res = await fetch("/api/admin/observation-audio", { method: "POST", body: fd });
-    if (res.ok) {
-      const data = await res.json();
-      onUploadComplete(data.url);
-    }
-    setUploading(false);
-  }
-
-  async function handleRemove() {
-    if (!observationId || !audioPath) return;
-    // Extract storage path from full URL
-    const match = audioPath.match(/observation-audio\/(.+)$/);
-    if (!match) return;
-    await fetch("/api/admin/observation-audio", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ observation_id: observationId, path: match[1] }),
-    });
-    onUploadComplete("");
-  }
-
-  return (
-    <div className="obsv-editor__panel">
-      <h3 className="obsv-editor__panel-title">Audio Reading</h3>
-      {!slug && (
-        <p className="obsv-editor__hint">Save the observation first to enable uploads.</p>
-      )}
-      {slug && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
-          {audioPath ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)" }}>
-              <audio controls src={audioPath} style={{ width: "100%", height: 36 }} />
-              <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center" }}>
-                <label style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", cursor: "pointer" }}>
-                  Replace
-                  <input
-                    type="file"
-                    accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
-                    disabled={uploading}
-                    style={{ display: "none" }}
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={handleRemove}
-                  className="admin-btn admin-btn--danger"
-                  style={{ fontSize: "0.6875rem", padding: "4px 12px" }}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <input
-                type="file"
-                accept="audio/mpeg,audio/wav,audio/mp4,audio/ogg"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
-                disabled={uploading}
-                style={{ fontSize: "var(--text-xs)" }}
-              />
-              {uploading && (
-                <span style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", marginLeft: "var(--space-sm)" }}>
-                  Uploading...
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function FullResArtPanel({
   slug,
   printPath,
   wallpaperPath,
-  onUploadComplete,
+  autosaveStatus,
+  onPathChange,
 }: {
   slug: string;
   printPath: string;
   wallpaperPath: string;
-  onUploadComplete: () => void;
+  autosaveStatus: AutosaveStatus;
+  onPathChange: (variant: "print" | "wallpaper", path: string) => void;
 }) {
   const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string>("");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  async function copyValue(key: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1200);
+    } catch {
+      // clipboard unavailable — silent
+    }
+  }
+
+  const ART_PULL_ZONE = "https://chadlewine-art.b-cdn.net";
+  const fullRef = (p: string) => `${ART_PULL_ZONE}/${p.replace(/^\/+/, "")}`;
 
   async function handleUpload(variant: "print" | "wallpaper", file: File) {
     setUploading(variant);
+    setUploadError("");
     const fd = new FormData();
     fd.append("file", file);
-    fd.append("slug", slug);
-    fd.append("variant", variant);
-    const res = await fetch("/api/admin/art-fullres", { method: "POST", body: fd });
-    if (res.ok) onUploadComplete();
+    fd.append("type", "art-fullres");
+    fd.append("noOverwrite", "1");
+    const res = await fetch("/api/admin/media/upload", { method: "POST", body: fd });
+    if (res.ok) {
+      const data = await res.json();
+      onPathChange(variant, data.path as string);
+    } else if (res.status === 409) {
+      const err = await res.json().catch(() => ({ error: "File already exists" }));
+      alert(err.error || "A file with this name already exists. Rename the file and try again.");
+      setUploadError("File already exists — rename and retry.");
+    } else {
+      const err = await res.json().catch(() => ({ error: `Upload failed (${res.status})` }));
+      setUploadError(err.error || `Upload failed (${res.status})`);
+    }
     setUploading(null);
   }
 
+  const statusLabel =
+    autosaveStatus === "saving"
+      ? "Saving…"
+      : autosaveStatus === "saved"
+        ? "Saved"
+        : autosaveStatus === "error"
+          ? "Save failed"
+          : "";
+  const statusColor =
+    autosaveStatus === "error"
+      ? "#ff3333"
+      : autosaveStatus === "saved"
+        ? "var(--text-tertiary)"
+        : "var(--text-secondary)";
+
   return (
     <div className="obsv-editor__panel">
-      <h3 className="obsv-editor__panel-title">Full-Res Art</h3>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-sm)" }}>
+        <h3 className="obsv-editor__panel-title" style={{ margin: 0 }}>Full-Res Art</h3>
+        {statusLabel && (
+          <span style={{ fontSize: "0.6875rem", fontFamily: "var(--font-ui)", color: statusColor }}>
+            {statusLabel}
+          </span>
+        )}
+      </div>
       {!slug && (
         <p className="obsv-editor__hint">Save the observation first to enable uploads.</p>
       )}
@@ -299,8 +252,22 @@ function FullResArtPanel({
               style={{ fontSize: "var(--text-xs)" }}
             />
             {printPath && (
-              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>
-                {printPath}
+              <span
+                onClick={() => copyValue("print", fullRef(printPath))}
+                title={`Click to copy — ${fullRef(printPath)}`}
+                style={{
+                  fontSize: "0.6875rem",
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--text-tertiary)",
+                  cursor: "pointer",
+                  wordBreak: "break-all",
+                  userSelect: "none",
+                }}
+              >
+                {fullRef(printPath)}
+                {copiedKey === "print" && (
+                  <span style={{ marginLeft: 6, color: "#33cc55" }}>Copied</span>
+                )}
               </span>
             )}
           </div>
@@ -320,11 +287,28 @@ function FullResArtPanel({
               style={{ fontSize: "var(--text-xs)" }}
             />
             {wallpaperPath && (
-              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>
-                {wallpaperPath}
+              <span
+                onClick={() => copyValue("wallpaper", fullRef(wallpaperPath))}
+                title={`Click to copy — ${fullRef(wallpaperPath)}`}
+                style={{
+                  fontSize: "0.6875rem",
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--text-tertiary)",
+                  cursor: "pointer",
+                  wordBreak: "break-all",
+                  userSelect: "none",
+                }}
+              >
+                {fullRef(wallpaperPath)}
+                {copiedKey === "wallpaper" && (
+                  <span style={{ marginLeft: 6, color: "#33cc55" }}>Copied</span>
+                )}
               </span>
             )}
           </div>
+          {uploadError && (
+            <span style={{ fontSize: "0.6875rem", color: "#ff3333" }}>{uploadError}</span>
+          )}
         </div>
       )}
     </div>
@@ -367,6 +351,8 @@ export function ObservationEditor({
     entity_tags: d.entity_tags,
     article_type: d.article_type,
     related_music: d.related_music,
+    art_fullres_print_path: d.art_fullres_print_path,
+    art_fullres_wallpaper_path: d.art_fullres_wallpaper_path,
   }), []);
 
   const { status: autosaveStatus, flush } = useAutosave({
@@ -507,7 +493,7 @@ export function ObservationEditor({
               value={form.hook_line}
               onChange={(e) => set("hook_line", e.target.value)}
               rows={3}
-              placeholder="Most provocative sentence — feeds Hook fragment + Diddy"
+              placeholder="Most provocative sentence — feeds Hook fragment"
             />
           </div>
 
@@ -609,24 +595,13 @@ export function ObservationEditor({
             slug={form.slug}
             printPath={form.art_fullres_print_path}
             wallpaperPath={form.art_fullres_wallpaper_path}
-            onUploadComplete={() => {
-              // Refresh form from server to get updated paths
-              if (form.id) {
-                fetch(`/api/admin/observations/${form.id}`)
-                  .then((r) => r.json())
-                  .then((d) => {
-                    set("art_fullres_print_path", d.observation?.art_fullres_print_path || "");
-                    set("art_fullres_wallpaper_path", d.observation?.art_fullres_wallpaper_path || "");
-                  });
-              }
+            autosaveStatus={autosaveStatus}
+            onPathChange={(variant, path) => {
+              set(
+                variant === "print" ? "art_fullres_print_path" : "art_fullres_wallpaper_path",
+                path,
+              );
             }}
-          />
-
-          <AudioUploadPanel
-            slug={form.slug}
-            observationId={form.id}
-            audioPath={form.audio_file_path}
-            onUploadComplete={(url) => set("audio_file_path", url)}
           />
 
           <RelatedMusicPanel

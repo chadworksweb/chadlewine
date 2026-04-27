@@ -6,6 +6,7 @@ import Image from "next/image";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { VISIBILITY_CATEGORIES } from "@/lib/song-visibility";
 import { CompassIcon } from "@/components/RCBadge";
+import { useCart } from "@/components/Cart";
 import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
 
@@ -27,6 +28,8 @@ interface SongProps {
   card_focal_x?: number | null;
   card_focal_y?: number | null;
   card_zoom?: number | null;
+  ringtone_price?: number | null;
+  ringtone_available?: boolean;
 }
 
 interface AlbumProps {
@@ -92,10 +95,6 @@ function stripLeadingHeading(html: string): string {
   return html.replace(/^\s*<h[1-3][^>]*>.*?<\/h[1-3]>\s*/i, "");
 }
 
-function formatPrice(dollars: number): string {
-  return `$${Number(dollars).toFixed(2)}`;
-}
-
 
 export function SongDetail({
   song,
@@ -125,15 +124,16 @@ export function SongDetail({
   merchSlot?: React.ReactNode;
 }) {
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
-  const [buying, setBuying] = useState<"song" | "album" | null>(null);
   const [openExpansions, setOpenExpansions] = useState<Set<string>>(new Set());
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [songFormat, setSongFormat] = useState<"mp3" | "flac" | "wav">(
-    (songFormats[0] as "mp3" | "flac" | "wav") || "mp3"
-  );
-  const [albumFormat, setAlbumFormat] = useState<"mp3" | "flac" | "wav">(
-    (albumFormats[0] as "mp3" | "flac" | "wav") || "mp3"
-  );
+  const cart = useCart();
+  const songInCart = cart.hasItem({ type: "song", id: song.id, format: null });
+  const albumInCart = album
+    ? cart.hasItem({ type: "album", id: album.id, format: null })
+    : false;
+  const albumPurchasable = !!(album && album.price && albumFormats.length > 0);
+  const ringtoneInCart = cart.hasItem({ type: "ringtone", id: song.id, format: null });
+  const ringtoneAvailable = !!song.ringtone_available && !!song.ringtone_price;
 
   function toggleExpansion(id: string) {
     setOpenExpansions((prev) => {
@@ -142,26 +142,6 @@ export function SongDetail({
       else next.add(id);
       return next;
     });
-  }
-
-  async function handleBuy(type: "song" | "album") {
-    if (type === "album" && !album) return;
-    setBuying(type);
-    try {
-      const res = await fetch("/api/music-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type,
-          id: type === "song" ? song.id : album!.id,
-          format: type === "song" ? songFormat : albumFormat,
-        }),
-      });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } finally {
-      setBuying(null);
-    }
   }
 
   // Resolve cover art: song art overrides album art; fall back to album art if song has none
@@ -179,9 +159,7 @@ export function SongDetail({
     });
   }
 
-  if (song.price) {
-    infoCells.push({ key: "price", label: "Price", value: formatPrice(song.price) });
-  }
+  // Price intentionally not shown — surfaces only at cart.
 
   if (album) {
     infoCells.push({
@@ -195,7 +173,7 @@ export function SongDetail({
       label: "Album",
       value: (
         <Link
-          href="/discography"
+          href={`/music/albums/${album.slug}`}
           className="track-detail__glitch-link"
           data-text={album.title}
         >
@@ -245,12 +223,16 @@ export function SongDetail({
           </div>
 
           {/* Mini player */}
-          {song.streaming_path && song.duration_seconds && (
+          {song.streaming_path && (
             <MiniPlayer
+              songId={song.id}
+              songSlug={song.slug}
               streamingUrl={song.streaming_path}
               trackNumber={song.track_number}
               trackTitle={song.title}
-              durationSeconds={song.duration_seconds}
+              durationSeconds={song.duration_seconds ?? 0}
+              artImagePath={coverArtPath}
+              artAlt={coverArtAlt}
               playbackMode={playbackMode}
             />
           )}
@@ -258,19 +240,70 @@ export function SongDetail({
           {/* Action row: buttons + badge */}
           <div className="track-detail__action-row">
             <div className="track-detail__actions">
-              {album && (
-                <Link href={`/music/albums/${album.slug}`} className="track-detail__btn track-detail__btn--buy-album">
-                  Buy Album
-                </Link>
+              {album && albumPurchasable && album.price && (
+                <button
+                  type="button"
+                  className={`track-detail__btn track-detail__btn--buy-album${albumInCart ? " track-detail__btn--in-cart" : ""}`}
+                  disabled={albumInCart}
+                  aria-disabled={albumInCart}
+                  onClick={() => {
+                    if (albumInCart || !album.price) return;
+                    cart.add({
+                      type: "album",
+                      id: album.id,
+                      title: album.title,
+                      slug: album.slug,
+                      price: album.price,
+                      format: null,
+                      cover_art_path: album.cover_art_path,
+                    });
+                  }}
+                >
+                  {albumInCart ? "Album Already in Cart" : "Add Album to Cart"}
+                </button>
               )}
               {song.price && songFormats.length > 0 && (
                 <button
                   type="button"
-                  className="track-detail__btn track-detail__btn--buy"
-                  onClick={() => handleBuy("song")}
-                  disabled={buying === "song"}
+                  className={`track-detail__btn track-detail__btn--buy${songInCart ? " track-detail__btn--in-cart" : ""}`}
+                  disabled={songInCart}
+                  aria-disabled={songInCart}
+                  onClick={() => {
+                    if (songInCart || !song.price) return;
+                    cart.add({
+                      type: "song",
+                      id: song.id,
+                      title: song.title,
+                      slug: song.slug,
+                      price: song.price,
+                      format: null,
+                      cover_art_path: song.art_image_path || album?.cover_art_path || null,
+                    });
+                  }}
                 >
-                  {buying === "song" ? "..." : "Buy Song"}
+                  {songInCart ? "Already in Cart" : "Add to Cart"}
+                </button>
+              )}
+              {ringtoneAvailable && song.ringtone_price && (
+                <button
+                  type="button"
+                  className={`track-detail__btn track-detail__btn--ringtone${ringtoneInCart ? " track-detail__btn--in-cart" : ""}`}
+                  disabled={ringtoneInCart}
+                  aria-disabled={ringtoneInCart}
+                  onClick={() => {
+                    if (ringtoneInCart || !song.ringtone_price) return;
+                    cart.add({
+                      type: "ringtone",
+                      id: song.id,
+                      title: song.title,
+                      slug: song.slug,
+                      price: song.ringtone_price,
+                      format: null,
+                      cover_art_path: song.art_image_path || album?.cover_art_path || null,
+                    });
+                  }}
+                >
+                  {ringtoneInCart ? "Ringtone Already in Cart" : "Add Ringtone to Cart"}
                 </button>
               )}
             </div>

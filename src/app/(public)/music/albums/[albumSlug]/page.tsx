@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createPublicClient } from "@/lib/supabase-server";
+import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { AlbumDetail } from "@/components/AlbumDetail";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge, fetchAlbumBadge, rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
@@ -21,13 +21,28 @@ async function getAlbumData(albumSlug: string) {
   // Get songs via junction
   const { data: junctions } = await supabase
     .from("album_songs")
-    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path)")
+    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path, download_path_mp3, download_path_flac, download_path_wav, ringtone_path_m4r, ringtone_path_mp3, ringtone_price, playback_mode)")
     .eq("album_id", album.id)
     .order("track_number");
 
-  const songs = (junctions || [])
-    .filter((j: any) => j.song?.status === "published" || j.song?.status === "unreleased")
-    .map((j: any) => ({
+  const filtered = (junctions || []).filter(
+    (j: any) => j.song?.status === "published" || j.song?.status === "unreleased",
+  );
+
+  const playbackModes = await Promise.all(
+    filtered.map((j: any) => getPlaybackMode(j.song.playback_mode ?? null)),
+  );
+
+  const songs = filtered.map((j: any, i: number) => {
+    const explicit = (["mp3", "flac", "wav"] as const).filter(
+      (f) => j.song[`download_path_${f}`],
+    );
+    const formats: Array<"mp3" | "flac" | "wav"> =
+      explicit.length > 0 ? explicit : j.song.download_path ? ["mp3"] : [];
+    const ringtoneAvailable =
+      !!j.song.ringtone_price &&
+      !!(j.song.ringtone_path_m4r || j.song.ringtone_path_mp3);
+    return {
       id: j.song.id,
       title: j.song.title,
       slug: j.song.slug,
@@ -35,7 +50,12 @@ async function getAlbumData(albumSlug: string) {
       duration_seconds: j.song.duration_seconds,
       streaming_path: j.song.streaming_path,
       price: j.song.price,
-    }));
+      playback_mode: playbackModes[i],
+      download_formats: formats,
+      ringtone_available: ringtoneAvailable,
+      ringtone_price: ringtoneAvailable ? j.song.ringtone_price : null,
+    };
+  });
 
   const anyLegacyDownload = (junctions || []).some((j: any) => j.song?.download_path);
 
@@ -119,6 +139,10 @@ export default async function AlbumDetailPage({
           duration_seconds: s.duration_seconds,
           streaming_path: s.streaming_path,
           price: s.price,
+          playback_mode: s.playback_mode,
+          download_formats: s.download_formats,
+          ringtone_available: s.ringtone_available,
+          ringtone_price: s.ringtone_price,
         }))}
         badge={albumBadge}
         availableFormats={(() => {
@@ -128,11 +152,9 @@ export default async function AlbumDetailPage({
         })()}
       />
       {Object.keys(songBadges).length > 0 && (
-        <div style={{ maxWidth: "var(--content-width)", margin: "var(--space-xl) auto 0", padding: "0 var(--page-gutter)" }}>
-          <h3 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "var(--space-md)" }}>
-            Rising Compass Classifications
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
+        <section className="album-rc-classifications" aria-label="Rising Compass Classifications">
+          <h3 className="album-rc-classifications__title">Rising Compass Classifications</h3>
+          <div className="album-rc-classifications__list">
             {songs.map((s) => {
               const b = songBadges[s.id];
               if (!b) return null;
@@ -142,19 +164,18 @@ export default async function AlbumDetailPage({
                   href={rcBadgeHref(b)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: "flex", alignItems: "center", gap: "var(--space-md)", textDecoration: "none", color: "inherit" }}
+                  className="album-rc-classifications__row"
                 >
-                  <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", minWidth: 24, textAlign: "right" }}>
-                    {s.track_number}
-                  </span>
-                  <span style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-primary)", flex: 1 }}>
-                    {s.title}
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ backgroundColor: b.tier_hex, padding: "2px 8px", borderRadius: 4, fontSize: "var(--text-xs)", fontWeight: 600, color: "#000" }}>
+                  <span className="album-rc-classifications__track-num">{s.track_number}</span>
+                  <span className="album-rc-classifications__track-title">{s.title}</span>
+                  <span className="album-rc-classifications__tier">
+                    <span
+                      className="album-rc-classifications__tier-label"
+                      style={{ backgroundColor: b.tier_hex }}
+                    >
                       {b.tier_label}
                     </span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>
+                    <span className="album-rc-classifications__charge">
                       {b.charge > 0 ? "+" : ""}{b.charge}
                     </span>
                   </span>
@@ -162,7 +183,7 @@ export default async function AlbumDetailPage({
               );
             })}
           </div>
-        </div>
+        </section>
       )}
     </>
   );

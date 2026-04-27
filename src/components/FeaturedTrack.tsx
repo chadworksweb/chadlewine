@@ -21,15 +21,19 @@ interface FeaturedTrackProps {
   playbackMode?: "preview" | "full";
 }
 
-export function FeaturedTrack({ song, playbackMode = "preview" }: FeaturedTrackProps) {
+export function FeaturedTrack({ song, album, playbackMode = "preview" }: FeaturedTrackProps) {
   if (!song.streaming_path || !song.duration_seconds) return null;
 
   return (
     <MiniPlayer
+      songId={song.id}
+      songSlug={song.slug}
       streamingUrl={song.streaming_path}
       trackNumber={song.track_number}
       trackTitle={song.title}
       durationSeconds={song.duration_seconds}
+      artImagePath={album.cover_art_path}
+      artAlt={album.cover_art_alt || album.title}
       playbackMode={playbackMode}
     />
   );

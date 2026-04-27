@@ -6,7 +6,6 @@ export interface ManagedPage {
 export const MANAGED_PAGES: ManagedPage[] = [
   { route: "/", label: "Home" },
   { route: "/chad-lewine", label: "Who Is Chad Lewine" },
-  { route: "/thinking", label: "Thinking" },
   { route: "/foundations", label: "Foundations (index)" },
   { route: "/art", label: "Art" },
   { route: "/video", label: "Video" },

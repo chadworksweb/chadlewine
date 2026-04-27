@@ -3,19 +3,33 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { focalCropStyle } from "@/lib/focal-crop";
 
 interface AlbumCubeRadiantProps {
+  variant?: "song" | "album";
   title: string;
   href: string;
   coverArtPath: string | null;
   planeThreeVideo?: string | null;
   chorus?: string | null;
+  tracklist?: string[] | null;
+  conceptStatement?: string | null;
+  cardFocalX?: number | null;
+  cardFocalY?: number | null;
+  cardZoom?: number | null;
 }
 
 const MAX_ANGLE = 90;
 const DEADZONE = 0.125;
 const SATURATION = 0.90;
 const DAMPING = 0.12;
+
+// Page-wide lock: when any cube commits to navigation, every other cube on
+// the page must stop responding to hover until the route actually changes.
+// This is a module-level flag (not state) — handlers read it synchronously
+// and short-circuit. Each cube's mount effect clears it, so the next page
+// always starts unlocked.
+let cubesLocked = false;
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max);
@@ -42,13 +56,14 @@ function axisResponse(abs: number) {
   return t * t * (3 - 2 * t);
 }
 
-export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, chorus }: AlbumCubeRadiantProps) {
+export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, planeThreeVideo, chorus, tracklist, conceptStatement, cardFocalX, cardFocalY, cardZoom }: AlbumCubeRadiantProps) {
+  const isAlbum = variant === "album";
+  const cardStyle = focalCropStyle(cardFocalX, cardFocalY, cardZoom);
   const [active, setActive] = useState(false);
   const [overCta, setOverCta] = useState(false);
   const [overFront, setOverFront] = useState(false);
   const [loading, setLoading] = useState(false);
   const frozenRef = useRef(false);
-  const loadingTimerRef = useRef<number | null>(null);
   const [debug, setDebug] = useState<null | {
     rotX: number; rotY: number;
     flatW: number; flatH: number;
@@ -73,6 +88,9 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
     if (typeof window !== "undefined") {
       debugEnabledRef.current = new URLSearchParams(window.location.search).has("cubedebug");
     }
+    // Fresh mount = fresh page (or fresh cubes). Any prior navigation lock
+    // from the previous page is stale.
+    cubesLocked = false;
   }, []);
 
   // Measure the box's width and expose half of it as --cube-half-z for face
@@ -147,14 +165,17 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
   }, []);
 
   const handlePointerEnter = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (cubesLocked && !frozenRef.current) return;
     if (e.pointerType === "mouse") setActive(true);
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (cubesLocked && !frozenRef.current) return;
     if (e.pointerType !== "mouse") setActive(true);
   }, []);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (cubesLocked && !frozenRef.current) return;
     if (!rootRef.current) return;
     const rect = rootRef.current.getBoundingClientRect();
     const localX = e.clientX - rect.left;
@@ -223,6 +244,10 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
   }, [tick]);
 
   const reset = useCallback(() => {
+    // Once a CTA has committed (frozen), keep the cube in its open + loading
+    // state until navigation unmounts the component. Otherwise pointer-leave
+    // here would visually "let go" of a clicked cube before the route changes.
+    if (frozenRef.current) return;
     if (frameRef.current != null) {
       cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
@@ -240,21 +265,14 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
   const onCtaEnter = useCallback(() => setOverCta(true), []);
   const onCtaLeave = useCallback(() => setOverCta(false), []);
 
+  // Triggered on real click (post pointer-up over the link), so navigation is
+  // committed. Freeze stays until the component unmounts during navigation —
+  // never release on a timer, which would let the cube unfreeze mid-navigation
+  // and visually break the transition into the destination page.
   const onCtaPress = useCallback(() => {
     frozenRef.current = true;
+    cubesLocked = true;
     setLoading(true);
-    if (loadingTimerRef.current != null) window.clearTimeout(loadingTimerRef.current);
-    loadingTimerRef.current = window.setTimeout(() => {
-      frozenRef.current = false;
-      setLoading(false);
-      loadingTimerRef.current = null;
-    }, 1200);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (loadingTimerRef.current != null) window.clearTimeout(loadingTimerRef.current);
-    };
   }, []);
 
   return (
@@ -277,6 +295,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
             height={800}
             sizes="(max-width: 720px) 50vw, (max-width: 1200px) 33vw, 280px"
             loading="lazy"
+            style={cardStyle}
           />
         )}
       </Link>
@@ -290,7 +309,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
               tabIndex={active ? 0 : -1}
               onPointerEnter={onCtaEnter}
               onPointerLeave={onCtaLeave}
-              onPointerDown={onCtaPress}
+              onClick={onCtaPress}
               aria-label={`Listen to ${title}`}
             >
               {coverArtPath && (
@@ -302,6 +321,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
                   height={800}
                   sizes="(max-width: 720px) 50vw, (max-width: 1200px) 33vw, 280px"
                   loading="lazy"
+                  style={cardStyle}
                 />
               )}
             </Link>
@@ -314,7 +334,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
               tabIndex={active ? 0 : -1}
               onPointerEnter={onCtaEnter}
               onPointerLeave={onCtaLeave}
-              onPointerDown={onCtaPress}
+              onClick={onCtaPress}
             >
               <span className="album-cube__face-btn-arrows" aria-hidden="true">
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
@@ -324,11 +344,21 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
               </span>
             </Link>
-            <span className="album-cube__face-label">Lyrics</span>
-            {chorus && (
-              <div className="album-cube__face-chorus song-brief-card__chorus">
-                {chorus}
-              </div>
+            <span className="album-cube__face-label">{isAlbum ? "Tracklist" : "Lyrics"}</span>
+            {isAlbum ? (
+              tracklist && tracklist.length > 0 && (
+                <ol className="album-cube__face-tracklist">
+                  {tracklist.map((t, i) => (
+                    <li key={i}>{t}</li>
+                  ))}
+                </ol>
+              )
+            ) : (
+              chorus && (
+                <div className="album-cube__face-chorus song-brief-card__chorus">
+                  {chorus}
+                </div>
+              )
             )}
           </div>
 
@@ -351,7 +381,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
               tabIndex={active ? 0 : -1}
               onPointerEnter={onCtaEnter}
               onPointerLeave={onCtaLeave}
-              onPointerDown={onCtaPress}
+              onClick={onCtaPress}
             >
               <span className="album-cube__face-btn-arrows" aria-hidden="true">
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
@@ -372,7 +402,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
               tabIndex={active ? 0 : -1}
               onPointerEnter={onCtaEnter}
               onPointerLeave={onCtaLeave}
-              onPointerDown={onCtaPress}
+              onClick={onCtaPress}
             >
               <span className="album-cube__face-btn-arrows" aria-hidden="true">
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
@@ -393,7 +423,7 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
               tabIndex={active ? 0 : -1}
               onPointerEnter={onCtaEnter}
               onPointerLeave={onCtaLeave}
-              onPointerDown={onCtaPress}
+              onClick={onCtaPress}
             >
               <span className="album-cube__face-btn-arrows" aria-hidden="true">
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
@@ -405,6 +435,9 @@ export function AlbumCubeRadiant({ title, href, coverArtPath, planeThreeVideo, c
             </Link>
             <span className="album-cube__face-eyebrow">Plane 5</span>
             <span className="album-cube__face-label">Message</span>
+            {isAlbum && conceptStatement && (
+              <div className="album-cube__face-concept">{conceptStatement}</div>
+            )}
           </div>
         </div>
       </div>
