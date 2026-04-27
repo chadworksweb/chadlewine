@@ -15,6 +15,7 @@ interface ProductRow {
   description: string | null;
   price: number | null;
   image_url: string | null;
+  image_urls: string[] | null;
   image_alt: string | null;
   fulfillment: string;
   status: string;
@@ -30,7 +31,7 @@ async function getProduct(key: string): Promise<ProductRow | null> {
   // Look up by slug first; fall back to id so old UUID URLs don't 404 mid-rollout.
   const { data } = await supabase
     .from("products")
-    .select("id, slug, tier, title, description, price, image_url, image_alt, fulfillment, status, variants, created_at")
+    .select("id, slug, tier, title, description, price, image_url, image_urls, image_alt, fulfillment, status, variants, created_at")
     .eq(isUuid ? "id" : "slug", key)
     .eq("status", "active")
     .single();
@@ -75,6 +76,7 @@ export default async function MerchProductPage({
         title={product.title}
         description={product.description}
         image_url={product.image_url}
+        image_urls={Array.isArray(product.image_urls) ? product.image_urls : []}
         image_alt={product.image_alt}
         tier={product.tier}
         price={product.price}

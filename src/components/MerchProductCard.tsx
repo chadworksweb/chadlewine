@@ -14,10 +14,11 @@ interface Props {
   title: string;
   image_url: string | null;
   image_alt: string | null;
+  href?: string;
 }
 
-export function MerchProductCard({ id, slug, title, image_url, image_alt }: Props) {
-  const href = `/merch/${slug || id}`;
+export function MerchProductCard({ id, slug, title, image_url, image_alt, href: hrefProp }: Props) {
+  const href = hrefProp || `/merch/${slug || id}`;
 
   return (
     <div className="merch-shop__card">

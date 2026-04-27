@@ -7062,10 +7062,10 @@ h3.aw-heading {
   margin-top: var(--space-md);
 }
 
-/* Shop grid — mirrors .discography-grid (without the cube radiant), 4-up */
+/* Shop grid — mirrors .discography-grid (without the cube radiant), 3-up */
 .merch-shop__grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
 }
@@ -7206,6 +7206,41 @@ h3.aw-heading {
   color: var(--td-cyan-alt);
 }
 
+.product-detail__gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.product-detail__thumb {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 1px solid var(--bg-glass-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.product-detail__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.product-detail__thumb:hover {
+  border-color: var(--text-accent);
+}
+
+.product-detail__thumb--active {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 1px var(--text-accent);
+}
+
 .merch-detail__disclaimer {
   margin-top: var(--space-md);
   font-family: var(--font-ui);
@@ -7240,6 +7275,101 @@ h3.aw-heading {
   color: var(--text-tertiary);
   font-family: var(--font-ui);
   font-size: var(--text-sm);
+}
+
+.page-merch__explore {
+  margin-top: var(--space-2xl);
+}
+
+/* Explore grid — independent from .merch-shop__grid so the main grid and the
+   Explore strip can have different column counts. */
+.page-merch__explore-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
+  margin-bottom: var(--space-2xl);
+}
+
+/* Bracketed/ticked divider — mirrors .explore-songs__frame on the homepage,
+   but sized to the parent .page-merch (no extra width/gutter). */
+.page-merch__explore-frame {
+  position: relative;
+  height: 65px;
+  margin: 0 0 var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 0px,
+    rgba(255, 255, 255, 0.1) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+}
+
+.page-merch__explore-frame::before,
+.page-merch__explore-frame::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 12px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.page-merch__explore-frame::before {
+  left: 0;
+  border-left: 1px solid var(--text-accent);
+  border-top: 1px solid var(--text-accent);
+  border-bottom: 1px solid var(--text-accent);
+}
+
+.page-merch__explore-frame::after {
+  right: 0;
+  border-right: 1px solid var(--text-accent);
+  border-top: 1px solid var(--text-accent);
+  border-bottom: 1px solid var(--text-accent);
+}
+
+.page-merch__explore-frame-label {
+  position: relative;
+  padding: 0 var(--space-md);
+  background: #000;
+  color: var(--text-accent);
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.page-merch__explore-heading {
+  font-family: var(--font-ui);
+  font-size: 1.82rem;
+  color: var(--text-primary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0;
+  padding: 0 var(--space-md);
+  background: #000;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .page-merch__explore-frame {
+    flex-direction: column;
+    height: auto;
+    gap: var(--space-xs);
+    padding: var(--space-md) 0;
+  }
+  .page-merch__explore-heading {
+    white-space: normal;
+    text-align: center;
+    padding: 0 var(--space-sm);
+  }
 }
 
 /* Voice Machine */
