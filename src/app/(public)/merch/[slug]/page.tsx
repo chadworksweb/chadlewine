@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { MerchProductDetail } from "@/components/MerchProductDetail";
+import { MerchExplore } from "@/components/MerchExplore";
 import type { ProductVariant } from "@/components/MerchProductCard";
 
 export const revalidate = 60;
@@ -82,6 +83,7 @@ export default async function MerchProductPage({
         price={product.price}
         variants={Array.isArray(product.variants) ? product.variants : []}
       />
+      <MerchExplore excludeMerchIds={[product.id]} standalone />
     </>
   );
 }

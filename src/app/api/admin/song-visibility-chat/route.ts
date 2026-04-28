@@ -2,14 +2,54 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { fetchBadge } from "@/lib/rising-compass";
 import { VISIBILITY_CATEGORIES } from "@/lib/song-visibility";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function needsGeoFieldsHint(song: { citation_summary?: string | null; entity_tags?: string[] | null }): boolean {
+  return !song.citation_summary || !song.entity_tags || song.entity_tags.length === 0;
+}
+
+async function resolveSongId(
+  supabase: ReturnType<typeof createAdminClient>,
+  idOrSlug: string,
+): Promise<string | null> {
+  if (UUID_RE.test(idOrSlug)) return idOrSlug;
+  const { data } = await supabase.from("songs").select("id").eq("slug", idOrSlug).maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function POST(request: Request) {
-  const { song_id, message } = await request.json();
-  if (!song_id) return Response.json({ error: "song_id required" }, { status: 400 });
+  const { song_id: songIdOrSlug, message, category, geoOnly } = await request.json();
+  if (!songIdOrSlug) return Response.json({ error: "song_id required" }, { status: 400 });
+
+  // Optional: when present, scope generation to a single category (per-section
+  // regenerate). When absent, the original interview flow runs unchanged.
+  const focusCategory = category
+    ? VISIBILITY_CATEGORIES.find((c) => c.slug === category) || null
+    : null;
+  if (category && !focusCategory) {
+    return Response.json({ error: "unknown category" }, { status: 400 });
+  }
+  // geoOnly mode: regenerate ONLY the songs.citation_summary / entity_tags /
+  // chad_quote that drive the public "About / Topics & themes" section.
+  const geoFieldsOnly = !!geoOnly;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return Response.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
 
   const supabase = createAdminClient();
+
+  // Frontends call us with either the song's UUID (from form.id) or its slug
+  // (from useParams on the visibility page). Resolve once, then use UUID
+  // everywhere downstream.
+  const song_id = await resolveSongId(supabase, songIdOrSlug);
+  if (!song_id) return Response.json({ error: "Song not found" }, { status: 404 });
+
+  // Geo-only path is a non-streaming, focused regen. Handles the common case
+  // where the public "About / Topics & themes" panel is empty because Claude
+  // never emitted a <geo-fields> block during the original chat.
+  if (geoFieldsOnly) {
+    return regenerateGeoFields(song_id, apiKey, supabase);
+  }
 
   // Load all context in parallel
   const [
@@ -17,6 +57,8 @@ export async function POST(request: Request) {
     { data: junction },
     { data: vpRow },
     { data: catalog },
+    { data: catalogAlbums },
+    { data: catalogArt },
     { data: history },
     { data: existingSections },
   ] = await Promise.all([
@@ -27,9 +69,14 @@ export async function POST(request: Request) {
       .single(),
     supabase.from("voice_profile").select("content").limit(1).single(),
     supabase.from("songs")
-      .select("id, title, song_summary")
+      .select("id, title, slug, song_summary")
       .neq("id", song_id)
       .eq("status", "published"),
+    supabase.from("albums").select("id, title, slug").eq("status", "published"),
+    supabase
+      .from("art_pieces")
+      .select("id, title, slug")
+      .in("status", ["unreleased", "published"]),
     supabase.from("song_visibility_messages")
       .select("*")
       .eq("song_id", song_id)
@@ -45,8 +92,9 @@ export async function POST(request: Request) {
   const voiceProfile = vpRow?.content || "";
   const badge = await fetchBadge(song.title, "Chad Lewine");
 
-  // Save user message if provided
-  if (message) {
+  // Save user message if provided. For per-section / geo regenerations, don't
+  // write to chat history — the interview thread should stay clean.
+  if (message && !focusCategory && !geoFieldsOnly) {
     await supabase.from("song_visibility_messages").insert({
       song_id,
       role: "user",
@@ -54,17 +102,36 @@ export async function POST(request: Request) {
     });
   }
 
-  // Build conversation messages
-  const messages = (history || []).map((m: any) => ({
-    role: m.role,
-    content: m.content,
-  }));
-  if (message) {
+  // Build conversation messages. Per-section regen and geo regen run as a
+  // one-shot — no chat history attached.
+  let messages: Array<{ role: "user" | "assistant"; content: string }>;
+  if (geoFieldsOnly) {
+    messages = [
+      {
+        role: "user",
+        content: `Regenerate the public "About / Topics & themes" panel for this song. Output ONLY a single <geo-fields> block. No <visibility:...> categories. No narration.`,
+      },
+    ];
+  } else if (focusCategory) {
+    messages = [
+      {
+        role: "user",
+        content: `Generate the "${focusCategory.label}" section ONLY. Use the voice profile, the lyrics, and any prior interview context shown in CURRENT STATE above. Output exactly one <visibility:${focusCategory.slug}> block with the full format stack — no other categories on this turn.`,
+      },
+    ];
+  } else {
+    messages = (history || []).map((m: any) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+  }
+
+  if (!focusCategory && !geoFieldsOnly && message) {
     messages.push({ role: "user", content: message });
   }
 
-  // If no messages at all (initial kick-off), add a start prompt
-  if (messages.length === 0) {
+  // If no messages at all (initial kick-off of the interview chat), add a start prompt.
+  if (!focusCategory && !geoFieldsOnly && messages.length === 0) {
     messages.push({
       role: "user",
       content: "Analyze this song and begin the visibility process. Start with the categories you can derive from the lyrics, then interview me for the rest.",
@@ -76,9 +143,15 @@ export async function POST(request: Request) {
     });
   }
 
-  // Build catalog context
-  const catalogLines = (catalog || [])
-    .map((s: any) => `- ${s.title}${s.song_summary ? `: ${s.song_summary}` : ""}`)
+  // Build catalog context with internal paths so Claude can write markdown links.
+  const catalogLines = ((catalog || []) as Array<{ title: string; slug: string; song_summary: string | null }>)
+    .map((s) => `- "${s.title}" → /music/songs/${s.slug}${s.song_summary ? ` — ${s.song_summary}` : ""}`)
+    .join("\n");
+  const catalogAlbumLines = ((catalogAlbums || []) as Array<{ title: string; slug: string }>)
+    .map((a) => `- "${a.title}" → /music/albums/${a.slug}`)
+    .join("\n");
+  const catalogArtLines = ((catalogArt || []) as Array<{ title: string; slug: string }>)
+    .map((a) => `- "${a.title}" → /art/${a.slug}`)
     .join("\n");
 
   // Build existing sections context — include full content from interview categories
@@ -124,8 +197,16 @@ Charge: ${badge.charge}
 Charge Summary: ${badge.charge_summary || "None"}
 Contaminated: ${badge.contaminated ? `Yes — ${badge.contamination_note}` : "No"}` : "RISING COMPASS: Not classified yet"}
 
-CATALOG (other songs by Chad):
+CHAD'S CATALOG — when you reference any of these in prose, format as a markdown link to the path shown:
+
+Songs:
 ${catalogLines || "No other published songs"}
+
+Albums:
+${catalogAlbumLines || "No published albums"}
+
+Art:
+${catalogArtLines || "No published art"}
 
 THE VISIBILITY CATEGORIES:
 ${categoryDefs}
@@ -197,8 +278,19 @@ BEHAVIOR:
    - prose: expand on the scene-shapes this song fits — pacing, emotional arc, what the visuals are doing while it plays, what kind of story it ends or opens. Reference specific reference films, shows, or ads when it sharpens the picture. Use markdown.
    - key-points: 5–7 bullets, each a single concrete placement scenario written as a searchable phrase. Shape them like things a music supervisor or director would type into a search bar: "End-credits song for a coming-of-age indie film", "Montage in a reflective streaming drama about family", "Trailer bed for a quiet sci-fi feature about memory", "Late-summer nostalgia spot for a lifestyle brand". Concrete genre + visual context + platform. No fluff, no "perfect for…" phrasing.
 
-${voiceProfile ? `VOICE PROFILE (for awareness — do NOT use this to rewrite anything, only to understand Chad's voice when generating ideas):
-${voiceProfile}` : ""}`;
+INTERNAL LINKS:
+When the prose layer mentions any of Chad's other songs, albums, or art (especially in the Connections / Other Songs section), use markdown link syntax with the EXACT path from the catalog above. Example: \`[Hyperising](/music/songs/hyperising)\`. Never invent slugs. Never link out to streaming platforms here — internal site links only. The Connections section in particular should link generously to the catalog.
+
+${voiceProfile ? `VOICE PROFILE — write IN this voice:
+${voiceProfile}
+
+The direct-answer, prose, and key-points layers must all sound like Chad wrote them. Use his cadence, his phrasing, his metaphors, his tics. If a line drifts toward generic-blog or marketing-speak, rewrite it until it sounds like Chad. The Hooks category is the one place admin/SEO vocabulary is allowed; every other category is public-facing and must read like Chad's own words.` : "(No voice profile saved yet — match the cadence in the lyrics and song summary above.)"}${geoFieldsOnly ? `
+
+GEO-ONLY MODE:
+On this turn output ONLY one <geo-fields> block. No <visibility:...> categories. No narration. The block must contain a <citation-summary> (40-60 words about the WHOLE song) and an <entity-tags> list (4-8 short noun phrases — real, searchable entities like "synth-pop", "post-divorce", "Gulf Coast night drive"; not poetic abstractions).` : ""}${focusCategory ? `
+
+FOCUS MODE:
+On this turn emit ONLY the <visibility:${focusCategory.slug}> block for "${focusCategory.label}"${needsGeoFieldsHint(song) ? ", PLUS one <geo-fields> block (the song is missing citation_summary or entity_tags — emitting them is REQUIRED on this turn)" : " (do not emit <geo-fields> — the song already has them)"}. Do not emit any other category, do not narrate, do not interview. Output the format stack and stop.` : ""}`;
 
   // Call Claude API with streaming
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -266,12 +358,15 @@ ${voiceProfile}` : ""}`;
           }
         }
 
-        // Stream complete — save assistant message and extract sections
-        await supabase.from("song_visibility_messages").insert({
-          song_id,
-          role: "assistant",
-          content: fullText,
-        });
+        // Stream complete — save assistant message (skip for per-section regen
+        // and geo-only regen so the interview thread stays clean).
+        if (!focusCategory && !geoFieldsOnly) {
+          await supabase.from("song_visibility_messages").insert({
+            song_id,
+            role: "assistant",
+            content: fullText,
+          });
+        }
 
         // Parse <visibility:slug> delimiters and extract three-layer format stack
         const sectionRegex = /<visibility:([a-z-]+)>([\s\S]*?)<\/visibility:\1>/g;
@@ -299,7 +394,7 @@ ${voiceProfile}` : ""}`;
               content: prose,
               direct_answer: directAnswer,
               key_points: keyPoints,
-              status: "draft",
+              status: "published",
             },
             { onConflict: "song_id,category" }
           );
@@ -343,5 +438,183 @@ ${voiceProfile}` : ""}`;
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     },
+  });
+}
+
+async function regenerateGeoFields(
+  songId: string,
+  apiKey: string,
+  supabase: ReturnType<typeof createAdminClient>,
+) {
+  const { data: song } = await supabase.from("songs").select("*").eq("id", songId).single();
+  if (!song) return Response.json({ error: "Song not found" }, { status: 404 });
+
+  const { data: vpRow } = await supabase.from("voice_profile").select("content").limit(1).single();
+  const voiceProfile = vpRow?.content || "";
+
+  // Pull any published visibility-section content as extra grounding.
+  const { data: sectionsData } = await supabase
+    .from("song_visibility_sections")
+    .select("category, content, direct_answer")
+    .eq("song_id", songId);
+  const sectionsContext = (sectionsData || [])
+    .filter((s) => s.content || s.direct_answer)
+    .map((s) => `### ${s.category}\n${s.direct_answer || ""}\n${s.content || ""}`)
+    .join("\n\n");
+
+  const systemPrompt = `You are writing the public "About / Topics & themes" panel for a Chad Lewine song. Output ONLY one <geo-fields> block — no other text, no preamble, no markdown code fences.
+
+THE SONG:
+Title: ${song.title}
+Lyrics:
+${song.lyrics || "(No lyrics available)"}
+
+Song Summary: ${song.song_summary || "(Not written yet)"}
+
+${sectionsContext ? `EXISTING VISIBILITY SECTIONS (use as truth):
+${sectionsContext}` : ""}
+
+${voiceProfile ? `VOICE PROFILE — write IN this voice:
+${voiceProfile}` : ""}
+
+REQUIRED OUTPUT — exactly this shape, nothing else:
+
+<geo-fields>
+<citation-summary>Standalone summary of the WHOLE SONG (title, artist Chad Lewine, what it is musically and thematically, why it exists). Plain text, no markdown, lifted verbatim by AI engines.
+
+HARD CONSTRAINTS — these are not suggestions:
+- 30 to 45 words.
+- Maximum 280 characters INCLUDING spaces and punctuation. Count before you finish.
+- Must end on a complete sentence with a period.
+- Must NOT end with "..." or "…" or a trailing fragment. If you can't finish the thought inside 280 chars, cut earlier and rewrite to end cleanly.
+- Self-contained. No "this song", "this track", "the listener" — name the song and what it does directly.</citation-summary>
+<entity-tags>
+- 4-8 short noun phrases (1-3 words each)
+- Real, searchable entities — "synth-pop", "post-divorce", "Gulf Coast night drive"
+- Not poetic abstractions — never "the ache of knowing"
+</entity-tags>
+</geo-fields>`;
+
+  const apiRes = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: "claude-opus-4-6",
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: [{ role: "user", content: "Emit the <geo-fields> block now." }],
+    }),
+  });
+
+  if (!apiRes.ok) {
+    const errText = await apiRes.text();
+    console.error("[geoOnly] Claude API error:", errText);
+    return Response.json({ error: "Claude API request failed" }, { status: 502 });
+  }
+
+  const json = await apiRes.json();
+  const fullText: string = json.content?.[0]?.text || "";
+  console.log("[geoOnly] Claude output:\n" + fullText);
+
+  const geoMatch = fullText.match(/<geo-fields>([\s\S]*?)<\/geo-fields>/);
+  if (!geoMatch) {
+    console.error("[geoOnly] No <geo-fields> block found. Raw:", fullText);
+    return Response.json(
+      { error: "Claude did not emit a <geo-fields> block", raw: fullText },
+      { status: 502 },
+    );
+  }
+
+  const geoRaw = geoMatch[1];
+  const csMatch = geoRaw.match(/<citation-summary>([\s\S]*?)<\/citation-summary>/);
+  const etMatch = geoRaw.match(/<entity-tags>([\s\S]*?)<\/entity-tags>/);
+  let citationSummary = csMatch ? csMatch[1].trim() : null;
+  const entityTags = etMatch
+    ? etMatch[1]
+        .trim()
+        .split(/\n/)
+        .map((l: string) => l.replace(/^[-*]\s*/, "").trim())
+        .filter(Boolean)
+    : null;
+
+  // Defensive cap until the songs.citation_summary varchar(300) column is
+  // widened to text by 20260427130000_widen_citation_summary.sql. We prefer
+  // to never truncate (the prompt asks Claude to stay under 280 chars and end
+  // on a sentence). If we have to: fall back to the last complete sentence
+  // inside the cap — never leave a trailing "…" or ", and".
+  if (citationSummary && citationSummary.length > 295) {
+    const window = citationSummary.slice(0, 295);
+    const lastSentence = Math.max(
+      window.lastIndexOf(". "),
+      window.lastIndexOf("! "),
+      window.lastIndexOf("? "),
+    );
+    if (lastSentence > 150) {
+      citationSummary = window.slice(0, lastSentence + 1);
+    } else {
+      // No clean sentence break inside the cap — drop to the last whole word
+      // and add a period so it reads as a complete (if truncated) thought.
+      const lastSpace = window.lastIndexOf(" ");
+      const cut = lastSpace > 200 ? lastSpace : 290;
+      citationSummary = window.slice(0, cut).replace(/[,;:\s]+$/, "") + ".";
+    }
+  }
+
+  if (!citationSummary && (!entityTags || entityTags.length === 0)) {
+    return Response.json(
+      { error: "Parsed <geo-fields> but neither citation-summary nor entity-tags came through", raw: fullText },
+      { status: 502 },
+    );
+  }
+
+  // Write each field independently so a length error on one doesn't lose the
+  // other. Track per-field success so we can return a clear status.
+  const writeErrors: string[] = [];
+  let citationWritten = false;
+  let tagsWritten = false;
+
+  if (citationSummary) {
+    const { error } = await supabase
+      .from("songs")
+      .update({ citation_summary: citationSummary })
+      .eq("id", songId);
+    if (error) {
+      console.error("[geoOnly] citation_summary write failed:", error.message);
+      writeErrors.push(`citation_summary: ${error.message}`);
+    } else {
+      citationWritten = true;
+    }
+  }
+
+  if (entityTags && entityTags.length > 0) {
+    const { error } = await supabase
+      .from("songs")
+      .update({ entity_tags: entityTags })
+      .eq("id", songId);
+    if (error) {
+      console.error("[geoOnly] entity_tags write failed:", error.message);
+      writeErrors.push(`entity_tags: ${error.message}`);
+    } else {
+      tagsWritten = true;
+    }
+  }
+
+  if (!citationWritten && !tagsWritten) {
+    return Response.json(
+      { error: writeErrors.join(" · ") || "Both fields failed to write", raw: fullText },
+      { status: 500 },
+    );
+  }
+
+  return Response.json({
+    ok: true,
+    citation_summary: citationWritten ? citationSummary : null,
+    entity_tags: tagsWritten ? entityTags : null,
+    partial: writeErrors.length > 0 ? writeErrors.join(" · ") : null,
+    raw: writeErrors.length > 0 ? fullText : undefined,
   });
 }

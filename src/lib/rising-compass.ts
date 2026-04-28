@@ -103,9 +103,73 @@ export async function fetchAlbumBadge(
       signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
 
-    if (!res.ok) return null;
-    return await res.json();
+    if (res.ok) {
+      return await res.json();
+    }
+
+    // RC's /api/badge/album-lookup only resolves release_type=album.
+    // Fall back to /api/artists/<slug>: its trajectory carries the same
+    // album-aggregate (charge / tier / contamination) for every release
+    // type (album / ep / single). Without this, EPs and singles get no
+    // badge on their detail page even though RC has them calibrated.
+    return await fetchAlbumBadgeFromArtistTrajectory(title, artist);
   } catch {
     return null;
   }
+}
+
+interface ArtistTrajectoryEntry {
+  id: number;
+  title: string;
+  release_type: "album" | "ep" | "single";
+  release_date: string | null;
+  release_year: number | null;
+  charge_value: number;
+  rubric_color: string;
+  tier_label: string;
+  tier_hex: string;
+  track_count: number;
+  calibrated_count: number;
+  contamination_count: number;
+}
+
+async function fetchAlbumBadgeFromArtistTrajectory(
+  title: string,
+  artist: string,
+): Promise<RisingCompassAlbumBadgeData | null> {
+  // Single-artist site: derive slug from the artist name. Lowercased,
+  // hyphen-joined, ascii-only — matches RC's canonical form.
+  const artistSlug = artist
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  const res = await fetch(`${RC_API_URL}/api/artists/${artistSlug}`, {
+    headers: { "X-Api-Key": RC_KEY },
+    cache: "no-store",
+    signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
+  });
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as { trajectory?: ArtistTrajectoryEntry[] };
+  const wanted = title.trim().toLowerCase();
+  const entry = (data.trajectory || []).find(
+    (r) => r.title.trim().toLowerCase() === wanted,
+  );
+  if (!entry) return null;
+
+  return {
+    tier: entry.rubric_color,
+    tier_label: entry.tier_label,
+    tier_hex: entry.tier_hex,
+    charge: entry.charge_value,
+    charge_summary: `Album aggregate across ${entry.calibrated_count} classified track${entry.calibrated_count === 1 ? "" : "s"}.`,
+    contaminated: entry.contamination_count > 0,
+    contamination_note: null,
+    track_count: entry.track_count,
+    contamination_count: entry.contamination_count,
+    artist_slug: artistSlug,
+  };
 }

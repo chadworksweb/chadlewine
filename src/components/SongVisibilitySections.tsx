@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
+import { useState, useEffect, useCallback, useImperativeHandle, forwardRef, useRef } from "react";
 import { VISIBILITY_CATEGORIES, type SongVisibilitySection } from "@/lib/song-visibility";
 import { useAutosave } from "@/hooks/useAutosave";
+import { AboutSectionEditor } from "@/components/AboutSectionEditor";
 
 interface SectionEditorProps {
+  songId: string;
   section: SongVisibilitySection;
   label: string;
+  categorySlug: string;
+  onRegenerated: () => void;
 }
 
 const fieldLabel: React.CSSProperties = {
@@ -21,12 +25,68 @@ const fieldLabel: React.CSSProperties = {
 
 const fieldLabelFirst: React.CSSProperties = { ...fieldLabel, margin: "0 0 0.25rem" };
 
-function SectionEditor({ section, label }: SectionEditorProps) {
+function SectionEditor({ songId, section, label, categorySlug, onRegenerated }: SectionEditorProps) {
   const [directAnswer, setDirectAnswer] = useState(section.direct_answer || "");
   const [content, setContent] = useState(section.content);
   const [keyPointsRaw, setKeyPointsRaw] = useState((section.key_points || []).join("\n"));
   const [status, setStatus] = useState(section.status);
   const [expanded, setExpanded] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [streamPreview, setStreamPreview] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
+
+  async function handleRegenerate() {
+    setGenerating(true);
+    setStreamPreview("");
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      const res = await fetch("/api/admin/song-visibility-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ song_id: songId, category: categorySlug }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) {
+        setGenerating(false);
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let acc = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.text) {
+              acc += evt.text;
+              setStreamPreview(acc);
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        console.error("Regenerate error:", err);
+      }
+    } finally {
+      abortRef.current = null;
+      setGenerating(false);
+      setStreamPreview("");
+      onRegenerated();
+    }
+  }
+
+  function handleStop() {
+    abortRef.current?.abort();
+  }
 
   // Sync from parent when section data refreshes
   useEffect(() => {
@@ -74,6 +134,27 @@ function SectionEditor({ section, label }: SectionEditorProps) {
       </button>
       {expanded && (
         <div className="song-visibility__section-body">
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+            <button
+              type="button"
+              className={generating ? "admin-btn admin-btn--danger" : "admin-btn"}
+              onClick={generating ? handleStop : handleRegenerate}
+              style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
+            >
+              {generating ? "Stop" : hasContent ? "Regenerate" : "Generate"}
+            </button>
+            <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.7rem", color: "var(--text-tertiary)" }}>
+              Voice profile + catalog links applied
+            </span>
+          </div>
+
+          {generating && streamPreview && (
+            <pre className="song-visibility__stream-preview">
+              {streamPreview}
+              <span className="song-visibility__cursor">▊</span>
+            </pre>
+          )}
+
           <div style={fieldLabelFirst}>Direct Answer</div>
           <textarea
             value={directAnswer}
@@ -136,10 +217,14 @@ export const SongVisibilitySections = forwardRef<
   const [loading, setLoading] = useState(true);
 
   const fetchSections = useCallback(() => {
-    fetch(`/api/admin/song-visibility-sections?song_id=${songId}`)
+    fetch(`/api/admin/song-visibility-sections?song_id=${encodeURIComponent(songId)}`)
       .then((r) => r.json())
-      .then((data: SongVisibilitySection[]) => {
-        setSections(data);
+      .then((data: unknown) => {
+        setSections(Array.isArray(data) ? (data as SongVisibilitySection[]) : []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setSections([]);
         setLoading(false);
       });
   }, [songId]);
@@ -184,22 +269,24 @@ export const SongVisibilitySections = forwardRef<
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
         <h3 className="obsv-editor__panel-title" style={{ margin: 0 }}>Sections</h3>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          {hasDrafts && (
-            <button
-              type="button"
-              className="admin-btn"
-              onClick={publishAll}
-              disabled={publishing}
-              style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
-            >
-              {publishing ? "Publishing..." : "Publish All"}
-            </button>
-          )}
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={publishAll}
+            disabled={publishing || !hasDrafts}
+            title={hasDrafts ? "Publish all draft sections" : "No drafts to publish"}
+            style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
+          >
+            {publishing ? "Publishing..." : "Publish All"}
+          </button>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-secondary)" }}>
             {filledCount}/{VISIBILITY_CATEGORIES.length}
           </span>
         </div>
       </div>
+
+      <AboutSectionEditor songId={songId} />
+
       {VISIBILITY_CATEGORIES.map((cat) => {
         const existing = sections.find((s) => s.category === cat.slug);
         if (!existing) {
@@ -214,7 +301,16 @@ export const SongVisibilitySections = forwardRef<
             </div>
           );
         }
-        return <SectionEditor key={cat.slug} section={existing} label={cat.label} />;
+        return (
+          <SectionEditor
+            key={cat.slug}
+            songId={songId}
+            section={existing}
+            label={cat.label}
+            categorySlug={cat.slug}
+            onRegenerated={fetchSections}
+          />
+        );
       })}
     </div>
   );
