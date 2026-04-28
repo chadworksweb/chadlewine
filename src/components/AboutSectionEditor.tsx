@@ -86,7 +86,7 @@ export function AboutSectionEditor({ songId }: { songId: string }) {
         return;
       }
       if (body.partial) {
-        alert(`Partial success.\nWrote: ${body.entity_tags ? "entity_tags" : ""}${body.entity_tags && body.citation_summary ? ", " : ""}${body.citation_summary ? "citation_summary" : ""}\nFailed: ${body.partial}\n\nIf the failure mentions \"varchar(300)\", the migration in supabase/migrations/20260427130000_widen_citation_summary.sql still needs to be applied to your remote DB.`);
+        alert(`Partial success.\nWrote: ${body.entity_tags ? "entity_tags" : ""}${body.entity_tags && body.citation_summary ? ", " : ""}${body.citation_summary ? "citation_summary" : ""}\nFailed: ${body.partial}`);
       }
       // Server already wrote to the songs row — refetch to pick up the new values.
       await fetchSong();

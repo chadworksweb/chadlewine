@@ -10256,6 +10256,10 @@ h3.aw-heading {
 
   .track-detail__content-col,
   .product-detail__content-col {
+    /* Desktop pins this to grid-column: 2. In a single-column mobile grid
+       that pin forces an implicit second column, which collapses the art
+       column to ~zero width — main image vanishes on mobile/tablet. */
+    grid-column: auto;
     aspect-ratio: unset;
     overflow-y: visible;
   }
