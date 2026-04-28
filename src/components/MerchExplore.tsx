@@ -85,8 +85,8 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
     ...((catalogPicksRes.data || []) as ProductRow[]),
   ];
 
-  const merchPool: ExploreItem[] = allProducts
-    .filter((p) => p.image_url && !excludeSet.has(p.id))
+  const allMerchPool: ExploreItem[] = allProducts
+    .filter((p) => p.image_url)
     .map((p) => ({
       key: `merch:${p.id}`,
       id: p.id,
@@ -96,6 +96,12 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
       image_alt: p.image_alt,
       href: `/merch/${p.slug || p.id}`,
     }));
+  // Prefer merch not already shown on the page. If after exclusion we have
+  // fewer than 2 left (e.g. the merch index already shows every product in
+  // its main grid), fall back to the full pool so the strip still gets a
+  // merch tile or two — better duplicates than an empty slot.
+  const merchExtras = allMerchPool.filter((m) => !excludeSet.has(m.id));
+  const merchPool = merchExtras.length >= 2 ? merchExtras : allMerchPool;
 
   const songPool: ExploreItem[] = ((songsRes.data || []) as Array<{ id: string; slug: string; title: string; art_image_path: string | null }>).map((s) => ({
     key: `song:${s.id}`,

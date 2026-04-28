@@ -484,9 +484,8 @@ REQUIRED OUTPUT — exactly this shape, nothing else:
 
 HARD CONSTRAINTS — these are not suggestions:
 - 30 to 45 words.
-- Maximum 280 characters INCLUDING spaces and punctuation. Count before you finish.
 - Must end on a complete sentence with a period.
-- Must NOT end with "..." or "…" or a trailing fragment. If you can't finish the thought inside 280 chars, cut earlier and rewrite to end cleanly.
+- Must NOT end with "..." or "…" or a trailing fragment.
 - Self-contained. No "this song", "this track", "the listener" — name the song and what it does directly.</citation-summary>
 <entity-tags>
 - 4-8 short noun phrases (1-3 words each)
@@ -532,7 +531,7 @@ HARD CONSTRAINTS — these are not suggestions:
   const geoRaw = geoMatch[1];
   const csMatch = geoRaw.match(/<citation-summary>([\s\S]*?)<\/citation-summary>/);
   const etMatch = geoRaw.match(/<entity-tags>([\s\S]*?)<\/entity-tags>/);
-  let citationSummary = csMatch ? csMatch[1].trim() : null;
+  const citationSummary = csMatch ? csMatch[1].trim() : null;
   const entityTags = etMatch
     ? etMatch[1]
         .trim()
@@ -540,29 +539,6 @@ HARD CONSTRAINTS — these are not suggestions:
         .map((l: string) => l.replace(/^[-*]\s*/, "").trim())
         .filter(Boolean)
     : null;
-
-  // Defensive cap until the songs.citation_summary varchar(300) column is
-  // widened to text by 20260427130000_widen_citation_summary.sql. We prefer
-  // to never truncate (the prompt asks Claude to stay under 280 chars and end
-  // on a sentence). If we have to: fall back to the last complete sentence
-  // inside the cap — never leave a trailing "…" or ", and".
-  if (citationSummary && citationSummary.length > 295) {
-    const window = citationSummary.slice(0, 295);
-    const lastSentence = Math.max(
-      window.lastIndexOf(". "),
-      window.lastIndexOf("! "),
-      window.lastIndexOf("? "),
-    );
-    if (lastSentence > 150) {
-      citationSummary = window.slice(0, lastSentence + 1);
-    } else {
-      // No clean sentence break inside the cap — drop to the last whole word
-      // and add a period so it reads as a complete (if truncated) thought.
-      const lastSpace = window.lastIndexOf(" ");
-      const cut = lastSpace > 200 ? lastSpace : 290;
-      citationSummary = window.slice(0, cut).replace(/[,;:\s]+$/, "") + ".";
-    }
-  }
 
   if (!citationSummary && (!entityTags || entityTags.length === 0)) {
     return Response.json(
