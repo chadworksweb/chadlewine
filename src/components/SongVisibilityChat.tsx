@@ -20,10 +20,14 @@ export function SongVisibilityChat({
 
   // Load existing messages
   useEffect(() => {
-    fetch(`/api/admin/song-visibility-messages?song_id=${songId}`)
+    fetch(`/api/admin/song-visibility-messages?song_id=${encodeURIComponent(songId)}`)
       .then((r) => r.json())
-      .then((data: SongVisibilityMessage[]) => {
-        setMessages(data);
+      .then((data: unknown) => {
+        setMessages(Array.isArray(data) ? (data as SongVisibilityMessage[]) : []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setMessages([]);
         setLoading(false);
       });
   }, [songId]);

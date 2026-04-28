@@ -11,22 +11,23 @@ async function resolveSong(supabase: ReturnType<typeof createAdminClient>, idOrS
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: idOrSlug } = await params;
   const supabase = createAdminClient();
 
-  const { data: song, error } = await resolveSong(supabase, id);
-  if (error) return Response.json({ error: error.message }, { status: 404 });
+  const { data: song, error } = await resolveSong(supabase, idOrSlug);
+  if (error || !song) return Response.json({ error: error?.message || "not found" }, { status: 404 });
+  const songId = song.id as string;
 
   const { data: assoc } = await supabase
     .from("album_songs")
     .select("album_id, track_number")
-    .eq("song_id", id)
-    .single();
+    .eq("song_id", songId)
+    .maybeSingle();
 
   const { data: topicLinks } = await supabase
     .from("song_topics")
     .select("topic_id")
-    .eq("song_id", id);
+    .eq("song_id", songId);
 
   return Response.json({
     ...song,
@@ -84,16 +85,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .from("album_songs")
       .select("id, album_id, track_number")
       .eq("song_id", id)
-      .single();
+      .maybeSingle();
 
     const albumId = body.album_id ?? existing?.album_id;
     const trackNumber = body.track_number ?? existing?.track_number ?? 1;
 
     if (albumId) {
-      if (existing) {
-        await supabase.from("album_songs").update({ album_id: albumId, track_number: trackNumber }).eq("id", existing.id);
-      } else {
-        await supabase.from("album_songs").insert({ album_id: albumId, song_id: id, track_number: trackNumber });
+      const result = existing
+        ? await supabase
+            .from("album_songs")
+            .update({ album_id: albumId, track_number: trackNumber })
+            .eq("id", existing.id)
+        : await supabase
+            .from("album_songs")
+            .insert({ album_id: albumId, song_id: id, track_number: trackNumber });
+      if (result.error) {
+        return Response.json(
+          { error: `album/track save failed: ${result.error.message}` },
+          { status: 400 },
+        );
       }
     }
   }
@@ -108,7 +118,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const { data: song } = await supabase.from("songs").select("*").eq("id", id).single();
-  const { data: assoc } = await supabase.from("album_songs").select("album_id, track_number").eq("song_id", id).single();
+  const { data: assoc } = await supabase.from("album_songs").select("album_id, track_number").eq("song_id", id).maybeSingle();
   const { data: topicLinks } = await supabase.from("song_topics").select("topic_id").eq("song_id", id);
 
   return Response.json({

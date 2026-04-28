@@ -13,6 +13,7 @@ interface Props {
   title: string;
   description: string | null;
   image_url: string | null;
+  image_urls?: string[];
   image_alt: string | null;
   tier: string;
   price: number | null;
@@ -24,6 +25,7 @@ export function MerchProductDetail({
   title,
   description,
   image_url,
+  image_urls,
   image_alt,
   price,
   variants,
@@ -31,6 +33,25 @@ export function MerchProductDetail({
   const { add, open, hasItem } = useCart();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "added">("idle");
+
+  // Build the gallery: hero first, then any extras from image_urls (deduped).
+  // If only the hero is present, the thumbnail strip stays hidden.
+  const gallery = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    if (image_url) {
+      seen.add(image_url);
+      out.push(image_url);
+    }
+    for (const src of image_urls || []) {
+      if (!src || seen.has(src)) continue;
+      seen.add(src);
+      out.push(src);
+    }
+    return out;
+  }, [image_url, image_urls]);
+
+  const [activeImage, setActiveImage] = useState<string | null>(image_url);
 
   const sortedSizes = useMemo(() => {
     const sizes = Array.from(new Set(variants.map((v) => v.size).filter(Boolean) as string[]));
@@ -94,15 +115,20 @@ export function MerchProductDetail({
     <div className="product-detail">
       <div className="product-detail__grid">
         <div className="product-detail__art-col">
-          {image_url && (
+          {activeImage && (
             <Image
-              src={image_url}
+              key={activeImage}
+              src={activeImage}
               alt={image_alt || title}
               className="product-detail__cover"
               width={1200}
               height={1200}
-              sizes="(max-width: 720px) 100vw, 600px"
+              sizes="(max-width: 720px) 100vw, 700px"
               priority
+              // Printify caps mockups at 1200x1200; Next's optimizer can only
+              // downscale or re-compress, both of which hurt here. Serve the
+              // source file directly.
+              unoptimized
             />
           )}
         </div>
@@ -157,6 +183,28 @@ export function MerchProductDetail({
           <p className="merch-detail__disclaimer">
             All sales final — no returns, exchanges, or refunds.
           </p>
+
+          {gallery.length > 1 && (
+            <div className="product-detail__gallery" role="list" aria-label="Product images">
+              {gallery.map((src) => {
+                const isActive = src === activeImage;
+                return (
+                  <button
+                    key={src}
+                    type="button"
+                    role="listitem"
+                    onClick={() => setActiveImage(src)}
+                    className={`product-detail__thumb${isActive ? " product-detail__thumb--active" : ""}`}
+                    aria-pressed={isActive}
+                    aria-label="Show this image"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" loading="lazy" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <p className="merch-detail__back">
             <Link href="/merch">← All merch</Link>

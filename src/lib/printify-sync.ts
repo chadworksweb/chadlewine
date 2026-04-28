@@ -29,6 +29,24 @@ function pickImage(p: PrintifyShopProduct): string | null {
   return def?.src || p.images[0]?.src || null;
 }
 
+function collectImages(p: PrintifyShopProduct): string[] {
+  // Default first so the gallery thumbnail order matches the hero image,
+  // remainder in Printify's array order, deduped on src.
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const def = p.images.find((i) => i.is_default);
+  if (def?.src) {
+    seen.add(def.src);
+    out.push(def.src);
+  }
+  for (const img of p.images) {
+    if (!img.src || seen.has(img.src)) continue;
+    seen.add(img.src);
+    out.push(img.src);
+  }
+  return out;
+}
+
 function normalizeVariants(p: PrintifyShopProduct): NormalizedVariant[] {
   const valueLookup = new Map<number, { groupName: string; label: string }>();
   for (const group of p.options || []) {
@@ -143,6 +161,7 @@ export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<Sy
       slug,
       description: stripHtml(p.description || ""),
       image_url: pickImage(p),
+      image_urls: collectImages(p),
       price,
       variants,
       fulfillment: "printify_curated",

@@ -101,6 +101,39 @@ export async function publishProduct(productId: string): Promise<void> {
   if (!res.ok) throw new Error(`Printify publish error: ${res.status}`);
 }
 
+// Custom-storefront publish is two-step: Printify locks the product as "Publishing"
+// and fires product:publish:started, and we must POST one of these to clear the lock.
+export async function publishingSucceeded(
+  productId: string,
+  external: { id: string; handle: string },
+): Promise<void> {
+  const res = await fetch(
+    `${PRINTIFY_API}/shops/${shopId()}/products/${productId}/publishing_succeeded.json`,
+    {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ external }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Printify publishing_succeeded error: ${res.status} ${await res.text()}`);
+  }
+}
+
+export async function publishingFailed(productId: string, reason: string): Promise<void> {
+  const res = await fetch(
+    `${PRINTIFY_API}/shops/${shopId()}/products/${productId}/publishing_failed.json`,
+    {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ reason }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Printify publishing_failed error: ${res.status} ${await res.text()}`);
+  }
+}
+
 export interface PrintifyShopProduct {
   id: string;
   title: string;

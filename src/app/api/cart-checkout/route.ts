@@ -11,9 +11,9 @@ type CartLineInput = {
   product_config?: Record<string, unknown> | null;
 };
 
-// Curated blueprints — server-authoritative price/title for configurator products.
-// Mirrors src/components/ProductConfigurator.tsx's CURATED_PRODUCTS so the client
-// can never set its own price.
+// Curated blueprints — server-authoritative price/title for configurator-style
+// cart items so the client can never set its own price. Kept defensively for
+// any historical cart payloads even though the configurator UI is retired.
 const CURATED_BLUEPRINTS: Record<number, { title: string; price: number }> = {
   706: { title: "Comfort Colors 1717", price: 34.99 },
 };

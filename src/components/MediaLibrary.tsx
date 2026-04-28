@@ -33,7 +33,9 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [generatingAlt, setGeneratingAlt] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(10);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const PAGE_SIZE = 10;
 
   async function generateAlt() {
     if (!selected) return;
@@ -61,12 +63,19 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const visibleImages = searchTerm
+  // Reset paging window when the search changes or the modal reopens.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [searchTerm, open]);
+
+  const matchingImages = searchTerm
     ? images.filter((img) => {
         const hay = `${img.name} ${img.alt_text} ${img.title}`.toLowerCase();
         return hay.includes(searchTerm);
       })
     : images;
+  const visibleImages = matchingImages.slice(0, visibleCount);
+  const hasMore = matchingImages.length > visibleImages.length;
 
   const fetchImages = useCallback(async () => {
     setLoading(true);
@@ -260,10 +269,23 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
                   className={`media-modal__item${selected?.name === img.name ? " media-modal__item--selected" : ""}`}
                   onClick={() => selectImage(img)}
                 >
-                  <img src={img.url} alt={img.alt_text || img.name} className="media-modal__thumb" />
+                  <img src={img.url} alt={img.alt_text || img.name} className="media-modal__thumb" loading="lazy" />
                 </div>
               ))}
             </div>
+
+            {hasMore && (
+              <div className="media-modal__more">
+                <button
+                  type="button"
+                  className="media-modal__more-btn"
+                  onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                >
+                  Load {Math.min(PAGE_SIZE, matchingImages.length - visibleImages.length)} more
+                  <span className="media-modal__more-count"> · showing {visibleImages.length} of {matchingImages.length}</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right: detail panel */}

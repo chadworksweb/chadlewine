@@ -211,7 +211,6 @@ export default async function ObservationPage({
           url={obsv.art_image_path}
           name={`Cover art for ${obsv.title}`}
           description={obsv.art_alt}
-          acquireLicensePage={`https://chadlewine.com/merch/configure?tier=art&obs=${encodeURIComponent(obsv.id)}`}
         />
       )}
       <ProgressBar />

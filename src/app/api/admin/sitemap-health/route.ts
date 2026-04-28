@@ -23,8 +23,8 @@ export async function GET() {
     supabase.from("curated_entries").select("*", { count: "exact", head: true }).eq("status", "published"),
   ]);
 
-  // Static pages count (from sitemap: home, chad-lewine, foundations, meditations, music, lyrics, video, art, curation, archive/xanga, discography, merch, merch/configure, merch/art, merch/line, merch/fusion, merch/pick)
-  const staticPages = 17;
+  // Static pages count (from sitemap: home, chad-lewine, foundations, meditations, music, lyrics, video, art, curation, archive/xanga, discography, merch, merch/art, merch/line, merch/fusion, merch/pick)
+  const staticPages = 16;
 
   const expectedTotal =
     staticPages +
