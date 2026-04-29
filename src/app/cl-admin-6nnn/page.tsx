@@ -52,7 +52,7 @@ export default function LoginPage() {
 
     // Redirect to admin or the requested page
     const params = new URLSearchParams(window.location.search);
-    const redirect = params.get("redirect") || "/admin/observations";
+    const redirect = params.get("redirect") || "/admin";
     window.location.href = redirect;
   }
 
