@@ -16,11 +16,20 @@ interface AnalyticsEvent {
 const BATCH_INTERVAL = 10_000; // 10 seconds
 const MAX_BATCH = 20;
 
+function randomId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // Fallback for non-secure contexts (e.g. dev over LAN HTTP on iOS Safari).
+  const r = () => Math.floor(Math.random() * 0xffff).toString(16).padStart(4, "0");
+  return `${r()}${r()}-${r()}-${r()}-${r()}-${r()}${r()}${r()}`;
+}
+
 function getSessionId(): string {
   if (typeof window === "undefined") return "";
   let sid = sessionStorage.getItem("cl_sid");
   if (!sid) {
-    sid = crypto.randomUUID();
+    sid = randomId();
     sessionStorage.setItem("cl_sid", sid);
   }
   return sid;

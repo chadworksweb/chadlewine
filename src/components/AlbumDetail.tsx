@@ -12,7 +12,7 @@ interface AlbumProps {
   cover_art_path: string | null;
   cover_art_alt: string | null;
   release_date: string | null;
-  description: string | null;
+  concept_statement: string | null;
   format_label: string | null;
   price: number | null;
 }
@@ -523,11 +523,13 @@ export function AlbumDetail({
             </div>
           )}
 
-          {/* Album description */}
-          {album.description && (
+          {/* Album concept (replaces the old free-form description). */}
+          {album.concept_statement && (
             <div className="track-detail__section">
-              <h3 className="track-detail__section-title">About This Album</h3>
-              <div className="track-detail__summary-text">{album.description}</div>
+              <h3 className="track-detail__section-title">Concept</h3>
+              <div className="track-detail__summary-text" style={{ whiteSpace: "pre-wrap" }}>
+                {album.concept_statement}
+              </div>
             </div>
           )}
         </div>

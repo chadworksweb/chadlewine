@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  allowedDevOrigins: ["10.0.0.181"],
   experimental: {
     // proxy.ts buffers request bodies in memory; default 10MB cap cuts off
     // large media uploads (print/wallpaper/art fullres). Match server-side

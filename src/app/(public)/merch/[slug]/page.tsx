@@ -71,7 +71,7 @@ export default async function MerchProductPage({
 
   return (
     <>
-      <AdminEditButton href={`/admin/merch/products/${product.id}`} />
+      <AdminEditButton href={`/admin/merch/products/${product.slug || product.id}`} />
       <MerchProductDetail
         id={product.id}
         title={product.title}

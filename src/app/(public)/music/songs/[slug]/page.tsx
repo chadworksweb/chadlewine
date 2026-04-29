@@ -184,7 +184,7 @@ export default async function SongDetailPage({
 
   return (
     <>
-      <AdminEditButton href={`/admin/music/songs/${song.id}`} />
+      <AdminEditButton href={`/admin/music/songs/${song.slug || song.id}`} />
       <SongDetail
         song={{
           id: song.id,

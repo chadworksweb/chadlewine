@@ -48,7 +48,7 @@ export default function UnmappedHooksPage() {
       return;
     }
     const d = await res.json();
-    router.push(`/admin/door-pages/${d.id}`);
+    router.push(`/admin/door-pages/${d.slug || d.id}`);
   }
 
   if (loading) {

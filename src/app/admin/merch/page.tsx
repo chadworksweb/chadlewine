@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 
 interface Product {
   id: string;
+  slug: string | null;
   tier: string;
   fulfillment: string;
   title: string;
@@ -147,7 +148,7 @@ export default function AdminMerchPage() {
           {products.map((p) => (
             <tr key={p.id} className="admin-table__row">
               <td className="admin-table__td">
-                <Link href={`/admin/merch/products/${p.id}`} className="admin-table__link">
+                <Link href={`/admin/merch/products/${p.slug || p.id}`} className="admin-table__link">
                   {p.title}
                 </Link>
               </td>

@@ -155,7 +155,7 @@ export default function AdminOrdersPage() {
               {orders.map((o) => (
                 <tr key={o.id} className="admin-table__row">
                   <td className="admin-table__td">
-                    <Link href={`/admin/merch/orders/${o.id}`} className="admin-table__link">
+                    <Link href={`/admin/merch/orders/${o.order_number || o.id}`} className="admin-table__link">
                       {o.order_number}
                     </Link>
                   </td>

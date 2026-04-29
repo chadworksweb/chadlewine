@@ -26,9 +26,9 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
   const widthRef = useRef(0);
   const heightRef = useRef(0);
 
-  const damping = 0.972;
+  const damping = 0.98;
   const resolution = 2;
-  const stepsPerFrame = 3; // run simulation multiple times per render
+  const stepsPerFrame = 3;
 
   function initBuffers(w: number, h: number) {
     const sw = Math.floor(w / resolution);
@@ -194,7 +194,7 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
     const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    dropAt(x, y, 18, 120);
+    dropAt(x, y, 16, 55);
   }, []);
 
   return (

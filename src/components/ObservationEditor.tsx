@@ -362,7 +362,7 @@ export function ObservationEditor({
     buildPayload,
     onCreated: (newId) => {
       setForm((prev) => ({ ...prev, id: newId }));
-      router.replace(`/admin/observations/${newId}`, { scroll: false });
+      router.replace(`/admin/observations/${form.slug || newId}`, { scroll: false });
     },
     enabled: !!form.title && !!form.slug && !!form.date_captured,
   });

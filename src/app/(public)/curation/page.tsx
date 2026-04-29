@@ -29,8 +29,9 @@ export default async function CurationPage() {
   return (
     <div id="page-curation" className="page-static">
       <h1 className="page-static__title">Curation</h1>
-      <p className="curation-intro">Positively charged music, quantified by Rising Compass. Not opinion — receipts.</p>
-      <Link href="/curation/cl-stream" className="cl-stream-curation-link">CL Stream →</Link>
+      <Link href="/curation/cl-stream" className="cl-stream-curation-link">
+        Listen to what Chad&apos;s listening to — explore the CL Stream →
+      </Link>
       <CurationGrid entries={entries || []} />
     </div>
   );

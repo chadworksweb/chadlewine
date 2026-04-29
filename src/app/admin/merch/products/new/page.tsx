@@ -44,7 +44,7 @@ export default function NewProductPage() {
       return;
     }
     const saved = await res.json();
-    router.push(`/admin/merch/products/${saved.id}`);
+    router.push(`/admin/merch/products/${saved.slug || saved.id}`);
   }
 
   return (

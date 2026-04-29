@@ -244,7 +244,7 @@ export default function AnalyticsPage() {
             {observations.map((o) => (
               <tr key={o.observation_id} className="admin-table__row">
                 <td className="admin-table__td">
-                  <Link href={`/admin/observations/${o.observation_id}`} className="admin-table__link">
+                  <Link href={`/admin/observations/${o.slug || o.observation_id}`} className="admin-table__link">
                     {o.title}
                   </Link>
                 </td>

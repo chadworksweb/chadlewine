@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { AlbumDetail } from "@/components/AlbumDetail";
+import { AlbumSections } from "@/components/AlbumSections";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge, fetchAlbumBadge, rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
 
@@ -72,9 +73,12 @@ export async function generateMetadata({
   if (!result) return {};
 
   const { album } = result;
+  // citation_summary is the AI-tuned canonical answer; fall back to concept,
+  // then to a generic line. All capped at 280 for OG/twitter.
+  const meta = (album.citation_summary || album.concept_statement || `${album.title} by Chad Lewine.`).slice(0, 280);
   return {
     title: `${album.title} — Chad Lewine`,
-    description: album.description || `${album.title} by Chad Lewine.`,
+    description: meta,
     alternates: {
       canonical: `https://chadlewine.com/music/albums/${albumSlug}`,
     },
@@ -118,7 +122,7 @@ export default async function AlbumDetailPage({
 
   return (
     <>
-      <AdminEditButton href={`/admin/music/albums/${album.id}`} />
+      <AdminEditButton href={`/admin/music/albums/${album.slug || album.id}`} />
       <AlbumDetail
         album={{
           id: album.id,
@@ -127,7 +131,7 @@ export default async function AlbumDetailPage({
           cover_art_path: album.cover_art_path,
           cover_art_alt: album.cover_art_alt,
           release_date: album.release_date,
-          description: album.description,
+          concept_statement: album.concept_statement || null,
           format_label: (album as any).release_formats?.label || null,
           price: album.price,
         }}
@@ -150,6 +154,20 @@ export default async function AlbumDetailPage({
           if (explicit.length > 0) return explicit;
           return anyLegacyDownload ? ["mp3" as const] : [];
         })()}
+      />
+      <AlbumSections
+        albumId={album.id}
+        album={{
+          id: album.id,
+          title: album.title,
+          slug: album.slug,
+          cover_art_path: album.cover_art_path,
+          cover_art_alt: album.cover_art_alt,
+          release_date: album.release_date,
+          concept_statement: album.concept_statement || null,
+          citation_summary: album.citation_summary || null,
+          entity_tags: Array.isArray(album.entity_tags) ? (album.entity_tags as string[]) : [],
+        }}
       />
       {Object.keys(songBadges).length > 0 && (
         <section className="album-rc-classifications" aria-label="Rising Compass Classifications">

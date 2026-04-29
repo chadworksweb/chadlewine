@@ -12,7 +12,7 @@ export default function NewAlbumPage() {
     if (!form.title.trim()) return;
     setSaving(true);
     const res = await fetch("/api/admin/albums", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, slug: form.slug || slugify(form.title), release_date: form.release_date || null }) });
-    if (res.ok) { const saved = await res.json(); router.push(`/admin/music/albums/${saved.id}`); }
+    if (res.ok) { const saved = await res.json(); router.push(`/admin/music/albums/${saved.slug || saved.id}`); }
     setSaving(false);
   }
 

@@ -83,6 +83,7 @@ export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, 
   const targetRef = useRef({ x: 0, y: 0 });
   const currentRef = useRef({ x: 0, y: 0 });
   const debugEnabledRef = useRef(false);
+  const lastPointerTypeRef = useRef<string>("mouse");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -171,6 +172,7 @@ export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, 
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (cubesLocked && !frozenRef.current) return;
+    lastPointerTypeRef.current = e.pointerType;
     if (e.pointerType !== "mouse") setActive(true);
   }, []);
 
@@ -248,6 +250,9 @@ export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, 
     // state until navigation unmounts the component. Otherwise pointer-leave
     // here would visually "let go" of a clicked cube before the route changes.
     if (frozenRef.current) return;
+    // Touch/pen: keep the cube where the user dragged it so they can tap a
+    // face's link. A tap outside the cube clears it (handled below).
+    if (lastPointerTypeRef.current !== "mouse") return;
     if (frameRef.current != null) {
       cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
@@ -261,6 +266,33 @@ export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, 
     setOverCta(false);
     setOverFront(false);
   }, []);
+
+  // Tap-outside dismiss for touch/pen: when the cube is held open after a
+  // drag, a pointerdown anywhere outside the root resets it.
+  useEffect(() => {
+    if (!active) return;
+    if (lastPointerTypeRef.current === "mouse") return;
+    const onDocPointerDown = (e: PointerEvent) => {
+      const root = rootRef.current;
+      if (!root) return;
+      if (root.contains(e.target as Node)) return;
+      if (frozenRef.current) return;
+      if (frameRef.current != null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+      targetRef.current = { x: 0, y: 0 };
+      currentRef.current = { x: 0, y: 0 };
+      if (boxRef.current) {
+        boxRef.current.style.transform = "rotateX(0deg) rotateY(0deg)";
+      }
+      setActive(false);
+      setOverCta(false);
+      setOverFront(false);
+    };
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, [active]);
 
   const onCtaEnter = useCallback(() => setOverCta(true), []);
   const onCtaLeave = useCallback(() => setOverCta(false), []);
@@ -339,15 +371,18 @@ export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, 
               <span className="album-cube__face-btn-arrows" aria-hidden="true">
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
               </span>
-              <span className="album-cube__face-btn-label">Read</span>
+              <span className="album-cube__face-btn-label">{isAlbum ? "Read Lyrics" : "Read"}</span>
               <span className="album-cube__face-btn-arrows" aria-hidden="true">
                 <span>⌃</span><span>⌃</span><span>⌃</span><span>⌃</span>
               </span>
             </Link>
+            <span className="album-cube__face-eyebrow">Plane 2</span>
             <span className="album-cube__face-label">{isAlbum ? "Tracklist" : "Lyrics"}</span>
             {isAlbum ? (
               tracklist && tracklist.length > 0 && (
-                <ol className="album-cube__face-tracklist">
+                <ol
+                  className={`album-cube__face-tracklist${tracklist.length > 8 ? " album-cube__face-tracklist--two-col" : ""}`}
+                >
                   {tracklist.map((t, i) => (
                     <li key={i}>{t}</li>
                   ))}
@@ -392,7 +427,7 @@ export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, 
               </span>
             </Link>
             <span className="album-cube__face-eyebrow">Plane 3</span>
-            <span className="album-cube__face-label">The Visual</span>
+            <span className="album-cube__face-label">Art and Media</span>
           </div>
 
           <div className="album-cube__face album-cube__face--bottom">
@@ -434,7 +469,7 @@ export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, 
               </span>
             </Link>
             <span className="album-cube__face-eyebrow">Plane 5</span>
-            <span className="album-cube__face-label">Message</span>
+            <span className="album-cube__face-label">Concept</span>
             {isAlbum && conceptStatement && (
               <div className="album-cube__face-concept">{conceptStatement}</div>
             )}
@@ -451,7 +486,7 @@ export function AlbumCubeRadiant({ variant = "song", title, href, coverArtPath, 
         <span className="cube-cursor__ring cube-cursor__ring--2" />
         <span className="cube-cursor__ring cube-cursor__ring--3" />
         <span className="cube-cursor__dot" />
-        <span className="cube-cursor__label">Listen</span>
+        <span className="cube-cursor__label">Explore</span>
       </div>
 
       {debug && debugEnabledRef.current && (

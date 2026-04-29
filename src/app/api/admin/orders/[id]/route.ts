@@ -12,22 +12,37 @@ const ALLOWED_STATUSES = [
   "refunded",
 ];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Orders have no slug, but order_number ("CL-1042") is the friendly handle.
+// Accept either a UUID or the order_number; resolve to UUID for downstream use.
+async function resolveOrderId(
+  supabase: ReturnType<typeof createAdminClient>,
+  idOrNumber: string,
+): Promise<string | null> {
+  if (UUID_RE.test(idOrNumber)) return idOrNumber;
+  const { data } = await supabase.from("orders").select("id").eq("order_number", idOrNumber).maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
+  const { id: idOrNumber } = await params;
   const supabase = createAdminClient();
+  const field = UUID_RE.test(idOrNumber) ? "id" : "order_number";
 
   const { data: order, error: orderErr } = await supabase
     .from("orders")
     .select("*")
-    .eq("id", id)
+    .eq(field, idOrNumber)
     .single();
 
   if (orderErr || !order) {
     return Response.json({ error: "Order not found" }, { status: 404 });
   }
+  const id = order.id as string;
 
   const { data: linesRaw } = await supabase
     .from("purchases")
@@ -134,7 +149,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
+  const { id: idOrNumber } = await params;
   const body = await request.json().catch(() => null);
   const status = body?.status;
   const notes = body?.notes;
@@ -147,6 +162,8 @@ export async function PUT(
   }
 
   const supabase = createAdminClient();
+  const id = await resolveOrderId(supabase, idOrNumber);
+  if (!id) return Response.json({ error: "Order not found" }, { status: 404 });
 
   const update: Record<string, unknown> = {};
   if (status) {

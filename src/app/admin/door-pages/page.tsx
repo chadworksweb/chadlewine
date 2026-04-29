@@ -132,7 +132,7 @@ export default function AdminDoorPagesPage() {
           {pages.map((page) => (
             <tr key={page.id} className="admin-table__row">
               <td className="admin-table__td">
-                <Link href={`/admin/door-pages/${page.id}`} className="admin-table__link">
+                <Link href={`/admin/door-pages/${page.slug || page.id}`} className="admin-table__link">
                   {page.title}
                 </Link>
               </td>

@@ -133,13 +133,9 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
         </div>
       </div>
 
-      <div className="explore-songs__frame explore-songs__frame--bottom">
-        <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-        <Link href="/music/songs" className="explore-songs__all">
-          View All Songs →
-        </Link>
-        <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
-      </div>
+      <Link href="/music/songs" className="home-merch__view-all">
+        View All Songs →
+      </Link>
     </section>
   );
 }

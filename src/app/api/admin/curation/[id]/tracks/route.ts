@@ -1,8 +1,21 @@
 import { createAdminClient } from "@/lib/supabase-server";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveCuratedId(
+  supabase: ReturnType<typeof createAdminClient>,
+  idOrSlug: string,
+): Promise<string | null> {
+  if (UUID_RE.test(idOrSlug)) return idOrSlug;
+  const { data } = await supabase.from("curated_entries").select("id").eq("slug", idOrSlug).maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: idOrSlug } = await params;
   const supabase = createAdminClient();
+  const id = await resolveCuratedId(supabase, idOrSlug);
+  if (!id) return Response.json({ error: "Curated entry not found" }, { status: 404 });
   const { data, error } = await supabase
     .from("curated_playlist_tracks")
     .select("*")
@@ -13,8 +26,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: idOrSlug } = await params;
   const supabase = createAdminClient();
+  const id = await resolveCuratedId(supabase, idOrSlug);
+  if (!id) return Response.json({ error: "Curated entry not found" }, { status: 404 });
   const body = await request.json();
   if (!body.track_title) return Response.json({ error: "track_title required" }, { status: 400 });
   if (!body.artist_name) return Response.json({ error: "artist_name required" }, { status: 400 });

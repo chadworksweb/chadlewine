@@ -193,7 +193,7 @@ export default async function ObservationPage({
 
   return (
     <div id="page-observation" className="page-observation" data-observation-id={obsv.id}>
-      <AdminEditButton href={`/admin/observations/${obsv.id}`} />
+      <AdminEditButton href={`/admin/observations/${obsv.slug || obsv.id}`} />
       <ObservationJsonLd
         title={obsv.title}
         slug={obsv.slug}
@@ -322,25 +322,27 @@ export default async function ObservationPage({
       </div>
 
       {(newer || older) && (
-        <nav className="obsv-nav">
-          {newer ? (
-            <a href={`/observations/${newer.slug}`} className="obsv-nav__card obsv-nav__card--newer">
-              <span className="obsv-nav__label">&larr; Newer</span>
-              <span className="obsv-nav__title">{newer.title}</span>
-            </a>
-          ) : (
-            <span />
-          )}
-          <div className="obsv-nav__center" />
-          {older ? (
-            <a href={`/observations/${older.slug}`} className="obsv-nav__card obsv-nav__card--older">
-              <span className="obsv-nav__label">Older &rarr;</span>
-              <span className="obsv-nav__title">{older.title}</span>
-            </a>
-          ) : (
-            <span />
-          )}
-        </nav>
+        <div className="obsv-nav-anchor">
+          <nav className="obsv-nav">
+            {newer ? (
+              <a href={`/observations/${newer.slug}`} className="obsv-nav__card obsv-nav__card--newer">
+                <span className="obsv-nav__label">&larr; Newer</span>
+                <span className="obsv-nav__title">{newer.title}</span>
+              </a>
+            ) : (
+              <span />
+            )}
+            <div className="obsv-nav__center" />
+            {older ? (
+              <a href={`/observations/${older.slug}`} className="obsv-nav__card obsv-nav__card--older">
+                <span className="obsv-nav__label">Older &rarr;</span>
+                <span className="obsv-nav__title">{older.title}</span>
+              </a>
+            ) : (
+              <span />
+            )}
+          </nav>
+        </div>
       )}
 
       {synapseJumper.length > 0 && (

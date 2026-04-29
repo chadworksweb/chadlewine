@@ -28,21 +28,20 @@ interface ArtPlaygroundProps {
   zoom?: number; // >= 1, defaults to 1
 }
 
-const hide: React.CSSProperties = { position: "absolute", inset: 0, visibility: "hidden", pointerEvents: "none" };
-const show: React.CSSProperties = { position: "relative" };
-
 export function CoverArtPlayground({ src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 }: ArtPlaygroundProps) {
   const [mode, setMode] = useState<EffectMode>("ripple");
+
+  const fxProps = { src, alt, className, focalX, focalY, zoom };
 
   return (
     <div className="art-playground">
       <div className="art-playground__canvas" style={{ position: "relative" }}>
-        <div style={mode === "ripple" ? show : hide}><WaterRipple src={src} alt={alt} className={className} focalX={focalX} focalY={focalY} zoom={zoom} /></div>
-        <div style={mode === "lightning" ? show : hide}><LightningEffect src={src} alt={alt} className={className} focalX={focalX} focalY={focalY} zoom={zoom} /></div>
-        <div style={mode === "glitch" ? show : hide}><GlitchEffect src={src} alt={alt} className={className} focalX={focalX} focalY={focalY} zoom={zoom} /></div>
-        <div style={mode === "kaleidoscope" ? show : hide}><KaleidoscopeEffect src={src} alt={alt} className={className} focalX={focalX} focalY={focalY} zoom={zoom} /></div>
-        <div style={mode === "shatter" ? show : hide}><ShatterEffect src={src} alt={alt} className={className} focalX={focalX} focalY={focalY} zoom={zoom} /></div>
-        <div style={mode === "invert" ? show : hide}><InvertWaveEffect src={src} alt={alt} className={className} focalX={focalX} focalY={focalY} zoom={zoom} /></div>
+        {mode === "ripple" && <WaterRipple {...fxProps} />}
+        {mode === "lightning" && <LightningEffect {...fxProps} />}
+        {mode === "glitch" && <GlitchEffect {...fxProps} />}
+        {mode === "kaleidoscope" && <KaleidoscopeEffect {...fxProps} />}
+        {mode === "shatter" && <ShatterEffect {...fxProps} />}
+        {mode === "invert" && <InvertWaveEffect {...fxProps} />}
       </div>
       <div className="art-playground__menu">
         {allEffects.map((fx) => (

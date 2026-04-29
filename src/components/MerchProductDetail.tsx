@@ -111,13 +111,34 @@ export function MerchProductDetail({
       ? "In cart — view"
       : "Add to cart";
 
+  const galleryThumbs = gallery.length > 1 && (
+    <>
+      {gallery.map((src) => {
+        const isActive = src === activeImage;
+        return (
+          <button
+            key={src}
+            type="button"
+            role="listitem"
+            onClick={() => setActiveImage(src)}
+            className={`product-detail__thumb${isActive ? " product-detail__thumb--active" : ""}`}
+            aria-pressed={isActive}
+            aria-label="Show this image"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt="" decoding="async" />
+          </button>
+        );
+      })}
+    </>
+  );
+
   return (
     <div className="product-detail">
       <div className="product-detail__grid">
         <div className="product-detail__art-col">
           {activeImage && (
             <Image
-              key={activeImage}
               src={activeImage}
               alt={image_alt || title}
               className="product-detail__cover"
@@ -130,6 +151,11 @@ export function MerchProductDetail({
               // source file directly.
               unoptimized
             />
+          )}
+          {galleryThumbs && (
+            <div className="product-detail__gallery product-detail__gallery--floating" role="list" aria-label="Product images">
+              {galleryThumbs}
+            </div>
           )}
         </div>
 
@@ -184,25 +210,9 @@ export function MerchProductDetail({
             All sales final — no returns, exchanges, or refunds.
           </p>
 
-          {gallery.length > 1 && (
-            <div className="product-detail__gallery" role="list" aria-label="Product images">
-              {gallery.map((src) => {
-                const isActive = src === activeImage;
-                return (
-                  <button
-                    key={src}
-                    type="button"
-                    role="listitem"
-                    onClick={() => setActiveImage(src)}
-                    className={`product-detail__thumb${isActive ? " product-detail__thumb--active" : ""}`}
-                    aria-pressed={isActive}
-                    aria-label="Show this image"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="" loading="lazy" />
-                  </button>
-                );
-              })}
+          {galleryThumbs && (
+            <div className="product-detail__gallery product-detail__gallery--inline" role="list" aria-label="Product images">
+              {galleryThumbs}
             </div>
           )}
 

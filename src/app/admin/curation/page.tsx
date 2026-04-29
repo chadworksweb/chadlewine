@@ -62,7 +62,7 @@ export default function AdminCurationPage() {
           {entries.map((e) => (
             <tr key={e.id} className="admin-table__row">
               <td className="admin-table__td">
-                <Link href={`/admin/curation/${e.id}`} className="admin-table__link">{e.title}</Link>
+                <Link href={`/admin/curation/${e.slug || e.id}`} className="admin-table__link">{e.title}</Link>
               </td>
               <td className="admin-table__td">{e.artist_name}</td>
               <td className="admin-table__td">{e.type}</td>

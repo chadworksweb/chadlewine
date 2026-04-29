@@ -568,7 +568,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
                   {linkedDoors.map((d) => (
                     <li key={d.id} style={{ fontFamily: "var(--font-ui)", fontSize: "0.8rem" }}>
-                      <Link href={`/admin/door-pages/${d.id}`} style={{ color: "var(--text-link)" }}>
+                      <Link href={`/admin/door-pages/${d.slug || d.id}`} style={{ color: "var(--text-link)" }}>
                         {d.title}
                       </Link>
                       <span style={{ color: "#888", marginLeft: 8 }}>
