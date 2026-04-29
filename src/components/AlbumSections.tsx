@@ -100,7 +100,7 @@ export async function AlbumSections({
     .eq("album_id", albumId)
     .order("track_number");
 
-  const albumSongs: Array<SongRow & { track_number: number }> = ((junctions || []) as Array<{
+  const albumSongs: Array<SongRow & { track_number: number }> = ((junctions || []) as unknown as Array<{
     track_number: number;
     song: SongRow & { status: string } | null;
   }>)
@@ -329,7 +329,6 @@ function SongSlider({
         slug: s.slug,
         title: s.title,
         date: s.release_date,
-        hook: s.song_summary || s.chorus || "",
         artImagePath: art,
         artAlt: s.art_alt || album.cover_art_alt || s.title,
         href: `/music/songs/${s.slug}`,

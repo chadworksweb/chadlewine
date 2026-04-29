@@ -87,7 +87,7 @@ export async function POST(request: Request) {
 
   const voiceProfile = vpRow?.content || "";
 
-  const tracklist = ((junctions || []) as Array<{
+  const tracklist = ((junctions || []) as unknown as Array<{
     track_number: number;
     song: { id: string; title: string; slug: string; lyrics: string | null; song_summary: string | null } | null;
   }>)
