@@ -34,15 +34,18 @@ export async function GET(request: Request) {
 
   if (!count || count === 0) {
     return Response.json({
-      skipped: true,
+      cron_skipped: true,
       reason: "no active printify orders",
     });
   }
 
+  // Insert-only — same posture as the manual admin button. Field updates only
+  // happen via Printify's product:publish:started webhook, scoped by the
+  // user's publish-checkbox selections.
   const result = await syncPrintifyProducts(supabase);
   return Response.json({
-    skipped: false,
+    cron_skipped: false,
     active_orders: count,
-    ...result,
+    sync: result,
   });
 }

@@ -95,7 +95,7 @@ export default function AdminAlbumsPage() {
         <tbody>
           {sorted.map((a) => (
             <tr key={a.id} className="admin-table__row">
-              <td className="admin-table__td"><Link href={`/admin/music/albums/${a.id}`} className="admin-table__link">{a.title}</Link></td>
+              <td className="admin-table__td"><Link href={`/admin/music/albums/${a.slug || a.id}`} className="admin-table__link">{a.title}</Link></td>
               <td className="admin-table__td">{songCounts[a.id] || 0}</td>
               <td className="admin-table__td"><span className={`admin-status admin-status--${a.status}`}>{a.status}</span></td>
               <td className="admin-table__td admin-table__td--date">{a.release_date || "—"}</td>

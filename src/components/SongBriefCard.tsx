@@ -19,11 +19,10 @@ export function SongBriefCard({ song }: { song: SongBriefData }) {
 
   return (
     <article className="song-brief-card">
+      <Link href={href} className="song-brief-card__cover-link" aria-label={song.title} />
       <header className="song-brief-card__header">
         <div className="song-brief-card__heading-text">
-          <Link href={href} className="song-brief-card__title-link">
-            <h3 className="song-brief-card__title">{song.title}</h3>
-          </Link>
+          <h3 className="song-brief-card__title">{song.title}</h3>
           {song.album && (
             <Link href={`/music/albums/${song.album.slug}`} className="song-brief-card__album">
               {song.album.title}
@@ -31,17 +30,15 @@ export function SongBriefCard({ song }: { song: SongBriefData }) {
           )}
         </div>
         {song.art_image_path && (
-          <Link href={href} className="song-brief-card__thumb-link" aria-hidden="true" tabIndex={-1}>
-            <Image
-              src={song.art_image_path}
-              alt={song.art_alt || ""}
-              className="song-brief-card__thumb"
-              width={200}
-              height={200}
-              sizes="100px"
-              loading="lazy"
-            />
-          </Link>
+          <Image
+            src={song.art_image_path}
+            alt={song.art_alt || ""}
+            className="song-brief-card__thumb"
+            width={200}
+            height={200}
+            sizes="100px"
+            loading="lazy"
+          />
         )}
       </header>
 
@@ -59,18 +56,6 @@ export function SongBriefCard({ song }: { song: SongBriefData }) {
           <cite>— Chad Lewine</cite>
         </blockquote>
       )}
-
-      {song.hooks.length > 0 && (
-        <ul className="song-brief-card__hooks">
-          {song.hooks.slice(0, 7).map((h, i) => (
-            <li key={i} className="song-brief-card__hook">{h}</li>
-          ))}
-        </ul>
-      )}
-
-      <Link href={href} className="song-brief-card__cta">
-        Read the full song page →
-      </Link>
     </article>
   );
 }

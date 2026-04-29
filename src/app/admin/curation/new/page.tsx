@@ -47,7 +47,7 @@ export default function NewCurationEntryPage() {
     });
     if (res.ok) {
       const saved = await res.json();
-      router.push(`/admin/curation/${saved.id}`);
+      router.push(`/admin/curation/${saved.slug || saved.id}`);
     }
     setSaving(false);
   }

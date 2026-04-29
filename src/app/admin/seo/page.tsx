@@ -111,7 +111,7 @@ export default function SeoAdminPage() {
                 {flagged.map((obs) => (
                   <tr key={obs.id}>
                     <td>
-                      <a href={`/admin/observations/${obs.id}`} className="seo-dash__link">
+                      <a href={`/admin/observations/${obs.slug || obs.id}`} className="seo-dash__link">
                         {obs.title}
                       </a>
                     </td>
@@ -150,7 +150,7 @@ export default function SeoAdminPage() {
               {observations.map((obs) => (
                 <tr key={obs.id}>
                   <td>
-                    <a href={`/admin/observations/${obs.id}`} className="seo-dash__link">
+                    <a href={`/admin/observations/${obs.slug || obs.id}`} className="seo-dash__link">
                       {obs.title}
                     </a>
                   </td>

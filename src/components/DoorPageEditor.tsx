@@ -180,7 +180,7 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
     setSaving(false);
 
     if (!isEdit) {
-      router.push(`/admin/door-pages/${saved.id}`);
+      router.push(`/admin/door-pages/${saved.slug || saved.id}`);
     }
   }
 

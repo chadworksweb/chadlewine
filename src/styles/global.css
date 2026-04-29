@@ -66,7 +66,7 @@
   /* --- Layout --- */
   --reading-width: calc((var(--site-width) - var(--space-xl)) * 3 / 4);
   --content-width: 1100px;
-  --site-width: 1400px;
+  --site-width: 1320px;
   --page-gutter: clamp(1rem, 4vw, 2.5rem);
   --nav-height: 80px;
   --sticky-top: calc(var(--nav-height) + var(--space-md));
@@ -89,12 +89,14 @@
    ============================================================ */
 
 /* Standard content container — matches nav alignment.
-   Use on the inner wrapper of any full-bleed section. */
+   Use on the inner wrapper of any full-bleed section.
+   Mirrors the formula used by main's content rail and .site-nav so
+   inner content edges always track the C-of-CHAD-LEWINE / right-edge-of-ABOUT
+   landmarks. The clamp is what supplies the outer gutter on narrow viewports;
+   no inner left/right padding here. */
 .site-contain {
-  max-width: var(--site-width);
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding-left: var(--page-gutter);
-  padding-right: var(--page-gutter);
 }
 
 /* ============================================================
@@ -144,6 +146,51 @@ p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption, dt, dd {
 
 main {
   padding-top: var(--nav-height);
+
+  /* ─────────────────────────────────────────────────────────────────────
+     SITE-WIDTH GRID — the default container for every page.
+     Three rails: a left gutter, a centered content rail capped at
+     --site-width, and a right gutter. Direct children of <main> sit in
+     the centered rail by default. Sections that need to bleed edge-to-edge
+     (backgrounds, sliders, hero strips) opt OUT by setting grid-column to
+     full, either via the .full-bleed class or by being on the named list
+     below. This is the global guard that stops content from breaking out
+     of site width unless explicitly opted out.
+     ───────────────────────────────────────────────────────────────────── */
+  display: grid;
+  grid-template-columns:
+    [full-start] minmax(var(--page-gutter), 1fr)
+    [content-start] min(calc(100% - var(--page-gutter) * 2), var(--site-width)) [content-end]
+    minmax(var(--page-gutter), 1fr) [full-end];
+  align-content: start;
+}
+
+main > * {
+  grid-column: content;
+  min-width: 0; /* prevents grid blowout from long unbroken text */
+}
+
+/* Explicit opt-out class — apply to anything that needs to bleed. */
+main > .full-bleed,
+/* Sections with full-bleed backgrounds, hero strips, or page wrappers
+   that manage their own internal width. */
+main > .hero-lens,
+main > .album-section,
+main > .observation-body,
+main > .home-merch,
+main > .subscribe-section,
+main > .album-rc-classifications,
+main > .site-patronage,
+/* Page wrappers — opt out at the wrapper level so the sections inside
+   keep their existing layout. */
+main > .page-home,
+main > #page-home,
+main > .page-static,
+main > .page-merch,
+main > #page-merch,
+main > .page-curation,
+main > #page-curation {
+  grid-column: full;
 }
 
 
@@ -220,12 +267,16 @@ h2, h3, h4, h5, h6 {
 }
 
 .site-nav {
-  max-width: var(--site-width);
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: var(--space-md) var(--page-gutter);
+  padding: var(--space-md) 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* Pin the rendered nav to the declared height so sticky offsets anchored
+     at --nav-height land flush against the actual nav bottom. */
+  min-height: var(--nav-height);
+  box-sizing: border-box;
 }
 
 .site-nav__logo {
@@ -376,13 +427,6 @@ h2, h3, h4, h5, h6 {
   }
 }
 
-/* Mobile sub-items */
-.nav-mobile-menu__item--sub {
-  padding-left: var(--space-lg);
-  font-size: calc(var(--text-sm) * 0.9);
-  opacity: 0.7;
-}
-
 .nav-links__item--active {
   color: rgba(237, 240, 245, 1);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
@@ -402,18 +446,132 @@ h2, h3, h4, h5, h6 {
 }
 
 .nav-mobile-menu {
-  padding: 0 var(--page-gutter) var(--space-lg);
+  padding: var(--space-sm, 0.75rem) var(--page-gutter) var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: 8px;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  animation: nav-mobile-slide var(--duration-base) var(--ease-out);
+}
+
+@keyframes nav-mobile-slide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.nav-mobile-menu__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-mobile-menu__dropdown--open {
+  margin-top: 6px;
+}
+
+.nav-mobile-menu__row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
 }
 
 .nav-mobile-menu__item {
+  display: block;
   font-family: var(--font-ui);
   font-size: var(--text-sm);
-  color: var(--text-secondary);
+  color: rgba(232, 235, 240, 1);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  padding: 12px 16px;
+  border-radius: 4px;
+  background: rgba(58, 30, 90, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  text-decoration: none;
+  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+}
+
+.nav-mobile-menu__item--parent {
+  flex: 1;
+}
+
+.nav-mobile-menu__item--sub {
+  margin-left: var(--space-md);
+  background: rgba(58, 30, 90, 0.45);
+}
+
+.nav-mobile-menu__item--active {
+  color: #fff;
+  background: rgba(58, 30, 90, 0.55);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.nav-mobile-menu__chevron {
+  flex: 0 0 auto;
+  width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  color: rgba(232, 235, 240, 1);
+  background: rgba(58, 30, 90, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+}
+
+.nav-mobile-menu__chevron:hover {
+  background: rgba(58, 30, 90, 0.55);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.nav-mobile-menu__chevron span {
+  display: block;
+  line-height: 1;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.nav-mobile-menu__chevron--open span {
+  transform: rotate(180deg);
+}
+
+.nav-mobile-menu__dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 500ms cubic-bezier(0.22, 0.68, 0.35, 1);
+}
+
+.nav-mobile-menu__dropdown--open {
+  max-height: 600px;
+}
+
+.nav-mobile-menu__dropdown--closed {
+  pointer-events: none;
+}
+
+.nav-mobile-menu__dropdown .nav-mobile-menu__item--sub {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition:
+    opacity 350ms cubic-bezier(0.22, 0.68, 0.35, 1),
+    transform 350ms cubic-bezier(0.22, 0.68, 0.35, 1);
+  transition-delay: calc(var(--nav-index-rev, 0) * 80ms);
+}
+
+.nav-mobile-menu__dropdown--open .nav-mobile-menu__item--sub {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: calc(var(--nav-index, 0) * 90ms);
 }
 
 @media (max-width: 640px) {
@@ -684,70 +842,111 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .hero-lens {
-  max-width: var(--site-width);
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: 0 var(--page-gutter);
+  /* Peek surface width — narrowed from 110 to make room for the inter-card
+     padding (var(--hero-gap)) without losing the click target entirely. */
+  --hero-peek: 90px;
+  /* Inter-card padding — applied as L/R padding on each slide (border-box)
+     so adjacent cards have a visible gap between them. */
+  --hero-gap: 16px;
 }
 
-.hero-lens__columns {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-md);
-  align-items: stretch;
-}
-
-/* Viewport clips the full-card slides. Grid stacks all slides in the same
-   cell so the container auto-sizes to the tallest one. */
+/* Viewport clips the full-card slides. Slides are absolutely positioned so
+   the viewport's height can be driven by the CURRENT slide's intrinsic
+   height — this lets long titles push the rest of the page down (and a
+   shorter next slide bring it back up). */
 .hero-lens__viewport {
   position: relative;
   overflow: hidden;
-  display: grid;
-  grid-template-areas: "slide";
+  /* Hint the compositor that height changes are coming so layout/paint
+     batches them on a separate layer rather than reflowing per-pixel. */
+  will-change: height;
+  contain: layout;
+  transition: height 1100ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Each slide is a full observation card (art + content), always mounted,
-   stacked in the same grid cell, moved via transform */
+   stacked at the same origin, moved via transform on the X axis.
+   L/R padding (with border-box) creates the visible gap between adjacent
+   cards — a small per-slide image-width reduction is the trade-off.
+   Height is auto (no `bottom`) so the current slide's measured offsetHeight
+   feeds the viewport height transition. */
 .hero-lens__slide {
-  grid-area: slide;
-  transform: translateY(100%);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  transform: translateX(100%);
   will-change: transform;
-  transition: transform 1500ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1);
   background: var(--bg-primary, #000);
+  padding-left: var(--hero-gap);
+  padding-right: var(--hero-gap);
+  box-sizing: border-box;
 }
 
 .hero-lens__slide--current {
-  z-index: 2;
+  z-index: 1;
 }
 
-/* Slide animations — Reels-style full-card swipe */
-@keyframes hero-lens-exit-up {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-100%); }
-}
-@keyframes hero-lens-exit-down {
-  from { transform: translateY(0); }
-  to   { transform: translateY(100%); }
-}
-@keyframes hero-lens-enter-up {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
-@keyframes hero-lens-enter-down {
-  from { transform: translateY(-100%); }
-  to   { transform: translateY(0); }
+/* Peek slides — hover + click to advance. Inner links are dead so the whole
+   visible peek surface is one nav target. */
+.hero-lens__slide--next,
+.hero-lens__slide--prev {
+  cursor: pointer;
 }
 
-.hero-lens__slide--exit-up {
-  animation: hero-lens-exit-up 1500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.hero-lens__slide--next a,
+.hero-lens__slide--next button,
+.hero-lens__slide--prev a,
+.hero-lens__slide--prev button {
+  pointer-events: none;
 }
-.hero-lens__slide--exit-down {
-  animation: hero-lens-exit-down 1500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+/* Gradient veil — present on EVERY slide so the fade can transition in/out
+   smoothly as a slide leaves or enters the current position. Symmetric
+   gradient (heavy at both edges, light in the middle) so it reads correctly
+   regardless of whether the slide is acting as the prev (right edge visible)
+   or next (left edge visible). Fade is anchored in pixel space using
+   --hero-peek so the dark→light ramp happens within the visible peek. */
+.hero-lens__slide::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Sits above title-reveal__canvas (z=2) and the bar/CTA so the entire
+     peek (image + bar + title text) reads as one veiled strip. */
+  z-index: 5;
+  opacity: 0;
+  background: linear-gradient(
+    to right,
+    rgba(8, 10, 18, 0.35) 0,
+    rgba(8, 10, 18, 0.85) var(--hero-peek),
+    rgba(8, 10, 18, 0.85) calc(100% - var(--hero-peek)),
+    rgba(8, 10, 18, 0.35) 100%
+  );
+  /* Match the slide's transform duration so fade-in/fade-out runs in
+     lockstep with the slide moving — no instant darken-then-slide blink. */
+  transition: opacity 1100ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.hero-lens__slide--enter-up {
-  animation: hero-lens-enter-up 1500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+.hero-lens__slide--next::after,
+.hero-lens__slide--prev::after {
+  opacity: 1;
 }
-.hero-lens__slide--enter-down {
-  animation: hero-lens-enter-down 1500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+.hero-lens__slide--next:hover::after,
+.hero-lens__slide--prev:hover::after,
+.hero-lens__slide--next:focus-visible::after,
+.hero-lens__slide--prev:focus-visible::after {
+  opacity: 0.15;
+}
+
+.hero-lens__slide--next:focus-visible,
+.hero-lens__slide--prev:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: -4px;
 }
 
 /* Static art with FX toggle overlay */
@@ -763,7 +962,20 @@ h2, h3, h4, h5, h6 {
   align-items: start;
   padding-top: var(--space-xl);
   padding-bottom: var(--space-xl);
+  /* Title + meta inset from slide edges so peek slides' text doesn't bleed
+     into the visible peek strip. Image (.hero-lens__slide-art) stays full
+     slide width — its 1200x500 ratio is preserved across every card. */
+  max-width: calc(100% - var(--hero-peek) * 2);
+  margin-left: auto;
+  margin-right: auto;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   SCROLL RAIL — retained as a documented pattern (des-dev STYLE-GUIDE-TOOLKIT).
+   Currently UNUSED on the homepage hero. The HeroLens component now uses
+   L+R peek navigation in place of the rail. These styles stay so the rail
+   pattern can be re-applied elsewhere or revived without rebuilding.
+   ────────────────────────────────────────────────────────────────── */
 
 /* Scroll rail — full-height column, the dedicated hotspot */
 .hero-lens__rail {
@@ -894,9 +1106,12 @@ h2, h3, h4, h5, h6 {
 }
 
 @media (max-width: 768px) {
-  .hero-lens__columns {
-    grid-template-columns: 1fr;
-    gap: var(--space-sm);
+  .hero-lens {
+    /* No peek on phones — adjacent slides sit fully off-screen, advance
+       only by swipe (matches the pre-peek mobile behavior). */
+    --hero-peek: 0px;
+    /* Slightly tighter gap on phones since the screen is narrower. */
+    --hero-gap: 10px;
   }
 
   .hero-lens__slide-content {
@@ -906,11 +1121,8 @@ h2, h3, h4, h5, h6 {
     padding-bottom: var(--space-md);
   }
 
-  .hero-lens__slide-img {
-    display: block;
-    width: 100%;
-    aspect-ratio: 1200 / 630;
-    object-fit: cover;
+  .hero-lens__slide .cover-hero__art-wrap {
+    aspect-ratio: 4 / 5;
   }
 
   .hero-lens__viewport {
@@ -919,12 +1131,15 @@ h2, h3, h4, h5, h6 {
   }
 
   .hero-lens__slide {
-    padding: 0 10px;
-    transition: transform 350ms cubic-bezier(0.22, 1, 0.36, 1);
+    /* Padding stays — creates a visible gap between adjacent cards as one
+       swipes into view. */
+    transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .hero-lens__rail {
-    display: none;
+  .hero-lens__slide::after {
+    /* Match the mobile slide transform duration so fade and motion stay
+       synchronized. */
+    transition: opacity 500ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
@@ -933,16 +1148,25 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .cover-hero {
-  max-width: var(--site-width);
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: 0 var(--page-gutter);
 }
 
 /* Art is peer — never covered by header. CoverHero always clears nav. */
 
 .cover-hero__art-wrap {
-  aspect-ratio: 1200 / 630;
+  aspect-ratio: 1200 / 500;
   overflow: hidden;
+  position: relative;
+}
+
+.cover-hero__art-wrap > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
 }
 
 .cover-hero__art {
@@ -1165,6 +1389,7 @@ h2, h3, h4, h5, h6 {
 
 .art-playground {
   position: relative;
+  isolation: isolate;
 }
 
 .art-playground__menu {
@@ -1175,9 +1400,10 @@ h2, h3, h4, h5, h6 {
   gap: 4px;
   padding: 4px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(10px);
-  z-index: 10;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 100;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .art-playground__btn {
@@ -1411,10 +1637,22 @@ h2, h3, h4, h5, h6 {
   line-height: var(--leading-snug);
 }
 
+/* Shared styling for the secondary line under the title — italic, muted.
+   Specific classes per entity-source so naming is granular (see FeedEntry). */
+.feed-entry__song-summary,
 .feed-entry__hook {
-  font-size: var(--text-sm);
   color: var(--text-secondary);
   font-style: italic;
+}
+
+/* song_summary specifically gets the 1.3x bump on the homepage feed. */
+.feed-entry__song-summary {
+  font-size: calc(var(--text-sm) * 1.3);
+}
+
+/* observation hook_line stays at the standard --text-sm. */
+.feed-entry__hook {
+  font-size: var(--text-sm);
 }
 
 @media (max-width: 640px) {
@@ -1555,15 +1793,14 @@ h2, h3, h4, h5, h6 {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--space-xl);
-  max-width: var(--site-width);
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: 0 var(--page-gutter) var(--space-2xl, 4rem);
+  padding: 0 0 var(--space-2xl, 4rem);
 }
 
 .observations-archive {
-  max-width: var(--site-width);
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: 0 var(--page-gutter);
 }
 
 .observations-grid {
@@ -1585,9 +1822,16 @@ h2, h3, h4, h5, h6 {
 }
 
 .home-split__sidebar {
+  /* Match the Songs heading override — stick directly at the nav's bottom
+     so both columns pin at the same y-coordinate. */
+  --sticky-top: var(--nav-height);
   position: sticky;
   top: var(--sticky-top);
   align-self: start;
+  border-top: 2px solid var(--text-accent);
+  /* Match the heading's padding-bottom: var(--space-sm) so the heading text
+     sits centered between the top and bottom accent lines. */
+  padding-top: var(--space-sm);
 }
 
 .home-split__sidebar-block {
@@ -1606,10 +1850,18 @@ h2, h3, h4, h5, h6 {
 }
 
 .home-split__observations .home-split__section-heading {
+  /* Local override: stick directly at the nav's bottom so there's no
+     gap between the nav and the heading for content to scroll through.
+     This eliminates the need for any mask hack. */
+  --sticky-top: var(--nav-height);
   position: sticky;
   top: var(--sticky-top);
   background: var(--bg-primary, #000);
   z-index: 10;
+  /* Match the right column's structure exactly — see .home-split__sidebar.
+     Transparent border-top + ::after paint the visible accent. */
+  border-top: 2px solid transparent;
+  padding-top: var(--space-sm);
 }
 
 @media (max-width: 768px) {
@@ -1618,21 +1870,21 @@ h2, h3, h4, h5, h6 {
   }
 }
 
-.home-split__observations .home-split__section-heading::before {
+
+/* Visible accent — sits ON TOP of the heading's transparent border-top
+   (top: -2px from the padding-box top) so the line lives at the exact
+   same y-coordinate as the right column's `border-top`. z-index above
+   the ::before mask so it's never obscured. */
+.home-split__observations .home-split__section-heading::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 100%;
-  height: var(--sticky-top);
-  background: var(--bg-primary, #000);
+  top: -2px;
+  height: 2px;
+  background: var(--text-accent);
+  z-index: 2;
   pointer-events: none;
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-
-.home-split__observations .home-split__section-heading.is-stuck::before {
-  opacity: 1;
 }
 
 /* Feed item — active highlight synced with hero lens */
@@ -1798,6 +2050,10 @@ h2, h3, h4, h5, h6 {
 
   .home-split__sidebar {
     position: static;
+  }
+
+  .hero-lens {
+    margin-bottom: var(--space-2xl);
   }
 }
 
@@ -2123,13 +2379,22 @@ h2, h3, h4, h5, h6 {
 .cl-stream-curation-link {
   display: inline-block;
   font-family: var(--font-ui);
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: var(--text-accent, #8b9cf7);
   text-decoration: none;
   margin-bottom: var(--space-xl);
+  padding: 10px 18px;
+  border: 1px solid rgba(139, 156, 247, 0.35);
+  border-radius: 4px;
+  background: rgba(139, 156, 247, 0.06);
   letter-spacing: 0.02em;
+  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
 }
-.cl-stream-curation-link:hover { text-decoration: underline; }
+.cl-stream-curation-link:hover {
+  background: rgba(139, 156, 247, 0.14);
+  border-color: rgba(139, 156, 247, 0.6);
+  color: #fff;
+}
 
 /* Filters */
 .curation-filters {
@@ -4290,9 +4555,8 @@ h3.aw-heading {
 }
 
 .song-brief-feed__inner {
-  max-width: var(--site-width);
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: 0 var(--space-md);
 }
 
 .song-brief-feed__heading {
@@ -4321,6 +4585,7 @@ h3.aw-heading {
 }
 
 .song-brief-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -4328,6 +4593,50 @@ h3.aw-heading {
   border: 1px solid var(--border-medium, rgba(0, 0, 0, 0.12));
   border-radius: 8px;
   background: var(--bg-surface, #fff);
+  transform-origin: center bottom;
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+  transition:
+    transform 620ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 720ms cubic-bezier(0.16, 1, 0.3, 1) 40ms,
+    border-color 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+}
+
+.song-brief-card:hover {
+  transform: perspective(1200px) translate3d(0, -8px, 0) rotateX(2.4deg) scale(1.014);
+  border-color: rgba(0, 212, 255, 0.55);
+  box-shadow:
+    0 28px 60px rgba(0, 0, 0, 0.32),
+    0 10px 24px rgba(0, 212, 255, 0.16),
+    0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.song-brief-card__cover-link {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  text-indent: -9999px;
+  overflow: hidden;
+}
+
+.song-brief-card__cover-link:focus-visible {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+}
+
+/* Children sit above the cover-link so the album link stays clickable. */
+.song-brief-card > *:not(.song-brief-card__cover-link) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Re-enable pointer events on the album link only. */
+.song-brief-card .song-brief-card__album {
+  pointer-events: auto;
 }
 
 .song-brief-card__header {
@@ -4355,10 +4664,15 @@ h3.aw-heading {
 
 .song-brief-card__title {
   font-family: var(--font-display, var(--font-ui));
-  font-size: 1.25rem;
+  font-size: 2.5rem;
   margin: 0;
-  line-height: 1.2;
+  line-height: 1.1;
   letter-spacing: -0.01em;
+  font-weight: 800;
+  color: transparent;
+  -webkit-text-stroke: 1.5px #00d4ff;
+  text-stroke: 1.5px #00d4ff;
+  paint-order: stroke fill;
 }
 
 .song-brief-card__album {
@@ -4374,18 +4688,11 @@ h3.aw-heading {
   color: var(--text-secondary);
 }
 
-.song-brief-card__thumb-link {
+.song-brief-card__thumb {
   flex-shrink: 0;
-  display: block;
   width: 44px;
   height: 44px;
   border-radius: 4px;
-  overflow: hidden;
-}
-
-.song-brief-card__thumb {
-  width: 100%;
-  height: 100%;
   object-fit: cover;
   display: block;
 }
@@ -4465,8 +4772,9 @@ h3.aw-heading {
   margin-top: auto;
   align-self: flex-start;
   padding: 10px 18px;
-  background: #00d4ff;
-  color: #000;
+  background: transparent;
+  color: #00d4ff;
+  border: 2px solid #00d4ff;
   border-radius: 6px;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 0.75rem;
@@ -4474,20 +4782,22 @@ h3.aw-heading {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   text-decoration: none;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transition: background 150ms ease-out, transform 120ms ease-out, box-shadow 150ms ease-out;
+  transition: background 150ms ease-out, color 150ms ease-out, transform 120ms ease-out, box-shadow 150ms ease-out;
 }
 
 .song-brief-card__cta:hover {
-  background: #33dcff;
+  background: rgba(0, 212, 255, 0.12);
+  color: #fff;
+  border-color: #33dcff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(0, 212, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 212, 255, 0.25);
 }
 
 .song-brief-card__cta:active {
-  background: #00a8cc;
+  background: rgba(0, 212, 255, 0.22);
+  color: #fff;
   transform: translateY(1px);
-  box-shadow: 0 0 0 rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .song-brief-card__cta:focus-visible {
@@ -4816,6 +5126,12 @@ h3.aw-heading {
    OBSERVATION NAV (Newer / Older)
    ============================================================ */
 
+.obsv-nav-anchor {
+  position: relative;
+  height: 0;
+  z-index: 2;
+}
+
 .obsv-nav {
   max-width: var(--site-width);
   margin: 0 auto;
@@ -4824,10 +5140,9 @@ h3.aw-heading {
   grid-template-columns: 1fr 1fr 1fr;
   gap: var(--space-lg);
   align-items: center;
-  position: relative;
-  z-index: 2;
+  position: absolute;
+  inset: 0 0 auto 0;
   transform: translateY(-50%);
-  margin-bottom: calc(-1 * var(--space-lg));
 }
 
 .obsv-nav__center {
@@ -6657,9 +6972,9 @@ h3.aw-heading {
 /* --- Merch Page + Configurator --- */
 
 .page-merch {
-  max-width: var(--site-width);
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: 0 var(--page-gutter) var(--space-4xl);
+  padding: 0 0 var(--space-4xl);
 }
 
 .page-merch__header {
@@ -7116,7 +7431,6 @@ h3.aw-heading {
   object-fit: cover;
   display: block;
   border-radius: 4px;
-  border: 1px solid var(--bg-glass-border);
   transition: filter 0.3s ease;
   position: relative;
   z-index: 1;
@@ -7191,7 +7505,7 @@ h3.aw-heading {
 
 .merch-shop__card-title {
   font-family: var(--font-ui);
-  font-size: 1.09rem;
+  font-size: 1.85rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
@@ -7530,7 +7844,9 @@ h3.aw-heading {
 }
 
 @media (max-width: 720px) {
-  .merch-shop__grid,
+  .merch-shop__grid {
+    grid-template-columns: 1fr;
+  }
   .page-merch__explore-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -8303,24 +8619,63 @@ h3.aw-heading {
 .home-merch {
   width: 100%;
   background: var(--bg-elevated);
+  position: relative;
+  isolation: isolate;
+  /* Match the .explore-songs vertical rhythm: section padding gives the
+     banner breathing room below the divider, banner's own margin-bottom
+     handles the gap to the grid. */
+  padding-top: var(--space-2xl);
+}
+
+/* Slim blue-accent gradient divider at the top — mirrors the dividers on
+   .explore-songs so the homepage sections share a consistent boundary. */
+.home-merch::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 5%,
+    var(--text-accent) 50%,
+    rgba(64, 96, 255, 0.0) 95%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.5), 0 0 48px rgba(64, 96, 255, 0.2);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .home-merch__inner {
-  padding-top: var(--space-3xl);
+  /* Banner's natural margin-bottom handles the gap to the grid (mirrors
+     the explore-songs structure). */
+  padding-top: 0;
   padding-bottom: var(--space-3xl);
 }
 
 .home-merch__heading {
   font-size: var(--text-2xl);
   color: var(--text-primary);
-  margin: 0 0 var(--space-xl);
+  /* Match the view-all button's space-2xl margin-top below the grid so the
+     buffer between content and grid is symmetric on both sides. */
+  margin: 0 0 var(--space-2xl);
   text-align: center;
 }
 
 .home-merch__grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-lg);
+  gap: var(--space-xl);
+}
+
+@media (max-width: 768px) {
+  .home-merch__grid {
+    /* 1up only on phones — desktop and tablet keep the 3-column layout. */
+    grid-template-columns: 1fr;
+  }
 }
 
 .home-merch__card {
@@ -8342,16 +8697,42 @@ h3.aw-heading {
   color: var(--text-secondary);
 }
 
+/* The banner frame's heading + side-glyphs use background: #000 to mask the
+   tick-line pattern behind them. .home-merch sits on var(--bg-elevated) so
+   override the mask color to the same elevated bg or the squares stand out. */
+.home-merch .explore-songs__heading,
+.home-merch .explore-songs__frame-label {
+  background: var(--bg-elevated);
+}
+
+
 .home-merch__price {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   color: var(--text-tertiary);
 }
 
-@media (max-width: 640px) {
-  .home-merch__grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.home-merch__view-all {
+  display: block;
+  margin: var(--space-2xl) auto 0;
+  width: fit-content;
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  text-decoration: none;
+  padding: 14px 32px;
+  border: 1px solid rgba(139, 156, 247, 0.45);
+  border-radius: 4px;
+  background: rgba(139, 156, 247, 0.08);
+  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+}
+
+.home-merch__view-all:hover {
+  background: rgba(139, 156, 247, 0.18);
+  border-color: rgba(139, 156, 247, 0.75);
+  transform: translateY(-2px);
 }
 
 /* --- Format picker + buy button pairing --- */
@@ -8653,7 +9034,7 @@ h3.aw-heading {
   --td-radius: 8px;
 
   color: var(--td-text);
-  padding: 0 0 var(--space-4xl);
+  padding: 0 0 calc(var(--space-4xl) / 2);
 }
 
 .track-detail__grid,
@@ -8665,13 +9046,17 @@ h3.aw-heading {
   column-gap: 18px;
   max-width: var(--site-width);
   margin: 0 auto;
-  padding: 0 var(--page-gutter);
 }
 
 /* --- Album art --- */
 
 .track-detail__art-col,
 .product-detail__art-col {
+  position: relative;
+}
+
+.product-detail__gallery--floating {
+  display: none;
 }
 
 .track-detail__cover,
@@ -9032,6 +9417,9 @@ h3.aw-heading {
   cursor: pointer;
   transition: all 0.3s ease;
   text-decoration: none;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .track-detail__btn--buy,
@@ -9510,6 +9898,12 @@ h3.aw-heading {
   gap: var(--space-lg);
 }
 
+@media (max-width: 720px) {
+  .discography-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .discography-grid__card {
   color: var(--text-primary);
   margin-bottom: var(--space-lg);
@@ -9772,6 +10166,394 @@ h3.aw-heading {
   display: flex;
   flex-direction: column;
   gap: 0.15em;
+}
+
+.album-cube__face-tracklist--two-col {
+  display: block;
+  columns: 2;
+  column-gap: 1.25rem;
+}
+
+.album-cube__face-tracklist--two-col li {
+  break-inside: avoid;
+}
+
+/* ============================================================
+   Album Plane Sections — driven by album_visibility_sections
+   ============================================================ */
+
+.album-section {
+  border-top: 1px solid rgba(139, 156, 247, 0.12);
+  padding: var(--space-2xl) var(--page-gutter);
+  background: linear-gradient(180deg, rgba(10, 10, 20, 0.0) 0%, rgba(139, 156, 247, 0.04) 100%);
+}
+
+.album-section--slider {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.album-section--slider > .album-section__inner {
+  padding: 0 var(--page-gutter);
+}
+
+.album-section__inner {
+  max-width: var(--site-width);
+  margin: 0 auto;
+}
+
+.album-section__heading {
+  font-family: var(--font-ui);
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
+  color: #fff;
+  margin: 0 0 var(--space-md);
+}
+
+/* — Narrative — */
+.album-section__direct-answer {
+  font-family: var(--font-body, var(--font-ui));
+  font-size: 1.1rem;
+  line-height: 1.55;
+  color: #fff;
+  margin: 0 0 var(--space-md);
+  max-width: 68ch;
+}
+
+.album-section__prose {
+  font-family: var(--font-body, var(--font-ui));
+  font-size: 1rem;
+  line-height: 1.65;
+  color: rgba(232, 235, 240, 0.88);
+  max-width: 68ch;
+}
+
+.album-section__prose p {
+  margin: 0 0 var(--space-md);
+}
+
+.album-section__key-points {
+  margin: var(--space-md) 0 0;
+  padding-left: 1.1rem;
+  color: rgba(232, 235, 240, 0.85);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.album-section__key-points li {
+  margin-bottom: 0.25rem;
+}
+
+.album-section__subheading {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin: var(--space-lg) 0 var(--space-sm);
+}
+
+/* — Lyrics — */
+.album-section__lyrics-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+@media (max-width: 720px) {
+  .album-section__lyrics-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.album-section__lyrics-card {
+  position: relative;
+  border: 1px solid rgba(139, 156, 247, 0.12);
+  border-radius: 6px;
+  background: rgba(139, 156, 247, 0.04);
+  overflow: hidden;
+  transition: border-color var(--duration-base) var(--ease-out), background var(--duration-base) var(--ease-out);
+}
+
+.album-section__lyrics-card:hover {
+  border-color: rgba(139, 156, 247, 0.4);
+  background: rgba(139, 156, 247, 0.1);
+}
+
+.album-section__lyrics-link {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  text-decoration: none;
+  color: inherit;
+  align-items: stretch;
+}
+
+.album-section__lyrics-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.album-section__lyrics-thumb img {
+  object-fit: cover;
+}
+
+.album-section__lyrics-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-ui);
+}
+
+.album-section__lyrics-num {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: rgba(0, 212, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.album-section__lyrics-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.album-section__lyrics-cta {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 235, 240, 0.55);
+}
+
+.album-section__lyrics-chorus {
+  display: block;
+  grid-column: 1 / -1;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  border-top: 1px solid rgba(139, 156, 247, 0.12);
+  font-family: var(--font-body, var(--font-ui));
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: rgba(232, 235, 240, 0.85);
+  white-space: pre-wrap;
+}
+
+/* — Art (uses 3 crop ratios) — */
+.album-section__art-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 120px;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 900px) {
+  .album-section__art-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .album-section__art-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: 140px;
+  }
+}
+
+.album-section__art-cell {
+  position: relative;
+  margin: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(139, 156, 247, 0.06);
+  border: 1px solid rgba(139, 156, 247, 0.12);
+}
+
+.album-section__art-cell img {
+  object-fit: cover;
+}
+
+.album-section__art-cell--landscape {
+  grid-column: span 3;
+  grid-row: span 2;
+}
+
+.album-section__art-cell--square {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.album-section__art-cell--portrait {
+  grid-column: span 2;
+  grid-row: span 3;
+}
+
+@media (max-width: 600px) {
+  .album-section__art-cell--landscape,
+  .album-section__art-cell--square,
+  .album-section__art-cell--portrait {
+    grid-column: span 2;
+  }
+  .album-section__art-cell--landscape { grid-row: span 1; }
+  .album-section__art-cell--square    { grid-row: span 2; }
+  .album-section__art-cell--portrait  { grid-row: span 3; }
+}
+
+/* — Video — */
+.album-section__video-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-lg);
+}
+
+@media (max-width: 720px) {
+  .album-section__video-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.album-section__video-cell {
+  margin: 0;
+}
+
+.album-section__video-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid rgba(139, 156, 247, 0.18);
+}
+
+.album-section__video-frame iframe,
+.album-section__video-frame video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.album-section__video-cap {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) 2px 0;
+  font-family: var(--font-ui);
+}
+
+.album-section__video-title {
+  font-size: 0.95rem;
+  color: rgba(232, 235, 240, 0.92);
+}
+
+.album-section__video-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(0, 212, 255, 0.7);
+}
+
+/* — You Might Also Like — */
+.album-section__ymal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .album-section__ymal-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 720px) {
+  .album-section__ymal-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.album-section__ymal-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.album-section__ymal-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(139, 156, 247, 0.06);
+  margin-bottom: var(--space-xs);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.album-section__ymal-card:hover .album-section__ymal-thumb {
+  transform: translateY(-2px);
+}
+
+.album-section__ymal-thumb img {
+  object-fit: cover;
+}
+
+.album-section__ymal-title {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  color: rgba(232, 235, 240, 0.92);
+}
+
+/* — Related Observations — */
+.album-section__obs-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .album-section__obs-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 720px) {
+  .album-section__obs-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.album-section__obs-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.album-section__obs-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(139, 156, 247, 0.06);
+  margin-bottom: var(--space-xs);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.album-section__obs-card:hover .album-section__obs-thumb {
+  transform: translateY(-2px);
+}
+
+.album-section__obs-thumb img {
+  object-fit: cover;
+}
+
+.album-section__obs-title {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  color: rgba(232, 235, 240, 0.92);
 }
 
 .album-cube__face-tracklist li::marker {
@@ -10265,8 +11047,73 @@ h3.aw-heading {
   }
 }
 
+@media (max-width: 720px) {
+  .song-landing__cta {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: var(--space-md);
+  }
+
+  .song-landing__cta-link {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .product-detail__art-col {
+    position: relative;
+  }
+
+  .product-detail__gallery--inline {
+    display: none;
+  }
+
+  .product-detail__gallery--floating {
+    display: flex;
+    flex-wrap: nowrap;
+    position: absolute;
+    bottom: var(--space-sm);
+    right: var(--space-sm);
+    margin-top: 0;
+    padding: 4px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 5;
+  }
+
+  .product-detail__gallery--floating .product-detail__thumb {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+@media (max-width: 720px) {
+  .track-detail__btn,
+  .product-detail__btn {
+    height: 56px;
+    font-size: 1rem;
+    border-radius: 8px;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+
+  .track-detail__rc-badge,
+  .product-detail__rc-badge {
+    justify-self: center;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 480px) {
+  .product-detail__title {
+    font-size: 1.725rem;
+  }
+
+  .track-detail__info-bar[data-cols="2"],
   .track-detail__info-bar[data-cols="3"],
+  .product-detail__info-bar[data-cols="2"],
   .product-detail__info-bar[data-cols="3"] {
     grid-template-columns: 1fr;
   }
@@ -11722,6 +12569,18 @@ h3.aw-heading {
   align-self: stretch;
 }
 
+@media (max-width: 768px) {
+  /* On phones the summary + CTA stack vertically so neither cramps the other. */
+  .explore-songs__detail-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+
+  .explore-songs__detail-row .explore-songs__summary {
+    align-self: stretch;
+  }
+}
+
 .explore-songs__title {
   font-family: var(--font-display, var(--font-ui));
   font-size: var(--text-xl, 1.75rem);
@@ -11764,7 +12623,7 @@ h3.aw-heading {
 .explore-songs__summary {
   font-family: var(--font-body, var(--font-ui));
   color: var(--text-secondary);
-  font-size: 1.2rem;
+  font-size: 0.96rem;
   line-height: 1.35;
   margin: 0;
 }

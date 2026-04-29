@@ -180,7 +180,7 @@ export default async function AdminObservationsPage({
             <tr key={obsv.id} className="admin-table__row">
               <td className="admin-table__td">
                 <Link
-                  href={`/admin/observations/${obsv.id}`}
+                  href={`/admin/observations/${obsv.slug || obsv.id}`}
                   className="admin-table__link"
                 >
                   {obsv.title}

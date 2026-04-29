@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { slugify } from "@/lib/utils";
 import { useAutosave } from "@/hooks/useAutosave";
 import { MediaLibrary } from "@/components/MediaLibrary";
+import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
+import { AlbumVisibilityChat } from "@/components/AlbumVisibilityChat";
+import { AlbumVisibilitySections, type AlbumVisibilitySectionsHandle } from "@/components/AlbumVisibilitySections";
 
 interface AlbumData {
   id?: string;
@@ -14,7 +17,6 @@ interface AlbumData {
   release_date: string | null;
   cover_art_path: string | null;
   cover_art_alt: string | null;
-  description: string | null;
   concept_statement: string | null;
   display_order: number;
   status: string;
@@ -23,6 +25,15 @@ interface AlbumData {
   download_path_mp3: string | null;
   download_path_flac: string | null;
   download_path_wav: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
+  portrait_focal_x: number | null;
+  portrait_focal_y: number | null;
+  portrait_zoom: number | null;
 }
 
 const emptyAlbum: AlbumData = {
@@ -31,7 +42,6 @@ const emptyAlbum: AlbumData = {
   release_date: null,
   cover_art_path: null,
   cover_art_alt: null,
-  description: null,
   concept_statement: null,
   display_order: 0,
   status: "draft",
@@ -40,6 +50,15 @@ const emptyAlbum: AlbumData = {
   download_path_mp3: null,
   download_path_flac: null,
   download_path_wav: null,
+  hero_focal_x: null,
+  hero_focal_y: null,
+  hero_zoom: 1.0,
+  card_focal_x: null,
+  card_focal_y: null,
+  card_zoom: 1.0,
+  portrait_focal_x: null,
+  portrait_focal_y: null,
+  portrait_zoom: 1.0,
 };
 
 export default function EditAlbumPage() {
@@ -49,20 +68,24 @@ export default function EditAlbumPage() {
   const [songs, setSongs] = useState<{ id: string; title: string; slug: string; track_number: number; status: string }[]>([]);
   const [formats, setFormats] = useState<{ id: string; label: string }[]>([]);
   const [mediaOpen, setMediaOpen] = useState(false);
+  const sectionsRef = useRef<AlbumVisibilitySectionsHandle>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/admin/albums/${id}`).then(r => r.json()),
-      fetch(`/api/admin/songs?album_id=${id}`).then(r => r.json()),
-      fetch(`/api/admin/release-formats`).then(r => r.json()),
-    ]).then(([album, sngs, fmts]) => {
-      setForm({ ...emptyAlbum, ...album });
-      setSongs(sngs);
-      setFormats(fmts);
-    });
+    fetch(`/api/admin/albums/${id}`)
+      .then((r) => r.json())
+      .then(async (album) => {
+        const albumUuid = album?.id || id;
+        const [sngs, fmts] = await Promise.all([
+          fetch(`/api/admin/songs?album_id=${albumUuid}`).then((r) => r.json()),
+          fetch(`/api/admin/release-formats`).then((r) => r.json()),
+        ]);
+        setForm({ ...emptyAlbum, ...album });
+        setSongs(sngs);
+        setFormats(fmts);
+      });
   }, [id]);
 
-  const set = useCallback((field: keyof AlbumData, value: unknown) => {
+  const set = useCallback(<K extends keyof AlbumData>(field: K, value: AlbumData[K]) => {
     setForm((prev) => prev ? { ...prev, [field]: value } : prev);
   }, []);
 
@@ -73,7 +96,6 @@ export default function EditAlbumPage() {
       release_date: d.release_date,
       cover_art_path: d.cover_art_path,
       cover_art_alt: d.cover_art_alt,
-      description: d.description,
       concept_statement: d.concept_statement,
       display_order: d.display_order,
       status: d.status,
@@ -82,6 +104,15 @@ export default function EditAlbumPage() {
       download_path_mp3: d.download_path_mp3,
       download_path_flac: d.download_path_flac,
       download_path_wav: d.download_path_wav,
+      hero_focal_x: d.hero_focal_x,
+      hero_focal_y: d.hero_focal_y,
+      hero_zoom: d.hero_zoom,
+      card_focal_x: d.card_focal_x,
+      card_focal_y: d.card_focal_y,
+      card_zoom: d.card_zoom,
+      portrait_focal_x: d.portrait_focal_x,
+      portrait_focal_y: d.portrait_focal_y,
+      portrait_zoom: d.portrait_zoom,
     }),
     []
   );
@@ -100,7 +131,25 @@ export default function EditAlbumPage() {
     router.push("/admin/music");
   }
 
+  function handleCropsChange(ratio: CropRatio, patch: CropPatch) {
+    if (!form) return;
+    if ("focalX" in patch) set(`${ratio}_focal_x` as keyof AlbumData, patch.focalX as AlbumData[keyof AlbumData]);
+    if ("focalY" in patch) set(`${ratio}_focal_y` as keyof AlbumData, patch.focalY as AlbumData[keyof AlbumData]);
+    if ("zoom" in patch) set(`${ratio}_zoom` as keyof AlbumData, (patch.zoom ?? 1) as AlbumData[keyof AlbumData]);
+  }
+
+  function handleResetCrops() {
+    (["hero", "card", "portrait"] as CropRatio[]).forEach((r) => {
+      set(`${r}_focal_x` as keyof AlbumData, null as AlbumData[keyof AlbumData]);
+      set(`${r}_focal_y` as keyof AlbumData, null as AlbumData[keyof AlbumData]);
+      set(`${r}_zoom` as keyof AlbumData, 1 as AlbumData[keyof AlbumData]);
+    });
+  }
+
   if (!form) return <div className="admin-page"><p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>Loading...</p></div>;
+
+  const cardFx = form.card_focal_x ?? 50;
+  const cardFy = form.card_focal_y ?? 50;
 
   return (
     <div className="obsv-editor">
@@ -145,36 +194,49 @@ export default function EditAlbumPage() {
           </div>
 
           <div className="obsv-editor__field">
-            <label className="obsv-editor__label" htmlFor="description">Description</label>
-            <textarea
-              id="description"
-              className="obsv-editor__input"
-              value={form.description || ""}
-              onChange={e => set("description", e.target.value || null)}
-              rows={6}
-              placeholder="About this album..."
-            />
-            <p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "var(--space-2xs) 0 0" }}>
-              SEO meta description. Shown in search results + social shares.
-            </p>
-          </div>
-
-          <div className="obsv-editor__field">
-            <label className="obsv-editor__label" htmlFor="concept_statement">Concept Statement</label>
+            <label className="obsv-editor__label" htmlFor="concept_statement">Concept</label>
             <textarea
               id="concept_statement"
               className="obsv-editor__input"
               value={form.concept_statement || ""}
               onChange={e => set("concept_statement", e.target.value || null)}
-              rows={4}
-              placeholder="The 'why' of this record — the concept, theme, or idea behind the album..."
+              rows={10}
+              placeholder="The album's manifesto — its concept, theme, the 'why' of the record. This is the only narrative on the album that Chad writes by hand; the visibility engine treats it as ground truth and never rewrites it."
             />
-            <p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "var(--space-2xs) 0 0" }}>
-              Rendered on the Discography cube (Plane 5) when hovering the album. Keep it short.
-            </p>
           </div>
 
-          <div className="obsv-editor__panel" style={{ padding: 0, border: 0, background: "transparent" }}>
+          {/* Visibility Engine — inline, mirrors songs */}
+          {form.id && (
+            <div style={{ marginTop: "1.5rem" }}>
+              <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "0.75rem" }}>
+                Visibility Engine
+              </h2>
+              <AlbumVisibilityChat
+                albumId={form.id}
+                onSectionsUpdated={() => sectionsRef.current?.refresh()}
+              />
+              <div style={{ marginTop: "1rem" }}>
+                <AlbumVisibilitySections ref={sectionsRef} albumId={form.id} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="obsv-editor__sidebar">
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">Publish</h3>
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="status">Status</label>
+              <select id="status" className="obsv-editor__input" value={form.status} onChange={e => set("status", e.target.value)}>
+                <option value="draft">Draft</option>
+                <option value="unreleased">Unreleased</option>
+                <option value="published">Published</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="obsv-editor__panel">
             <h3 className="obsv-editor__panel-title">Cover Art</h3>
             {form.cover_art_path ? (
               <div className="cover-art-preview">
@@ -182,6 +244,7 @@ export default function EditAlbumPage() {
                   src={form.cover_art_path}
                   alt={form.cover_art_alt || "Album cover art preview"}
                   className="cover-art-preview__img"
+                  style={{ objectPosition: `${cardFx}% ${cardFy}%` }}
                 />
                 <div className="cover-art-preview__actions">
                   <button
@@ -195,7 +258,7 @@ export default function EditAlbumPage() {
                   <button
                     type="button"
                     className="admin-btn admin-btn--danger"
-                    onClick={() => set("cover_art_path", null)}
+                    onClick={() => { set("cover_art_path", null); handleResetCrops(); }}
                     style={{ fontSize: "0.6875rem", padding: "4px 12px" }}
                   >
                     Remove
@@ -212,32 +275,32 @@ export default function EditAlbumPage() {
               </button>
             )}
 
-            <div className="obsv-editor__field" style={{ marginTop: "var(--space-sm)" }}>
-              <label className="obsv-editor__label" htmlFor="cover_art_alt">Alt Text</label>
-              <input
-                id="cover_art_alt"
-                className="obsv-editor__input"
-                type="text"
-                value={form.cover_art_alt || ""}
-                onChange={e => set("cover_art_alt", e.target.value || null)}
-                placeholder="Describe the cover art"
-              />
-            </div>
-          </div>
-        </div>
+            {form.cover_art_path && (
+              <div className="obsv-editor__field" style={{ marginTop: "var(--space-sm)" }}>
+                <label className="obsv-editor__label" htmlFor="cover_art_alt">Alt Text</label>
+                <input
+                  id="cover_art_alt"
+                  className="obsv-editor__input"
+                  type="text"
+                  value={form.cover_art_alt || ""}
+                  onChange={e => set("cover_art_alt", e.target.value || null)}
+                  placeholder="Describe the cover art"
+                />
+              </div>
+            )}
 
-        {/* Sidebar */}
-        <div className="obsv-editor__sidebar">
-          <div className="obsv-editor__panel">
-            <h3 className="obsv-editor__panel-title">Publish</h3>
-            <div className="obsv-editor__field">
-              <label className="obsv-editor__label" htmlFor="status">Status</label>
-              <select id="status" className="obsv-editor__input" value={form.status} onChange={e => set("status", e.target.value)}>
-                <option value="draft">Draft</option>
-                <option value="unreleased">Unreleased</option>
-                <option value="published">Published</option>
-              </select>
-            </div>
+            {form.cover_art_path && (
+              <FocalPointPicker
+                src={form.cover_art_path}
+                alt={form.cover_art_alt || "Album cover art"}
+                crops={{
+                  hero: { focalX: form.hero_focal_x, focalY: form.hero_focal_y, zoom: form.hero_zoom },
+                  card: { focalX: form.card_focal_x, focalY: form.card_focal_y, zoom: form.card_zoom },
+                  portrait: { focalX: form.portrait_focal_x, focalY: form.portrait_focal_y, zoom: form.portrait_zoom },
+                }}
+                onChange={handleCropsChange}
+              />
+            )}
           </div>
 
           <div className="obsv-editor__panel">
@@ -293,7 +356,7 @@ export default function EditAlbumPage() {
 
       {/* Songs listing below editor */}
       <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "var(--space-xl) 0 var(--space-md)" }}>Songs</h2>
-      <Link href={`/admin/music/songs/new?album_id=${id}`} className="admin-btn admin-btn--secondary" style={{ marginBottom: "var(--space-md)", display: "inline-block" }}>Add Song</Link>
+      <Link href={`/admin/music/songs/new?album_id=${form.id || id}`} className="admin-btn admin-btn--secondary" style={{ marginBottom: "var(--space-md)", display: "inline-block" }}>Add Song</Link>
       <table className="admin-table">
         <thead><tr><th className="admin-table__th">#</th><th className="admin-table__th">Title</th><th className="admin-table__th">Status</th></tr></thead>
         <tbody>

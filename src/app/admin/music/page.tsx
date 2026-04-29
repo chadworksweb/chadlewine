@@ -183,7 +183,7 @@ export default function AdminMusicPage() {
       </div>
 
       <div style={{ marginBottom: "var(--space-xl)", padding: "var(--space-lg)", background: "var(--bg-glass)", border: "1px solid var(--bg-glass-border)", borderRadius: 8 }}>
-        <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "var(--space-md)" }}>Featured Track (Homepage)</h2>
+        <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "var(--space-md)" }}>Featured Song (Homepage)</h2>
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)" }}>
           <select
             value={featured?.id || ""}
@@ -286,7 +286,7 @@ export default function AdminMusicPage() {
         <tbody>
           {albums.map((a) => (
             <tr key={a.id} className="admin-table__row">
-              <td className="admin-table__td"><Link href={`/admin/music/albums/${a.id}`} className="admin-table__link">{a.title}</Link></td>
+              <td className="admin-table__td"><Link href={`/admin/music/albums/${a.slug || a.id}`} className="admin-table__link">{a.title}</Link></td>
               <td className="admin-table__td">{albumSongCounts[a.id] || 0}</td>
               <td className="admin-table__td"><span className={`admin-status admin-status--${a.status}`}>{a.status}</span></td>
               <td className="admin-table__td admin-table__td--date">{a.release_date || "—"}</td>

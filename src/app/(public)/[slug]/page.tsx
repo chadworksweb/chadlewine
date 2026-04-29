@@ -81,7 +81,7 @@ export default async function DoorPage({
 
   return (
     <article id="page-door" className="page-static">
-      <AdminEditButton href={`/admin/door-pages/${dp.id}`} />
+      <AdminEditButton href={`/admin/door-pages/${dp.slug || dp.id}`} />
       <h1 className="page-static__title">{dp.title}</h1>
       {dp.body && <MarkdownRenderer html={dp.body} />}
 

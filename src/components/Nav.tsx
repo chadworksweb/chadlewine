@@ -12,13 +12,21 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
   const [hidden, setHidden] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const lastScroll = useRef(0);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Pages can opt to keep the nav visible past 200px by tagging an
+    // element with `data-nav-keep-until` — auto-hide only kicks in once
+    // the user scrolls past that element's bottom.
     function onScroll() {
       const y = window.scrollY;
-      setHidden(y > 200 && y > lastScroll.current);
+      const keepUntil = document.querySelector<HTMLElement>("[data-nav-keep-until]");
+      const threshold = keepUntil
+        ? y + keepUntil.getBoundingClientRect().bottom
+        : 200;
+      setHidden(y > threshold && y > lastScroll.current);
       lastScroll.current = y;
     }
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -28,6 +36,7 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
   useEffect(() => {
     setMenuOpen(false);
     setExpanded(null);
+    setMobileExpanded(null);
   }, [pathname]);
 
   function isActive(href: string) {
@@ -116,22 +125,54 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
 
       {menuOpen && (
         <div className="nav-mobile-menu">
-          {navItems.map((item) => (
-            <div key={item.label}>
-              <Link href={item.href} className="nav-mobile-menu__item">
+          {navItems.map((item) =>
+            item.children ? (
+              <div key={item.label} className="nav-mobile-menu__group">
+                <div className="nav-mobile-menu__row">
+                  <Link
+                    href={item.href}
+                    className={`nav-mobile-menu__item nav-mobile-menu__item--parent${isParentActive(item) ? " nav-mobile-menu__item--active" : ""}`}
+                  >
+                    {item.label}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileExpanded(mobileExpanded === item.label ? null : item.label);
+                    }}
+                    className={`nav-mobile-menu__chevron${mobileExpanded === item.label ? " nav-mobile-menu__chevron--open" : ""}`}
+                    aria-label={`Toggle ${item.label} submenu`}
+                    aria-expanded={mobileExpanded === item.label}
+                  >
+                    <span aria-hidden>▾</span>
+                  </button>
+                </div>
+                <div
+                  className={`nav-mobile-menu__dropdown${mobileExpanded === item.label ? " nav-mobile-menu__dropdown--open" : " nav-mobile-menu__dropdown--closed"}`}
+                >
+                  {item.children.map((child, i) => (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={`nav-mobile-menu__item nav-mobile-menu__item--sub${isActive(child.href) ? " nav-mobile-menu__item--active" : ""}`}
+                      style={{ "--nav-index": i, "--nav-index-rev": item.children!.length - 1 - i } as React.CSSProperties}
+                    >
+                      {child.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-mobile-menu__item${isActive(item.href) ? " nav-mobile-menu__item--active" : ""}`}
+              >
                 {item.label}
               </Link>
-              {item.children?.map((child) => (
-                <Link
-                  key={child.href}
-                  href={child.href}
-                  className="nav-mobile-menu__item nav-mobile-menu__item--sub"
-                >
-                  {child.label}
-                </Link>
-              ))}
-            </div>
-          ))}
+            )
+          )}
         </div>
       )}
     </header>

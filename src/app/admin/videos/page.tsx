@@ -25,7 +25,7 @@ export default function AdminVideosPage() {
         <tbody>
           {videos.map(v => (
             <tr key={v.id} className="admin-table__row">
-              <td className="admin-table__td"><Link href={`/admin/videos/${v.id}`} className="admin-table__link">{v.title}</Link></td>
+              <td className="admin-table__td"><Link href={`/admin/videos/${v.slug || v.id}`} className="admin-table__link">{v.title}</Link></td>
               <td className="admin-table__td"><span className={`admin-status admin-status--${v.status}`}>{v.status}</span></td>
               <td className="admin-table__td admin-table__td--indicator"><span className={v.is_featured ? "admin-check" : "admin-dash"}>{v.is_featured ? "\u2713" : "\u2014"}</span></td>
             </tr>

@@ -2,15 +2,18 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
-import { CoverArtPlayground } from "@/components/CoverArtPlayground";
+import { WaterRipple } from "@/components/WaterRipple";
 import { TitleReveal } from "@/components/TitleReveal";
 
+// HeroLens shows the album-cover slider for SONGS on the homepage. Songs
+// have summaries (songs.song_summary), not hooks. Albums have concepts
+// (albums.concept_statement), and observations have hooks (observations.hook_line).
+// Don't reintroduce a generic "hook" field here — pick the entity-specific
+// name when this slider is reused in a different context.
 export interface HeroLensItem {
   slug: string;
   title: string;
   date: string | null;
-  hook: string;
   artImagePath: string;
   artAlt: string;
   href: string;
@@ -27,33 +30,24 @@ interface HeroLensProps {
   onIndexChange?: (index: number) => void;
 }
 
-const SCROLL_THRESHOLD = 120;
-const TRANSITION_MS = 1500;
-const TRANSITION_MS_MOBILE = 350;
+const TRANSITION_MS = 1100;
+const TRANSITION_MS_MOBILE = 500;
 
-function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boolean }) {
+function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boolean }) {
   const fx = item.focalX ?? 0.5;
   const fy = item.focalY ?? 0.5;
   const z = item.zoom && item.zoom >= 1 ? item.zoom : 1;
-  const mobileStyle: React.CSSProperties = { objectPosition: `${fx * 100}% ${fy * 100}%` };
+  const staticStyle: React.CSSProperties = { objectPosition: `${fx * 100}% ${fy * 100}%` };
   if (z !== 1) {
-    mobileStyle.transform = `scale(${z})`;
-    mobileStyle.transformOrigin = `${fx * 100}% ${fy * 100}%`;
+    staticStyle.transform = `scale(${z})`;
+    staticStyle.transformOrigin = `${fx * 100}% ${fy * 100}%`;
   }
   return (
     <>
       <div className="hero-lens__slide-art">
         {item.artImagePath && (
-          isMobile ? (
-            <img
-              src={item.artImagePath}
-              alt={item.artAlt || item.title}
-              className="hero-lens__slide-img"
-              style={mobileStyle}
-              loading="eager"
-            />
-          ) : (
-            <CoverArtPlayground
+          isCurrent ? (
+            <WaterRipple
               src={item.artImagePath}
               alt={item.artAlt || item.title}
               className="cover-hero__art-wrap"
@@ -61,6 +55,14 @@ function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boole
               focalY={item.focalY}
               zoom={item.zoom}
             />
+          ) : (
+            <div className="cover-hero__art-wrap">
+              <img
+                src={item.artImagePath}
+                alt={item.artAlt || item.title}
+                style={staticStyle}
+              />
+            </div>
           )
         )}
       </div>
@@ -72,20 +74,12 @@ function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boole
               <h1 className="cover-hero__title">{item.title}</h1>
             </Link>
           </TitleReveal>
-
-          {item.hook && (
-            <p className="cover-hero__hook">{item.hook}</p>
-          )}
         </div>
 
         <div className="cover-hero__bar">
           <Link href={item.href} className="hero-lens__cta">
             {item.ctaLabel}
           </Link>
-
-          {item.date && (
-            <time className="cover-hero__date">{formatDate(item.date)}</time>
-          )}
 
           {item.categories && item.categories.length > 0 && (
             <div className="cover-hero__cats">
@@ -116,12 +110,13 @@ function HeroLensSlide({ item, isMobile }: { item: HeroLensItem; isMobile: boole
 
 export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const accumulatedDelta = useRef(0);
-  const railRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const lockoutRef = useRef(false);
+  // Viewport height tracks the CURRENT slide's intrinsic height so long
+  // titles push the page down and short ones bring it back up. The CSS
+  // height transition makes that motion smooth.
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(true);
 
   const total = items.length;
 
@@ -133,24 +128,31 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  useEffect(() => {
-    const vp = viewportRef.current;
-    if (!vp || viewportHeight !== null) return;
-    const h = vp.getBoundingClientRect().height;
+  // Measure the current slide via a callback ref — runs the moment React
+  // attaches/swaps the slide. We deliberately do NOT keep a ResizeObserver
+  // around: it fires mid-animation as fonts/images settle and would restart
+  // the viewport height transition each time, producing visible jitter.
+  // Re-measure happens naturally when the slide-role changes, plus a
+  // separate window-resize listener handles viewport-width reflows.
+  const lastMeasuredRef = useRef<HTMLDivElement | null>(null);
+  const setCurrentSlideRef = useCallback((el: HTMLDivElement | null) => {
+    lastMeasuredRef.current = el;
+    if (!el) return;
+    // Use fractional bounding-rect height so the CSS transition has
+    // smooth sub-pixel interpolation instead of integer-stepped jitter.
+    const h = el.getBoundingClientRect().height;
     if (h > 0) setViewportHeight(h);
-  }, [viewportHeight]);
+  }, []);
 
   useEffect(() => {
-    const measure = () => {
-      const vp = viewportRef.current;
-      if (!vp) return;
-      vp.style.height = "auto";
-      const h = vp.getBoundingClientRect().height;
-      vp.style.height = "";
+    const onResize = () => {
+      const el = lastMeasuredRef.current;
+      if (!el) return;
+      const h = el.offsetHeight;
       if (h > 0) setViewportHeight(h);
     };
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const onIndexChangeRef = useRef(onIndexChange);
@@ -159,20 +161,18 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const advance = useCallback(
     (direction: "up" | "down") => {
       if (lockoutRef.current) return;
+      if (total <= 1) return;
+      // Carousel wraps: last → first, first → last. Keeps every slide
+      // visually equal — both prev and next peeks are always populated.
       const nextIndex =
         direction === "up"
-          ? Math.min(currentIndex + 1, total - 1)
-          : Math.max(currentIndex - 1, 0);
-      if (nextIndex === currentIndex) {
-        accumulatedDelta.current = 0;
-        return;
-      }
+          ? (currentIndex + 1) % total
+          : (currentIndex - 1 + total) % total;
       lockoutRef.current = true;
       setCurrentIndex(nextIndex);
       onIndexChangeRef.current?.(nextIndex);
       setTimeout(() => {
         lockoutRef.current = false;
-        accumulatedDelta.current = 0;
       }, isMobile ? TRANSITION_MS_MOBILE : TRANSITION_MS);
     },
     [currentIndex, total, isMobile]
@@ -199,9 +199,6 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const dx = e.touches[0].clientX - touchStart.current.x;
     const dy = e.touches[0].clientY - touchStart.current.y;
-    // Decide axis the first time either delta crosses a small threshold.
-    // Horizontal must clearly dominate (>1.5x) AND exceed 12px before we
-    // take control, so natural vertical scrolling passes through.
     if (gestureAxis.current === null) {
       const ax = Math.abs(dx);
       const ay = Math.abs(dy);
@@ -239,80 +236,81 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
     []
   );
 
-  useEffect(() => {
-    const rail = railRef.current;
-    if (!rail) return;
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      accumulatedDelta.current += e.deltaY;
-      if (accumulatedDelta.current > SCROLL_THRESHOLD) {
-        advanceRef.current("up");
-        accumulatedDelta.current = 0;
-      } else if (accumulatedDelta.current < -SCROLL_THRESHOLD) {
-        advanceRef.current("down");
-        accumulatedDelta.current = 0;
-      }
-    };
-    rail.addEventListener("wheel", handleWheel, { passive: false });
-    return () => rail.removeEventListener("wheel", handleWheel);
-  }, []);
-
   if (total === 0) return null;
 
   return (
     <section className="hero-lens">
-      <div className="hero-lens__columns">
-        <div
-          ref={viewportRef}
-          className="hero-lens__viewport"
-          style={viewportHeight ? { height: viewportHeight } : undefined}
-          onTouchStart={isMobile ? handleTouchStart : undefined}
-          onTouchMove={isMobile ? handleTouchMove : undefined}
-          onTouchEnd={isMobile ? handleTouchEnd : undefined}
-        >
-          {items.map((item, i) => {
-            const offset = i - currentIndex;
-            if (Math.abs(offset) > 1) return null;
-            const translate = offset === 0 ? "0%" : offset < 0 ? "-100%" : "100%";
-            const dragOffset = isMobile && isDragging ? ` + ${dragPx}px` : "";
-            const transform = isMobile
-              ? `translateX(calc(${translate}${dragOffset}))`
-              : `translateY(${translate})`;
-            return (
-              <div
-                key={item.slug}
-                className={`hero-lens__slide${i === currentIndex ? " hero-lens__slide--current" : ""}`}
-                style={{
-                  transform,
-                  transition: isMobile && isDragging ? "none" : undefined,
-                  zIndex: i === currentIndex ? 2 : 1,
-                }}
-                aria-hidden={i !== currentIndex}
-              >
-                <HeroLensSlide item={item} isMobile={isMobile} />
-              </div>
-            );
-          })}
-        </div>
+      <div
+        ref={viewportRef}
+        className="hero-lens__viewport"
+        style={viewportHeight ? { height: viewportHeight } : undefined}
+        onTouchStart={isMobile ? handleTouchStart : undefined}
+        onTouchMove={isMobile ? handleTouchMove : undefined}
+        onTouchEnd={isMobile ? handleTouchEnd : undefined}
+      >
+        {items.map((item, i) => {
+          // Shortest signed distance modulo total — so item N-1 reads as
+          // offset -1 when current is 0, and item 0 reads as offset +1
+          // when current is N-1. Carousel wraps both directions.
+          let offset = i - currentIndex;
+          if (offset > total / 2) offset -= total;
+          else if (offset < -total / 2) offset += total;
+          if (Math.abs(offset) > 1) return null;
+          const role = offset === 0 ? "current" : offset < 0 ? "prev" : "next";
 
-        <div
-          ref={railRef}
-          className="hero-lens__rail"
-        >
-          <div className="hero-lens__rail-label">SCROLL</div>
-          <div className="hero-lens__pips">
-            {items.map((_, i) => (
-              <span
-                key={i}
-                className={`hero-lens__pip${i === currentIndex ? " hero-lens__pip--active" : ""}${i < currentIndex ? " hero-lens__pip--past" : ""}`}
-              />
-            ))}
-          </div>
-          <div className="hero-lens__rail-counter">
-            {currentIndex + 1} / {total}
-          </div>
-        </div>
+          const dragOffset = isMobile && isDragging ? ` + ${dragPx}px` : "";
+          let baseTranslate;
+          if (role === "current") baseTranslate = "0%";
+          else if (role === "next") baseTranslate = "calc(100% - var(--hero-peek))";
+          else baseTranslate = "calc(-100% + var(--hero-peek))";
+          const transform = `translateX(calc(${baseTranslate}${dragOffset}))`;
+
+          const onClickAdvance =
+            role === "next"
+              ? () => advanceRef.current("up")
+              : role === "prev"
+                ? () => advanceRef.current("down")
+                : undefined;
+
+          return (
+            <div
+              key={item.slug}
+              ref={role === "current" ? setCurrentSlideRef : undefined}
+              className={`hero-lens__slide hero-lens__slide--${role}`}
+              style={{
+                transform,
+                transition: isMobile && isDragging ? "none" : undefined,
+                // Peeks ride ABOVE the current slide so their visible 110px
+                // strip overlays the current's edge. Otherwise current's
+                // full-width image hides them.
+                zIndex: role === "current" ? 1 : 2,
+              }}
+              aria-hidden={role !== "current"}
+              role={role !== "current" ? "button" : undefined}
+              aria-label={
+                role === "next"
+                  ? `Next: ${item.title}`
+                  : role === "prev"
+                    ? `Previous: ${item.title}`
+                    : undefined
+              }
+              tabIndex={role !== "current" ? 0 : undefined}
+              onClick={onClickAdvance}
+              onKeyDown={
+                role !== "current"
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onClickAdvance?.();
+                      }
+                    }
+                  : undefined
+              }
+            >
+              <HeroLensSlide item={item} isCurrent={role === "current"} />
+            </div>
+          );
+        })}
       </div>
     </section>
   );
