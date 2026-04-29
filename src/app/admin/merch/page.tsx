@@ -47,7 +47,7 @@ export default function AdminMerchPage() {
         );
       } else {
         setSyncResult(
-          `Fetched ${data.fetched}, created ${data.created}, updated ${data.updated}` +
+          `Fetched ${data.fetched}, created ${data.created}, skipped ${data.skipped ?? 0} existing` +
           (data.errors?.length ? ` (${data.errors.length} errors)` : ""),
         );
         fetchData();
@@ -85,7 +85,7 @@ export default function AdminMerchPage() {
             onClick={handleSync}
             disabled={syncing}
           >
-            {syncing ? "Syncing…" : "Sync from Printify"}
+            {syncing ? "Importing…" : "Import new from Printify"}
           </button>
           <Link href="/admin/merch/products/new" className="admin-btn admin-btn--primary">
             New Product

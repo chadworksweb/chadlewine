@@ -15,9 +15,27 @@ export interface SyncResult {
   fetched: number;
   created: number;
   updated: number;
+  skipped: number;
   errors: Array<{ printify_id: string; error: string }>;
   hint?: string;
   error?: string;
+}
+
+// Per-field allow list for updates. Maps to Printify's publish-checkbox flags.
+// New products are always inserted with all fields regardless of this map.
+export interface SyncFieldFlags {
+  title?: boolean;
+  description?: boolean;
+  images?: boolean;   // image_url + image_urls
+  variants?: boolean; // variants + price (price is derived from variants)
+}
+
+export interface SyncOptions {
+  // If omitted, existing rows are skipped entirely (insert-only mode for the
+  // manual sync button). If provided, only the listed fields update.
+  fields?: SyncFieldFlags;
+  // Scope to a single Printify product (used by the publish-started webhook).
+  onlyPrintifyId?: string;
 }
 
 function stripHtml(html: string): string {
@@ -83,7 +101,10 @@ function normalizeVariants(p: PrintifyShopProduct): NormalizedVariant[] {
   });
 }
 
-export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<SyncResult> {
+export async function syncPrintifyProducts(
+  supabase: SupabaseClient,
+  options: SyncOptions = {},
+): Promise<SyncResult> {
   const rawToken = process.env.PRINTIFY_API_TOKEN || "";
   const rawShop = process.env.PRINTIFY_SHOP_ID || "";
   if (!rawToken || !rawShop) {
@@ -92,6 +113,7 @@ export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<Sy
       fetched: 0,
       created: 0,
       updated: 0,
+      skipped: 0,
       errors: [],
       error: `Printify env not set (token_present=${!!rawToken}, shop_present=${!!rawShop})`,
     };
@@ -102,6 +124,7 @@ export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<Sy
       fetched: 0,
       created: 0,
       updated: 0,
+      skipped: 0,
       errors: [],
       error: `Printify env has surrounding whitespace. Re-add via vercel env to clean it up.`,
     };
@@ -116,6 +139,7 @@ export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<Sy
       fetched: 0,
       created: 0,
       updated: 0,
+      skipped: 0,
       errors: [],
       error: (err as Error).message,
       hint: `shop=${rawShop.slice(0, 12)}, token_len=${rawToken.length}, token_prefix=${rawToken.slice(0, 12)}`,
@@ -123,11 +147,15 @@ export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<Sy
   }
 
   const nowIso = new Date().toISOString();
+  const fields = options.fields;
   let created = 0;
   let updated = 0;
+  let skipped = 0;
   const errors: Array<{ printify_id: string; error: string }> = [];
 
   for (const p of shopProducts.data || []) {
+    if (options.onlyPrintifyId && p.id !== options.onlyPrintifyId) continue;
+
     const variants = normalizeVariants(p);
     if (variants.length === 0) continue;
     const lowestCents = Math.min(...variants.map((v) => v.price_cents));
@@ -139,9 +167,40 @@ export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<Sy
       .eq("printify_product_id", p.id)
       .maybeSingle();
 
-    const baseSlug = slugify(p.title);
-    let slug = existing?.slug || baseSlug;
-    if (!existing?.slug) {
+    if (existing) {
+      // No fields = insert-only mode → leave existing row untouched.
+      if (!fields) {
+        skipped++;
+        continue;
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        last_synced_at: nowIso,
+        // Visibility isn't a Printify checkbox; treat it as always synced when
+        // we're updating anything at all.
+        status: p.visible ? "active" : "inactive",
+      };
+      if (fields.title) updatePayload.title = p.title;
+      if (fields.description) updatePayload.description = stripHtml(p.description || "");
+      if (fields.images) {
+        updatePayload.image_url = pickImage(p);
+        updatePayload.image_urls = collectImages(p);
+      }
+      if (fields.variants) {
+        updatePayload.variants = variants;
+        updatePayload.price = price;
+      }
+
+      const { error } = await supabase
+        .from("products")
+        .update(updatePayload)
+        .eq("id", existing.id);
+      if (error) errors.push({ printify_id: p.id, error: error.message });
+      else updated++;
+    } else {
+      // New product: pick a slug and insert with everything.
+      const baseSlug = slugify(p.title);
+      let slug = baseSlug;
       let n = 2;
       while (true) {
         const { data: clash } = await supabase
@@ -153,33 +212,23 @@ export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<Sy
         slug = `${baseSlug}-${n++}`;
         if (n > 50) break;
       }
-    }
 
-    const payload = {
-      printify_product_id: p.id,
-      title: p.title,
-      slug,
-      description: stripHtml(p.description || ""),
-      image_url: pickImage(p),
-      image_urls: collectImages(p),
-      price,
-      variants,
-      fulfillment: "printify_curated",
-      status: p.visible ? "active" : "inactive",
-      last_synced_at: nowIso,
-    };
+      const insertPayload = {
+        printify_product_id: p.id,
+        title: p.title,
+        slug,
+        description: stripHtml(p.description || ""),
+        image_url: pickImage(p),
+        image_urls: collectImages(p),
+        price,
+        variants,
+        fulfillment: "printify_curated",
+        status: p.visible ? "active" : "inactive",
+        last_synced_at: nowIso,
+        tier: "line",
+      };
 
-    if (existing) {
-      const { error } = await supabase
-        .from("products")
-        .update(payload)
-        .eq("id", existing.id);
-      if (error) errors.push({ printify_id: p.id, error: error.message });
-      else updated++;
-    } else {
-      const { error } = await supabase
-        .from("products")
-        .insert({ ...payload, tier: "line" });
+      const { error } = await supabase.from("products").insert(insertPayload);
       if (error) errors.push({ printify_id: p.id, error: error.message });
       else created++;
     }
@@ -190,6 +239,7 @@ export async function syncPrintifyProducts(supabase: SupabaseClient): Promise<Sy
     fetched: shopProducts.data?.length || 0,
     created,
     updated,
+    skipped,
     errors,
   };
 }

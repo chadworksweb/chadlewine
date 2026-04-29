@@ -46,6 +46,7 @@ next-env.d.ts
 .vercel
 .env.local
 
-# script-generated artifacts (mapping dumps, logs)
+# script-generated artifacts (mapping dumps, logs, image processing cache)
 scripts/*.log
 scripts/*.out.json
+scripts/bg-remove-work/

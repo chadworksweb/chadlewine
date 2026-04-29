@@ -27,6 +27,14 @@ interface PrintifyShipment {
   delivered_at?: string | null;
 }
 
+interface PrintifyPublishFlags {
+  title?: boolean;
+  description?: boolean;
+  images?: boolean;
+  variants?: boolean;
+  tags?: boolean;
+}
+
 interface PrintifyEvent {
   id: string;
   type: string;
@@ -37,7 +45,35 @@ interface PrintifyEvent {
     data?: {
       shipments?: PrintifyShipment[];
       status?: string;
+      // Publish-checkbox state. Printify's docs use `publish_details`; some
+      // integrations have seen `publish`. Read both, fall back to all-true.
+      publish_details?: PrintifyPublishFlags;
+      publish?: PrintifyPublishFlags;
     };
+  };
+}
+
+function readPublishFlags(event: PrintifyEvent): {
+  title: boolean;
+  description: boolean;
+  images: boolean;
+  variants: boolean;
+} {
+  const raw =
+    event.resource?.data?.publish_details ?? event.resource?.data?.publish ?? null;
+  if (!raw) {
+    // Unknown shape — log loudly and assume Printify wants everything published
+    // (matches the request the storefront made via publishProduct()).
+    console.warn(
+      "[printify-webhook] no publish_details/publish in event; defaulting to all-true",
+    );
+    return { title: true, description: true, images: true, variants: true };
+  }
+  return {
+    title: raw.title === true,
+    description: raw.description === true,
+    images: raw.images === true,
+    variants: raw.variants === true,
   };
 }
 
@@ -64,11 +100,25 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // Product publish flow — Printify locks the product as "Publishing" until we ack.
+  // Product publish flow — Printify locks the product as "Publishing" until we
+  // ack. Sync is scoped to the single resource being published, and only the
+  // fields the user checked in Printify's publish dialog are written.
   if (event.type === "product:publish:started") {
     const siteUrl = process.env.SITE_URL || "https://chadlewine.com";
+    const flags = readPublishFlags(event);
+    console.log("[printify-webhook] publish:started", {
+      resourceId,
+      flags,
+      // Log the raw publish-config shape once so we can confirm the actual
+      // field name Printify uses without dumping the whole event.
+      rawPublishConfig:
+        event.resource?.data?.publish_details ?? event.resource?.data?.publish ?? null,
+    });
     try {
-      const sync = await syncPrintifyProducts(supabase);
+      const sync = await syncPrintifyProducts(supabase, {
+        fields: flags,
+        onlyPrintifyId: resourceId,
+      });
       if (!sync.ok) {
         await publishingFailed(resourceId, sync.error || "sync failed");
         return Response.json({ received: true, action: "publishing_failed", error: sync.error });
@@ -83,7 +133,13 @@ export async function POST(request: Request) {
         id: resourceId,
         handle: `${siteUrl}/merch/${slug}`,
       });
-      return Response.json({ received: true, action: "publishing_succeeded", slug });
+      return Response.json({
+        received: true,
+        action: "publishing_succeeded",
+        slug,
+        flags,
+        sync: { created: sync.created, updated: sync.updated, skipped: sync.skipped },
+      });
     } catch (err) {
       const msg = (err as Error).message;
       console.error("[printify-webhook] publish ack failed:", msg);
