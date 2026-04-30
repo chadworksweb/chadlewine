@@ -15,6 +15,15 @@ export async function generateMetadata(): Promise<Metadata> {
   return mergeMetadata("/discography", DEFAULT_METADATA);
 }
 
+export interface CubeFace {
+  slot: number;
+  media_type: "image" | "video";
+  media_path: string;
+  focal_x: number | null;
+  focal_y: number | null;
+  zoom: number | null;
+}
+
 export interface DiscographyItem {
   id: string;
   title: string;
@@ -30,6 +39,7 @@ export interface DiscographyItem {
   card_focal_x: number | null;
   card_focal_y: number | null;
   card_zoom: number | null;
+  faces: CubeFace[];
 }
 
 async function getDiscography() {
@@ -43,6 +53,7 @@ async function getDiscography() {
     .order("release_date", { ascending: false });
 
   const albumIds = (albums || []).map((a: any) => a.id);
+  const allReleaseIds: string[] = [...albumIds];
 
   // Tracklists for all albums in one query
   let tracksByAlbum: Record<string, string[]> = {};
@@ -75,6 +86,7 @@ async function getDiscography() {
     card_focal_x: null,
     card_focal_y: null,
     card_zoom: null,
+    faces: [],
   }));
 
   // Singles
@@ -117,7 +129,39 @@ async function getDiscography() {
     card_focal_x: s.card_focal_x ?? null,
     card_focal_y: s.card_focal_y ?? null,
     card_zoom: s.card_zoom ?? null,
+    faces: [],
   }));
+
+  for (const s of singleIds) allReleaseIds.push(s);
+
+  // Cube face media for the simpler discography cube. One query covers both
+  // albums and singles; we partition by release_type when zipping back into
+  // the per-item arrays.
+  if (allReleaseIds.length > 0) {
+    const { data: faces } = await supabase
+      .from("release_cube_faces")
+      .select("release_type, release_id, slot, media_type, media_path, focal_x, focal_y, zoom")
+      .in("release_id", allReleaseIds)
+      .order("slot");
+    const byKey = new Map<string, CubeFace[]>();
+    for (const f of (faces || []) as Array<CubeFace & { release_type: string; release_id: string }>) {
+      const key = `${f.release_type}:${f.release_id}`;
+      (byKey.get(key) ?? byKey.set(key, []).get(key)!).push({
+        slot: f.slot,
+        media_type: f.media_type,
+        media_path: f.media_path,
+        focal_x: f.focal_x,
+        focal_y: f.focal_y,
+        zoom: f.zoom,
+      });
+    }
+    for (const item of albumItems) {
+      item.faces = byKey.get(`album:${item.id}`) ?? [];
+    }
+    for (const item of singleItems) {
+      item.faces = byKey.get(`song:${item.id}`) ?? [];
+    }
+  }
 
   // Collect unique format labels
   const allItems = [...albumItems, ...singleItems];

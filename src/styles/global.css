@@ -14635,3 +14635,361 @@ body.cart-open {
   border-top: 1px solid var(--border-subtle);
   margin: var(--space-lg) 0;
 }
+
+/* --- Discography Cube Radiant (simpler launch-default cube) --- */
+/* Full-bleed media on every face; one wrapping <a>; default link cursor;
+   no per-face CTAs, eyebrows, labels, or special cube-cursor. */
+
+.disco-cube {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  margin-bottom: var(--space-sm);
+  perspective: 2600px;
+  perspective-origin: 50% 50%;
+  touch-action: none;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Loading pulse halo — sits on root, breathes cyan during navigation. */
+.disco-cube::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0 22px 2px rgba(0, 212, 255, 0.65);
+  transition: opacity 0.25s ease;
+  will-change: opacity, box-shadow;
+  z-index: 0;
+}
+
+.disco-cube.is-loading::before {
+  opacity: 1;
+  animation: cube-loading-breath 0.9s ease-in-out infinite;
+}
+
+.disco-cube__flat {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--bg-glass-border);
+  opacity: 1;
+  transform-origin: 50% 50%;
+  transform: scale(1);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  will-change: opacity, transform;
+  z-index: 2;
+}
+
+.disco-cube__flat-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.disco-cube.is-active .disco-cube__flat {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.8);
+}
+
+.disco-cube__stage {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  will-change: transform;
+  z-index: 1;
+  visibility: hidden;
+}
+
+.disco-cube.is-active .disco-cube__stage {
+  pointer-events: none; /* whole cube is one link — no per-face hits */
+  z-index: 3;
+  visibility: visible;
+}
+
+.disco-cube__box {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  transform-style: preserve-3d;
+  transition: none;
+  will-change: transform;
+}
+
+.disco-cube__face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 4px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-sizing: border-box;
+  background: #000;
+}
+
+.disco-cube__face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
+}
+
+.disco-cube.is-loading .disco-cube__face::after {
+  opacity: 0.75;
+}
+
+/* GPU water-ripple canvas — overlays the static <img> on each cube face
+   when the cube is active. The shader pipeline (DiscoFaceWater) does the
+   wave-equation simulation and refracts the source image at wave crests. */
+.disco-cube__face-water {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.disco-cube__face-img,
+.disco-cube__face-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.disco-cube__face-video {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.disco-cube__face--front {
+  transform: translateZ(var(--cube-half-z, 50cqw));
+  border: 1px solid var(--bg-glass-border);
+}
+
+.disco-cube__face--top {
+  transform: rotateX(90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.disco-cube__face--bottom {
+  transform: rotateX(-90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.disco-cube__face--right {
+  transform: rotateY(90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.disco-cube__face--left {
+  transform: rotateY(-90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+/* --- CubeFaceEditor (admin) --- */
+
+.cube-face-editor {
+  margin: var(--space-xl) 0;
+  padding: var(--space-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.02));
+}
+
+.cube-face-editor__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.cube-face-editor__title {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin: 0 0 0.25rem;
+}
+
+.cube-face-editor__hint {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.cube-face-editor__error {
+  color: #ff5566;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  margin: 0 0 var(--space-sm);
+}
+
+.cube-face-editor__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.cube-face-editor__row {
+  display: grid;
+  grid-template-columns: 80px 120px 1fr;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.cube-face-editor__row-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.cube-face-editor__slot-num {
+  font-family: var(--font-ui);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  line-height: 1;
+}
+
+.cube-face-editor__slot-name {
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.cube-face-editor__preview-wrap {
+  position: relative;
+}
+
+.cube-face-editor__preview {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+  cursor: crosshair;
+  border: 1px solid var(--border-subtle);
+}
+
+.cube-face-editor__preview-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.cube-face-editor__preview-img,
+.cube-face-editor__preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.cube-face-editor__focal-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00d4ff;
+  border: 2px solid #fff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.8);
+}
+
+.cube-face-editor__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, 6px);
+}
+
+.cube-face-editor__control-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cube-face-editor__video-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cube-face-editor__video-input {
+  width: 220px;
+  padding: 4px 8px;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+
+.cube-face-editor__zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cube-face-editor__zoom-label {
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.cube-face-editor__zoom-slider {
+  width: 140px;
+}
+
+.cube-face-editor__zoom-value {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  min-width: 38px;
+}
+
+.cube-face-editor__focal-meta {
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
