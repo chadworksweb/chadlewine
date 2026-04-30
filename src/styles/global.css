@@ -182,10 +182,16 @@ main > .subscribe-section,
 main > .album-rc-classifications,
 main > .site-patronage,
 /* Page wrappers — opt out at the wrapper level so the sections inside
-   keep their existing layout. */
+   keep their existing layout.
+   NOTE: .page-static REMOVED from this list — when a .page-static element
+   sits in a grid-column: full track AND its own max-width uses the
+   canonical min(100% - 2*gutter, site-width) formula, the grid track
+   sizing collapses on short-content pages (chad-d, honeychrome, xanga
+   were rendering sub-600px at vw≈1335). Letting .page-static use the
+   default grid-column: content places it cleanly in the canonical
+   1255px rail — matches merch and discography. */
 main > .page-home,
 main > #page-home,
-main > .page-static,
 main > .page-merch,
 main > #page-merch,
 main > .page-curation,
@@ -2293,9 +2299,10 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .page-static {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter) var(--space-4xl);
+  /* No max-width / margin / L-R padding needed — parent <main> grid places
+     this in the canonical content rail (1255px @ vw=1335). Keep bottom
+     padding for breathing room above the footer. */
+  padding-bottom: var(--space-4xl);
 }
 
 .page-static--reading {
