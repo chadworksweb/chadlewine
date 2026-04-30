@@ -72,6 +72,7 @@ const adminNav: NavItem[] = [
     label: "Curation",
     children: [
       { href: "/admin/curation", label: "Curated Entries" },
+      { href: "/admin/homepage-hero", label: "Homepage Hero" },
       { href: "/admin/cl-stream", label: "CL Stream" },
     ],
   },

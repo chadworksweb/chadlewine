@@ -10,6 +10,8 @@ import { TitleReveal } from "@/components/TitleReveal";
 // (albums.concept_statement), and observations have hooks (observations.hook_line).
 // Don't reintroduce a generic "hook" field here — pick the entity-specific
 // name when this slider is reused in a different context.
+export type HeroKind = "song" | "album" | "merch" | "observation" | "art";
+
 export interface HeroLensItem {
   slug: string;
   title: string;
@@ -23,6 +25,7 @@ export interface HeroLensItem {
   zoom?: number; // >= 1
   categories?: { title: string; slug: string }[];
   tags?: { label: string; slug: string }[];
+  kind?: HeroKind;
 }
 
 interface HeroLensProps {
@@ -71,15 +74,23 @@ function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boo
         <div className="cover-hero__title-col">
           <TitleReveal artImageUrl={item.artImagePath || ""}>
             <Link href={item.href} className="cover-hero__title-link">
-              <h1 className="cover-hero__title">{item.title}</h1>
+              <h2 className="cover-hero__title">{item.title}</h2>
             </Link>
           </TitleReveal>
         </div>
 
         <div className="cover-hero__bar">
-          <Link href={item.href} className="hero-lens__cta">
-            {item.ctaLabel}
-          </Link>
+          <div className="hero-lens__cta-row">
+            {item.kind && (
+              <span className={`hero-lens__kind hero-lens__kind--${item.kind}`}>
+                {item.kind}
+              </span>
+            )}
+
+            <Link href={item.href} className="hero-lens__cta">
+              {item.ctaLabel}
+            </Link>
+          </div>
 
           {item.categories && item.categories.length > 0 && (
             <div className="cover-hero__cats">
@@ -311,6 +322,27 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
             </div>
           );
         })}
+
+        {total > 1 && (
+          <>
+            <button
+              type="button"
+              className="hero-lens__nav hero-lens__nav--prev"
+              onClick={() => advanceRef.current("down")}
+              aria-label="Previous slide"
+            >
+              <span className="hero-lens__nav-arrow" aria-hidden>‹</span>
+            </button>
+            <button
+              type="button"
+              className="hero-lens__nav hero-lens__nav--next"
+              onClick={() => advanceRef.current("up")}
+              aria-label="Next slide"
+            >
+              <span className="hero-lens__nav-arrow" aria-hidden>›</span>
+            </button>
+          </>
+        )}
       </div>
     </section>
   );

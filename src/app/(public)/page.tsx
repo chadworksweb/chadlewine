@@ -6,6 +6,7 @@ import { ExploreSongs } from "@/components/ExploreSongs";
 import { SongBriefCard, type SongBriefData } from "@/components/SongBriefCard";
 import { MerchProductCard } from "@/components/MerchProductCard";
 import { fetchBadge } from "@/lib/rising-compass";
+import { getCuratedHeroItems } from "@/lib/homepage-hero";
 
 export const revalidate = 60;
 
@@ -279,13 +280,14 @@ async function getExploreSongs() {
 }
 
 export default async function HomePage() {
-  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch] = await Promise.all([
+  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems] = await Promise.all([
     getHomepageSongs(),
     getFeaturedTrack(),
     getCLStreamSongs(),
     getExploreSongs(),
     getSongBriefs(),
     getHomepageMerch(),
+    getCuratedHeroItems(),
   ]);
 
   const featuredPlaybackMode = featuredTrack
@@ -298,6 +300,7 @@ export default async function HomePage() {
         songs={songs}
         featuredTrack={featuredTrack ? { ...featuredTrack, playbackMode: featuredPlaybackMode } : null}
         clStreamSongs={clStreamSongs}
+        curatedHeroItems={curatedHeroItems}
       />
 
       {homepageMerch.length > 0 && (

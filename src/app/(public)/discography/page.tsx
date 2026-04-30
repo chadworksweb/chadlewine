@@ -143,7 +143,7 @@ export default async function DiscographyPage() {
   const { items, allFormats } = await getDiscography();
 
   return (
-    <div id="page-discography" className="page-static">
+    <div id="page-discography">
       <h1 className="page-static__title">Discography</h1>
       <DiscographyExplorer items={items} allFormats={allFormats} />
     </div>

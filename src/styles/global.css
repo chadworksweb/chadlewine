@@ -357,24 +357,24 @@ h2, h3, h4, h5, h6 {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   padding: 6px 14px;
   border-radius: 3px;
-  background: rgba(58, 30, 90, 0.45);
+  background: rgba(58, 30, 90, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   white-space: nowrap;
   text-decoration: none;
 }
 
 .nav-links__sub-item:hover {
   color: #fff;
-  background: rgba(58, 30, 90, 0.65);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(58, 30, 90, 0.96);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .nav-links__sub-item--active {
   color: #fff;
-  background: rgba(58, 30, 90, 0.65);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(58, 30, 90, 0.96);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* Expand — top-down staggered */
@@ -386,18 +386,10 @@ h2, h3, h4, h5, h6 {
 @keyframes nav-expand {
   0% {
     opacity: 0;
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-bottom: 0;
     transform: translateY(-10px);
   }
   100% {
     opacity: 1;
-    max-height: 50px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    margin-bottom: 3px;
     transform: translateY(0);
   }
 }
@@ -411,18 +403,10 @@ h2, h3, h4, h5, h6 {
 @keyframes nav-collapse {
   0% {
     opacity: 1;
-    max-height: 50px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    margin-bottom: 3px;
     transform: translateY(0);
   }
   100% {
     opacity: 0;
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-bottom: 0;
     transform: translateY(-10px);
   }
 }
@@ -843,7 +827,7 @@ h2, h3, h4, h5, h6 {
 
 .hero-lens {
   max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto;
+  margin: 0 auto 50px;
   /* Peek surface width — narrowed from 110 to make room for the inter-card
      padding (var(--hero-gap)) without losing the click target entirely. */
   --hero-peek: 90px;
@@ -888,6 +872,107 @@ h2, h3, h4, h5, h6 {
 
 .hero-lens__slide--current {
   z-index: 1;
+}
+
+/* Animated 1px conic-gradient border on the active hero card.
+   Mask trick: a conic-gradient fill clipped to a 1px ring via padding +
+   linear-gradient masks composited with `exclude`, so only the perimeter
+   paints. @property makes --hero-border-angle animatable. */
+@property --hero-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.hero-lens__slide-art {
+  position: relative;
+}
+
+.hero-lens__slide--current .hero-lens__slide-art::before {
+  content: "";
+  position: absolute;
+  /* Inset L/R by (peek - gap) so the border lands inside the visible card
+     band rather than under the peek slides (z=2), which would otherwise
+     cover the current slide's left/right edges. max() clamps to 0 on
+     mobile where peek is 0 and would otherwise go negative. */
+  top: 0;
+  bottom: 0;
+  left: max(0px, calc(var(--hero-peek) - var(--hero-gap)));
+  right: max(0px, calc(var(--hero-peek) - var(--hero-gap)));
+  pointer-events: none;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--hero-border-angle),
+    transparent 0%,
+    rgba(40, 56, 160, 0.85) 25%,
+    rgba(20, 30, 90, 1) 50%,
+    rgba(40, 56, 160, 0.85) 75%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: hero-border-sweep 6s linear infinite;
+  z-index: 4;
+}
+
+@keyframes hero-border-sweep {
+  to { --hero-border-angle: 360deg; }
+}
+
+/* On-brand carousel arrows — sit centered over the L/R peek strips,
+   above the peek-veil (z=5) so they read against the dimmed peek art.
+   Square chrome with accent border, mirroring the CTA's visual language. */
+.hero-lens__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: calc(var(--hero-peek) - 12px);
+  max-width: 56px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-accent);
+  cursor: pointer;
+  z-index: 6;
+  transition: color 300ms ease, text-shadow 300ms ease, transform 300ms ease;
+}
+
+.hero-lens__nav--prev {
+  left: 6px;
+}
+
+.hero-lens__nav--next {
+  right: 6px;
+}
+
+.hero-lens__nav:hover {
+  color: #fff;
+  text-shadow: 0 0 18px rgba(139, 156, 247, 0.7);
+}
+
+.hero-lens__nav:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 3px;
+}
+
+.hero-lens__nav-arrow {
+  font-family: var(--font-ui);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1;
+  display: block;
+  /* Glyph baseline sits low — nudge up so it reads centered. */
+  transform: translateY(-2px);
 }
 
 /* Peek slides — hover + click to advance. Inner links are dead so the whole
@@ -956,18 +1041,19 @@ h2, h3, h4, h5, h6 {
 
 
 .hero-lens__slide-content {
+  position: absolute;
+  left: var(--hero-peek);
+  right: var(--hero-peek);
+  bottom: 0;
+  min-height: 25%;
   display: grid;
   grid-template-columns: 3fr 1fr;
   gap: var(--space-xl);
-  align-items: start;
-  padding-top: var(--space-xl);
-  padding-bottom: var(--space-xl);
-  /* Title + meta inset from slide edges so peek slides' text doesn't bleed
-     into the visible peek strip. Image (.hero-lens__slide-art) stays full
-     slide width — its 1200x500 ratio is preserved across every card. */
-  max-width: calc(100% - var(--hero-peek) * 2);
-  margin-left: auto;
-  margin-right: auto;
+  align-items: end;
+  padding: var(--space-sm) var(--space-md);
+  background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 30%, rgba(0, 0, 0, 0.85) 100%);
+  z-index: 3;
+  box-sizing: border-box;
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -1116,9 +1202,8 @@ h2, h3, h4, h5, h6 {
 
   .hero-lens__slide-content {
     grid-template-columns: 1fr;
-    gap: var(--space-md);
-    padding-top: var(--space-md);
-    padding-bottom: var(--space-md);
+    gap: var(--space-xs);
+    padding: 0 var(--space-md);
   }
 
   .hero-lens__slide .cover-hero__art-wrap {
@@ -1134,6 +1219,10 @@ h2, h3, h4, h5, h6 {
     /* Padding stays — creates a visible gap between adjacent cards as one
        swipes into view. */
     transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hero-lens__nav {
+    display: none;
   }
 
   .hero-lens__slide::after {
@@ -1257,15 +1346,53 @@ h2, h3, h4, h5, h6 {
   color: var(--text-secondary);
 }
 
+/* CTA row — badge + CTA side-by-side, stretched to share the same height.
+   Neutralizes .cover-hero__bar > * panel styling so the row itself stays
+   transparent and only its children render visible chrome. */
+.cover-hero__bar > .hero-lens__cta-row {
+  display: flex !important;
+  align-items: stretch;
+  gap: var(--space-sm);
+  padding: 0 !important;
+  background: none !important;
+  border: none !important;
+  margin-bottom: var(--space-sm);
+}
+
+.cover-hero__bar > .hero-lens__cta-row > * {
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hero-lens__kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-md);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hero-lens__kind--song { color: var(--text-accent); border-color: rgba(64, 96, 255, 0.5); }
+.hero-lens__kind--album { color: #ffd166; border-color: rgba(255, 209, 102, 0.5); }
+.hero-lens__kind--merch { color: #06d6a0; border-color: rgba(6, 214, 160, 0.5); }
+.hero-lens__kind--observation { color: #ef476f; border-color: rgba(239, 71, 111, 0.5); }
+.hero-lens__kind--art { color: #c084fc; border-color: rgba(192, 132, 252, 0.5); }
+
 /* Hero Lens CTA — standalone, no inheritance */
 .hero-lens__cta {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
-  padding: 10px var(--space-xl);
-  margin-bottom: var(--space-sm);
+  padding: 10px var(--space-md);
   border: 1px solid var(--text-accent);
   border-radius: 0;
   background: var(--text-accent);
@@ -1485,6 +1612,7 @@ h2, h3, h4, h5, h6 {
 }
 
 .title-reveal h1,
+.title-reveal h2,
 .title-reveal a {
   cursor: pointer;
 }
@@ -9887,10 +10015,6 @@ h3.aw-heading {
 }
 
 /* --- Discography grid --- */
-
-#page-discography {
-  max-width: var(--site-width);
-}
 
 .discography-grid {
   display: grid;
