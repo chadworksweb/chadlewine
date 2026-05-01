@@ -157,7 +157,7 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroI
 
       <div className="home-split" data-nav-keep-until>
         <section className="home-split__observations">
-          <h2 ref={headingRef} className={`home-split__section-heading${stuck ? " is-stuck" : ""}`}>Songs</h2>
+          <h2 ref={headingRef} className={`home-split__section-heading${stuck ? " is-stuck" : ""}`}>Latest Songs</h2>
           {feedSongs.length > 0 && (
             <div className="archive__feed">
               {feedSongs.map((song) => {
@@ -181,11 +181,6 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroI
                   </div>
                 );
               })}
-              <div className="archive__feed-item archive__feed-item--viewAll">
-                <Link href="/music/songs" className="archive__feed-view-all">
-                  View All Songs →
-                </Link>
-              </div>
             </div>
           )}
         </section>

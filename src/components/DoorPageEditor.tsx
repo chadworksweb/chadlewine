@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/utils";
+import { useAutosave } from "@/hooks/useAutosave";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { GeoPanel } from "@/components/GeoPanel";
 
@@ -76,22 +77,24 @@ const EMPTY: DoorPageData = {
   published_at: null,
 };
 
+const SUB_RESOURCE_DEBOUNCE_MS = 600;
+
 export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
   const router = useRouter();
   const isEdit = !!initial?.id;
   const [form, setForm] = useState<DoorPageData>(initial || EMPTY);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [queryInput, setQueryInput] = useState("");
   const [funnelInput, setFunnelInput] = useState("");
   const [allSongs, setAllSongs] = useState<SongRow[]>([]);
   const [linkedSongIds, setLinkedSongIds] = useState<string[]>([]);
   const [songSearch, setSongSearch] = useState("");
-  const [songsDirty, setSongsDirty] = useState(false);
   const [allArt, setAllArt] = useState<ArtRow[]>([]);
   const [linkedArtIds, setLinkedArtIds] = useState<string[]>([]);
   const [artSearch, setArtSearch] = useState("");
-  const [artDirty, setArtDirty] = useState(false);
+
+  // Track last-synced JSON for sub-resources so we don't echo the initial load.
+  const songsSyncedRef = useRef<string>("[]");
+  const artSyncedRef = useRef<string>("[]");
 
   useEffect(() => {
     fetch("/api/admin/songs")
@@ -108,14 +111,22 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
       fetch(`/api/admin/door-pages/${initial.id}/songs`)
         .then((r) => r.json())
         .then((data) => {
-          if (Array.isArray(data)) setLinkedSongIds(data.map((s: SongRow) => s.id));
+          if (Array.isArray(data)) {
+            const ids = data.map((s: SongRow) => s.id);
+            songsSyncedRef.current = JSON.stringify(ids);
+            setLinkedSongIds(ids);
+          }
         })
         .catch(() => {});
 
       fetch(`/api/admin/door-pages/${initial.id}/art`)
         .then((r) => r.json())
         .then((data) => {
-          if (Array.isArray(data)) setLinkedArtIds(data.map((a: ArtRow) => a.id));
+          if (Array.isArray(data)) {
+            const ids = data.map((a: ArtRow) => a.id);
+            artSyncedRef.current = JSON.stringify(ids);
+            setLinkedArtIds(ids);
+          }
         })
         .catch(() => {});
     }
@@ -125,75 +136,96 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleSave() {
-    if (!form.title.trim()) {
-      setError("Title is required");
-      return;
-    }
-    setSaving(true);
-    setError("");
-
-    const payload = {
-      ...form,
-      slug: form.slug || slugify(form.title),
+  // Main door-page autosave
+  const buildPayload = useCallback((data: DoorPageData) => {
+    const slug = data.slug || slugify(data.title);
+    return {
+      title: data.title,
+      slug,
+      body: data.body,
+      meta_title: data.meta_title,
+      meta_description: data.meta_description,
+      target_queries: data.target_queries,
+      funnel_targets: data.funnel_targets,
+      og_image_path: data.og_image_path,
+      og_alt: data.og_alt,
+      status: data.status,
+      seo_title: data.seo_title,
+      seo_description: data.seo_description,
+      focus_keyphrase: data.focus_keyphrase,
+      secondary_keyphrases: data.secondary_keyphrases,
+      search_intent: data.search_intent,
+      citation_summary: data.citation_summary,
+      first_sentence_extractable: data.first_sentence_extractable,
+      paa_pairs: data.paa_pairs,
+      entity_tags: data.entity_tags,
+      article_type: data.article_type,
+      hook_line: data.hook_line,
+      tension_line: data.tension_line,
     };
+  }, []);
 
-    const url = isEdit
-      ? `/api/admin/door-pages/${form.id}`
-      : "/api/admin/door-pages";
-    const method = isEdit ? "PUT" : "POST";
+  const { status: autosaveStatus } = useAutosave({
+    data: form,
+    endpoint: "/api/admin/door-pages",
+    id: form.id,
+    buildPayload,
+    enabled: form.title.trim().length > 0,
+    onCreated: (newId) => {
+      setForm((prev) => {
+        const slug = prev.slug || slugify(prev.title) || newId;
+        router.replace(`/admin/door-pages/${slug}`, { scroll: false });
+        return { ...prev, id: newId };
+      });
+    },
+  });
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Save failed");
-      setSaving(false);
-      return;
-    }
-
-    const saved = await res.json();
-
-    const doorId = saved.id;
-    if (doorId && songsDirty) {
-      await fetch(`/api/admin/door-pages/${doorId}/songs`, {
+  // Linked-songs autosave (only after door page exists)
+  useEffect(() => {
+    if (!form.id) return;
+    const json = JSON.stringify(linkedSongIds);
+    if (json === songsSyncedRef.current) return;
+    const t = setTimeout(() => {
+      fetch(`/api/admin/door-pages/${form.id}/songs`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ song_ids: linkedSongIds }),
-      });
-      setSongsDirty(false);
-    }
+      })
+        .then((r) => {
+          if (r.ok) songsSyncedRef.current = json;
+        })
+        .catch(() => {});
+    }, SUB_RESOURCE_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [linkedSongIds, form.id]);
 
-    if (doorId && artDirty) {
-      await fetch(`/api/admin/door-pages/${doorId}/art`, {
+  // Linked-art autosave (only after door page exists)
+  useEffect(() => {
+    if (!form.id) return;
+    const json = JSON.stringify(linkedArtIds);
+    if (json === artSyncedRef.current) return;
+    const t = setTimeout(() => {
+      fetch(`/api/admin/door-pages/${form.id}/art`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ art_ids: linkedArtIds }),
-      });
-      setArtDirty(false);
-    }
-
-    setSaving(false);
-
-    if (!isEdit) {
-      router.push(`/admin/door-pages/${saved.slug || saved.id}`);
-    }
-  }
+      })
+        .then((r) => {
+          if (r.ok) artSyncedRef.current = json;
+        })
+        .catch(() => {});
+    }, SUB_RESOURCE_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [linkedArtIds, form.id]);
 
   function addSong(id: string) {
     if (linkedSongIds.includes(id)) return;
     setLinkedSongIds([...linkedSongIds, id]);
-    setSongsDirty(true);
     setSongSearch("");
   }
 
   function removeSong(id: string) {
     setLinkedSongIds(linkedSongIds.filter((x) => x !== id));
-    setSongsDirty(true);
   }
 
   function moveSong(id: string, dir: -1 | 1) {
@@ -203,19 +235,16 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
     const next = [...linkedSongIds];
     [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
     setLinkedSongIds(next);
-    setSongsDirty(true);
   }
 
   function addArt(id: string) {
     if (linkedArtIds.includes(id)) return;
     setLinkedArtIds([...linkedArtIds, id]);
-    setArtDirty(true);
     setArtSearch("");
   }
 
   function removeArt(id: string) {
     setLinkedArtIds(linkedArtIds.filter((x) => x !== id));
-    setArtDirty(true);
   }
 
   function moveArt(id: string, dir: -1 | 1) {
@@ -225,11 +254,10 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
     const next = [...linkedArtIds];
     [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
     setLinkedArtIds(next);
-    setArtDirty(true);
   }
 
   async function handleDelete() {
-    if (!isEdit) return;
+    if (!form.id) return;
     if (!confirm("Delete this door page?")) return;
     await fetch(`/api/admin/door-pages/${form.id}`, { method: "DELETE" });
     router.push("/admin/door-pages");
@@ -262,25 +290,21 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
   return (
     <div className="admin-page">
       <div className="admin-page__header">
-        <h1 className="admin-page__title">{isEdit ? "Edit Door Page" : "New Door Page"}</h1>
-        <div style={{ display: "flex", gap: 8 }}>
-          {isEdit && (
+        <h1 className="admin-page__title">{form.id ? "Edit Door Page" : "New Door Page"}</h1>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {form.id && (
             <button type="button" className="admin-btn admin-btn--danger" onClick={handleDelete}>
               Delete
             </button>
           )}
-          <button
-            type="button"
-            className="admin-btn admin-btn--primary"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
+          <span className={`autosave-status autosave-status--${autosaveStatus}`}>
+            {autosaveStatus === "saving" && "Saving..."}
+            {autosaveStatus === "saved" && "Saved"}
+            {autosaveStatus === "error" && "Save failed"}
+            {autosaveStatus === "idle" && !form.id && "Type a title to begin"}
+          </span>
         </div>
       </div>
-
-      {error && <p className="obsv-editor__error">{error}</p>}
 
       {/* Title + Slug */}
       <div className="obsv-editor__field">
@@ -296,7 +320,7 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">Slug</label>
         <input
-          className="obsv-editor__input"
+          className="obsv-editor__input obsv-editor__input--mono"
           value={form.slug}
           onChange={(e) => set("slug", e.target.value)}
           placeholder={form.title ? slugify(form.title) : "auto-generated"}
@@ -378,7 +402,6 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
           Attach songs to feature on this page. Ordered top-to-bottom.
         </p>
 
-        {/* Ordered list of linked songs */}
         <ol style={{ listStyle: "none", padding: 0, margin: "0 0 8px", display: "flex", flexDirection: "column", gap: 4 }}>
           {linkedSongIds.map((id, idx) => {
             const s = allSongs.find((x) => x.id === id);
@@ -415,7 +438,6 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
           })}
         </ol>
 
-        {/* Search + add */}
         <input
           className="obsv-editor__input"
           value={songSearch}
@@ -454,9 +476,9 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
               ))}
           </ul>
         )}
-        {!isEdit && linkedSongIds.length > 0 && (
+        {!form.id && linkedSongIds.length > 0 && (
           <p style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
-            Saved on first Save.
+            Saved once the door page is created.
           </p>
         )}
       </div>
@@ -542,9 +564,9 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
               ))}
           </ul>
         )}
-        {!isEdit && linkedArtIds.length > 0 && (
+        {!form.id && linkedArtIds.length > 0 && (
           <p style={{ fontSize: 11, color: "#888", marginTop: 6 }}>
-            Saved on first Save.
+            Saved once the door page is created.
           </p>
         )}
       </div>

@@ -208,8 +208,8 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
   if (!open) return null;
 
   return (
-    <div className="media-overlay" onClick={onClose}>
-      <div className="media-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="media-overlay">
+      <div className="media-modal">
         <div className="media-modal__header">
           <h2 className="media-modal__title">Media Library</h2>
           <input

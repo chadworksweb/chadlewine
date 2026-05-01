@@ -1,5 +1,5 @@
 import { createPublicClient } from "@/lib/supabase-server";
-import { MerchExploreGrid } from "@/components/MerchExploreGrid";
+import { MerchExploreGrid, type ExploreKind } from "@/components/MerchExploreGrid";
 
 interface ExploreItem {
   key: string;
@@ -9,6 +9,7 @@ interface ExploreItem {
   image_url: string | null;
   image_alt: string | null;
   href: string;
+  kind: ExploreKind;
 }
 
 interface ProductRow {
@@ -95,6 +96,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
       image_url: p.image_url,
       image_alt: p.image_alt,
       href: `/merch/${p.slug || p.id}`,
+      kind: "merch",
     }));
   // Prefer merch not already shown on the page. If after exclusion we have
   // fewer than 2 left (e.g. the merch index already shows every product in
@@ -111,6 +113,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
     image_url: s.art_image_path,
     image_alt: s.title,
     href: `/music/songs/${s.slug}`,
+    kind: "song",
   }));
 
   const albumPool: ExploreItem[] = ((albumsRes.data || []) as Array<{ id: string; slug: string; title: string; cover_art_path: string | null }>).map((a) => ({
@@ -121,6 +124,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
     image_url: a.cover_art_path,
     image_alt: a.title,
     href: `/music/albums/${a.slug}`,
+    kind: "album",
   }));
 
   const artPool: ExploreItem[] = ((artRes.data || []) as Array<{ id: string; slug: string; title: string; image_path: string | null }>).map((a) => ({
@@ -131,6 +135,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
     image_url: a.image_path,
     image_alt: a.title,
     href: `/art/${a.slug}`,
+    kind: "art",
   }));
 
   // Pick 2 from each pool to guarantee all four types are represented when

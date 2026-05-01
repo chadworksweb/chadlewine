@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MerchRippleCanvas, type MerchRippleCanvasHandle } from "./MerchRippleCanvas";
 
+export type ExploreKind = "song" | "album" | "merch" | "art" | "observation";
+
 export interface ExploreGridItem {
   key: string;
   id: string;
@@ -12,6 +14,7 @@ export interface ExploreGridItem {
   image_url: string | null;
   image_alt: string | null;
   href: string;
+  kind?: ExploreKind;
 }
 
 interface Props {
@@ -154,6 +157,7 @@ export function MerchExploreGrid({ items }: Props) {
       {items.map((item, idx) => {
         const active = activeIdxs.has(idx);
         const hovered = hoveredIdx === idx;
+        const kind = item.kind ?? (item.key.split(":")[0] as ExploreKind | undefined);
         return (
           <div
             key={item.key}
@@ -184,6 +188,11 @@ export function MerchExploreGrid({ items }: Props) {
               <Link href={item.href} className="merch-shop__card-title-link">
                 {item.title}
               </Link>
+              {kind && (
+                <span className={`hero-lens__kind hero-lens__kind--${kind} merch-shop__card-kind`}>
+                  {kind}
+                </span>
+              )}
             </h3>
           </div>
         );

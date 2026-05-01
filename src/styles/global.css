@@ -195,7 +195,8 @@ main > #page-home,
 main > .page-merch,
 main > #page-merch,
 main > .page-curation,
-main > #page-curation {
+main > #page-curation,
+main > .page-music-hub__banner {
   grid-column: full;
 }
 
@@ -2324,10 +2325,66 @@ h2, h3, h4, h5, h6 {
    MUSIC HUB
    ============================================================ */
 
+/* Full-bleed title banner — mirrors the home-merch "Shop Chad Lewine
+   Merchandise" stripe (175px gradient band with the bracketed frame
+   absolutely centered inside it). */
+.page-music-hub__banner {
+  width: 100%;
+  height: 175px;
+  background: var(--bg-elevated);
+  position: relative;
+  isolation: isolate;
+  margin-bottom: var(--space-2xl);
+}
+
+.page-music-hub__banner > .explore-songs__frame--top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 175px;
+  margin: 0 auto;
+  z-index: 3;
+}
+
+.page-music-hub__banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 175px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 5%,
+    var(--text-accent) 50%,
+    rgba(64, 96, 255, 0.0) 95%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.5), 0 0 48px rgba(64, 96, 255, 0.2);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.page-music-hub__banner .explore-songs__heading,
+.page-music-hub__banner .explore-songs__frame-label {
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 12px var(--bg-elevated);
+  position: relative;
+  z-index: 1;
+}
+
+.page-music-hub__banner .explore-songs__heading {
+  font-size: 3.64rem;
+}
+
 .music-hub {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
+  margin-top: var(--space-3xl);
+  margin-bottom: 100px;
 }
 
 .music-hub__col {
@@ -2415,6 +2472,398 @@ h2, h3, h4, h5, h6 {
   .music-hub {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Album Hero (music page) ─────────────────────────────────────── */
+
+.album-hero {
+  /* Square art is the smaller of half the site-width and the leftover
+     viewport height (nav + page title + dots + buffer), then knocked down
+     15% so the hero takes up less of the page. */
+  --ah-art-size: calc(min(
+    calc((var(--site-width) - 18px) / 2),
+    calc(100vh - var(--nav-height) - 12rem)
+  ) * 0.85);
+  --ah-tab-w: 60px;
+  position: relative;
+  margin-bottom: var(--space-2xl);
+}
+
+.album-hero__viewport {
+  position: relative;
+  height: var(--ah-art-size);
+  overflow: hidden;
+  contain: layout;
+}
+
+/* Sovereign side-tab nav buttons — slim vertical strips at the viewport
+   edges. Adopt a more subtle version of the h1 title bar's accent-blue
+   vertical stripe (gradient peak in the middle) with a soft halo. */
+.album-hero__nav-tab {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--ah-tab-w);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 15%,
+    rgba(64, 96, 255, 0.32) 50%,
+    rgba(64, 96, 255, 0.0) 85%,
+    transparent 100%
+  );
+  box-shadow: 0 0 16px rgba(64, 96, 255, 0.22), 0 0 32px rgba(64, 96, 255, 0.08);
+  border: none;
+  color: var(--text-primary);
+  font-size: 36px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 4;
+  padding: 0;
+  transition: background var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+}
+
+.album-hero__nav-tab--prev {
+  left: 0;
+}
+
+.album-hero__nav-tab--next {
+  right: 0;
+}
+
+.album-hero__nav-tab:hover,
+.album-hero__nav-tab:focus-visible {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 10%,
+    rgba(64, 96, 255, 0.55) 50%,
+    rgba(64, 96, 255, 0.0) 90%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.4), 0 0 48px rgba(64, 96, 255, 0.18);
+  color: var(--text-accent);
+}
+
+.album-hero__nav-tab:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: -4px;
+}
+
+/* Slides are absolutely stacked at the same origin, full viewport width.
+   prev sits at translateX(-100%), next at translateX(100%), current at 0.
+   When the active index changes, role classes flip and the same transition
+   curve sweeps the whole card across — no fade. */
+.album-hero__slide {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.album-hero__slide--current {
+  z-index: 1;
+}
+
+.album-hero__slide--prev,
+.album-hero__slide--next {
+  z-index: 0;
+  pointer-events: none;
+}
+
+.album-hero__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xl);
+  max-width: var(--site-width);
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 calc(var(--ah-tab-w) + var(--space-md));
+  box-sizing: border-box;
+}
+
+.album-hero__stage > .album-hero__cover-link {
+  flex: 0 0 var(--ah-art-size);
+}
+
+.album-hero__stage > .album-hero__meta {
+  flex: 0 1 var(--ah-art-size);
+  min-width: 0;
+}
+
+.album-hero__cover-link {
+  display: block;
+  position: relative;
+  width: var(--ah-art-size);
+  height: var(--ah-art-size);
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--bg-glass);
+}
+
+.album-hero__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.album-hero__cover-link:hover .album-hero__cover {
+  transform: scale(1.02);
+}
+
+.album-hero__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-md);
+  /* Soft radial backlight behind the right column — gentle accent-blue
+     ellipse fading to transparent so the content reads as lit from
+     behind rather than floating on a flat surface. */
+  background: radial-gradient(
+    ellipse 80% 70% at 50% 50%,
+    rgba(139, 174, 255, 0.12) 0%,
+    rgba(139, 174, 255, 0.06) 35%,
+    transparent 75%
+  );
+}
+
+.album-hero__badge {
+  align-self: center;
+  height: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  border: 1px solid currentColor;
+  opacity: 0.5;
+}
+
+.album-hero__title {
+  font-family: var(--font-ui);
+  font-size: clamp(2rem, 1.4rem + 2.5vw, 3.5rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.28;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Shimmer on hover, masked to the text letters via background-clip: text.
+   Two stacked background layers, both clipped to the glyph shapes:
+     1. (top) A moving translucent-white band — the sweep itself.
+     2. (bottom) A solid var(--text-primary) fill — the always-visible text.
+   When the top layer's transparent zones are over the glyphs, the solid
+   bottom layer shows through, so the text NEVER disappears. The white band
+   sweeps across, then briefly pauses offscreen before looping. */
+/* Register --shimmer-base as a typed color so the value can actually
+   interpolate between transitions (browsers won't tween a plain custom
+   property). Without this, the hover color "snaps" instead of fading. */
+@property --shimmer-base {
+  syntax: '<color>';
+  initial-value: #e4e4ec;
+  inherits: false;
+}
+
+.album-hero__title-link {
+  --shimmer-base: var(--text-primary);
+  display: inline-block;
+  text-decoration: none;
+  background-image:
+    linear-gradient(
+      100deg,
+      transparent 40%,
+      rgba(139, 174, 255, 0.95) 50%,
+      transparent 60%
+    ),
+    linear-gradient(var(--shimmer-base), var(--shimmer-base));
+  background-size: 300% 100%, 100% 100%;
+  background-position: 100% 0, 0 0;
+  background-repeat: no-repeat, no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  transition: --shimmer-base 350ms ease-out;
+}
+
+.album-hero__title-link:hover {
+  --shimmer-base: #aab0c0;
+  animation: album-hero-title-shimmer 0.75s linear infinite alternate;
+}
+
+/* Bright stop starts fully offscreen-left of the text (p=100%) and ends
+   fully offscreen-right (p=0%) on a 300% gradient. `alternate` reverses
+   for the return sweep; `linear` removes the easing slowdown at each
+   turnaround. */
+@keyframes album-hero-title-shimmer {
+  from { background-position: 100% 0, 0 0; }
+  to   { background-position: 0% 0, 0 0; }
+}
+
+.album-hero__year {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  letter-spacing: 0.1em;
+}
+
+.album-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px var(--space-md);
+  border: 1px solid var(--text-accent);
+  color: var(--text-accent);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+
+.album-hero__cta:hover {
+  background: var(--text-accent);
+  color: var(--bg-base, #000);
+}
+
+/* Position indicator — circular cover thumbnails, all the same size,
+   active one outlined in accent. */
+.album-hero__indicator {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-xl);
+}
+
+.album-hero__indicator-tile {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  background: var(--bg-glass);
+  cursor: pointer;
+  overflow: hidden;
+  opacity: 0.45;
+  transition: opacity var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+  position: relative;
+}
+
+.album-hero__indicator-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.album-hero__indicator-tile:hover,
+.album-hero__indicator-tile:focus-visible {
+  opacity: 0.85;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.album-hero__indicator-tile--active {
+  opacity: 1;
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 2px rgba(64, 96, 255, 0.25);
+}
+
+@media (max-width: 768px) {
+  .album-hero {
+    --ah-tab-w: 40px;
+    --ah-art-size: min(100%, calc(100vw - var(--page-gutter) * 2 - var(--ah-tab-w) * 2));
+  }
+  .album-hero__viewport {
+    height: auto;
+    min-height: calc(var(--ah-art-size) + 240px);
+  }
+  .album-hero__stage {
+    flex-direction: column;
+    gap: var(--space-lg);
+    padding: 0 calc(var(--ah-tab-w) + var(--space-sm));
+  }
+  .album-hero__stage > .album-hero__cover-link {
+    flex: 0 0 var(--ah-art-size);
+    width: var(--ah-art-size);
+  }
+  .album-hero__stage > .album-hero__meta {
+    flex: 0 1 auto;
+    width: 100%;
+    align-items: center;
+    text-align: center;
+  }
+  .album-hero__nav-tab {
+    font-size: 28px;
+  }
+}
+
+/* Thicker explore-songs divider lines on the music hub only — homepage
+   keeps the 1px default. */
+#page-music-hub .explore-songs::before,
+#page-music-hub .explore-songs::after {
+  height: 3px;
+  box-shadow: 0 0 32px rgba(64, 96, 255, 0.55), 0 0 64px rgba(64, 96, 255, 0.25);
+}
+
+.page-music-hub__curation {
+  margin-top: var(--space-3xl);
+}
+
+.page-music-hub__section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.page-music-hub__section-heading {
+  font-family: var(--font-ui);
+  font-size: clamp(1.4rem, 1.05rem + 0.875vw, 2.1rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.page-music-hub__section-more {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.page-music-hub__section-more:hover {
+  color: var(--text-primary);
+}
+
+.page-music-hub__cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-3xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.page-music-hub__cta {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.page-music-hub__cta:hover {
+  color: var(--text-primary);
 }
 
 /* ============================================================
@@ -7109,7 +7558,7 @@ h3.aw-heading {
 .page-merch {
   max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: 0 0 var(--space-4xl);
+  padding: 0 0 calc(var(--space-4xl) / 2);
 }
 
 .page-merch__header {
@@ -7560,6 +8009,25 @@ h3.aw-heading {
   margin-bottom: var(--space-sm);
 }
 
+.merch-shop__card-kind {
+  justify-self: end;
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  height: 1.57rem;
+  padding: 0 0.6em;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  border: 1px solid currentColor;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0.35;
+  transition: opacity 180ms ease;
+}
+
+.merch-shop__card:has(a:hover) .merch-shop__card-kind {
+  opacity: 1;
+}
+
 .merch-shop__card-water {
   position: absolute;
   inset: 0;
@@ -7688,10 +8156,14 @@ h3.aw-heading {
 
 .merch-shop__card-title {
   font-family: var(--font-ui);
-  font-size: 1.85rem;
+  font-size: 1.57rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .merch-shop__card-title-link {
