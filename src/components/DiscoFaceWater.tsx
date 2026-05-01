@@ -20,6 +20,9 @@ interface Props {
   zoom?: number | null;
   className?: string;
   style?: CSSProperties;
+  // Snap heightfield amplitude to zero below this threshold each step. Kills
+  // the faint long tail without affecting the main ripple. 0 = disabled.
+  tailCutoff?: number;
 }
 
 // Simulation grid. Lower = softer, lighter cost; higher = crisper waves.
@@ -49,6 +52,7 @@ in vec2 v_uv;
 uniform sampler2D u_state;
 uniform vec2 u_texel;
 uniform float u_damping;
+uniform float u_tailCutoff;
 out vec4 outColor;
 void main() {
   vec4 c = texture(u_state, v_uv);
@@ -63,6 +67,9 @@ void main() {
   // range; without this, persistent cursor-looping pushes values into
   // precision territory where the wave equation aliases violently.
   next = clamp(next, -2.0, 2.0);
+  // Snap below-threshold amplitudes to zero. Kills the faint long tail that
+  // would otherwise take many seconds to fade below the eye's threshold.
+  if (u_tailCutoff > 0.0 && abs(next) < u_tailCutoff) next = 0.0;
   outColor = vec4(next, curr, 0.0, 1.0);
 }`;
 
@@ -191,7 +198,7 @@ function computeCropUV(
 }
 
 export const DiscoFaceWater = forwardRef<DiscoFaceWaterHandle, Props>(
-  function DiscoFaceWater({ src, focalX, focalY, zoom, className, style }, ref) {
+  function DiscoFaceWater({ src, focalX, focalY, zoom, className, style, tailCutoff = 0 }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const queuedDropsRef = useRef<{ x: number; y: number; strength: number }[]>([]);
     // Latest crop values, read by the render loop without re-init.
@@ -329,6 +336,7 @@ export const DiscoFaceWater = forwardRef<DiscoFaceWaterHandle, Props>(
       const uStepState = gl.getUniformLocation(stepProg, "u_state");
       const uStepTexel = gl.getUniformLocation(stepProg, "u_texel");
       const uStepDamp = gl.getUniformLocation(stepProg, "u_damping");
+      const uStepTailCutoff = gl.getUniformLocation(stepProg, "u_tailCutoff");
       const uDropState = gl.getUniformLocation(dropProg, "u_state");
       const uDropPos = gl.getUniformLocation(dropProg, "u_dropPos");
       const uDropRadius = gl.getUniformLocation(dropProg, "u_dropRadius");
@@ -397,6 +405,7 @@ export const DiscoFaceWater = forwardRef<DiscoFaceWaterHandle, Props>(
         gl.uniform1i(uStepState, 0);
         gl.uniform2f(uStepTexel, 1 / SIM_RES, 1 / SIM_RES);
         gl.uniform1f(uStepDamp, DAMPING);
+        gl.uniform1f(uStepTailCutoff, tailCutoff);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         { const swap = read; read = write; write = swap; }
 
@@ -453,7 +462,7 @@ export const DiscoFaceWater = forwardRef<DiscoFaceWaterHandle, Props>(
         gl.deleteProgram(dropProg);
         gl.deleteProgram(renderProg);
       };
-    }, [src]);
+    }, [src, tailCutoff]);
 
     return <canvas ref={canvasRef} className={className} style={style} />;
   },

@@ -1,5 +1,5 @@
 import { createPublicClient } from "@/lib/supabase-server";
-import { MerchProductCard } from "@/components/MerchProductCard";
+import { MerchExploreGrid } from "@/components/MerchExploreGrid";
 
 interface ExploreItem {
   key: string;
@@ -151,19 +151,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
         <h2 className="page-merch__explore-heading">Explore</h2>
         <span className="page-merch__explore-frame-label" aria-hidden="true">█▓▒░</span>
       </div>
-      <div className="page-merch__explore-grid">
-        {explore.map((item) => (
-          <MerchProductCard
-            key={item.key}
-            id={item.id}
-            slug={item.slug}
-            title={item.title}
-            image_url={item.image_url}
-            image_alt={item.image_alt}
-            href={item.href}
-          />
-        ))}
-      </div>
+      <MerchExploreGrid items={explore} />
     </section>
   );
 

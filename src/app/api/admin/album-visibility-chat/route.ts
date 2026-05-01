@@ -355,7 +355,7 @@ You are emitting ONLY <visibility:${focusCategory.slug}>. ${VERBATIM_CATEGORIES.
       "anthropic-beta": "prompt-caching-2024-07-31",
     },
     body: JSON.stringify({
-      model: "claude-opus-4-6",
+      model: "claude-opus-4-7",
       max_tokens: 2048,
       stream: true,
       system: [
@@ -577,7 +577,7 @@ HARD CONSTRAINTS — these are not suggestions:
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-opus-4-6",
+      model: "claude-opus-4-7",
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: "user", content: "Emit the <geo-fields> block now." }],

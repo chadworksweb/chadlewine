@@ -5,6 +5,7 @@ import { AdminEditButton } from "@/components/AdminEditButton";
 import { MerchProductDetail } from "@/components/MerchProductDetail";
 import { MerchExplore } from "@/components/MerchExplore";
 import type { ProductVariant } from "@/components/MerchProductCard";
+import { getGalleryForProduct, type GalleryImage } from "@/lib/product-images";
 
 export const revalidate = 60;
 
@@ -15,28 +16,42 @@ interface ProductRow {
   title: string;
   description: string | null;
   price: number | null;
-  image_url: string | null;
-  image_urls: string[] | null;
-  image_alt: string | null;
   fulfillment: string;
   status: string;
   variants: ProductVariant[] | null;
+  linked_art_piece_id: string | null;
   created_at: string;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function getProduct(key: string): Promise<ProductRow | null> {
+async function getProduct(
+  key: string,
+): Promise<{ product: ProductRow; gallery: GalleryImage[]; linkedPrintSlug: string | null } | null> {
   const supabase = createPublicClient();
   const isUuid = UUID_RE.test(key);
-  // Look up by slug first; fall back to id so old UUID URLs don't 404 mid-rollout.
   const { data } = await supabase
     .from("products")
-    .select("id, slug, tier, title, description, price, image_url, image_urls, image_alt, fulfillment, status, variants, created_at")
+    .select("id, slug, tier, title, description, price, fulfillment, status, variants, linked_art_piece_id, created_at")
     .eq(isUuid ? "id" : "slug", key)
     .eq("status", "active")
     .single();
-  return (data as ProductRow | null) || null;
+  if (!data) return null;
+  const product = data as ProductRow;
+  const gallery = await getGalleryForProduct(supabase, product.id);
+
+  let linkedPrintSlug: string | null = null;
+  if (product.linked_art_piece_id) {
+    const { data: linked } = await supabase
+      .from("art_pieces")
+      .select("slug, status")
+      .eq("id", product.linked_art_piece_id)
+      .eq("status", "published")
+      .maybeSingle();
+    linkedPrintSlug = linked?.slug ?? null;
+  }
+
+  return { product, gallery, linkedPrintSlug };
 }
 
 export async function generateMetadata({
@@ -45,9 +60,11 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProduct(slug);
-  if (!product) return {};
+  const result = await getProduct(slug);
+  if (!result) return {};
+  const { product, gallery } = result;
   const canonicalKey = product.slug || product.id;
+  const ogImage = gallery[0]?.url;
   return {
     title: `${product.title} — Chad Lewine`,
     description: product.description || `${product.title} by Chad Lewine.`,
@@ -55,7 +72,7 @@ export async function generateMetadata({
     openGraph: {
       title: product.title,
       description: product.description || undefined,
-      images: product.image_url ? [{ url: product.image_url }] : undefined,
+      images: ogImage ? [{ url: ogImage }] : undefined,
     },
   };
 }
@@ -66,8 +83,9 @@ export default async function MerchProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = await getProduct(slug);
-  if (!product) notFound();
+  const result = await getProduct(slug);
+  if (!result) notFound();
+  const { product, gallery, linkedPrintSlug } = result;
 
   return (
     <>
@@ -76,12 +94,11 @@ export default async function MerchProductPage({
         id={product.id}
         title={product.title}
         description={product.description}
-        image_url={product.image_url}
-        image_urls={Array.isArray(product.image_urls) ? product.image_urls : []}
-        image_alt={product.image_alt}
+        gallery={gallery}
         tier={product.tier}
         price={product.price}
         variants={Array.isArray(product.variants) ? product.variants : []}
+        linkedPrintSlug={linkedPrintSlug}
       />
       <MerchExplore excludeMerchIds={[product.id]} standalone />
     </>

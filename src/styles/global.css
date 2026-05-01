@@ -7560,6 +7560,46 @@ h3.aw-heading {
   margin-bottom: var(--space-sm);
 }
 
+.merch-shop__card-water {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.page-merch__explore-grid .merch-shop__card-img,
+.page-merch__explore-grid .merch-shop__card-water {
+  filter: brightness(1);
+  transition: filter 0.35s ease;
+}
+
+.page-merch__explore-grid .merch-shop__card--hovered .merch-shop__card-img,
+.page-merch__explore-grid .merch-shop__card--hovered .merch-shop__card-water {
+  filter: brightness(1.15);
+}
+
+/* When the water canvas is freshly mounted while the card is already
+   hovered, the browser has no "before" frame to transition from, so it
+   blinks straight to brightness(1.15). @starting-style gives the browser
+   an explicit pre-insertion value so the first hover fades like the rest. */
+@starting-style {
+  .page-merch__explore-grid .merch-shop__card--hovered .merch-shop__card-water {
+    filter: brightness(1);
+  }
+}
+
+.page-merch__explore-grid .merch-shop__card-img-link:has(.merch-shop__card-img:hover)::before {
+  animation: none;
+  opacity: 0;
+}
+
+.page-merch__explore-grid .merch-shop__card-img:hover {
+  animation: none;
+}
+
 .merch-shop__card-img {
   width: 100%;
   aspect-ratio: 1;
@@ -7571,10 +7611,11 @@ h3.aw-heading {
   z-index: 1;
 }
 
-/* Cyan glitch overlay — ported from chadrising product cards.
-   No mix-blend-mode here: chadrising's screen blend was tuned for dark album
-   art; merch shots are light product photography, so blend washes the cyan
-   out. We let the inset cyan render directly. */
+/* Cyan side glow via horizontal linear-gradient — cyan fades in from the
+   left edge over the first 25% and from the right edge over the last 25%,
+   transparent in the middle 50%. Pure 90° gradient = no vertical component,
+   so the top + bottom edges of the element are never cyan-tinted (unlike
+   inset box-shadows, whose blur radius leaks inward at the top/bottom). */
 .merch-shop__card-img-link::before {
   content: "";
   position: absolute;
@@ -7583,11 +7624,16 @@ h3.aw-heading {
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 4px;
-  background: transparent;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 212, 255, 0.55) 0px,
+    rgba(0, 212, 255, 0.0) 40px,
+    rgba(0, 212, 255, 0.0) calc(100% - 40px),
+    rgba(0, 212, 255, 0.55) 100%
+  );
   pointer-events: none;
   opacity: 0;
   z-index: 10;
-  box-shadow: inset 0 0 40px rgba(0, 212, 255, 0.45);
   overflow: hidden;
 }
 
@@ -7598,35 +7644,37 @@ h3.aw-heading {
 
 .merch-shop__card-img:hover {
   animation: cl-merch-glitch-image 0.4s steps(2) forwards;
-  filter: drop-shadow(0 0 12px rgba(0, 212, 255, 0.7));
 }
 
 @keyframes cl-merch-glitch-cyan {
   0% {
     clip-path: inset(0 0 0 0);
-    opacity: 0.8;
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.4), 2px 0 0 rgba(0, 212, 255, 0.5);
+    opacity: 0.85;
+    box-shadow: 2px 0 0 rgba(0, 212, 255, 0.5);
   }
   25% {
     clip-path: inset(20% 0 60% 0);
     transform: translateX(4px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.6), -2px 0 0 rgba(255, 0, 255, 0.3);
+    opacity: 1;
+    box-shadow: -2px 0 0 rgba(255, 0, 255, 0.3);
   }
   50% {
     clip-path: inset(50% 0 20% 0);
     transform: translateX(-3px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.5), 3px 0 0 rgba(0, 212, 255, 0.5);
+    opacity: 0.9;
+    box-shadow: 3px 0 0 rgba(0, 212, 255, 0.5);
   }
   75% {
     clip-path: inset(10% 0 40% 0);
     transform: translateX(2px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.4);
+    opacity: 0.7;
+    box-shadow: none;
   }
   100% {
     clip-path: inset(0 0 0 0);
     transform: translateX(0);
     opacity: 0;
-    box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2);
+    box-shadow: none;
   }
 }
 
@@ -7656,32 +7704,59 @@ h3.aw-heading {
   color: var(--text-accent);
 }
 
-.product-detail__size-select {
+.product-detail__size-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  width: 100%;
+}
+
+.product-detail__size-btn {
   background: transparent;
   color: var(--td-cyan-alt);
-  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
   font-family: var(--td-font-mono);
-  font-size: 1.275rem;
-  border: none;
-  padding: 0 18px 0 0;
-  appearance: none;
-  -webkit-appearance: none;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(0, 212, 255, 0.32);
+  border-radius: 6px;
+  padding: 6px 12px;
+  min-width: 40px;
   cursor: pointer;
-  white-space: nowrap;
-  text-align: center;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2300d4ff' d='M5 6 0 0h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right center;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
-.product-detail__size-select:focus {
-  outline: 1px solid var(--td-cyan-alt);
-  outline-offset: 4px;
+.product-detail__size-btn:hover {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: var(--td-cyan-alt);
+  transform: translateY(-1px);
 }
 
-.product-detail__size-select option {
-  background: var(--td-bg-card);
-  color: var(--td-cyan-alt);
+.product-detail__size-btn:focus-visible {
+  outline: 2px solid var(--td-cyan-alt);
+  outline-offset: 2px;
+}
+
+.product-detail__size-btn--active {
+  background: var(--td-cyan-alt);
+  color: #0d0d1a;
+  border-color: var(--td-cyan-alt);
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.35);
+}
+
+.product-detail__size-btn--active:hover {
+  background: var(--td-cyan-alt);
+  color: #0d0d1a;
+}
+
+@media (max-width: 720px) {
+  .product-detail__size-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .product-detail__size-btn {
+    width: 100%;
+  }
 }
 
 .product-detail__gallery {
@@ -7706,7 +7781,8 @@ h3.aw-heading {
 .product-detail__thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #000;
   display: block;
 }
 
@@ -8756,10 +8832,24 @@ h3.aw-heading {
   background: var(--bg-elevated);
   position: relative;
   isolation: isolate;
-  /* Match the .explore-songs vertical rhythm: section padding gives the
-     banner breathing room below the divider, banner's own margin-bottom
-     handles the gap to the grid. */
-  padding-top: var(--space-2xl);
+  /* Section content starts below the 175px gradient band — the frame banner
+     is positioned absolutely inside the band (vertically centered) so the
+     text sits in the middle of the divider. */
+  padding-top: 175px;
+}
+
+/* Center the title frame in the 175px gradient band — `margin: 0 auto`
+   re-applies the base rule's horizontal centering after absolute positioning,
+   so the max-width: var(--site-width) box stays centered instead of getting
+   anchored to left: 0. */
+.home-merch > .explore-songs__frame--top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 175px;
+  margin: 0 auto;
+  z-index: 3;
 }
 
 /* Slim blue-accent gradient divider at the top — mirrors the dividers on
@@ -8770,7 +8860,7 @@ h3.aw-heading {
   top: 0;
   left: 0;
   right: 0;
-  height: 1px;
+  height: 175px;
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -8785,9 +8875,11 @@ h3.aw-heading {
 }
 
 .home-merch__inner {
-  /* Banner's natural margin-bottom handles the gap to the grid (mirrors
-     the explore-songs structure). */
-  padding-top: 0;
+  /* Breathing room between the 175px title band and the merch grid. The
+     frame banner is absolutely positioned inside the band so it can't
+     contribute its own margin-bottom — this padding-top is what spaces
+     the grid below the title. */
+  padding-top: var(--space-2xl);
   padding-bottom: var(--space-3xl);
 }
 
@@ -8834,10 +8926,16 @@ h3.aw-heading {
 
 /* The banner frame's heading + side-glyphs use background: #000 to mask the
    tick-line pattern behind them. .home-merch sits on var(--bg-elevated) so
-   override the mask color to the same elevated bg or the squares stand out. */
+   override the mask color to the same elevated bg or the squares stand out.
+   The 12px box-shadow halo extends the bg-elevated mask beyond the text's
+   own padding so the bright cyan band glow can't bleed through and wash out
+   the heading. */
 .home-merch .explore-songs__heading,
 .home-merch .explore-songs__frame-label {
   background: var(--bg-elevated);
+  box-shadow: 0 0 0 12px var(--bg-elevated);
+  position: relative;
+  z-index: 1;
 }
 
 
@@ -9194,11 +9292,19 @@ h3.aw-heading {
   display: none;
 }
 
-.track-detail__cover,
-.product-detail__cover {
+.track-detail__cover {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
+  border-radius: var(--td-radius);
+  border: 1px solid var(--td-border);
+}
+
+.product-detail__cover {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #000;
   border-radius: var(--td-radius);
   border: 1px solid var(--td-border);
 }
@@ -9259,8 +9365,8 @@ h3.aw-heading {
 
 .track-detail__info-bar[data-cols="1"],
 .product-detail__info-bar[data-cols="1"] { grid-template-columns: 1fr; }
-.track-detail__info-bar[data-cols="2"],
-.product-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 1fr; }
+.track-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 1fr; }
+.product-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 2fr; }
 .track-detail__info-bar[data-cols="3"],
 .product-detail__info-bar[data-cols="3"] { grid-template-columns: 1fr 1fr 1fr; }
 
@@ -9295,6 +9401,19 @@ h3.aw-heading {
   color: var(--td-cyan-alt);
   text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
   white-space: nowrap;
+}
+
+.product-detail__info-cell--inverted {
+  background: var(--td-cyan-alt);
+}
+
+.product-detail__info-cell--inverted .product-detail__info-label {
+  color: rgba(13, 13, 26, 0.7);
+}
+
+.product-detail__info-cell--inverted .product-detail__info-value {
+  color: #0d0d1a;
+  text-shadow: none;
 }
 
 .track-detail__info-value--released,
@@ -9385,6 +9504,18 @@ h3.aw-heading {
 .product-detail__actions {
   display: flex;
   gap: 0.75rem;
+}
+
+.product-detail__actions--with-print {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .product-detail__actions--with-print {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Rising Compass inline badge */
@@ -9604,6 +9735,36 @@ h3.aw-heading {
   border-color: #ffc040;
   box-shadow: 0 0 15px rgba(255, 149, 0, 0.35);
   transform: translateY(-2px);
+}
+
+.product-detail__btn--buy-album:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.product-detail__btn--buy-album:disabled:hover {
+  background: var(--td-active);
+  color: #0d0d1a;
+  border-color: var(--td-active);
+  transform: none;
+  box-shadow: none;
+  opacity: 0.4;
+}
+
+.product-detail__btn--buy-print {
+  background: transparent;
+  color: var(--text-secondary, #aaa);
+  border: 1px solid var(--td-border, rgba(255, 255, 255, 0.18));
+  text-decoration: none;
+  font-size: var(--text-xs);
+}
+
+.product-detail__btn--buy-print:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary, #fff);
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 /* Ringtone — distinct cyan accent so it reads as a separate product

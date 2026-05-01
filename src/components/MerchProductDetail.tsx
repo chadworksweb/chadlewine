@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useCart } from "@/components/Cart";
 import type { ProductVariant } from "@/components/MerchProductCard";
+import type { GalleryImage } from "@/lib/product-images";
 
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
 
@@ -12,46 +13,28 @@ interface Props {
   id: string;
   title: string;
   description: string | null;
-  image_url: string | null;
-  image_urls?: string[];
-  image_alt: string | null;
+  gallery: GalleryImage[];
   tier: string;
   price: number | null;
   variants: ProductVariant[];
+  linkedPrintSlug?: string | null;
 }
 
 export function MerchProductDetail({
   id,
   title,
   description,
-  image_url,
-  image_urls,
-  image_alt,
+  gallery,
   price,
   variants,
+  linkedPrintSlug,
 }: Props) {
   const { add, open, hasItem } = useCart();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "added">("idle");
 
-  // Build the gallery: hero first, then any extras from image_urls (deduped).
-  // If only the hero is present, the thumbnail strip stays hidden.
-  const gallery = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    if (image_url) {
-      seen.add(image_url);
-      out.push(image_url);
-    }
-    for (const src of image_urls || []) {
-      if (!src || seen.has(src)) continue;
-      seen.add(src);
-      out.push(src);
-    }
-    return out;
-  }, [image_url, image_urls]);
-
-  const [activeImage, setActiveImage] = useState<string | null>(image_url);
+  const heroImage = gallery[0] ?? null;
+  const [activeImage, setActiveImage] = useState<string | null>(heroImage?.url ?? null);
 
   const sortedSizes = useMemo(() => {
     const sizes = Array.from(new Set(variants.map((v) => v.size).filter(Boolean) as string[]));
@@ -97,7 +80,7 @@ export function MerchProductDetail({
       slug: id,
       price: selectedVariant.price_cents / 100,
       format: null,
-      cover_art_path: image_url,
+      cover_art_path: heroImage?.url ?? null,
       variant_label: selectedVariant.size ? `Size ${selectedVariant.size}` : selectedVariant.title,
       product_config: { variant_id: selectedVariant.id },
     });
@@ -111,22 +94,25 @@ export function MerchProductDetail({
       ? "In cart — view"
       : "Add to cart";
 
+  const activeImageMeta = gallery.find((g) => g.url === activeImage) ?? heroImage;
+  const activeAlt = activeImageMeta?.alt || title;
+
   const galleryThumbs = gallery.length > 1 && (
     <>
-      {gallery.map((src) => {
-        const isActive = src === activeImage;
+      {gallery.map((img) => {
+        const isActive = img.url === activeImage;
         return (
           <button
-            key={src}
+            key={img.id}
             type="button"
             role="listitem"
-            onClick={() => setActiveImage(src)}
+            onClick={() => setActiveImage(img.url)}
             className={`product-detail__thumb${isActive ? " product-detail__thumb--active" : ""}`}
             aria-pressed={isActive}
-            aria-label="Show this image"
+            aria-label={img.alt || "Show this image"}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" decoding="async" />
+            <img src={img.url} alt={img.alt || ""} decoding="async" />
           </button>
         );
       })}
@@ -140,15 +126,15 @@ export function MerchProductDetail({
           {activeImage && (
             <Image
               src={activeImage}
-              alt={image_alt || title}
+              alt={activeAlt}
               className="product-detail__cover"
               width={1200}
               height={1200}
               sizes="(max-width: 720px) 100vw, 700px"
               priority
               // Printify caps mockups at 1200x1200; Next's optimizer can only
-              // downscale or re-compress, both of which hurt here. Serve the
-              // source file directly.
+              // downscale or re-compress, both of which hurt here. Custom
+              // uploads from Bunny are user-sized — also serve as-is.
               unoptimized
             />
           )}
@@ -163,32 +149,38 @@ export function MerchProductDetail({
           <h1 className="product-detail__title">{title}</h1>
 
           <div className="product-detail__info-bar" data-cols={sortedSizes.length > 0 ? 2 : 1}>
-            {sortedSizes.length > 0 && (
-              <div className="product-detail__info-cell">
-                <span className="product-detail__info-label">Size</span>
-                <select
-                  className="product-detail__size-select"
-                  value={selectedSize || ""}
-                  onChange={(e) => { setSelectedSize(e.target.value || null); setStatus("idle"); }}
-                  aria-label="Size"
-                >
-                  <option value="">Pick a size</option>
-                  {sortedSizes.map((size) => (
-                    <option key={size} value={size}>{size}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="product-detail__info-cell">
+            <div className="product-detail__info-cell product-detail__info-cell--inverted">
               <span className="product-detail__info-label">Price</span>
               <span className="product-detail__info-value">
                 ${displayedPrice?.toFixed(2)}
               </span>
             </div>
+            {sortedSizes.length > 0 && (
+              <div className="product-detail__info-cell">
+                <span className="product-detail__info-label">Size</span>
+                <div className="product-detail__size-options" role="radiogroup" aria-label="Size">
+                  {sortedSizes.map((size) => {
+                    const isActive = selectedSize === size;
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        role="radio"
+                        aria-checked={isActive}
+                        className={`product-detail__size-btn${isActive ? " product-detail__size-btn--active" : ""}`}
+                        onClick={() => { setSelectedSize(size); setStatus("idle"); }}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="product-detail__action-row">
-            <div className="product-detail__actions">
+            <div className={`product-detail__actions${linkedPrintSlug ? " product-detail__actions--with-print" : ""}`}>
               <button
                 type="button"
                 className={`product-detail__btn product-detail__btn--buy-album${inCart ? " product-detail__btn--in-cart" : ""}`}
@@ -197,6 +189,14 @@ export function MerchProductDetail({
               >
                 {buyLabel}
               </button>
+              {linkedPrintSlug && (
+                <Link
+                  href={`/art/${linkedPrintSlug}`}
+                  className="product-detail__btn product-detail__btn--buy-print"
+                >
+                  Buy print
+                </Link>
+              )}
             </div>
           </div>
 

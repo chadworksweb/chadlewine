@@ -40,7 +40,7 @@ Only populate the array for the requested field. Leave the other as an empty arr
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-6",
+        model: "claude-opus-4-7",
         max_tokens: 1024,
         system: systemPrompt,
         messages: [

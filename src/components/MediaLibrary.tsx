@@ -18,9 +18,12 @@ interface MediaLibraryProps {
   onClose: () => void;
   onSelect: (url: string, alt?: string, title?: string) => void;
   uploadZone?: UploadZone;
+  // Optional folder for uploads done from inside the modal. Picker still shows
+  // every file in the zone regardless of folder.
+  uploadFolder?: string;
 }
 
-export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image" }: MediaLibraryProps) {
+export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image", uploadFolder }: MediaLibraryProps) {
   const [images, setImages] = useState<MediaImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -153,6 +156,7 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
     const formData = new FormData();
     formData.append("file", file);
     formData.append("type", uploadZone);
+    if (uploadFolder) formData.append("folder", uploadFolder);
 
     const res = await fetch("/api/admin/media/upload", {
       method: "POST",

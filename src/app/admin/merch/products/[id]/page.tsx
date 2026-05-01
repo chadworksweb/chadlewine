@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { MerchGalleryPanel } from "@/components/admin/MerchGalleryPanel";
+import { LinkedPrintPicker } from "@/components/admin/LinkedPrintPicker";
 
 const TIERS = ["art", "line", "fusion", "pick"] as const;
 const STATUSES = ["active", "inactive", "pending_review"] as const;
@@ -128,14 +130,18 @@ export default function EditProductPage() {
         </div>
       )}
 
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Product Image URL</label>
-        <input className="obsv-editor__input" value={(form.image_url as string) || ""} onChange={(e) => setForm({ ...form, image_url: e.target.value || null })} placeholder="https://images.printify.com/mockup/..." />
-      </div>
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Image Alt Text</label>
-        <input className="obsv-editor__input" value={(form.image_alt as string) || ""} onChange={(e) => setForm({ ...form, image_alt: e.target.value || null })} />
-      </div>
+      {typeof form.id === "string" && (
+        <MerchGalleryPanel
+          productId={form.id}
+          fulfillment={(form.fulfillment as string) || "printify_curated"}
+          slug={typeof form.slug === "string" ? form.slug : null}
+        />
+      )}
+
+      <LinkedPrintPicker
+        value={typeof form.linked_art_piece_id === "string" ? form.linked_art_piece_id : null}
+        onChange={(id) => setForm({ ...form, linked_art_piece_id: id })}
+      />
 
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">
