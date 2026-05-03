@@ -66,6 +66,17 @@ interface GeoFieldsProps {
   chad_quote: string | null;
 }
 
+interface IfYouLikeEntry {
+  artist: string;
+  title: string;
+  reason: string;
+}
+
+interface IfYouLikeProps {
+  blurb: string | null;
+  entries: IfYouLikeEntry[];
+}
+
 interface BadgeProps {
   tier: string;
   tierLabel: string;
@@ -105,6 +116,7 @@ export function SongDetail({
   badge,
   playbackMode = "preview",
   geoFields = null,
+  ifYouLike = null,
   pairedArt = [],
   songFormats = [],
   albumFormats = [],
@@ -120,6 +132,7 @@ export function SongDetail({
   songFormats?: Array<"mp3" | "flac" | "wav">;
   albumFormats?: Array<"mp3" | "flac" | "wav">;
   geoFields?: GeoFieldsProps | null;
+  ifYouLike?: IfYouLikeProps | null;
   pairedArt?: PairedArtProps[];
   merchSlot?: React.ReactNode;
 }) {
@@ -442,7 +455,7 @@ export function SongDetail({
            2. prose <div> — citation-worthy narrative depth (ChatGPT, all engines)
            3. key-points <ul> — structured extraction (Perplexity, Gemini)
            Plus FAQPage schema in JSON-LD for machine-readable (Google AI Overview) */}
-      {(visibilitySections.length > 0 || geoFields) && (() => {
+      {(visibilitySections.length > 0 || geoFields || (ifYouLike && (ifYouLike.blurb || ifYouLike.entries.length > 0))) && (() => {
         const sectionMap = new Map(visibilitySections.map((s) => [s.category, s]));
         const story = sectionMap.get("story");
         const breakdown = sectionMap.get("breakdown");
@@ -451,8 +464,9 @@ export function SongDetail({
         const fragments = sectionMap.get("fragments");
         const connections = sectionMap.get("connections");
         const culturalPosition = sectionMap.get("cultural-position");
-        const ifYouLike = sectionMap.get("if-you-like");
         const syncPlacements = sectionMap.get("sync-placements");
+        const ifYouLikeBlurb = ifYouLike?.blurb || null;
+        const ifYouLikeEntries = ifYouLike?.entries || [];
 
         return (
           <div className="song-landing">
@@ -486,27 +500,31 @@ export function SongDetail({
               </section>
             )}
 
-            {/* 2. If You Like — interception: seeker searched for a famous artist (format stack) */}
-            {(ifYouLike?.directAnswer || ifYouLike?.contentHtml || (ifYouLike?.keyPoints && ifYouLike.keyPoints.length > 0)) && (
-              <section className="song-landing__section song-landing__section--alt song-landing__section--audience">
+            {/* 2. If You Like — manual structured entries: artist + title + reason per row */}
+            {(ifYouLikeBlurb || ifYouLikeEntries.length > 0) && (
+              <section className="song-landing__section song-landing__section--alt song-landing__section--if-you-like">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
                     <h2 className="song-landing__heading">Fans of these songs might like &ldquo;{song.title}&rdquo;</h2>
-                    {ifYouLike.directAnswer && (
-                      <p className="song-landing__direct-answer">{ifYouLike.directAnswer}</p>
+                    {ifYouLikeBlurb && (
+                      <p className="song-landing__direct-answer">{ifYouLikeBlurb}</p>
                     )}
                   </aside>
                   <div className="song-landing__main">
-                    {ifYouLike.contentHtml && (
-                      <div
-                        className="song-landing__prose reading-column"
-                        dangerouslySetInnerHTML={{ __html: stripLeadingHeading(ifYouLike.contentHtml) }}
-                      />
-                    )}
-                    {ifYouLike.keyPoints && ifYouLike.keyPoints.length > 0 && (
-                      <ul className="song-landing__key-points">
-                        {ifYouLike.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
+                    {ifYouLikeEntries.length > 0 && (
+                      <ul className="song-landing__if-you-like-list">
+                        {ifYouLikeEntries.map((entry, i) => (
+                          <li key={i} className="song-landing__if-you-like-entry">
+                            <p className="song-landing__if-you-like-pair">
+                              <strong>
+                                {entry.artist}
+                                {entry.title ? ` — ${entry.title}` : ""}
+                              </strong>
+                            </p>
+                            {entry.reason && (
+                              <p className="song-landing__if-you-like-reason">{entry.reason}</p>
+                            )}
+                          </li>
                         ))}
                       </ul>
                     )}
@@ -533,11 +551,14 @@ export function SongDetail({
                       />
                     )}
                     {audience.keyPoints && audience.keyPoints.length > 0 && (
-                      <ul className="song-landing__key-points">
-                        {audience.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
-                        ))}
-                      </ul>
+                      <div>
+                        <h3 className="song-landing__column-heading">Made for</h3>
+                        <ul className="song-landing__key-points">
+                          {audience.keyPoints.map((pt, i) => (
+                            <li key={i}>{pt}</li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                 </div>

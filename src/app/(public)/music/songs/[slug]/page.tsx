@@ -182,6 +182,13 @@ export default async function SongDetailPage({
       answer: s.directAnswer,
     }));
 
+  if (song.if_you_like_blurb) {
+    sectionQAPairs.unshift({
+      question: sectionHeadingMap["if-you-like"],
+      answer: song.if_you_like_blurb,
+    });
+  }
+
   return (
     <>
       <AdminEditButton href={`/admin/music/songs/${song.slug || song.id}`} />
@@ -243,6 +250,10 @@ export default async function SongDetailPage({
           paa_pairs: song.paa_pairs || [],
           entity_tags: song.entity_tags || [],
           chad_quote: song.chad_quote || null,
+        }}
+        ifYouLike={{
+          blurb: song.if_you_like_blurb || null,
+          entries: Array.isArray(song.if_you_like_entries) ? song.if_you_like_entries : [],
         }}
         badge={badge ? {
           tier: badge.tier,

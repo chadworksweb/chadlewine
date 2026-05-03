@@ -12796,6 +12796,45 @@ h3.aw-heading {
   color: #00d4ff80;
 }
 
+/* ─── If You Like — manual structured entries (section 2) ─── */
+
+.song-landing__if-you-like-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.song-landing__if-you-like-entry {
+  padding: 0;
+  margin: 0;
+  border-left: 2px solid #00d4ff40;
+  padding-left: var(--space-md);
+}
+
+.song-landing__if-you-like-pair {
+  margin: 0 0 0.35rem;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  color: #f2f2f5;
+  line-height: 1.4;
+}
+
+.song-landing__if-you-like-pair strong {
+  font-weight: 700;
+}
+
+.song-landing__if-you-like-reason {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #b8b8cc;
+}
+
 /* ─── Prose (reading column content) ─── */
 
 .song-landing__prose {
@@ -14593,7 +14632,7 @@ body.cart-open {
 
 /* Arc Radiant gold palette — distilled from CHADDYD light-painting aesthetic.
    Warm amber + gold + a pale-green complement against deep black. */
-.arc-radiant-shell {
+.arc-radiant {
   --arc-gold: #d4a13a;
   --arc-gold-bright: #f7c84a;
   --arc-gold-pale: #f7e7a7;
@@ -14604,22 +14643,16 @@ body.cart-open {
   --arc-bg-soft: #0c0907;
   --arc-line: rgba(212, 161, 58, 0.22);
 
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--space-md) var(--space-2xl);
-  width: 100%;
-}
-
-.arc-radiant {
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(ellipse at 50% 30%, #100a04 0%, var(--arc-bg) 70%);
+  background: radial-gradient(ellipse at 50% 0%, #100a04 0%, var(--arc-bg) 70%);
   color: var(--arc-gold-pale);
   border: 1px solid rgba(212, 161, 58, 0.18);
   border-radius: 8px;
   box-shadow: 0 0 60px rgba(212, 161, 58, 0.06) inset;
+  overflow: hidden;
 }
 
 .arc-radiant__toolbar {
@@ -14642,6 +14675,20 @@ body.cart-open {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.arc-radiant__zoom-hint {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: rgba(247, 231, 167, 0.45);
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .arc-radiant__zoom-hint {
+    display: none;
+  }
 }
 
 .arc-radiant__zoom-label {
@@ -14705,31 +14752,422 @@ body.cart-open {
   text-shadow: 0 0 8px rgba(247, 200, 74, 0.5);
 }
 
-.arc-radiant__main {
+.arc-radiant__upper {
+  position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
+}
+
+/* Key panel — pinned to the left, mirrors each layer's on-canvas appearance,
+   doubles as on/off control for that layer. */
+.arc-radiant__key {
+  flex-shrink: 0;
+  width: 188px;
+  padding: var(--space-md) var(--space-sm);
+  border-right: 1px solid rgba(212, 161, 58, 0.18);
+  background: rgba(5, 4, 2, 0.6);
+  font-family: var(--font-ui);
+}
+
+.arc-radiant__key-title {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--arc-gold);
+  text-shadow: 0 0 8px rgba(247, 200, 74, 0.3);
+}
+
+.arc-radiant__key-row {
+  display: grid;
+  grid-template-columns: 14px 28px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px;
+  font-size: 0.78rem;
+  color: var(--arc-gold-pale);
+  cursor: pointer;
+  transition: opacity 200ms ease, color 200ms ease;
+}
+
+.arc-radiant__key-row input {
+  margin: 0;
+  accent-color: var(--arc-gold);
+}
+
+.arc-radiant__key-row.is-off {
+  opacity: 0.35;
+}
+
+.arc-radiant__key-row.is-off .arc-radiant__key-swatch {
+  filter: grayscale(0.6);
+}
+
+.arc-radiant__key-row:hover {
+  color: var(--arc-spark);
+}
+
+.arc-radiant__key-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 14px;
+  position: relative;
+}
+
+.arc-radiant__key-label {
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.arc-radiant__swatch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: block;
+}
+
+.arc-radiant__swatch-dot--music {
+  background: var(--arc-gold-bright);
+  box-shadow: 0 0 4px rgba(247, 200, 74, 0.7), 0 0 10px rgba(247, 200, 74, 0.45);
+}
+
+.arc-radiant__swatch-dot--event {
+  background: var(--arc-complement);
+  box-shadow: 0 0 4px rgba(196, 214, 138, 0.7), 0 0 10px rgba(196, 214, 138, 0.4);
+}
+
+.arc-radiant__swatch-band {
+  display: block;
+  width: 100%;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.arc-radiant__swatch-band--life {
+  background: rgba(79, 168, 196, 0.22);
+  border: 1px solid rgba(79, 168, 196, 0.5);
+}
+
+.arc-radiant__swatch-band--release {
+  background: rgba(247, 200, 74, 0.18);
+  border: 1px solid rgba(247, 200, 74, 0.4);
+}
+
+.arc-radiant__swatch-curve {
+  width: 100%;
+  height: 14px;
+}
+
+/* Music swatch — five RC tier dots side by side so the legend communicates
+   that song dot color tracks tier. */
+.arc-radiant__swatch-tier-row {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.arc-radiant__swatch-tier-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  display: block;
+}
+
+/* Mini CD donut for the Music key swatch — five tier-colored CDs in a row. */
+.arc-radiant__swatch-tier-cd {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: block;
+  position: relative;
+  border: 0.5px solid;
+  background: currentColor;
+}
+
+.arc-radiant__swatch-tier-cd::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 35%;
+  height: 35%;
+  border-radius: 50%;
+  background: var(--arc-bg);
+  transform: translate(-50%, -50%);
+}
+
+/* Floating hover chip — follows the cursor, sits above everything so it
+   reads cleanly even over branch label clusters. */
+/* ==========================================================================
+   Arc admin index — landing card grid
+   ========================================================================== */
+
+.arc-admin-link {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--text-accent);
+  text-decoration: none;
+}
+.arc-admin-link:hover { text-decoration: underline; }
+
+.arc-admin-intro {
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  max-width: 720px;
+  margin: 0 0 var(--space-2xl) 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.arc-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-lg);
+  max-width: 1080px;
+}
+
+.arc-admin-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--space-xs);
+  padding: var(--space-xl);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-secondary, #fff);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  min-height: 180px;
+  overflow: hidden;
+}
+
+.arc-admin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  border-color: var(--text-accent);
+}
+
+.arc-admin-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(var(--text-accent-rgb, 139, 156, 247), 0.08);
+  color: var(--text-accent);
+  margin-bottom: var(--space-sm);
+}
+
+.arc-admin-card__icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.arc-admin-card__title {
+  font-family: var(--font-ui);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.arc-admin-card__desc {
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  align-self: start;
+}
+
+.arc-admin-card__cta {
+  position: absolute;
+  bottom: var(--space-lg);
+  right: var(--space-lg);
+  font-size: 1.2rem;
+  color: var(--text-tertiary);
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.arc-admin-card:hover .arc-admin-card__cta {
+  transform: translateX(4px);
+  color: var(--text-accent);
+}
+
+/* Primary card — the recommended next action gets visual prominence. */
+.arc-admin-card--primary {
+  border-color: var(--text-accent);
+  background: linear-gradient(135deg,
+    rgba(var(--text-accent-rgb, 139, 156, 247), 0.04) 0%,
+    rgba(var(--text-accent-rgb, 139, 156, 247), 0.08) 100%);
+}
+
+.arc-admin-card--primary .arc-admin-card__icon {
+  background: var(--text-accent);
+  color: #fff;
+}
+
+/* ==========================================================================
+   Arc Nodes admin manager
+   ========================================================================== */
+
+.arc-node-list {
+  display: grid;
+  gap: 6px;
+  max-width: 1080px;
+}
+
+.arc-node-row {
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  transition: border-color 150ms ease;
+}
+
+.arc-node-row.is-open { border-color: var(--accent); }
+.arc-node-row.is-readonly { opacity: 0.85; }
+
+.arc-node-row__head {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 90px 1fr 220px 90px 24px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+}
+
+.arc-node-row__head:hover { background: var(--bg-hover, rgba(255,255,255,0.03)); }
+
+.arc-node-row__pill {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.arc-node-row__pill--life        { background: rgba(196, 214, 138, 0.15); color: #a3c264; }
+.arc-node-row__pill--release     { background: rgba(247, 200, 74, 0.15);  color: #d4a13a; }
+.arc-node-row__pill--captured    { background: rgba(99, 153, 255, 0.15);  color: #6399ff; }
+.arc-node-row__pill--documentary { background: rgba(160, 160, 160, 0.15); color: var(--text-tertiary); }
+
+.arc-node-row__title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arc-node-row__dates {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono, monospace);
+}
+
+.arc-node-row__status {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.arc-node-row__status--draft     { background: rgba(160,160,160,0.12); color: var(--text-tertiary); }
+.arc-node-row__status--published { background: rgba(51,204,85,0.15); color: #33cc55; }
+
+.arc-node-row__chev {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.arc-node-row__body {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .arc-node-row__head {
+    grid-template-columns: 80px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .arc-node-row__dates,
+  .arc-node-row__status,
+  .arc-node-row__chev {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.arc-radiant__hover-chip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 60;
+  background: rgba(5, 4, 2, 0.95);
+  border: 1px solid rgba(212, 161, 58, 0.4);
+  color: var(--arc-spark);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 0 12px rgba(247, 200, 74, 0.25), 0 4px 14px rgba(0,0,0,0.5);
+  text-shadow: 0 0 6px rgba(247, 200, 74, 0.3);
 }
 
 .arc-radiant__canvas {
   flex: 1;
   position: relative;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.arc-radiant__canvas::-webkit-scrollbar {
+  height: 16px;
+}
+.arc-radiant__canvas::-webkit-scrollbar-track {
+  background: rgba(5, 4, 2, 0.5);
+}
+.arc-radiant__canvas::-webkit-scrollbar-thumb {
+  background: rgba(212, 161, 58, 0.25);
+  border-radius: 4px;
+}
+.arc-radiant__canvas::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 161, 58, 0.5);
 }
 
 .arc-radiant__inner {
   position: relative;
-  width: 100%;
 }
 
-/* Central spine — the lifeline anchor. A glowing thread of gold. */
+/* The horizontal centerline — the timeline / horizon. Year strip sits below
+   it; graphics rise above. A glowing thread of gold. */
 .arc-radiant__spine {
   position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  margin-left: -0.5px;
-  background: linear-gradient(180deg,
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
     rgba(247, 200, 74, 0)   0%,
     rgba(247, 200, 74, 0.7) 6%,
     rgba(247, 231, 167, 0.9) 50%,
@@ -14755,79 +15193,76 @@ body.cart-open {
 
 .arc-radiant__year-tick {
   position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg,
+  width: 1px;
+  background: linear-gradient(180deg,
     transparent 0%,
-    rgba(212, 161, 58, 0.06) 35%,
-    rgba(212, 161, 58, 0.10) 50%,
-    rgba(212, 161, 58, 0.06) 65%,
-    transparent 100%);
+    rgba(212, 161, 58, 0.10) 60%,
+    rgba(212, 161, 58, 0.06) 100%);
 }
 
 .arc-radiant__year-label {
   position: absolute;
-  left: 8px;
-  top: -7px;
+  bottom: 4px;
+  left: 4px;
   font-family: var(--font-ui);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
-  color: rgba(247, 231, 167, 0.55);
+  color: rgba(247, 231, 167, 0.65);
   background: transparent;
-  padding: 0 4px;
+  padding: 0 2px;
+  white-space: nowrap;
 }
 
-/* Collapsed pre-catalog band — sits at the very top, clickable to expand */
+/* Collapsed pre-catalog band — sits at the LEFT, clickable to expand */
 .arc-radiant__pre-band {
   position: absolute;
-  top: 0;
   left: 0;
-  right: 0;
+  top: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  background: linear-gradient(180deg,
-    rgba(212, 161, 58, 0.05) 0%,
-    rgba(212, 161, 58, 0.10) 50%,
-    rgba(212, 161, 58, 0.04) 100%);
-  border-bottom: 1px dashed rgba(212, 161, 58, 0.3);
+  gap: 8px;
+  background: linear-gradient(90deg,
+    rgba(212, 161, 58, 0.10) 0%,
+    rgba(212, 161, 58, 0.06) 60%,
+    rgba(212, 161, 58, 0.02) 100%);
+  border-right: 1px dashed rgba(212, 161, 58, 0.3);
   cursor: pointer;
   font-family: var(--font-ui);
   border-top: none;
   border-left: none;
-  border-right: none;
+  border-bottom: none;
   z-index: 4;
   transition: background 200ms ease;
+  padding: 12px 4px;
 }
 
 .arc-radiant__pre-band:hover {
-  background: linear-gradient(180deg,
-    rgba(212, 161, 58, 0.10) 0%,
-    rgba(212, 161, 58, 0.18) 50%,
-    rgba(212, 161, 58, 0.08) 100%);
+  background: linear-gradient(90deg,
+    rgba(212, 161, 58, 0.18) 0%,
+    rgba(212, 161, 58, 0.10) 60%,
+    rgba(212, 161, 58, 0.04) 100%);
 }
 
 .arc-radiant__pre-band-label {
   color: var(--arc-gold);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   text-shadow: 0 0 10px rgba(247, 200, 74, 0.4);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
 }
 
 .arc-radiant__pre-band-cta {
   color: rgba(247, 231, 167, 0.6);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   letter-spacing: 0.1em;
 }
 
 .arc-radiant__pre-collapse-cta {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   background: rgba(5, 4, 2, 0.85);
   border: 1px solid rgba(212, 161, 58, 0.35);
   color: var(--arc-gold);
@@ -14850,49 +15285,47 @@ body.cart-open {
 
 .arc-radiant__layer {
   position: absolute;
-  inset: 0;
-  width: 100%;
   pointer-events: none;
 }
 
 .arc-radiant__layer--compass {
-  width: 100%;
   pointer-events: none;
   opacity: 0.85;
+  left: 0;
 }
 
-/* Eras as soft golden halos that flank the spine — life on the left, release
-   on the right. No hard borders; the band fades outward like radiated light. */
+/* Eras as soft horizontal halos rising from the spine. Life kind hugs the
+   centerline; release kind floats just above. No hard borders — the band
+   fades upward like radiated light. */
 .arc-radiant__era {
   position: absolute;
   z-index: 1;
-  padding: 8px 14px;
+  padding: 0 10px;
   font-family: var(--font-ui);
   pointer-events: none;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
 }
 
+/* Life eras shift to a cool cyan/teal hue — fundamentally opposite the warm
+   gold of release eras, so the two never read as the same kind. */
 .arc-radiant__era--life {
-  left: 0;
-  width: calc(50% - 1px);
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(196, 214, 138, 0.04) 60%,
-    rgba(196, 214, 138, 0.10) 100%);
+  background: rgba(79, 168, 196, 0.18);
+  border: 1px solid rgba(79, 168, 196, 0.42);
+  box-shadow: 0 0 12px rgba(79, 168, 196, 0.12);
 }
 
 .arc-radiant__era--release {
-  left: 50%;
-  width: 50%;
-  background: linear-gradient(270deg,
-    transparent 0%,
-    rgba(247, 200, 74, 0.05) 60%,
-    rgba(247, 200, 74, 0.12) 100%);
+  background: rgba(247, 200, 74, 0.16);
+  border: 1px solid rgba(247, 200, 74, 0.42);
+  box-shadow: 0 0 12px rgba(247, 200, 74, 0.10);
 }
 
 .arc-radiant__era-label {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   color: var(--arc-gold-pale);
   white-space: nowrap;
   overflow: hidden;
@@ -14900,130 +15333,188 @@ body.cart-open {
   display: block;
   max-width: 100%;
   text-shadow: 0 0 8px rgba(247, 200, 74, 0.3);
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
 .arc-radiant__era--life .arc-radiant__era-label {
-  text-align: left;
-  color: rgba(196, 214, 138, 0.85);
-  text-shadow: 0 0 8px rgba(196, 214, 138, 0.2);
+  color: rgba(150, 215, 235, 0.95);
+  text-shadow: 0 0 8px rgba(79, 168, 196, 0.3);
 }
 
-.arc-radiant__era--release .arc-radiant__era-label {
-  text-align: right;
-}
-
-/* Branches — every node attaches to the spine via dot + thin line + label.
-   Dots glow. Lines taper outward. Right = music, left = life. */
+/* Branches — vertical stems rising up from the spine. Dot at the top, line
+   below it leading down to the timeline, label above the dot. */
+/* Branches are positional containers only; pointer events are restricted to
+   the dot/CD itself so the line and label never trigger hover or block clicks
+   on neighboring nodes. */
 .arc-radiant__branch {
   position: absolute;
   display: flex;
+  flex-direction: column-reverse;
   align-items: center;
   background: transparent;
   border: none;
-  cursor: pointer;
   padding: 0;
   z-index: 5;
   text-decoration: none;
   font-family: var(--font-ui);
-  height: 14px;
-  margin-top: -7px;
+  width: 16px;
+  margin-left: -8px;
   transition: filter 200ms ease, transform 200ms ease;
+  pointer-events: none;
+  cursor: default;
 }
 
-.arc-radiant__branch--right {
-  left: 50%;
-  flex-direction: row;
-  padding-left: 0;
+.arc-radiant__branch .arc-radiant__cd,
+.arc-radiant__branch .arc-radiant__branch-dot {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
-.arc-radiant__branch--left {
-  right: 50%;
-  flex-direction: row-reverse;
-  padding-right: 0;
-}
-
-.arc-radiant__branch:hover {
+.arc-radiant__branch:hover,
+.arc-radiant__branch.is-selected {
   filter: brightness(1.4);
   z-index: 12;
 }
 
-.arc-radiant__branch-dot {
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--arc-gold-bright);
-  border: 1px solid var(--arc-gold-bright);
-  box-shadow:
-    0 0 4px rgba(247, 200, 74, 0.7),
-    0 0 10px rgba(247, 200, 74, 0.45),
-    0 0 20px rgba(212, 161, 58, 0.25);
-  position: relative;
-  z-index: 2;
-}
-
-.arc-radiant__branch-dot--event {
-  background: var(--arc-complement);
-  border-color: var(--arc-complement);
-  box-shadow:
-    0 0 4px rgba(196, 214, 138, 0.7),
-    0 0 10px rgba(196, 214, 138, 0.4),
-    0 0 18px rgba(196, 214, 138, 0.2);
+.arc-radiant__branch.is-selected .arc-radiant__branch-dot,
+.arc-radiant__branch.is-selected .arc-radiant__cd {
+  transform: scale(1.5);
 }
 
 .arc-radiant__branch-line {
   flex-shrink: 0;
   display: block;
-  height: 1px;
-  width: 22px;
+  width: 1px;
 }
 
-.arc-radiant__branch--right .arc-radiant__branch-line {
-  background: linear-gradient(90deg,
+.arc-radiant__branch--song .arc-radiant__branch-line {
+  background: linear-gradient(0deg,
     rgba(247, 200, 74, 0.55) 0%,
     rgba(247, 200, 74, 0.15) 100%);
 }
 
-.arc-radiant__branch--left .arc-radiant__branch-line {
-  background: linear-gradient(270deg,
+.arc-radiant__branch--event .arc-radiant__branch-line {
+  background: linear-gradient(0deg,
     rgba(196, 214, 138, 0.55) 0%,
     rgba(196, 214, 138, 0.15) 100%);
 }
 
-.arc-radiant__branch-label {
-  font-size: 0.74rem;
-  letter-spacing: 0.02em;
-  color: var(--arc-gold-pale);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 280px;
-  padding: 1px 4px;
-  text-shadow: 0 0 6px rgba(247, 200, 74, 0.25);
+.arc-radiant__branch--album .arc-radiant__branch-line {
+  background: linear-gradient(0deg,
+    rgba(247, 200, 74, 0.7) 0%,
+    rgba(247, 200, 74, 0.18) 100%);
+  width: 1.5px;
 }
 
-.arc-radiant__branch--left .arc-radiant__branch-label {
+/* Life event dot — solid green disc, distinct from music CDs by being filled
+   (no center hole). */
+.arc-radiant__branch-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--arc-complement);
+  border: 1px solid var(--arc-complement);
+  box-shadow:
+    0 0 4px rgba(196, 214, 138, 0.7),
+    0 0 10px rgba(196, 214, 138, 0.4),
+    0 0 18px rgba(196, 214, 138, 0.2);
+  position: relative;
+  z-index: 2;
+  transition: transform 200ms ease;
+}
+
+/* CD icon — donut shape (outer ring colored by tier, inner punched-out hole)
+   tells the eye instantly that the node is a music release rather than a
+   life event. Singles vs albums differ only by size for now. */
+.arc-radiant__cd {
+  flex-shrink: 0;
+  border-radius: 50%;
+  position: relative;
+  z-index: 2;
+  background: var(--arc-gold-bright);
+  border: 1px solid var(--arc-gold-bright);
+  box-shadow:
+    0 0 4px rgba(247, 200, 74, 0.6),
+    0 0 10px rgba(247, 200, 74, 0.35),
+    0 0 18px rgba(212, 161, 58, 0.2);
+  transition: transform 200ms ease;
+}
+
+.arc-radiant__cd::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 35%;
+  height: 35%;
+  border-radius: 50%;
+  background: var(--arc-bg);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset;
+}
+
+.arc-radiant__cd--single {
+  width: 10px;
+  height: 10px;
+}
+
+.arc-radiant__cd--album {
+  width: 16px;
+  height: 16px;
+  background: var(--arc-gold-bright);
+  border-color: var(--arc-gold-bright);
+  box-shadow:
+    0 0 6px rgba(247, 200, 74, 0.75),
+    0 0 14px rgba(247, 200, 74, 0.5),
+    0 0 26px rgba(212, 161, 58, 0.3);
+}
+
+/* Labels run vertically UP from the dot, reading bottom-to-top so the eye
+   travels naturally from the dot upward into the title. Narrow horizontal
+   footprint (~14px) makes adjacent labels easy to space via collision check. */
+.arc-radiant__branch-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform-origin: 0 100%;
+  transform: rotate(-90deg);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--arc-gold-pale);
+  white-space: nowrap;
+  padding: 0;
+  text-shadow: 0 0 6px rgba(247, 200, 74, 0.25);
+  pointer-events: none;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arc-radiant__branch--event .arc-radiant__branch-label {
   color: rgba(232, 240, 200, 0.92);
   text-shadow: 0 0 6px rgba(196, 214, 138, 0.2);
 }
 
-.arc-radiant__branch:hover .arc-radiant__branch-label {
+.arc-radiant__branch:hover .arc-radiant__branch-label,
+.arc-radiant__branch.is-selected .arc-radiant__branch-label {
   color: var(--arc-spark);
 }
 
 .arc-radiant__layer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 220px;
   border-left: 1px solid rgba(212, 161, 58, 0.14);
   padding: var(--space-md);
   font-family: var(--font-ui);
-  background: rgba(5, 4, 2, 0.4);
-  flex-shrink: 0;
-  position: sticky;
-  top: 56px;
-  align-self: flex-start;
-  max-height: calc(100vh - 80px);
+  background: rgba(5, 4, 2, 0.92);
+  backdrop-filter: blur(10px);
+  z-index: 30;
+  max-height: 100%;
   overflow-y: auto;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
 }
 
 .arc-radiant__panel-title {
@@ -15063,55 +15554,92 @@ body.cart-open {
 }
 .arc-radiant__layer-toggle--disabled:hover { color: rgba(247, 231, 167, 0.7); }
 
-.arc-radiant__detail-overlay {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.85) 100%);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
-  padding: var(--space-md);
-  backdrop-filter: blur(3px);
+.arc-radiant__bottom {
+  border-top: 1px solid rgba(212, 161, 58, 0.22);
+  background: linear-gradient(180deg, #0c0907 0%, #050402 100%);
+  min-height: 160px;
+  padding: var(--space-md) var(--space-xl);
+  font-family: var(--font-ui);
+  position: relative;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.arc-radiant__bottom-empty {
+  color: rgba(247, 231, 167, 0.45);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: var(--space-lg) 0;
+  font-style: italic;
 }
 
 .arc-radiant__detail {
-  background: linear-gradient(180deg, #0c0907 0%, #050402 100%);
-  border: 1px solid rgba(247, 200, 74, 0.35);
-  border-radius: 10px;
-  padding: var(--space-xl);
-  max-width: 640px;
-  max-height: 80vh;
-  overflow-y: auto;
   position: relative;
-  box-shadow: 0 0 60px rgba(212, 161, 58, 0.15), 0 20px 60px rgba(0,0,0,0.6);
   color: var(--arc-gold-pale);
-}
-
-.arc-radiant__detail h3 {
-  margin: 0 0 var(--space-xs) 0;
-  font-size: 1.2rem;
-  color: var(--arc-spark);
-  letter-spacing: 0.01em;
+  padding-right: 48px;
 }
 
 .arc-radiant__detail-meta {
-  color: var(--arc-gold);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  color: rgba(247, 231, 167, 0.6);
   font-family: var(--font-ui);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.arc-radiant__detail-kind {
+  color: var(--arc-gold);
+  text-shadow: 0 0 8px rgba(247, 200, 74, 0.3);
+}
+
+.arc-radiant__detail-title {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: 1.4rem;
+  color: var(--arc-spark);
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 12px rgba(247, 200, 74, 0.25);
 }
 
 .arc-radiant__detail-body {
   color: rgba(247, 231, 167, 0.85);
   line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+.arc-radiant__detail-body p {
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.arc-radiant__detail-cta {
+  display: inline-block;
+  margin-top: var(--space-sm);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--arc-gold);
+  text-decoration: none;
+  padding: 6px 14px;
+  border: 1px solid rgba(212, 161, 58, 0.35);
+  border-radius: 4px;
+  transition: all 200ms ease;
+}
+
+.arc-radiant__detail-cta:hover {
+  color: var(--arc-spark);
+  border-color: var(--arc-gold-bright);
+  box-shadow: 0 0 14px rgba(247, 200, 74, 0.4);
 }
 
 .arc-radiant__detail-close {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 0;
+  right: 0;
   background: transparent;
   border: 1px solid rgba(247, 200, 74, 0.25);
   color: var(--arc-gold);
@@ -15121,6 +15649,7 @@ body.cart-open {
   height: 32px;
   border-radius: 50%;
   transition: all 200ms ease;
+  line-height: 1;
 }
 
 .arc-radiant__detail-close:hover {
@@ -15129,15 +15658,21 @@ body.cart-open {
   box-shadow: 0 0 12px rgba(247, 200, 74, 0.4);
 }
 
+.arc-radiant__tier {
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+}
+.arc-radiant__tier--violet { background: rgba(157,110,251,0.15); color: #b892ff; }
+.arc-radiant__tier--blue   { background: rgba(77,143,255,0.15);  color: #7eaaff; }
+.arc-radiant__tier--green  { background: rgba(45,208,122,0.15);  color: #5fdf9b; }
+.arc-radiant__tier--orange { background: rgba(255,153,51,0.15);  color: #ffb87a; }
+.arc-radiant__tier--red    { background: rgba(255,59,59,0.15);   color: #ff8585; }
+
 @media (max-width: 768px) {
-  .arc-radiant__main {
-    flex-direction: column;
-  }
   .arc-radiant__layer-panel {
     width: 100%;
-    max-height: 35vh;
-    border-left: none;
-    border-top: 1px solid var(--border-subtle);
   }
 }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useImperativeHandle, forwardRef, useR
 import { VISIBILITY_CATEGORIES, type SongVisibilitySection } from "@/lib/song-visibility";
 import { useAutosave } from "@/hooks/useAutosave";
 import { AboutSectionEditor } from "@/components/AboutSectionEditor";
+import { SongIfYouLikePanel } from "@/components/SongIfYouLikePanel";
 
 interface SectionEditorProps {
   songId: string;
@@ -286,6 +287,8 @@ export const SongVisibilitySections = forwardRef<
       </div>
 
       <AboutSectionEditor songId={songId} />
+
+      <SongIfYouLikePanel songId={songId} />
 
       {VISIBILITY_CATEGORIES.map((cat) => {
         const existing = sections.find((s) => s.category === cat.slug);
