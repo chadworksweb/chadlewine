@@ -1,5 +1,4 @@
 export const VISIBILITY_CATEGORIES = [
-  { slug: "if-you-like", label: "If You Like", description: "Similar famous artists & songs fans would search for", autoGenerate: true },
   { slug: "audience", label: "The Audience", description: "Who needs this song", autoGenerate: false },
   { slug: "world", label: "The World", description: "Thematic universe", autoGenerate: false },
   { slug: "fragments", label: "The Fragments", description: "Quotable lines & shareable content", autoGenerate: true },

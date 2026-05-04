@@ -180,7 +180,7 @@ GEO SCORING (aim for 100/100):
       "anthropic-beta": "prompt-caching-2024-07-31",
     },
     body: JSON.stringify({
-      model: "claude-opus-4-6",
+      model: "claude-opus-4-7",
       max_tokens: 4096,
       stream: true,
       system: [

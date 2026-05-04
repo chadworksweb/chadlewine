@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/printify-sync",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/merch-image-cleanup",
+      "schedule": "0 13 * * *"
     }
   ]
 }

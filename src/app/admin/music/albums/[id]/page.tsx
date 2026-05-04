@@ -9,6 +9,7 @@ import { MediaLibrary } from "@/components/MediaLibrary";
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { AlbumVisibilityChat } from "@/components/AlbumVisibilityChat";
 import { AlbumVisibilitySections, type AlbumVisibilitySectionsHandle } from "@/components/AlbumVisibilitySections";
+import { CubeFaceEditor } from "@/components/CubeFaceEditor";
 
 interface AlbumData {
   id?: string;
@@ -353,6 +354,10 @@ export default function EditAlbumPage() {
           </div>
         </div>
       </div>
+
+      {form.id && (
+        <CubeFaceEditor releaseType="album" releaseId={form.id} />
+      )}
 
       {/* Songs listing below editor */}
       <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "var(--space-xl) 0 var(--space-md)" }}>Songs</h2>

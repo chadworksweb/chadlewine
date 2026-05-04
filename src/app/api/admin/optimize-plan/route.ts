@@ -85,7 +85,7 @@ ${plainBody.slice(0, 6000)}`;
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-6",
+        model: "claude-opus-4-7",
         max_tokens: 2048,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],

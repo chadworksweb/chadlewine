@@ -140,7 +140,13 @@ export interface PrintifyShopProduct {
   description: string;
   visible: boolean;
   is_locked: boolean;
-  images: { src: string; is_default?: boolean; position?: string }[];
+  images: {
+    src: string;
+    variant_ids?: number[];
+    position?: string;
+    is_default?: boolean;
+    is_selected_for_publishing?: boolean;
+  }[];
   variants: {
     id: number;
     title: string;

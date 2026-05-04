@@ -1,5 +1,5 @@
 import { createPublicClient } from "@/lib/supabase-server";
-import { MerchProductCard } from "@/components/MerchProductCard";
+import { ExploreGrid, type ExploreKind } from "@/components/ExploreGrid";
 
 interface ExploreItem {
   key: string;
@@ -9,6 +9,7 @@ interface ExploreItem {
   image_url: string | null;
   image_alt: string | null;
   href: string;
+  kind: ExploreKind;
 }
 
 interface ProductRow {
@@ -35,11 +36,11 @@ function pickN<T>(arr: T[], n: number): T[] {
 interface Props {
   /** Merch product IDs to exclude from the strip (e.g. items already shown on the page). */
   excludeMerchIds?: string[];
-  /** When true, wrap in a `.page-merch` container so the strip can stand alone outside the merch index. */
-  standalone?: boolean;
+  /** When true, wrap in a width-constrained container so the strip can stand alone outside an existing page container. */
+  wrap?: boolean;
 }
 
-export async function MerchExplore({ excludeMerchIds = [], standalone = false }: Props) {
+export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props) {
   const supabase = createPublicClient();
   const excludeSet = new Set(excludeMerchIds);
 
@@ -95,6 +96,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
       image_url: p.image_url,
       image_alt: p.image_alt,
       href: `/merch/${p.slug || p.id}`,
+      kind: "merch",
     }));
   // Prefer merch not already shown on the page. If after exclusion we have
   // fewer than 2 left (e.g. the merch index already shows every product in
@@ -111,6 +113,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
     image_url: s.art_image_path,
     image_alt: s.title,
     href: `/music/songs/${s.slug}`,
+    kind: "song",
   }));
 
   const albumPool: ExploreItem[] = ((albumsRes.data || []) as Array<{ id: string; slug: string; title: string; cover_art_path: string | null }>).map((a) => ({
@@ -121,6 +124,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
     image_url: a.cover_art_path,
     image_alt: a.title,
     href: `/music/albums/${a.slug}`,
+    kind: "album",
   }));
 
   const artPool: ExploreItem[] = ((artRes.data || []) as Array<{ id: string; slug: string; title: string; image_path: string | null }>).map((a) => ({
@@ -131,6 +135,7 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
     image_url: a.image_path,
     image_alt: a.title,
     href: `/art/${a.slug}`,
+    kind: "art",
   }));
 
   // Pick 2 from each pool to guarantee all four types are represented when
@@ -145,30 +150,18 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
   if (explore.length === 0) return null;
 
   const strip = (
-    <section className="page-merch__explore">
-      <div className="page-merch__explore-frame">
-        <span className="page-merch__explore-frame-label" aria-hidden="true">░▒▓█</span>
-        <h2 className="page-merch__explore-heading">Explore</h2>
-        <span className="page-merch__explore-frame-label" aria-hidden="true">█▓▒░</span>
+    <section className="explore-strip">
+      <div className="explore-strip__frame">
+        <span className="explore-strip__frame-label" aria-hidden="true">░▒▓█</span>
+        <h2 className="explore-strip__heading">Explore</h2>
+        <span className="explore-strip__frame-label" aria-hidden="true">█▓▒░</span>
       </div>
-      <div className="page-merch__explore-grid">
-        {explore.map((item) => (
-          <MerchProductCard
-            key={item.key}
-            id={item.id}
-            slug={item.slug}
-            title={item.title}
-            image_url={item.image_url}
-            image_alt={item.image_alt}
-            href={item.href}
-          />
-        ))}
-      </div>
+      <ExploreGrid items={explore} />
     </section>
   );
 
-  if (standalone) {
-    return <div className="page-merch">{strip}</div>;
+  if (wrap) {
+    return <div className="explore-strip__wrap">{strip}</div>;
   }
 
   return strip;

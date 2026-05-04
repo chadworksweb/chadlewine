@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getShopProducts, type PrintifyShopProduct } from "@/lib/printify";
 import { slugify } from "@/lib/utils";
+import {
+  applyPrintifyImagesToGallery,
+  syncDerivedProductColumns,
+} from "@/lib/product-images";
 
 interface NormalizedVariant {
   id: number;
@@ -182,10 +186,6 @@ export async function syncPrintifyProducts(
       };
       if (fields.title) updatePayload.title = p.title;
       if (fields.description) updatePayload.description = stripHtml(p.description || "");
-      if (fields.images) {
-        updatePayload.image_url = pickImage(p);
-        updatePayload.image_urls = collectImages(p);
-      }
       if (fields.variants) {
         updatePayload.variants = variants;
         updatePayload.price = price;
@@ -195,8 +195,21 @@ export async function syncPrintifyProducts(
         .from("products")
         .update(updatePayload)
         .eq("id", existing.id);
-      if (error) errors.push({ printify_id: p.id, error: error.message });
-      else updated++;
+      if (error) {
+        errors.push({ printify_id: p.id, error: error.message });
+        continue;
+      }
+
+      if (fields.images) {
+        try {
+          await applyPrintifyImagesToGallery(supabase, existing.id, p.images);
+          await syncDerivedProductColumns(supabase, existing.id);
+        } catch (err) {
+          errors.push({ printify_id: p.id, error: (err as Error).message });
+          continue;
+        }
+      }
+      updated++;
     } else {
       // New product: pick a slug and insert with everything.
       const baseSlug = slugify(p.title);
@@ -228,9 +241,24 @@ export async function syncPrintifyProducts(
         tier: "line",
       };
 
-      const { error } = await supabase.from("products").insert(insertPayload);
-      if (error) errors.push({ printify_id: p.id, error: error.message });
-      else created++;
+      const { data: insertedRows, error } = await supabase
+        .from("products")
+        .insert(insertPayload)
+        .select("id")
+        .single();
+      if (error || !insertedRows) {
+        errors.push({ printify_id: p.id, error: error?.message || "insert returned no row" });
+        continue;
+      }
+
+      try {
+        await applyPrintifyImagesToGallery(supabase, insertedRows.id, p.images);
+        await syncDerivedProductColumns(supabase, insertedRows.id);
+      } catch (err) {
+        errors.push({ printify_id: p.id, error: (err as Error).message });
+        continue;
+      }
+      created++;
     }
   }
 

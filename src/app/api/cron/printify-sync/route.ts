@@ -39,10 +39,12 @@ export async function GET(request: Request) {
     });
   }
 
-  // Insert-only — same posture as the manual admin button. Field updates only
-  // happen via Printify's product:publish:started webhook, scoped by the
-  // user's publish-checkbox selections.
-  const result = await syncPrintifyProducts(supabase);
+  // Refresh images on all existing products (galleries respect needs_review +
+  // is_hidden firewall via product_images). Title/description/variants stay
+  // webhook-only — the cron should never overwrite curated copy or pricing.
+  const result = await syncPrintifyProducts(supabase, {
+    fields: { images: true },
+  });
   return Response.json({
     cron_skipped: false,
     active_orders: count,

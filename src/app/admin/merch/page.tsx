@@ -151,6 +151,11 @@ export default function AdminMerchPage() {
                 <Link href={`/admin/merch/products/${p.slug || p.id}`} className="admin-table__link">
                   {p.title}
                 </Link>
+                {p.slug && (
+                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", marginTop: 2 }}>
+                    /{p.slug}
+                  </div>
+                )}
               </td>
               <td className="admin-table__td">
                 <span className="admin-meta-chip">{p.tier}</span>

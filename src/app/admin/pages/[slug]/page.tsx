@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, use } from "react";
 import { MANAGED_PAGES, slugToRoute } from "@/lib/managed-pages";
 
 interface Form {
@@ -12,6 +11,9 @@ interface Form {
 }
 
 const EMPTY: Form = { title: "", description: "", og_image_path: "" };
+const DEBOUNCE_MS = 800;
+
+type Status = "idle" | "saving" | "saved" | "error";
 
 export default function AdminPageMetaEditor({
   params,
@@ -21,30 +23,80 @@ export default function AdminPageMetaEditor({
   const { slug } = use(params);
   const route = slugToRoute(slug);
   const meta = MANAGED_PAGES.find((p) => p.route === route);
-  const router = useRouter();
 
   const [form, setForm] = useState<Form>(EMPTY);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [status, setStatus] = useState<Status>("idle");
+
+  const lastSavedJson = useRef<string>(JSON.stringify(EMPTY));
+  const inflight = useRef(false);
+  const pending = useRef(false);
 
   useEffect(() => {
     fetch("/api/admin/page-meta")
       .then((r) => r.json())
       .then((rows) => {
         const row = (rows || []).find((x: { route: string }) => x.route === route);
-        if (row?.meta) {
-          setForm({
-            title: row.meta.title || "",
-            description: row.meta.description || "",
-            og_image_path: row.meta.og_image_path || "",
-          });
-        }
+        const next = row?.meta
+          ? {
+              title: row.meta.title || "",
+              description: row.meta.description || "",
+              og_image_path: row.meta.og_image_path || "",
+            }
+          : { ...EMPTY };
+        lastSavedJson.current = JSON.stringify(next);
+        setForm(next);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [route]);
+
+  function set<K extends keyof Form>(k: K, v: Form[K]) {
+    setForm((prev) => ({ ...prev, [k]: v }));
+  }
+
+  // Debounced autosave
+  useEffect(() => {
+    if (loading) return;
+    const json = JSON.stringify(form);
+    if (json === lastSavedJson.current) return;
+
+    const timer = setTimeout(() => {
+      const fire = async () => {
+        if (inflight.current) {
+          pending.current = true;
+          return;
+        }
+        inflight.current = true;
+        setStatus("saving");
+        try {
+          const res = await fetch("/api/admin/page-meta", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ route, ...form }),
+          });
+          if (res.ok) {
+            lastSavedJson.current = json;
+            setStatus("saved");
+          } else {
+            setStatus("error");
+          }
+        } catch {
+          setStatus("error");
+        } finally {
+          inflight.current = false;
+          if (pending.current) {
+            pending.current = false;
+            // re-fire with current form
+            fire();
+          }
+        }
+      };
+      fire();
+    }, DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [form, loading, route]);
 
   if (!meta) {
     return (
@@ -54,32 +106,6 @@ export default function AdminPageMetaEditor({
         <Link href="/admin/pages" className="admin-btn">← Back to Pages</Link>
       </div>
     );
-  }
-
-  function set<K extends keyof Form>(k: K, v: Form[K]) {
-    setForm((prev) => ({ ...prev, [k]: v }));
-  }
-
-  async function save() {
-    setSaving(true);
-    setError("");
-    const res = await fetch("/api/admin/page-meta", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        route,
-        title: form.title,
-        description: form.description,
-        og_image_path: form.og_image_path,
-      }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Save failed");
-      return;
-    }
-    setSavedAt(new Date().toLocaleTimeString());
   }
 
   if (loading) {
@@ -94,20 +120,19 @@ export default function AdminPageMetaEditor({
     <div className="admin-page">
       <div className="admin-page__header">
         <h1 className="admin-page__title">{meta.label}</h1>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Link href="/admin/pages" className="admin-btn">← Back</Link>
-          <button className="admin-btn admin-btn--primary" onClick={save} disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </button>
+          <span className={`autosave-status autosave-status--${status}`}>
+            {status === "saving" && "Saving..."}
+            {status === "saved" && "Saved"}
+            {status === "error" && "Save failed"}
+          </span>
         </div>
       </div>
 
       <p style={{ color: "#666", marginTop: 0 }}>
         Route: <code>{route}</code>. Blank fields fall back to hardcoded defaults. Use <strong>Clear</strong> to wipe an override.
       </p>
-
-      {error && <p style={{ color: "#c22", fontFamily: "var(--font-ui)" }}>{error}</p>}
-      {savedAt && <p style={{ color: "#3a8", fontFamily: "var(--font-ui)" }}>Saved at {savedAt}</p>}
 
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">Title</label>
@@ -156,16 +181,6 @@ export default function AdminPageMetaEditor({
           </div>
         )}
       </div>
-
-      <div style={{ marginTop: 24 }}>
-        <button className="admin-btn admin-btn--primary" onClick={save} disabled={saving}>
-          {saving ? "Saving..." : "Save"}
-        </button>
-      </div>
-
-      <p style={{ color: "#888", fontSize: 12, marginTop: 32 }}>
-        Router: {router ? "ready" : ""}
-      </p>
     </div>
   );
 }

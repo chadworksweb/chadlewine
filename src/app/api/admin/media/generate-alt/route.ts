@@ -26,8 +26,8 @@ export async function POST(request: Request) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-6",
-        max_tokens: 256,
+        model: "claude-opus-4-7",
+        max_tokens: 400,
         system: SYSTEM_PROMPT,
         messages: [
           {
@@ -53,11 +53,18 @@ export async function POST(request: Request) {
     // Strip wrapping quotes/whitespace just in case the model added any.
     let alt = raw.trim().replace(/^["']|["']$/g, "").trim();
 
-    // Hard cap at 125 chars per SOP. Prefer the last sentence boundary.
+    // Hard cap at 125 chars per SOP. Prefer last sentence boundary, then last
+    // word boundary. Never cut mid-word.
     if (alt.length > 125) {
       const truncated = alt.slice(0, 125);
       const lastPeriod = truncated.lastIndexOf(".");
-      alt = lastPeriod > 60 ? truncated.slice(0, lastPeriod + 1) : truncated.replace(/[,;:\s]+$/, "") + ".";
+      if (lastPeriod > 60) {
+        alt = truncated.slice(0, lastPeriod + 1);
+      } else {
+        const lastSpace = truncated.lastIndexOf(" ");
+        const cut = lastSpace > 60 ? truncated.slice(0, lastSpace) : truncated;
+        alt = cut.replace(/[,;:\s]+$/, "") + ".";
+      }
     }
     if (!alt.endsWith(".")) alt += ".";
 

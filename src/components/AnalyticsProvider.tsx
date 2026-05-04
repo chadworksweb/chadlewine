@@ -79,6 +79,14 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
         session_id: sessionId,
         created_at: new Date().toISOString(),
       });
+
+      // Fan out to PostHog. Skip page_view because PostHog has its own $pageview.
+      if (eventType !== "page_view" && typeof window !== "undefined") {
+        const ph = (window as unknown as { posthog?: { __loaded?: boolean; capture: (e: string, p?: Record<string, unknown>) => void } }).posthog;
+        if (ph?.__loaded) {
+          ph.capture(eventType, { ...ids, ...(metadata || {}) });
+        }
+      }
     },
     [pathname]
   );

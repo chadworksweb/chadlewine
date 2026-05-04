@@ -84,37 +84,40 @@ interface HomepageFeedProps {
   songs: Song[];
   featuredTrack: FeaturedTrackData | null;
   clStreamSongs: CLStreamSong[];
+  curatedHeroItems?: HeroLensItem[];
 }
 
-export function HomepageFeed({ songs, featuredTrack, clStreamSongs }: HomepageFeedProps) {
+export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroItems }: HomepageFeedProps) {
   const feedSongs = useMemo(() => songs.slice(0, FEED_LIMIT), [songs]);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [stuck, setStuck] = useState(false);
 
-  const heroItems: HeroLensItem[] = useMemo(
-    () =>
-      feedSongs.map((s) => {
-        // When falling back to the album cover, use the album's focal data —
-        // the song's focal points were calibrated for a different image.
-        const useAlbumImage = !s.art_image_path && !!s.album_cover_path;
-        const fx = useAlbumImage ? s.album_hero_focal_x : s.hero_focal_x;
-        const fy = useAlbumImage ? s.album_hero_focal_y : s.hero_focal_y;
-        const fz = useAlbumImage ? s.album_hero_zoom : s.hero_zoom;
-        return {
-          slug: s.slug,
-          title: s.title,
-          date: s.release_date,
-          artImagePath: s.art_image_path || s.album_cover_path || "",
-          artAlt: s.art_alt || s.album_cover_alt || s.title,
-          href: `/music/songs/${s.slug}`,
-          ctaLabel: "Listen →",
-          focalX: fx != null ? fx / 100 : 0.5,
-          focalY: fy != null ? fy / 100 : 0.5,
-          zoom: fz != null && fz >= 1 ? fz : 1,
-        };
-      }),
-    [feedSongs]
-  );
+  const heroItems: HeroLensItem[] = useMemo(() => {
+    // Curated picks win when present — fall back to the latest-songs auto feed.
+    if (curatedHeroItems && curatedHeroItems.length > 0) return curatedHeroItems;
+
+    return feedSongs.map((s) => {
+      // When falling back to the album cover, use the album's focal data —
+      // the song's focal points were calibrated for a different image.
+      const useAlbumImage = !s.art_image_path && !!s.album_cover_path;
+      const fx = useAlbumImage ? s.album_hero_focal_x : s.hero_focal_x;
+      const fy = useAlbumImage ? s.album_hero_focal_y : s.hero_focal_y;
+      const fz = useAlbumImage ? s.album_hero_zoom : s.hero_zoom;
+      return {
+        slug: s.slug,
+        title: s.title,
+        date: s.release_date,
+        artImagePath: s.art_image_path || s.album_cover_path || "",
+        artAlt: s.art_alt || s.album_cover_alt || s.title,
+        href: `/music/songs/${s.slug}`,
+        ctaLabel: "Listen →",
+        focalX: fx != null ? fx / 100 : 0.5,
+        focalY: fy != null ? fy / 100 : 0.5,
+        zoom: fz != null && fz >= 1 ? fz : 1,
+        kind: "song" as const,
+      };
+    });
+  }, [curatedHeroItems, feedSongs]);
 
   // Toggle `is-stuck` directly via DOM in a rAF-throttled scroll listener
   // so the mask flips on/off in the SAME frame the scroll is painted.
@@ -154,7 +157,7 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs }: HomepageFe
 
       <div className="home-split" data-nav-keep-until>
         <section className="home-split__observations">
-          <h2 ref={headingRef} className={`home-split__section-heading${stuck ? " is-stuck" : ""}`}>Songs</h2>
+          <h2 ref={headingRef} className={`home-split__section-heading${stuck ? " is-stuck" : ""}`}>Latest Songs</h2>
           {feedSongs.length > 0 && (
             <div className="archive__feed">
               {feedSongs.map((song) => {
@@ -178,11 +181,6 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs }: HomepageFe
                   </div>
                 );
               })}
-              <div className="archive__feed-item archive__feed-item--viewAll">
-                <Link href="/music/songs" className="archive__feed-view-all">
-                  View All Songs →
-                </Link>
-              </div>
             </div>
           )}
         </section>

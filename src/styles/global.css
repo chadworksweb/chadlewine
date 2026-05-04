@@ -182,14 +182,21 @@ main > .subscribe-section,
 main > .album-rc-classifications,
 main > .site-patronage,
 /* Page wrappers — opt out at the wrapper level so the sections inside
-   keep their existing layout. */
+   keep their existing layout.
+   NOTE: .page-static REMOVED from this list — when a .page-static element
+   sits in a grid-column: full track AND its own max-width uses the
+   canonical min(100% - 2*gutter, site-width) formula, the grid track
+   sizing collapses on short-content pages (chad-d, honeychrome, xanga
+   were rendering sub-600px at vw≈1335). Letting .page-static use the
+   default grid-column: content places it cleanly in the canonical
+   1255px rail — matches merch and discography. */
 main > .page-home,
 main > #page-home,
-main > .page-static,
 main > .page-merch,
 main > #page-merch,
 main > .page-curation,
-main > #page-curation {
+main > #page-curation,
+main > .page-music-hub__banner {
   grid-column: full;
 }
 
@@ -357,24 +364,24 @@ h2, h3, h4, h5, h6 {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   padding: 6px 14px;
   border-radius: 3px;
-  background: rgba(58, 30, 90, 0.45);
+  background: rgba(58, 30, 90, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   white-space: nowrap;
   text-decoration: none;
 }
 
 .nav-links__sub-item:hover {
   color: #fff;
-  background: rgba(58, 30, 90, 0.65);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(58, 30, 90, 0.96);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .nav-links__sub-item--active {
   color: #fff;
-  background: rgba(58, 30, 90, 0.65);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(58, 30, 90, 0.96);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* Expand — top-down staggered */
@@ -386,18 +393,10 @@ h2, h3, h4, h5, h6 {
 @keyframes nav-expand {
   0% {
     opacity: 0;
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-bottom: 0;
     transform: translateY(-10px);
   }
   100% {
     opacity: 1;
-    max-height: 50px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    margin-bottom: 3px;
     transform: translateY(0);
   }
 }
@@ -411,18 +410,10 @@ h2, h3, h4, h5, h6 {
 @keyframes nav-collapse {
   0% {
     opacity: 1;
-    max-height: 50px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    margin-bottom: 3px;
     transform: translateY(0);
   }
   100% {
     opacity: 0;
-    max-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-bottom: 0;
     transform: translateY(-10px);
   }
 }
@@ -843,7 +834,7 @@ h2, h3, h4, h5, h6 {
 
 .hero-lens {
   max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto;
+  margin: 0 auto 50px;
   /* Peek surface width — narrowed from 110 to make room for the inter-card
      padding (var(--hero-gap)) without losing the click target entirely. */
   --hero-peek: 90px;
@@ -888,6 +879,107 @@ h2, h3, h4, h5, h6 {
 
 .hero-lens__slide--current {
   z-index: 1;
+}
+
+/* Animated 1px conic-gradient border on the active hero card.
+   Mask trick: a conic-gradient fill clipped to a 1px ring via padding +
+   linear-gradient masks composited with `exclude`, so only the perimeter
+   paints. @property makes --hero-border-angle animatable. */
+@property --hero-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.hero-lens__slide-art {
+  position: relative;
+}
+
+.hero-lens__slide--current .hero-lens__slide-art::before {
+  content: "";
+  position: absolute;
+  /* Inset L/R by (peek - gap) so the border lands inside the visible card
+     band rather than under the peek slides (z=2), which would otherwise
+     cover the current slide's left/right edges. max() clamps to 0 on
+     mobile where peek is 0 and would otherwise go negative. */
+  top: 0;
+  bottom: 0;
+  left: max(0px, calc(var(--hero-peek) - var(--hero-gap)));
+  right: max(0px, calc(var(--hero-peek) - var(--hero-gap)));
+  pointer-events: none;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--hero-border-angle),
+    transparent 0%,
+    rgba(40, 56, 160, 0.85) 25%,
+    rgba(20, 30, 90, 1) 50%,
+    rgba(40, 56, 160, 0.85) 75%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: hero-border-sweep 6s linear infinite;
+  z-index: 4;
+}
+
+@keyframes hero-border-sweep {
+  to { --hero-border-angle: 360deg; }
+}
+
+/* On-brand carousel arrows — sit centered over the L/R peek strips,
+   above the peek-veil (z=5) so they read against the dimmed peek art.
+   Square chrome with accent border, mirroring the CTA's visual language. */
+.hero-lens__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: calc(var(--hero-peek) - 12px);
+  max-width: 56px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-accent);
+  cursor: pointer;
+  z-index: 6;
+  transition: color 300ms ease, text-shadow 300ms ease, transform 300ms ease;
+}
+
+.hero-lens__nav--prev {
+  left: 6px;
+}
+
+.hero-lens__nav--next {
+  right: 6px;
+}
+
+.hero-lens__nav:hover {
+  color: #fff;
+  text-shadow: 0 0 18px rgba(139, 156, 247, 0.7);
+}
+
+.hero-lens__nav:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 3px;
+}
+
+.hero-lens__nav-arrow {
+  font-family: var(--font-ui);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1;
+  display: block;
+  /* Glyph baseline sits low — nudge up so it reads centered. */
+  transform: translateY(-2px);
 }
 
 /* Peek slides — hover + click to advance. Inner links are dead so the whole
@@ -956,18 +1048,19 @@ h2, h3, h4, h5, h6 {
 
 
 .hero-lens__slide-content {
+  position: absolute;
+  left: var(--hero-peek);
+  right: var(--hero-peek);
+  bottom: 0;
+  min-height: 25%;
   display: grid;
   grid-template-columns: 3fr 1fr;
   gap: var(--space-xl);
-  align-items: start;
-  padding-top: var(--space-xl);
-  padding-bottom: var(--space-xl);
-  /* Title + meta inset from slide edges so peek slides' text doesn't bleed
-     into the visible peek strip. Image (.hero-lens__slide-art) stays full
-     slide width — its 1200x500 ratio is preserved across every card. */
-  max-width: calc(100% - var(--hero-peek) * 2);
-  margin-left: auto;
-  margin-right: auto;
+  align-items: end;
+  padding: var(--space-sm) var(--space-md);
+  background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 30%, rgba(0, 0, 0, 0.85) 100%);
+  z-index: 3;
+  box-sizing: border-box;
 }
 
 /* ──────────────────────────────────────────────────────────────────
@@ -1116,9 +1209,8 @@ h2, h3, h4, h5, h6 {
 
   .hero-lens__slide-content {
     grid-template-columns: 1fr;
-    gap: var(--space-md);
-    padding-top: var(--space-md);
-    padding-bottom: var(--space-md);
+    gap: var(--space-xs);
+    padding: 0 var(--space-md);
   }
 
   .hero-lens__slide .cover-hero__art-wrap {
@@ -1134,6 +1226,10 @@ h2, h3, h4, h5, h6 {
     /* Padding stays — creates a visible gap between adjacent cards as one
        swipes into view. */
     transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .hero-lens__nav {
+    display: none;
   }
 
   .hero-lens__slide::after {
@@ -1257,15 +1353,53 @@ h2, h3, h4, h5, h6 {
   color: var(--text-secondary);
 }
 
+/* CTA row — badge + CTA side-by-side, stretched to share the same height.
+   Neutralizes .cover-hero__bar > * panel styling so the row itself stays
+   transparent and only its children render visible chrome. */
+.cover-hero__bar > .hero-lens__cta-row {
+  display: flex !important;
+  align-items: stretch;
+  gap: var(--space-sm);
+  padding: 0 !important;
+  background: none !important;
+  border: none !important;
+  margin-bottom: var(--space-sm);
+}
+
+.cover-hero__bar > .hero-lens__cta-row > * {
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hero-lens__kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-md);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hero-lens__kind--song { color: var(--text-accent); border-color: rgba(64, 96, 255, 0.5); }
+.hero-lens__kind--album { color: #ffd166; border-color: rgba(255, 209, 102, 0.5); }
+.hero-lens__kind--merch { color: #06d6a0; border-color: rgba(6, 214, 160, 0.5); }
+.hero-lens__kind--observation { color: #ef476f; border-color: rgba(239, 71, 111, 0.5); }
+.hero-lens__kind--art { color: #c084fc; border-color: rgba(192, 132, 252, 0.5); }
+
 /* Hero Lens CTA — standalone, no inheritance */
 .hero-lens__cta {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
-  padding: 10px var(--space-xl);
-  margin-bottom: var(--space-sm);
+  padding: 10px var(--space-md);
   border: 1px solid var(--text-accent);
   border-radius: 0;
   background: var(--text-accent);
@@ -1485,6 +1619,7 @@ h2, h3, h4, h5, h6 {
 }
 
 .title-reveal h1,
+.title-reveal h2,
 .title-reveal a {
   cursor: pointer;
 }
@@ -2165,9 +2300,10 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .page-static {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter) var(--space-4xl);
+  /* No max-width / margin / L-R padding needed — parent <main> grid places
+     this in the canonical content rail (1255px @ vw=1335). Keep bottom
+     padding for breathing room above the footer. */
+  padding-bottom: var(--space-4xl);
 }
 
 .page-static--reading {
@@ -2189,10 +2325,66 @@ h2, h3, h4, h5, h6 {
    MUSIC HUB
    ============================================================ */
 
+/* Full-bleed title banner — mirrors the home-merch "Shop Chad Lewine
+   Merchandise" stripe (175px gradient band with the bracketed frame
+   absolutely centered inside it). */
+.page-music-hub__banner {
+  width: 100%;
+  height: 175px;
+  background: var(--bg-elevated);
+  position: relative;
+  isolation: isolate;
+  margin-bottom: var(--space-2xl);
+}
+
+.page-music-hub__banner > .explore-songs__frame--top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 175px;
+  margin: 0 auto;
+  z-index: 3;
+}
+
+.page-music-hub__banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 175px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 5%,
+    var(--text-accent) 50%,
+    rgba(64, 96, 255, 0.0) 95%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.5), 0 0 48px rgba(64, 96, 255, 0.2);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.page-music-hub__banner .explore-songs__heading,
+.page-music-hub__banner .explore-songs__frame-label {
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 12px var(--bg-elevated);
+  position: relative;
+  z-index: 1;
+}
+
+.page-music-hub__banner .explore-songs__heading {
+  font-size: 3.64rem;
+}
+
 .music-hub {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
+  margin-top: var(--space-3xl);
+  margin-bottom: 100px;
 }
 
 .music-hub__col {
@@ -2280,6 +2472,398 @@ h2, h3, h4, h5, h6 {
   .music-hub {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Album Hero (music page) ─────────────────────────────────────── */
+
+.album-hero {
+  /* Square art is the smaller of half the site-width and the leftover
+     viewport height (nav + page title + dots + buffer), then knocked down
+     15% so the hero takes up less of the page. */
+  --ah-art-size: calc(min(
+    calc((var(--site-width) - 18px) / 2),
+    calc(100vh - var(--nav-height) - 12rem)
+  ) * 0.85);
+  --ah-tab-w: 60px;
+  position: relative;
+  margin-bottom: var(--space-2xl);
+}
+
+.album-hero__viewport {
+  position: relative;
+  height: var(--ah-art-size);
+  overflow: hidden;
+  contain: layout;
+}
+
+/* Sovereign side-tab nav buttons — slim vertical strips at the viewport
+   edges. Adopt a more subtle version of the h1 title bar's accent-blue
+   vertical stripe (gradient peak in the middle) with a soft halo. */
+.album-hero__nav-tab {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--ah-tab-w);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 15%,
+    rgba(64, 96, 255, 0.32) 50%,
+    rgba(64, 96, 255, 0.0) 85%,
+    transparent 100%
+  );
+  box-shadow: 0 0 16px rgba(64, 96, 255, 0.22), 0 0 32px rgba(64, 96, 255, 0.08);
+  border: none;
+  color: var(--text-primary);
+  font-size: 36px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 4;
+  padding: 0;
+  transition: background var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+}
+
+.album-hero__nav-tab--prev {
+  left: 0;
+}
+
+.album-hero__nav-tab--next {
+  right: 0;
+}
+
+.album-hero__nav-tab:hover,
+.album-hero__nav-tab:focus-visible {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 10%,
+    rgba(64, 96, 255, 0.55) 50%,
+    rgba(64, 96, 255, 0.0) 90%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.4), 0 0 48px rgba(64, 96, 255, 0.18);
+  color: var(--text-accent);
+}
+
+.album-hero__nav-tab:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: -4px;
+}
+
+/* Slides are absolutely stacked at the same origin, full viewport width.
+   prev sits at translateX(-100%), next at translateX(100%), current at 0.
+   When the active index changes, role classes flip and the same transition
+   curve sweeps the whole card across — no fade. */
+.album-hero__slide {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+  transition: transform 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.album-hero__slide--current {
+  z-index: 1;
+}
+
+.album-hero__slide--prev,
+.album-hero__slide--next {
+  z-index: 0;
+  pointer-events: none;
+}
+
+.album-hero__stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xl);
+  max-width: var(--site-width);
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 calc(var(--ah-tab-w) + var(--space-md));
+  box-sizing: border-box;
+}
+
+.album-hero__stage > .album-hero__cover-link {
+  flex: 0 0 var(--ah-art-size);
+}
+
+.album-hero__stage > .album-hero__meta {
+  flex: 0 1 var(--ah-art-size);
+  min-width: 0;
+}
+
+.album-hero__cover-link {
+  display: block;
+  position: relative;
+  width: var(--ah-art-size);
+  height: var(--ah-art-size);
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--bg-glass);
+}
+
+.album-hero__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.album-hero__cover-link:hover .album-hero__cover {
+  transform: scale(1.02);
+}
+
+.album-hero__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-md);
+  /* Soft radial backlight behind the right column — gentle accent-blue
+     ellipse fading to transparent so the content reads as lit from
+     behind rather than floating on a flat surface. */
+  background: radial-gradient(
+    ellipse 80% 70% at 50% 50%,
+    rgba(139, 174, 255, 0.12) 0%,
+    rgba(139, 174, 255, 0.06) 35%,
+    transparent 75%
+  );
+}
+
+.album-hero__badge {
+  align-self: center;
+  height: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  border: 1px solid currentColor;
+  opacity: 0.5;
+}
+
+.album-hero__title {
+  font-family: var(--font-ui);
+  font-size: clamp(2rem, 1.4rem + 2.5vw, 3.5rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.28;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Shimmer on hover, masked to the text letters via background-clip: text.
+   Two stacked background layers, both clipped to the glyph shapes:
+     1. (top) A moving translucent-white band — the sweep itself.
+     2. (bottom) A solid var(--text-primary) fill — the always-visible text.
+   When the top layer's transparent zones are over the glyphs, the solid
+   bottom layer shows through, so the text NEVER disappears. The white band
+   sweeps across, then briefly pauses offscreen before looping. */
+/* Register --shimmer-base as a typed color so the value can actually
+   interpolate between transitions (browsers won't tween a plain custom
+   property). Without this, the hover color "snaps" instead of fading. */
+@property --shimmer-base {
+  syntax: '<color>';
+  initial-value: #e4e4ec;
+  inherits: false;
+}
+
+.album-hero__title-link {
+  --shimmer-base: var(--text-primary);
+  display: inline-block;
+  text-decoration: none;
+  background-image:
+    linear-gradient(
+      100deg,
+      transparent 40%,
+      rgba(139, 174, 255, 0.95) 50%,
+      transparent 60%
+    ),
+    linear-gradient(var(--shimmer-base), var(--shimmer-base));
+  background-size: 300% 100%, 100% 100%;
+  background-position: 100% 0, 0 0;
+  background-repeat: no-repeat, no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  transition: --shimmer-base 350ms ease-out;
+}
+
+.album-hero__title-link:hover {
+  --shimmer-base: #aab0c0;
+  animation: album-hero-title-shimmer 0.75s linear infinite alternate;
+}
+
+/* Bright stop starts fully offscreen-left of the text (p=100%) and ends
+   fully offscreen-right (p=0%) on a 300% gradient. `alternate` reverses
+   for the return sweep; `linear` removes the easing slowdown at each
+   turnaround. */
+@keyframes album-hero-title-shimmer {
+  from { background-position: 100% 0, 0 0; }
+  to   { background-position: 0% 0, 0 0; }
+}
+
+.album-hero__year {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  letter-spacing: 0.1em;
+}
+
+.album-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px var(--space-md);
+  border: 1px solid var(--text-accent);
+  color: var(--text-accent);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+
+.album-hero__cta:hover {
+  background: var(--text-accent);
+  color: var(--bg-base, #000);
+}
+
+/* Position indicator — circular cover thumbnails, all the same size,
+   active one outlined in accent. */
+.album-hero__indicator {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-xl);
+}
+
+.album-hero__indicator-tile {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  background: var(--bg-glass);
+  cursor: pointer;
+  overflow: hidden;
+  opacity: 0.45;
+  transition: opacity var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+  position: relative;
+}
+
+.album-hero__indicator-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.album-hero__indicator-tile:hover,
+.album-hero__indicator-tile:focus-visible {
+  opacity: 0.85;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.album-hero__indicator-tile--active {
+  opacity: 1;
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 2px rgba(64, 96, 255, 0.25);
+}
+
+@media (max-width: 768px) {
+  .album-hero {
+    --ah-tab-w: 40px;
+    --ah-art-size: min(100%, calc(100vw - var(--page-gutter) * 2 - var(--ah-tab-w) * 2));
+  }
+  .album-hero__viewport {
+    height: auto;
+    min-height: calc(var(--ah-art-size) + 240px);
+  }
+  .album-hero__stage {
+    flex-direction: column;
+    gap: var(--space-lg);
+    padding: 0 calc(var(--ah-tab-w) + var(--space-sm));
+  }
+  .album-hero__stage > .album-hero__cover-link {
+    flex: 0 0 var(--ah-art-size);
+    width: var(--ah-art-size);
+  }
+  .album-hero__stage > .album-hero__meta {
+    flex: 0 1 auto;
+    width: 100%;
+    align-items: center;
+    text-align: center;
+  }
+  .album-hero__nav-tab {
+    font-size: 28px;
+  }
+}
+
+/* Thicker explore-songs divider lines on the music hub only — homepage
+   keeps the 1px default. */
+#page-music-hub .explore-songs::before,
+#page-music-hub .explore-songs::after {
+  height: 3px;
+  box-shadow: 0 0 32px rgba(64, 96, 255, 0.55), 0 0 64px rgba(64, 96, 255, 0.25);
+}
+
+.page-music-hub__curation {
+  margin-top: var(--space-3xl);
+}
+
+.page-music-hub__section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.page-music-hub__section-heading {
+  font-family: var(--font-ui);
+  font-size: clamp(1.4rem, 1.05rem + 0.875vw, 2.1rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.page-music-hub__section-more {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.page-music-hub__section-more:hover {
+  color: var(--text-primary);
+}
+
+.page-music-hub__cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-3xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.page-music-hub__cta {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.page-music-hub__cta:hover {
+  color: var(--text-primary);
 }
 
 /* ============================================================
@@ -6974,7 +7558,7 @@ h3.aw-heading {
 .page-merch {
   max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
   margin: 0 auto;
-  padding: 0 0 var(--space-4xl);
+  padding: 0 0 calc(var(--space-4xl) / 2);
 }
 
 .page-merch__header {
@@ -7425,6 +8009,65 @@ h3.aw-heading {
   margin-bottom: var(--space-sm);
 }
 
+.merch-shop__card-kind {
+  justify-self: end;
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  height: 1.57rem;
+  padding: 0 0.6em;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  border: 1px solid currentColor;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0.35;
+  transition: opacity 180ms ease;
+}
+
+.merch-shop__card:has(a:hover) .merch-shop__card-kind {
+  opacity: 1;
+}
+
+.merch-shop__card-water {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.explore-strip__grid .merch-shop__card-img,
+.explore-strip__grid .merch-shop__card-water {
+  filter: brightness(1);
+  transition: filter 0.35s ease;
+}
+
+.explore-strip__grid .merch-shop__card--hovered .merch-shop__card-img,
+.explore-strip__grid .merch-shop__card--hovered .merch-shop__card-water {
+  filter: brightness(1.15);
+}
+
+/* When the water canvas is freshly mounted while the card is already
+   hovered, the browser has no "before" frame to transition from, so it
+   blinks straight to brightness(1.15). @starting-style gives the browser
+   an explicit pre-insertion value so the first hover fades like the rest. */
+@starting-style {
+  .explore-strip__grid .merch-shop__card--hovered .merch-shop__card-water {
+    filter: brightness(1);
+  }
+}
+
+.explore-strip__grid .merch-shop__card-img-link:has(.merch-shop__card-img:hover)::before {
+  animation: none;
+  opacity: 0;
+}
+
+.explore-strip__grid .merch-shop__card-img:hover {
+  animation: none;
+}
+
 .merch-shop__card-img {
   width: 100%;
   aspect-ratio: 1;
@@ -7436,10 +8079,11 @@ h3.aw-heading {
   z-index: 1;
 }
 
-/* Cyan glitch overlay — ported from chadrising product cards.
-   No mix-blend-mode here: chadrising's screen blend was tuned for dark album
-   art; merch shots are light product photography, so blend washes the cyan
-   out. We let the inset cyan render directly. */
+/* Cyan side glow via horizontal linear-gradient — cyan fades in from the
+   left edge over the first 25% and from the right edge over the last 25%,
+   transparent in the middle 50%. Pure 90° gradient = no vertical component,
+   so the top + bottom edges of the element are never cyan-tinted (unlike
+   inset box-shadows, whose blur radius leaks inward at the top/bottom). */
 .merch-shop__card-img-link::before {
   content: "";
   position: absolute;
@@ -7448,11 +8092,16 @@ h3.aw-heading {
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 4px;
-  background: transparent;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 212, 255, 0.55) 0px,
+    rgba(0, 212, 255, 0.0) 40px,
+    rgba(0, 212, 255, 0.0) calc(100% - 40px),
+    rgba(0, 212, 255, 0.55) 100%
+  );
   pointer-events: none;
   opacity: 0;
   z-index: 10;
-  box-shadow: inset 0 0 40px rgba(0, 212, 255, 0.45);
   overflow: hidden;
 }
 
@@ -7463,35 +8112,37 @@ h3.aw-heading {
 
 .merch-shop__card-img:hover {
   animation: cl-merch-glitch-image 0.4s steps(2) forwards;
-  filter: drop-shadow(0 0 12px rgba(0, 212, 255, 0.7));
 }
 
 @keyframes cl-merch-glitch-cyan {
   0% {
     clip-path: inset(0 0 0 0);
-    opacity: 0.8;
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.4), 2px 0 0 rgba(0, 212, 255, 0.5);
+    opacity: 0.85;
+    box-shadow: 2px 0 0 rgba(0, 212, 255, 0.5);
   }
   25% {
     clip-path: inset(20% 0 60% 0);
     transform: translateX(4px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.6), -2px 0 0 rgba(255, 0, 255, 0.3);
+    opacity: 1;
+    box-shadow: -2px 0 0 rgba(255, 0, 255, 0.3);
   }
   50% {
     clip-path: inset(50% 0 20% 0);
     transform: translateX(-3px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.5), 3px 0 0 rgba(0, 212, 255, 0.5);
+    opacity: 0.9;
+    box-shadow: 3px 0 0 rgba(0, 212, 255, 0.5);
   }
   75% {
     clip-path: inset(10% 0 40% 0);
     transform: translateX(2px);
-    box-shadow: inset 0 0 30px rgba(0, 212, 255, 0.4);
+    opacity: 0.7;
+    box-shadow: none;
   }
   100% {
     clip-path: inset(0 0 0 0);
     transform: translateX(0);
     opacity: 0;
-    box-shadow: inset 0 0 20px rgba(0, 212, 255, 0.2);
+    box-shadow: none;
   }
 }
 
@@ -7505,10 +8156,14 @@ h3.aw-heading {
 
 .merch-shop__card-title {
   font-family: var(--font-ui);
-  font-size: 1.85rem;
+  font-size: 1.57rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .merch-shop__card-title-link {
@@ -7521,32 +8176,59 @@ h3.aw-heading {
   color: var(--text-accent);
 }
 
-.product-detail__size-select {
+.product-detail__size-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  width: 100%;
+}
+
+.product-detail__size-btn {
   background: transparent;
   color: var(--td-cyan-alt);
-  text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
   font-family: var(--td-font-mono);
-  font-size: 1.275rem;
-  border: none;
-  padding: 0 18px 0 0;
-  appearance: none;
-  -webkit-appearance: none;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(0, 212, 255, 0.32);
+  border-radius: 6px;
+  padding: 6px 12px;
+  min-width: 40px;
   cursor: pointer;
-  white-space: nowrap;
-  text-align: center;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2300d4ff' d='M5 6 0 0h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right center;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
-.product-detail__size-select:focus {
-  outline: 1px solid var(--td-cyan-alt);
-  outline-offset: 4px;
+.product-detail__size-btn:hover {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: var(--td-cyan-alt);
+  transform: translateY(-1px);
 }
 
-.product-detail__size-select option {
-  background: var(--td-bg-card);
-  color: var(--td-cyan-alt);
+.product-detail__size-btn:focus-visible {
+  outline: 2px solid var(--td-cyan-alt);
+  outline-offset: 2px;
+}
+
+.product-detail__size-btn--active {
+  background: var(--td-cyan-alt);
+  color: #0d0d1a;
+  border-color: var(--td-cyan-alt);
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.35);
+}
+
+.product-detail__size-btn--active:hover {
+  background: var(--td-cyan-alt);
+  color: #0d0d1a;
+}
+
+@media (max-width: 720px) {
+  .product-detail__size-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .product-detail__size-btn {
+    width: 100%;
+  }
 }
 
 .product-detail__gallery {
@@ -7571,7 +8253,8 @@ h3.aw-heading {
 .product-detail__thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #000;
   display: block;
 }
 
@@ -7620,22 +8303,32 @@ h3.aw-heading {
   font-size: var(--text-sm);
 }
 
-.page-merch__explore {
+/* Generic Explore strip — section that surfaces a mix of merch, songs,
+   albums, and art. Used on the merch index, merch detail, song detail,
+   and anywhere else we want a "discover more" tail. */
+.explore-strip {
   margin-top: var(--space-2xl);
 }
 
-/* Explore grid — independent from .merch-shop__grid so the main grid and the
-   Explore strip can have different column counts. */
-.page-merch__explore-grid {
+/* Standalone wrapper — provides the same width + gutter as .page-merch so
+   the strip can stand alone outside an existing page container. */
+.explore-strip__wrap {
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  margin: 0 auto;
+  padding: 0 0 calc(var(--space-4xl) / 2);
+}
+
+/* Explore grid — independent from any other grid so columns can be tuned
+   for this strip without affecting page-level grids. */
+.explore-strip__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
 }
 
-/* Bracketed/ticked divider — mirrors .explore-songs__frame on the homepage,
-   but sized to the parent .page-merch (no extra width/gutter). */
-.page-merch__explore-frame {
+/* Bracketed/ticked divider — mirrors .explore-songs__frame on the homepage. */
+.explore-strip__frame {
   position: relative;
   height: 65px;
   margin: 0 0 var(--space-xl);
@@ -7651,8 +8344,8 @@ h3.aw-heading {
   );
 }
 
-.page-merch__explore-frame::before,
-.page-merch__explore-frame::after {
+.explore-strip__frame::before,
+.explore-strip__frame::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -7662,21 +8355,21 @@ h3.aw-heading {
   pointer-events: none;
 }
 
-.page-merch__explore-frame::before {
+.explore-strip__frame::before {
   left: 0;
   border-left: 1px solid var(--text-accent);
   border-top: 1px solid var(--text-accent);
   border-bottom: 1px solid var(--text-accent);
 }
 
-.page-merch__explore-frame::after {
+.explore-strip__frame::after {
   right: 0;
   border-right: 1px solid var(--text-accent);
   border-top: 1px solid var(--text-accent);
   border-bottom: 1px solid var(--text-accent);
 }
 
-.page-merch__explore-frame-label {
+.explore-strip__frame-label {
   position: relative;
   padding: 0 var(--space-md);
   background: #000;
@@ -7689,7 +8382,7 @@ h3.aw-heading {
   white-space: nowrap;
 }
 
-.page-merch__explore-heading {
+.explore-strip__heading {
   font-family: var(--font-ui);
   font-size: 1.82rem;
   color: var(--text-primary);
@@ -7702,13 +8395,13 @@ h3.aw-heading {
 }
 
 @media (max-width: 720px) {
-  .page-merch__explore-frame {
+  .explore-strip__frame {
     flex-direction: column;
     height: auto;
     gap: var(--space-xs);
     padding: var(--space-md) 0;
   }
-  .page-merch__explore-heading {
+  .explore-strip__heading {
     white-space: normal;
     text-align: center;
     padding: 0 var(--space-sm);
@@ -7847,7 +8540,7 @@ h3.aw-heading {
   .merch-shop__grid {
     grid-template-columns: 1fr;
   }
-  .page-merch__explore-grid {
+  .explore-strip__grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -8621,10 +9314,24 @@ h3.aw-heading {
   background: var(--bg-elevated);
   position: relative;
   isolation: isolate;
-  /* Match the .explore-songs vertical rhythm: section padding gives the
-     banner breathing room below the divider, banner's own margin-bottom
-     handles the gap to the grid. */
-  padding-top: var(--space-2xl);
+  /* Section content starts below the 175px gradient band — the frame banner
+     is positioned absolutely inside the band (vertically centered) so the
+     text sits in the middle of the divider. */
+  padding-top: 175px;
+}
+
+/* Center the title frame in the 175px gradient band — `margin: 0 auto`
+   re-applies the base rule's horizontal centering after absolute positioning,
+   so the max-width: var(--site-width) box stays centered instead of getting
+   anchored to left: 0. */
+.home-merch > .explore-songs__frame--top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 175px;
+  margin: 0 auto;
+  z-index: 3;
 }
 
 /* Slim blue-accent gradient divider at the top — mirrors the dividers on
@@ -8635,7 +9342,7 @@ h3.aw-heading {
   top: 0;
   left: 0;
   right: 0;
-  height: 1px;
+  height: 175px;
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -8650,9 +9357,11 @@ h3.aw-heading {
 }
 
 .home-merch__inner {
-  /* Banner's natural margin-bottom handles the gap to the grid (mirrors
-     the explore-songs structure). */
-  padding-top: 0;
+  /* Breathing room between the 175px title band and the merch grid. The
+     frame banner is absolutely positioned inside the band so it can't
+     contribute its own margin-bottom — this padding-top is what spaces
+     the grid below the title. */
+  padding-top: var(--space-2xl);
   padding-bottom: var(--space-3xl);
 }
 
@@ -8699,10 +9408,16 @@ h3.aw-heading {
 
 /* The banner frame's heading + side-glyphs use background: #000 to mask the
    tick-line pattern behind them. .home-merch sits on var(--bg-elevated) so
-   override the mask color to the same elevated bg or the squares stand out. */
+   override the mask color to the same elevated bg or the squares stand out.
+   The 12px box-shadow halo extends the bg-elevated mask beyond the text's
+   own padding so the bright cyan band glow can't bleed through and wash out
+   the heading. */
 .home-merch .explore-songs__heading,
 .home-merch .explore-songs__frame-label {
   background: var(--bg-elevated);
+  box-shadow: 0 0 0 12px var(--bg-elevated);
+  position: relative;
+  z-index: 1;
 }
 
 
@@ -9059,11 +9774,19 @@ h3.aw-heading {
   display: none;
 }
 
-.track-detail__cover,
-.product-detail__cover {
+.track-detail__cover {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
+  border-radius: var(--td-radius);
+  border: 1px solid var(--td-border);
+}
+
+.product-detail__cover {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #000;
   border-radius: var(--td-radius);
   border: 1px solid var(--td-border);
 }
@@ -9124,8 +9847,8 @@ h3.aw-heading {
 
 .track-detail__info-bar[data-cols="1"],
 .product-detail__info-bar[data-cols="1"] { grid-template-columns: 1fr; }
-.track-detail__info-bar[data-cols="2"],
-.product-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 1fr; }
+.track-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 1fr; }
+.product-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 2fr; }
 .track-detail__info-bar[data-cols="3"],
 .product-detail__info-bar[data-cols="3"] { grid-template-columns: 1fr 1fr 1fr; }
 
@@ -9160,6 +9883,19 @@ h3.aw-heading {
   color: var(--td-cyan-alt);
   text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
   white-space: nowrap;
+}
+
+.product-detail__info-cell--inverted {
+  background: var(--td-cyan-alt);
+}
+
+.product-detail__info-cell--inverted .product-detail__info-label {
+  color: rgba(13, 13, 26, 0.7);
+}
+
+.product-detail__info-cell--inverted .product-detail__info-value {
+  color: #0d0d1a;
+  text-shadow: none;
 }
 
 .track-detail__info-value--released,
@@ -9250,6 +9986,18 @@ h3.aw-heading {
 .product-detail__actions {
   display: flex;
   gap: 0.75rem;
+}
+
+.product-detail__actions--with-print {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .product-detail__actions--with-print {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Rising Compass inline badge */
@@ -9469,6 +10217,36 @@ h3.aw-heading {
   border-color: #ffc040;
   box-shadow: 0 0 15px rgba(255, 149, 0, 0.35);
   transform: translateY(-2px);
+}
+
+.product-detail__btn--buy-album:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.product-detail__btn--buy-album:disabled:hover {
+  background: var(--td-active);
+  color: #0d0d1a;
+  border-color: var(--td-active);
+  transform: none;
+  box-shadow: none;
+  opacity: 0.4;
+}
+
+.product-detail__btn--buy-print {
+  background: transparent;
+  color: var(--text-secondary, #aaa);
+  border: 1px solid var(--td-border, rgba(255, 255, 255, 0.18));
+  text-decoration: none;
+  font-size: var(--text-xs);
+}
+
+.product-detail__btn--buy-print:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary, #fff);
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 /* Ringtone — distinct cyan accent so it reads as a separate product
@@ -9887,10 +10665,6 @@ h3.aw-heading {
 }
 
 /* --- Discography grid --- */
-
-#page-discography {
-  max-width: var(--site-width);
-}
 
 .discography-grid {
   display: grid;
@@ -12032,6 +12806,45 @@ h3.aw-heading {
   color: #00d4ff80;
 }
 
+/* ─── If You Like — manual structured entries (section 2) ─── */
+
+.song-landing__if-you-like-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.song-landing__if-you-like-entry {
+  padding: 0;
+  margin: 0;
+  border-left: 2px solid #00d4ff40;
+  padding-left: var(--space-md);
+}
+
+.song-landing__if-you-like-pair {
+  margin: 0 0 0.35rem;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  color: #f2f2f5;
+  line-height: 1.4;
+}
+
+.song-landing__if-you-like-pair strong {
+  font-weight: 700;
+}
+
+.song-landing__if-you-like-reason {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #b8b8cc;
+}
+
 /* ─── Prose (reading column content) ─── */
 
 .song-landing__prose {
@@ -12218,6 +13031,127 @@ h3.aw-heading {
 .song-landing__cta-link:hover {
   color: #00d4ff;
   border-color: #00d4ff40;
+}
+
+/* Connections song grid — surfaces every song mentioned in the section's
+   prose / key points as art tiles. Reuses ExploreGrid markup; this wrapper
+   tightens cell sizing so the cards read as a supporting reference grid
+   rather than a hero strip. */
+.connections-songs {
+  margin-top: var(--space-xl);
+}
+
+.connections-songs .explore-strip__grid {
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+  margin-bottom: 0;
+  max-width: 88%;
+}
+
+.connections-songs .merch-shop__card-title {
+  font-size: 0.85rem;
+  margin-top: var(--space-xs);
+  grid-template-columns: 1fr;
+  text-align: center;
+  justify-items: center;
+}
+
+.connections-songs .merch-shop__card-kind {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .connections-songs .explore-strip__grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 100%;
+  }
+}
+
+/* Sync callout — full-width blatant CTA inside the Sync Placements section.
+   Sits at the bottom of the right-column main flow, fills the column edge to
+   edge, and pushes hard for licensing/sync inquiries. */
+
+.sync-callout {
+  display: block;
+  width: 100%;
+  margin: var(--space-2xl) 0 0;
+  padding: var(--space-xl) var(--space-xl);
+  background:
+    linear-gradient(135deg, rgba(255, 149, 0, 0.08) 0%, rgba(255, 149, 0, 0) 60%),
+    #0a0a14;
+  border: 1px solid rgba(255, 149, 0, 0.25);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sync-callout::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #ff9500 0%, rgba(255, 149, 0, 0.3) 100%);
+}
+
+.sync-callout__eyebrow {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ff9500;
+  margin: 0 0 var(--space-md);
+}
+
+.sync-callout__headline {
+  font-family: var(--font-ui);
+  font-size: clamp(1.4rem, 2.4vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md);
+}
+
+.sync-callout__body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-lg);
+  max-width: 56ch;
+}
+
+.sync-callout__cta {
+  display: inline-block;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0a0a14;
+  background: #ff9500;
+  text-decoration: none;
+  padding: 0.85rem 1.6rem;
+  border: 1px solid #ff9500;
+  border-radius: 3px;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.sync-callout__cta:hover {
+  background: transparent;
+  color: #ff9500;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(255, 149, 0, 0.25);
+}
+
+@media (max-width: 720px) {
+  .sync-callout {
+    padding: var(--space-lg);
+  }
+  .sync-callout__cta {
+    display: block;
+    text-align: center;
+  }
 }
 
 /* Business CTA — anchors the bottom of the visibility cluster */
@@ -13829,7 +14763,7 @@ body.cart-open {
 
 /* Arc Radiant gold palette — distilled from CHADDYD light-painting aesthetic.
    Warm amber + gold + a pale-green complement against deep black. */
-.arc-radiant-shell {
+.arc-radiant {
   --arc-gold: #d4a13a;
   --arc-gold-bright: #f7c84a;
   --arc-gold-pale: #f7e7a7;
@@ -13840,22 +14774,16 @@ body.cart-open {
   --arc-bg-soft: #0c0907;
   --arc-line: rgba(212, 161, 58, 0.22);
 
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--space-md) var(--space-2xl);
-  width: 100%;
-}
-
-.arc-radiant {
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(ellipse at 50% 30%, #100a04 0%, var(--arc-bg) 70%);
+  background: radial-gradient(ellipse at 50% 0%, #100a04 0%, var(--arc-bg) 70%);
   color: var(--arc-gold-pale);
   border: 1px solid rgba(212, 161, 58, 0.18);
   border-radius: 8px;
   box-shadow: 0 0 60px rgba(212, 161, 58, 0.06) inset;
+  overflow: hidden;
 }
 
 .arc-radiant__toolbar {
@@ -13878,6 +14806,20 @@ body.cart-open {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.arc-radiant__zoom-hint {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: rgba(247, 231, 167, 0.45);
+  text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .arc-radiant__zoom-hint {
+    display: none;
+  }
 }
 
 .arc-radiant__zoom-label {
@@ -13941,31 +14883,422 @@ body.cart-open {
   text-shadow: 0 0 8px rgba(247, 200, 74, 0.5);
 }
 
-.arc-radiant__main {
+.arc-radiant__upper {
+  position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
+}
+
+/* Key panel — pinned to the left, mirrors each layer's on-canvas appearance,
+   doubles as on/off control for that layer. */
+.arc-radiant__key {
+  flex-shrink: 0;
+  width: 188px;
+  padding: var(--space-md) var(--space-sm);
+  border-right: 1px solid rgba(212, 161, 58, 0.18);
+  background: rgba(5, 4, 2, 0.6);
+  font-family: var(--font-ui);
+}
+
+.arc-radiant__key-title {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--arc-gold);
+  text-shadow: 0 0 8px rgba(247, 200, 74, 0.3);
+}
+
+.arc-radiant__key-row {
+  display: grid;
+  grid-template-columns: 14px 28px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px;
+  font-size: 0.78rem;
+  color: var(--arc-gold-pale);
+  cursor: pointer;
+  transition: opacity 200ms ease, color 200ms ease;
+}
+
+.arc-radiant__key-row input {
+  margin: 0;
+  accent-color: var(--arc-gold);
+}
+
+.arc-radiant__key-row.is-off {
+  opacity: 0.35;
+}
+
+.arc-radiant__key-row.is-off .arc-radiant__key-swatch {
+  filter: grayscale(0.6);
+}
+
+.arc-radiant__key-row:hover {
+  color: var(--arc-spark);
+}
+
+.arc-radiant__key-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 14px;
+  position: relative;
+}
+
+.arc-radiant__key-label {
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.arc-radiant__swatch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: block;
+}
+
+.arc-radiant__swatch-dot--music {
+  background: var(--arc-gold-bright);
+  box-shadow: 0 0 4px rgba(247, 200, 74, 0.7), 0 0 10px rgba(247, 200, 74, 0.45);
+}
+
+.arc-radiant__swatch-dot--event {
+  background: var(--arc-complement);
+  box-shadow: 0 0 4px rgba(196, 214, 138, 0.7), 0 0 10px rgba(196, 214, 138, 0.4);
+}
+
+.arc-radiant__swatch-band {
+  display: block;
+  width: 100%;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.arc-radiant__swatch-band--life {
+  background: rgba(79, 168, 196, 0.22);
+  border: 1px solid rgba(79, 168, 196, 0.5);
+}
+
+.arc-radiant__swatch-band--release {
+  background: rgba(247, 200, 74, 0.18);
+  border: 1px solid rgba(247, 200, 74, 0.4);
+}
+
+.arc-radiant__swatch-curve {
+  width: 100%;
+  height: 14px;
+}
+
+/* Music swatch — five RC tier dots side by side so the legend communicates
+   that song dot color tracks tier. */
+.arc-radiant__swatch-tier-row {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.arc-radiant__swatch-tier-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  display: block;
+}
+
+/* Mini CD donut for the Music key swatch — five tier-colored CDs in a row. */
+.arc-radiant__swatch-tier-cd {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: block;
+  position: relative;
+  border: 0.5px solid;
+  background: currentColor;
+}
+
+.arc-radiant__swatch-tier-cd::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 35%;
+  height: 35%;
+  border-radius: 50%;
+  background: var(--arc-bg);
+  transform: translate(-50%, -50%);
+}
+
+/* Floating hover chip — follows the cursor, sits above everything so it
+   reads cleanly even over branch label clusters. */
+/* ==========================================================================
+   Arc admin index — landing card grid
+   ========================================================================== */
+
+.arc-admin-link {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--text-accent);
+  text-decoration: none;
+}
+.arc-admin-link:hover { text-decoration: underline; }
+
+.arc-admin-intro {
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  max-width: 720px;
+  margin: 0 0 var(--space-2xl) 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.arc-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-lg);
+  max-width: 1080px;
+}
+
+.arc-admin-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--space-xs);
+  padding: var(--space-xl);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-secondary, #fff);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  min-height: 180px;
+  overflow: hidden;
+}
+
+.arc-admin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  border-color: var(--text-accent);
+}
+
+.arc-admin-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(var(--text-accent-rgb, 139, 156, 247), 0.08);
+  color: var(--text-accent);
+  margin-bottom: var(--space-sm);
+}
+
+.arc-admin-card__icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.arc-admin-card__title {
+  font-family: var(--font-ui);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.arc-admin-card__desc {
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  align-self: start;
+}
+
+.arc-admin-card__cta {
+  position: absolute;
+  bottom: var(--space-lg);
+  right: var(--space-lg);
+  font-size: 1.2rem;
+  color: var(--text-tertiary);
+  transition: transform 180ms ease, color 180ms ease;
+}
+
+.arc-admin-card:hover .arc-admin-card__cta {
+  transform: translateX(4px);
+  color: var(--text-accent);
+}
+
+/* Primary card — the recommended next action gets visual prominence. */
+.arc-admin-card--primary {
+  border-color: var(--text-accent);
+  background: linear-gradient(135deg,
+    rgba(var(--text-accent-rgb, 139, 156, 247), 0.04) 0%,
+    rgba(var(--text-accent-rgb, 139, 156, 247), 0.08) 100%);
+}
+
+.arc-admin-card--primary .arc-admin-card__icon {
+  background: var(--text-accent);
+  color: #fff;
+}
+
+/* ==========================================================================
+   Arc Nodes admin manager
+   ========================================================================== */
+
+.arc-node-list {
+  display: grid;
+  gap: 6px;
+  max-width: 1080px;
+}
+
+.arc-node-row {
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  transition: border-color 150ms ease;
+}
+
+.arc-node-row.is-open { border-color: var(--accent); }
+.arc-node-row.is-readonly { opacity: 0.85; }
+
+.arc-node-row__head {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 90px 1fr 220px 90px 24px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+}
+
+.arc-node-row__head:hover { background: var(--bg-hover, rgba(255,255,255,0.03)); }
+
+.arc-node-row__pill {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.arc-node-row__pill--life        { background: rgba(196, 214, 138, 0.15); color: #a3c264; }
+.arc-node-row__pill--release     { background: rgba(247, 200, 74, 0.15);  color: #d4a13a; }
+.arc-node-row__pill--captured    { background: rgba(99, 153, 255, 0.15);  color: #6399ff; }
+.arc-node-row__pill--documentary { background: rgba(160, 160, 160, 0.15); color: var(--text-tertiary); }
+
+.arc-node-row__title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arc-node-row__dates {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono, monospace);
+}
+
+.arc-node-row__status {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.arc-node-row__status--draft     { background: rgba(160,160,160,0.12); color: var(--text-tertiary); }
+.arc-node-row__status--published { background: rgba(51,204,85,0.15); color: #33cc55; }
+
+.arc-node-row__chev {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.arc-node-row__body {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .arc-node-row__head {
+    grid-template-columns: 80px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .arc-node-row__dates,
+  .arc-node-row__status,
+  .arc-node-row__chev {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.arc-radiant__hover-chip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 60;
+  background: rgba(5, 4, 2, 0.95);
+  border: 1px solid rgba(212, 161, 58, 0.4);
+  color: var(--arc-spark);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 0 12px rgba(247, 200, 74, 0.25), 0 4px 14px rgba(0,0,0,0.5);
+  text-shadow: 0 0 6px rgba(247, 200, 74, 0.3);
 }
 
 .arc-radiant__canvas {
   flex: 1;
   position: relative;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.arc-radiant__canvas::-webkit-scrollbar {
+  height: 16px;
+}
+.arc-radiant__canvas::-webkit-scrollbar-track {
+  background: rgba(5, 4, 2, 0.5);
+}
+.arc-radiant__canvas::-webkit-scrollbar-thumb {
+  background: rgba(212, 161, 58, 0.25);
+  border-radius: 4px;
+}
+.arc-radiant__canvas::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 161, 58, 0.5);
 }
 
 .arc-radiant__inner {
   position: relative;
-  width: 100%;
 }
 
-/* Central spine — the lifeline anchor. A glowing thread of gold. */
+/* The horizontal centerline — the timeline / horizon. Year strip sits below
+   it; graphics rise above. A glowing thread of gold. */
 .arc-radiant__spine {
   position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  margin-left: -0.5px;
-  background: linear-gradient(180deg,
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
     rgba(247, 200, 74, 0)   0%,
     rgba(247, 200, 74, 0.7) 6%,
     rgba(247, 231, 167, 0.9) 50%,
@@ -13991,79 +15324,76 @@ body.cart-open {
 
 .arc-radiant__year-tick {
   position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg,
+  width: 1px;
+  background: linear-gradient(180deg,
     transparent 0%,
-    rgba(212, 161, 58, 0.06) 35%,
-    rgba(212, 161, 58, 0.10) 50%,
-    rgba(212, 161, 58, 0.06) 65%,
-    transparent 100%);
+    rgba(212, 161, 58, 0.10) 60%,
+    rgba(212, 161, 58, 0.06) 100%);
 }
 
 .arc-radiant__year-label {
   position: absolute;
-  left: 8px;
-  top: -7px;
+  bottom: 4px;
+  left: 4px;
   font-family: var(--font-ui);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
-  color: rgba(247, 231, 167, 0.55);
+  color: rgba(247, 231, 167, 0.65);
   background: transparent;
-  padding: 0 4px;
+  padding: 0 2px;
+  white-space: nowrap;
 }
 
-/* Collapsed pre-catalog band — sits at the very top, clickable to expand */
+/* Collapsed pre-catalog band — sits at the LEFT, clickable to expand */
 .arc-radiant__pre-band {
   position: absolute;
-  top: 0;
   left: 0;
-  right: 0;
+  top: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  background: linear-gradient(180deg,
-    rgba(212, 161, 58, 0.05) 0%,
-    rgba(212, 161, 58, 0.10) 50%,
-    rgba(212, 161, 58, 0.04) 100%);
-  border-bottom: 1px dashed rgba(212, 161, 58, 0.3);
+  gap: 8px;
+  background: linear-gradient(90deg,
+    rgba(212, 161, 58, 0.10) 0%,
+    rgba(212, 161, 58, 0.06) 60%,
+    rgba(212, 161, 58, 0.02) 100%);
+  border-right: 1px dashed rgba(212, 161, 58, 0.3);
   cursor: pointer;
   font-family: var(--font-ui);
   border-top: none;
   border-left: none;
-  border-right: none;
+  border-bottom: none;
   z-index: 4;
   transition: background 200ms ease;
+  padding: 12px 4px;
 }
 
 .arc-radiant__pre-band:hover {
-  background: linear-gradient(180deg,
-    rgba(212, 161, 58, 0.10) 0%,
-    rgba(212, 161, 58, 0.18) 50%,
-    rgba(212, 161, 58, 0.08) 100%);
+  background: linear-gradient(90deg,
+    rgba(212, 161, 58, 0.18) 0%,
+    rgba(212, 161, 58, 0.10) 60%,
+    rgba(212, 161, 58, 0.04) 100%);
 }
 
 .arc-radiant__pre-band-label {
   color: var(--arc-gold);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   text-shadow: 0 0 10px rgba(247, 200, 74, 0.4);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
 }
 
 .arc-radiant__pre-band-cta {
   color: rgba(247, 231, 167, 0.6);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   letter-spacing: 0.1em;
 }
 
 .arc-radiant__pre-collapse-cta {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   background: rgba(5, 4, 2, 0.85);
   border: 1px solid rgba(212, 161, 58, 0.35);
   color: var(--arc-gold);
@@ -14086,49 +15416,47 @@ body.cart-open {
 
 .arc-radiant__layer {
   position: absolute;
-  inset: 0;
-  width: 100%;
   pointer-events: none;
 }
 
 .arc-radiant__layer--compass {
-  width: 100%;
   pointer-events: none;
   opacity: 0.85;
+  left: 0;
 }
 
-/* Eras as soft golden halos that flank the spine — life on the left, release
-   on the right. No hard borders; the band fades outward like radiated light. */
+/* Eras as soft horizontal halos rising from the spine. Life kind hugs the
+   centerline; release kind floats just above. No hard borders — the band
+   fades upward like radiated light. */
 .arc-radiant__era {
   position: absolute;
   z-index: 1;
-  padding: 8px 14px;
+  padding: 0 10px;
   font-family: var(--font-ui);
   pointer-events: none;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
 }
 
+/* Life eras shift to a cool cyan/teal hue — fundamentally opposite the warm
+   gold of release eras, so the two never read as the same kind. */
 .arc-radiant__era--life {
-  left: 0;
-  width: calc(50% - 1px);
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(196, 214, 138, 0.04) 60%,
-    rgba(196, 214, 138, 0.10) 100%);
+  background: rgba(79, 168, 196, 0.18);
+  border: 1px solid rgba(79, 168, 196, 0.42);
+  box-shadow: 0 0 12px rgba(79, 168, 196, 0.12);
 }
 
 .arc-radiant__era--release {
-  left: 50%;
-  width: 50%;
-  background: linear-gradient(270deg,
-    transparent 0%,
-    rgba(247, 200, 74, 0.05) 60%,
-    rgba(247, 200, 74, 0.12) 100%);
+  background: rgba(247, 200, 74, 0.16);
+  border: 1px solid rgba(247, 200, 74, 0.42);
+  box-shadow: 0 0 12px rgba(247, 200, 74, 0.10);
 }
 
 .arc-radiant__era-label {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   color: var(--arc-gold-pale);
   white-space: nowrap;
   overflow: hidden;
@@ -14136,130 +15464,188 @@ body.cart-open {
   display: block;
   max-width: 100%;
   text-shadow: 0 0 8px rgba(247, 200, 74, 0.3);
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
 .arc-radiant__era--life .arc-radiant__era-label {
-  text-align: left;
-  color: rgba(196, 214, 138, 0.85);
-  text-shadow: 0 0 8px rgba(196, 214, 138, 0.2);
+  color: rgba(150, 215, 235, 0.95);
+  text-shadow: 0 0 8px rgba(79, 168, 196, 0.3);
 }
 
-.arc-radiant__era--release .arc-radiant__era-label {
-  text-align: right;
-}
-
-/* Branches — every node attaches to the spine via dot + thin line + label.
-   Dots glow. Lines taper outward. Right = music, left = life. */
+/* Branches — vertical stems rising up from the spine. Dot at the top, line
+   below it leading down to the timeline, label above the dot. */
+/* Branches are positional containers only; pointer events are restricted to
+   the dot/CD itself so the line and label never trigger hover or block clicks
+   on neighboring nodes. */
 .arc-radiant__branch {
   position: absolute;
   display: flex;
+  flex-direction: column-reverse;
   align-items: center;
   background: transparent;
   border: none;
-  cursor: pointer;
   padding: 0;
   z-index: 5;
   text-decoration: none;
   font-family: var(--font-ui);
-  height: 14px;
-  margin-top: -7px;
+  width: 16px;
+  margin-left: -8px;
   transition: filter 200ms ease, transform 200ms ease;
+  pointer-events: none;
+  cursor: default;
 }
 
-.arc-radiant__branch--right {
-  left: 50%;
-  flex-direction: row;
-  padding-left: 0;
+.arc-radiant__branch .arc-radiant__cd,
+.arc-radiant__branch .arc-radiant__branch-dot {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
-.arc-radiant__branch--left {
-  right: 50%;
-  flex-direction: row-reverse;
-  padding-right: 0;
-}
-
-.arc-radiant__branch:hover {
+.arc-radiant__branch:hover,
+.arc-radiant__branch.is-selected {
   filter: brightness(1.4);
   z-index: 12;
 }
 
-.arc-radiant__branch-dot {
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--arc-gold-bright);
-  border: 1px solid var(--arc-gold-bright);
-  box-shadow:
-    0 0 4px rgba(247, 200, 74, 0.7),
-    0 0 10px rgba(247, 200, 74, 0.45),
-    0 0 20px rgba(212, 161, 58, 0.25);
-  position: relative;
-  z-index: 2;
-}
-
-.arc-radiant__branch-dot--event {
-  background: var(--arc-complement);
-  border-color: var(--arc-complement);
-  box-shadow:
-    0 0 4px rgba(196, 214, 138, 0.7),
-    0 0 10px rgba(196, 214, 138, 0.4),
-    0 0 18px rgba(196, 214, 138, 0.2);
+.arc-radiant__branch.is-selected .arc-radiant__branch-dot,
+.arc-radiant__branch.is-selected .arc-radiant__cd {
+  transform: scale(1.5);
 }
 
 .arc-radiant__branch-line {
   flex-shrink: 0;
   display: block;
-  height: 1px;
-  width: 22px;
+  width: 1px;
 }
 
-.arc-radiant__branch--right .arc-radiant__branch-line {
-  background: linear-gradient(90deg,
+.arc-radiant__branch--song .arc-radiant__branch-line {
+  background: linear-gradient(0deg,
     rgba(247, 200, 74, 0.55) 0%,
     rgba(247, 200, 74, 0.15) 100%);
 }
 
-.arc-radiant__branch--left .arc-radiant__branch-line {
-  background: linear-gradient(270deg,
+.arc-radiant__branch--event .arc-radiant__branch-line {
+  background: linear-gradient(0deg,
     rgba(196, 214, 138, 0.55) 0%,
     rgba(196, 214, 138, 0.15) 100%);
 }
 
-.arc-radiant__branch-label {
-  font-size: 0.74rem;
-  letter-spacing: 0.02em;
-  color: var(--arc-gold-pale);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 280px;
-  padding: 1px 4px;
-  text-shadow: 0 0 6px rgba(247, 200, 74, 0.25);
+.arc-radiant__branch--album .arc-radiant__branch-line {
+  background: linear-gradient(0deg,
+    rgba(247, 200, 74, 0.7) 0%,
+    rgba(247, 200, 74, 0.18) 100%);
+  width: 1.5px;
 }
 
-.arc-radiant__branch--left .arc-radiant__branch-label {
+/* Life event dot — solid green disc, distinct from music CDs by being filled
+   (no center hole). */
+.arc-radiant__branch-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--arc-complement);
+  border: 1px solid var(--arc-complement);
+  box-shadow:
+    0 0 4px rgba(196, 214, 138, 0.7),
+    0 0 10px rgba(196, 214, 138, 0.4),
+    0 0 18px rgba(196, 214, 138, 0.2);
+  position: relative;
+  z-index: 2;
+  transition: transform 200ms ease;
+}
+
+/* CD icon — donut shape (outer ring colored by tier, inner punched-out hole)
+   tells the eye instantly that the node is a music release rather than a
+   life event. Singles vs albums differ only by size for now. */
+.arc-radiant__cd {
+  flex-shrink: 0;
+  border-radius: 50%;
+  position: relative;
+  z-index: 2;
+  background: var(--arc-gold-bright);
+  border: 1px solid var(--arc-gold-bright);
+  box-shadow:
+    0 0 4px rgba(247, 200, 74, 0.6),
+    0 0 10px rgba(247, 200, 74, 0.35),
+    0 0 18px rgba(212, 161, 58, 0.2);
+  transition: transform 200ms ease;
+}
+
+.arc-radiant__cd::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 35%;
+  height: 35%;
+  border-radius: 50%;
+  background: var(--arc-bg);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset;
+}
+
+.arc-radiant__cd--single {
+  width: 10px;
+  height: 10px;
+}
+
+.arc-radiant__cd--album {
+  width: 16px;
+  height: 16px;
+  background: var(--arc-gold-bright);
+  border-color: var(--arc-gold-bright);
+  box-shadow:
+    0 0 6px rgba(247, 200, 74, 0.75),
+    0 0 14px rgba(247, 200, 74, 0.5),
+    0 0 26px rgba(212, 161, 58, 0.3);
+}
+
+/* Labels run vertically UP from the dot, reading bottom-to-top so the eye
+   travels naturally from the dot upward into the title. Narrow horizontal
+   footprint (~14px) makes adjacent labels easy to space via collision check. */
+.arc-radiant__branch-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform-origin: 0 100%;
+  transform: rotate(-90deg);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--arc-gold-pale);
+  white-space: nowrap;
+  padding: 0;
+  text-shadow: 0 0 6px rgba(247, 200, 74, 0.25);
+  pointer-events: none;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arc-radiant__branch--event .arc-radiant__branch-label {
   color: rgba(232, 240, 200, 0.92);
   text-shadow: 0 0 6px rgba(196, 214, 138, 0.2);
 }
 
-.arc-radiant__branch:hover .arc-radiant__branch-label {
+.arc-radiant__branch:hover .arc-radiant__branch-label,
+.arc-radiant__branch.is-selected .arc-radiant__branch-label {
   color: var(--arc-spark);
 }
 
 .arc-radiant__layer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 220px;
   border-left: 1px solid rgba(212, 161, 58, 0.14);
   padding: var(--space-md);
   font-family: var(--font-ui);
-  background: rgba(5, 4, 2, 0.4);
-  flex-shrink: 0;
-  position: sticky;
-  top: 56px;
-  align-self: flex-start;
-  max-height: calc(100vh - 80px);
+  background: rgba(5, 4, 2, 0.92);
+  backdrop-filter: blur(10px);
+  z-index: 30;
+  max-height: 100%;
   overflow-y: auto;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
 }
 
 .arc-radiant__panel-title {
@@ -14299,55 +15685,92 @@ body.cart-open {
 }
 .arc-radiant__layer-toggle--disabled:hover { color: rgba(247, 231, 167, 0.7); }
 
-.arc-radiant__detail-overlay {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.85) 100%);
-  display: grid;
-  place-items: center;
-  z-index: 1000;
-  padding: var(--space-md);
-  backdrop-filter: blur(3px);
+.arc-radiant__bottom {
+  border-top: 1px solid rgba(212, 161, 58, 0.22);
+  background: linear-gradient(180deg, #0c0907 0%, #050402 100%);
+  min-height: 160px;
+  padding: var(--space-md) var(--space-xl);
+  font-family: var(--font-ui);
+  position: relative;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.arc-radiant__bottom-empty {
+  color: rgba(247, 231, 167, 0.45);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: var(--space-lg) 0;
+  font-style: italic;
 }
 
 .arc-radiant__detail {
-  background: linear-gradient(180deg, #0c0907 0%, #050402 100%);
-  border: 1px solid rgba(247, 200, 74, 0.35);
-  border-radius: 10px;
-  padding: var(--space-xl);
-  max-width: 640px;
-  max-height: 80vh;
-  overflow-y: auto;
   position: relative;
-  box-shadow: 0 0 60px rgba(212, 161, 58, 0.15), 0 20px 60px rgba(0,0,0,0.6);
   color: var(--arc-gold-pale);
-}
-
-.arc-radiant__detail h3 {
-  margin: 0 0 var(--space-xs) 0;
-  font-size: 1.2rem;
-  color: var(--arc-spark);
-  letter-spacing: 0.01em;
+  padding-right: 48px;
 }
 
 .arc-radiant__detail-meta {
-  color: var(--arc-gold);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  color: rgba(247, 231, 167, 0.6);
   font-family: var(--font-ui);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.arc-radiant__detail-kind {
+  color: var(--arc-gold);
+  text-shadow: 0 0 8px rgba(247, 200, 74, 0.3);
+}
+
+.arc-radiant__detail-title {
+  margin: 0 0 var(--space-sm) 0;
+  font-size: 1.4rem;
+  color: var(--arc-spark);
+  letter-spacing: 0.01em;
+  text-shadow: 0 0 12px rgba(247, 200, 74, 0.25);
 }
 
 .arc-radiant__detail-body {
   color: rgba(247, 231, 167, 0.85);
   line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+.arc-radiant__detail-body p {
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.arc-radiant__detail-cta {
+  display: inline-block;
+  margin-top: var(--space-sm);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--arc-gold);
+  text-decoration: none;
+  padding: 6px 14px;
+  border: 1px solid rgba(212, 161, 58, 0.35);
+  border-radius: 4px;
+  transition: all 200ms ease;
+}
+
+.arc-radiant__detail-cta:hover {
+  color: var(--arc-spark);
+  border-color: var(--arc-gold-bright);
+  box-shadow: 0 0 14px rgba(247, 200, 74, 0.4);
 }
 
 .arc-radiant__detail-close {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 0;
+  right: 0;
   background: transparent;
   border: 1px solid rgba(247, 200, 74, 0.25);
   color: var(--arc-gold);
@@ -14357,6 +15780,7 @@ body.cart-open {
   height: 32px;
   border-radius: 50%;
   transition: all 200ms ease;
+  line-height: 1;
 }
 
 .arc-radiant__detail-close:hover {
@@ -14365,15 +15789,21 @@ body.cart-open {
   box-shadow: 0 0 12px rgba(247, 200, 74, 0.4);
 }
 
+.arc-radiant__tier {
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+}
+.arc-radiant__tier--violet { background: rgba(157,110,251,0.15); color: #b892ff; }
+.arc-radiant__tier--blue   { background: rgba(77,143,255,0.15);  color: #7eaaff; }
+.arc-radiant__tier--green  { background: rgba(45,208,122,0.15);  color: #5fdf9b; }
+.arc-radiant__tier--orange { background: rgba(255,153,51,0.15);  color: #ffb87a; }
+.arc-radiant__tier--red    { background: rgba(255,59,59,0.15);   color: #ff8585; }
+
 @media (max-width: 768px) {
-  .arc-radiant__main {
-    flex-direction: column;
-  }
   .arc-radiant__layer-panel {
     width: 100%;
-    max-height: 35vh;
-    border-left: none;
-    border-top: 1px solid var(--border-subtle);
   }
 }
 
@@ -14503,4 +15933,362 @@ body.cart-open {
   border: none;
   border-top: 1px solid var(--border-subtle);
   margin: var(--space-lg) 0;
+}
+
+/* --- Discography Cube Radiant (simpler launch-default cube) --- */
+/* Full-bleed media on every face; one wrapping <a>; default link cursor;
+   no per-face CTAs, eyebrows, labels, or special cube-cursor. */
+
+.disco-cube {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  margin-bottom: var(--space-sm);
+  perspective: 2600px;
+  perspective-origin: 50% 50%;
+  touch-action: none;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Loading pulse halo — sits on root, breathes cyan during navigation. */
+.disco-cube::before {
+  content: '';
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0 22px 2px rgba(0, 212, 255, 0.65);
+  transition: opacity 0.25s ease;
+  will-change: opacity, box-shadow;
+  z-index: 0;
+}
+
+.disco-cube.is-loading::before {
+  opacity: 1;
+  animation: cube-loading-breath 0.9s ease-in-out infinite;
+}
+
+.disco-cube__flat {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--bg-glass-border);
+  opacity: 1;
+  transform-origin: 50% 50%;
+  transform: scale(1);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  will-change: opacity, transform;
+  z-index: 2;
+}
+
+.disco-cube__flat-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.disco-cube.is-active .disco-cube__flat {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.8);
+}
+
+.disco-cube__stage {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  will-change: transform;
+  z-index: 1;
+  visibility: hidden;
+}
+
+.disco-cube.is-active .disco-cube__stage {
+  pointer-events: none; /* whole cube is one link — no per-face hits */
+  z-index: 3;
+  visibility: visible;
+}
+
+.disco-cube__box {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  transform-style: preserve-3d;
+  transition: none;
+  will-change: transform;
+}
+
+.disco-cube__face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 4px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-sizing: border-box;
+  background: #000;
+}
+
+.disco-cube__face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #000;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
+}
+
+.disco-cube.is-loading .disco-cube__face::after {
+  opacity: 0.75;
+}
+
+/* GPU water-ripple canvas — overlays the static <img> on each cube face
+   when the cube is active. The shader pipeline (DiscoFaceWater) does the
+   wave-equation simulation and refracts the source image at wave crests. */
+.disco-cube__face-water {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.disco-cube__face-img,
+.disco-cube__face-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.disco-cube__face-video {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.disco-cube__face--front {
+  transform: translateZ(var(--cube-half-z, 50cqw));
+  border: 1px solid var(--bg-glass-border);
+}
+
+.disco-cube__face--top {
+  transform: rotateX(90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.disco-cube__face--bottom {
+  transform: rotateX(-90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.disco-cube__face--right {
+  transform: rotateY(90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+.disco-cube__face--left {
+  transform: rotateY(-90deg) translateZ(var(--cube-half-z, 50cqw));
+}
+
+/* --- CubeFaceEditor (admin) --- */
+
+.cube-face-editor {
+  margin: var(--space-xl) 0;
+  padding: var(--space-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.02));
+}
+
+.cube-face-editor__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.cube-face-editor__title {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin: 0 0 0.25rem;
+}
+
+.cube-face-editor__hint {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.cube-face-editor__error {
+  color: #ff5566;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  margin: 0 0 var(--space-sm);
+}
+
+.cube-face-editor__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.cube-face-editor__row {
+  display: grid;
+  grid-template-columns: 80px 120px 1fr;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.cube-face-editor__row-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.cube-face-editor__slot-num {
+  font-family: var(--font-ui);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  line-height: 1;
+}
+
+.cube-face-editor__slot-name {
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.cube-face-editor__preview-wrap {
+  position: relative;
+}
+
+.cube-face-editor__preview {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+  cursor: crosshair;
+  border: 1px solid var(--border-subtle);
+}
+
+.cube-face-editor__preview-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.cube-face-editor__preview-img,
+.cube-face-editor__preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.cube-face-editor__focal-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00d4ff;
+  border: 2px solid #fff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.8);
+}
+
+.cube-face-editor__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, 6px);
+}
+
+.cube-face-editor__control-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cube-face-editor__video-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cube-face-editor__video-input {
+  width: 220px;
+  padding: 4px 8px;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+
+.cube-face-editor__zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cube-face-editor__zoom-label {
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.cube-face-editor__zoom-slider {
+  width: 140px;
+}
+
+.cube-face-editor__zoom-value {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  min-width: 38px;
+}
+
+.cube-face-editor__focal-meta {
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
 }

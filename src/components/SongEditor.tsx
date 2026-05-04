@@ -11,6 +11,7 @@ import { BunnyMusicUploader } from "@/components/BunnyMusicUploader";
 import { SongVisibilityChat } from "@/components/SongVisibilityChat";
 import { SongVisibilitySections, type SongVisibilitySectionsHandle } from "@/components/SongVisibilitySections";
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
+import { CubeFaceEditor } from "@/components/CubeFaceEditor";
 import { FeaturedPicker } from "@/components/FeaturedPicker";
 
 interface ExpansionSummary {
@@ -1006,6 +1007,10 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
 
         </div>
       </div>
+
+      {form.id && form.is_single && (
+        <CubeFaceEditor releaseType="song" releaseId={form.id} />
+      )}
 
     </div>
   );
