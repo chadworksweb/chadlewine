@@ -7,7 +7,7 @@ import type { CSSProperties } from "react";
 // ring; the shader sums all active rings into a heightfield and refracts the
 // source image. No PDE, no reflections, no interference past the visible
 // shell. To revert this surface back to the wave-equation sim, swap the
-// import in MerchExploreGrid back to DiscoFaceWater. Same handle interface.
+// import in ExploreGrid back to DiscoFaceWater. Same handle interface.
 
 export interface MerchRippleCanvasHandle {
   drop: (xPct: number, yPct: number, strength?: number) => void;

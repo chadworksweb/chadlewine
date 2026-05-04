@@ -9,6 +9,7 @@ import { CompassIcon } from "@/components/RCBadge";
 import { useCart } from "@/components/Cart";
 import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
+import { ExploreGrid } from "@/components/ExploreGrid";
 
 interface SongProps {
   id: string;
@@ -54,7 +55,17 @@ interface VisibilitySectionProps {
   content: string;
   contentHtml: string;
   directAnswer: string | null;
-  keyPoints: string[];
+  /** Pre-rendered HTML for each key point. Bind with dangerouslySetInnerHTML
+   *  on the <li> — never as plain text. The Html suffix is the contract. */
+  keyPointsHtml: string[];
+}
+
+interface ConnectionsSongProps {
+  id: string;
+  slug: string;
+  title: string;
+  art_image_path: string | null;
+  art_alt: string | null;
 }
 
 interface GeoFieldsProps {
@@ -118,6 +129,7 @@ export function SongDetail({
   geoFields = null,
   ifYouLike = null,
   pairedArt = [],
+  connectionsSongs = [],
   songFormats = [],
   albumFormats = [],
   merchSlot = null,
@@ -134,6 +146,7 @@ export function SongDetail({
   geoFields?: GeoFieldsProps | null;
   ifYouLike?: IfYouLikeProps | null;
   pairedArt?: PairedArtProps[];
+  connectionsSongs?: ConnectionsSongProps[];
   merchSlot?: React.ReactNode;
 }) {
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
@@ -534,7 +547,7 @@ export function SongDetail({
             )}
 
             {/* 3. Who This Song Is For — speaks to the seeker's emotional state (format stack) */}
-            {(audience?.directAnswer || audience?.contentHtml || (audience?.keyPoints && audience.keyPoints.length > 0)) && (
+            {(audience?.directAnswer || audience?.contentHtml || (audience?.keyPointsHtml && audience.keyPointsHtml.length > 0)) && (
               <section className="song-landing__section">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
@@ -550,12 +563,12 @@ export function SongDetail({
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(audience.contentHtml) }}
                       />
                     )}
-                    {audience.keyPoints && audience.keyPoints.length > 0 && (
+                    {audience.keyPointsHtml && audience.keyPointsHtml.length > 0 && (
                       <div>
                         <h3 className="song-landing__column-heading">Made for</h3>
                         <ul className="song-landing__key-points">
-                          {audience.keyPoints.map((pt, i) => (
-                            <li key={i}>{pt}</li>
+                          {audience.keyPointsHtml.map((pt, i) => (
+                            <li key={i} dangerouslySetInnerHTML={{ __html: pt }} />
                           ))}
                         </ul>
                       </div>
@@ -566,7 +579,7 @@ export function SongDetail({
             )}
 
             {/* 4. Inside the Song — thematic universe (format stack) */}
-            {(world?.directAnswer || world?.contentHtml || (world?.keyPoints && world.keyPoints.length > 0)) && (
+            {(world?.directAnswer || world?.contentHtml || (world?.keyPointsHtml && world.keyPointsHtml.length > 0)) && (
               <section className="song-landing__section song-landing__section--alt">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
@@ -582,10 +595,10 @@ export function SongDetail({
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(world.contentHtml) }}
                       />
                     )}
-                    {world.keyPoints && world.keyPoints.length > 0 && (
+                    {world.keyPointsHtml && world.keyPointsHtml.length > 0 && (
                       <ul className="song-landing__key-points">
-                        {world.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
+                        {world.keyPointsHtml.map((pt, i) => (
+                          <li key={i} dangerouslySetInnerHTML={{ __html: pt }} />
                         ))}
                       </ul>
                     )}
@@ -595,7 +608,7 @@ export function SongDetail({
             )}
 
             {/* 5. Lines That Stay — quotable fragments, high extraction value (format stack) */}
-            {(fragments?.directAnswer || fragments?.contentHtml || (fragments?.keyPoints && fragments.keyPoints.length > 0)) && (
+            {(fragments?.directAnswer || fragments?.contentHtml || (fragments?.keyPointsHtml && fragments.keyPointsHtml.length > 0)) && (
               <section className="song-landing__section">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
@@ -611,10 +624,10 @@ export function SongDetail({
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(fragments.contentHtml) }}
                       />
                     )}
-                    {fragments.keyPoints && fragments.keyPoints.length > 0 && (
+                    {fragments.keyPointsHtml && fragments.keyPointsHtml.length > 0 && (
                       <ul className="song-landing__key-points">
-                        {fragments.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
+                        {fragments.keyPointsHtml.map((pt, i) => (
+                          <li key={i} dangerouslySetInnerHTML={{ __html: pt }} />
                         ))}
                       </ul>
                     )}
@@ -624,7 +637,7 @@ export function SongDetail({
             )}
 
             {/* 6. The Bigger Picture — cultural position (format stack) */}
-            {(culturalPosition?.directAnswer || culturalPosition?.contentHtml || (culturalPosition?.keyPoints && culturalPosition.keyPoints.length > 0)) && (
+            {(culturalPosition?.directAnswer || culturalPosition?.contentHtml || (culturalPosition?.keyPointsHtml && culturalPosition.keyPointsHtml.length > 0)) && (
               <section className="song-landing__section song-landing__section--alt">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
@@ -640,10 +653,10 @@ export function SongDetail({
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(culturalPosition.contentHtml) }}
                       />
                     )}
-                    {culturalPosition.keyPoints && culturalPosition.keyPoints.length > 0 && (
+                    {culturalPosition.keyPointsHtml && culturalPosition.keyPointsHtml.length > 0 && (
                       <ul className="song-landing__key-points">
-                        {culturalPosition.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
+                        {culturalPosition.keyPointsHtml.map((pt, i) => (
+                          <li key={i} dangerouslySetInnerHTML={{ __html: pt }} />
                         ))}
                       </ul>
                     )}
@@ -653,7 +666,7 @@ export function SongDetail({
             )}
 
             {/* 7. The Backstory — origin story, for the already-interested (format stack) */}
-            {(story?.directAnswer || story?.contentHtml || (story?.keyPoints && story.keyPoints.length > 0)) && (
+            {(story?.directAnswer || story?.contentHtml || (story?.keyPointsHtml && story.keyPointsHtml.length > 0)) && (
               <section className="song-landing__section">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
@@ -669,10 +682,10 @@ export function SongDetail({
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(story.contentHtml) }}
                       />
                     )}
-                    {story.keyPoints && story.keyPoints.length > 0 && (
+                    {story.keyPointsHtml && story.keyPointsHtml.length > 0 && (
                       <ul className="song-landing__key-points">
-                        {story.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
+                        {story.keyPointsHtml.map((pt, i) => (
+                          <li key={i} dangerouslySetInnerHTML={{ __html: pt }} />
                         ))}
                       </ul>
                     )}
@@ -682,7 +695,7 @@ export function SongDetail({
             )}
 
             {/* 8. Behind the Music — craft & construction (format stack) */}
-            {(breakdown?.directAnswer || breakdown?.contentHtml || (breakdown?.keyPoints && breakdown.keyPoints.length > 0)) && (
+            {(breakdown?.directAnswer || breakdown?.contentHtml || (breakdown?.keyPointsHtml && breakdown.keyPointsHtml.length > 0)) && (
               <section className="song-landing__section song-landing__section--alt">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
@@ -698,10 +711,10 @@ export function SongDetail({
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(breakdown.contentHtml) }}
                       />
                     )}
-                    {breakdown.keyPoints && breakdown.keyPoints.length > 0 && (
+                    {breakdown.keyPointsHtml && breakdown.keyPointsHtml.length > 0 && (
                       <ul className="song-landing__key-points">
-                        {breakdown.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
+                        {breakdown.keyPointsHtml.map((pt, i) => (
+                          <li key={i} dangerouslySetInnerHTML={{ __html: pt }} />
                         ))}
                       </ul>
                     )}
@@ -711,11 +724,11 @@ export function SongDetail({
             )}
 
             {/* 9. From the Same Universe — catalog cross-links (format stack) */}
-            {(connections?.directAnswer || connections?.contentHtml || (connections?.keyPoints && connections.keyPoints.length > 0)) && (
+            {(connections?.directAnswer || connections?.contentHtml || (connections?.keyPointsHtml && connections.keyPointsHtml.length > 0)) && (
               <section className="song-landing__section">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
-                    <h2 className="song-landing__heading">What Other Songs Connect to &ldquo;{song.title}&rdquo;?</h2>
+                    <h2 className="song-landing__heading">What Other Chad Lewine Songs Connect to &ldquo;{song.title}&rdquo;?</h2>
                     {connections.directAnswer && (
                       <p className="song-landing__direct-answer">{connections.directAnswer}</p>
                     )}
@@ -727,12 +740,28 @@ export function SongDetail({
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(connections.contentHtml) }}
                       />
                     )}
-                    {connections.keyPoints && connections.keyPoints.length > 0 && (
+                    {connections.keyPointsHtml && connections.keyPointsHtml.length > 0 && (
                       <ul className="song-landing__key-points">
-                        {connections.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
+                        {connections.keyPointsHtml.map((pt, i) => (
+                          <li key={i} dangerouslySetInnerHTML={{ __html: pt }} />
                         ))}
                       </ul>
+                    )}
+                    {connectionsSongs.length > 0 && (
+                      <div className="connections-songs">
+                        <ExploreGrid
+                          items={connectionsSongs.map((s) => ({
+                            key: `song:${s.id}`,
+                            id: s.id,
+                            slug: s.slug,
+                            title: s.title,
+                            image_url: s.art_image_path,
+                            image_alt: s.art_alt || s.title,
+                            href: `/music/songs/${s.slug}`,
+                            kind: "song",
+                          }))}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -740,7 +769,7 @@ export function SongDetail({
             )}
 
             {/* 10. Sync Placements — GEO: where this song fits in film/TV/ads (format stack) */}
-            {(syncPlacements?.directAnswer || syncPlacements?.contentHtml || (syncPlacements?.keyPoints && syncPlacements.keyPoints.length > 0)) && (
+            {(syncPlacements?.directAnswer || syncPlacements?.contentHtml || (syncPlacements?.keyPointsHtml && syncPlacements.keyPointsHtml.length > 0)) && (
               <section className="song-landing__section song-landing__section--alt">
                 <div className="song-landing__container">
                   <aside className="song-landing__aside">
@@ -756,13 +785,25 @@ export function SongDetail({
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(syncPlacements.contentHtml) }}
                       />
                     )}
-                    {syncPlacements.keyPoints && syncPlacements.keyPoints.length > 0 && (
+                    {syncPlacements.keyPointsHtml && syncPlacements.keyPointsHtml.length > 0 && (
                       <ul className="song-landing__key-points">
-                        {syncPlacements.keyPoints.map((pt, i) => (
-                          <li key={i}>{pt}</li>
+                        {syncPlacements.keyPointsHtml.map((pt, i) => (
+                          <li key={i} dangerouslySetInnerHTML={{ __html: pt }} />
                         ))}
                       </ul>
                     )}
+                    <aside className="sync-callout">
+                      <p className="sync-callout__eyebrow">Sync &middot; License &middot; Collaborate</p>
+                      <h3 className="sync-callout__headline">
+                        Hear &ldquo;{song.title}&rdquo; in your project?
+                      </h3>
+                      <p className="sync-callout__body">
+                        Available for film, TV, advertising, games, and creative collaborations.
+                      </p>
+                      <Link href="/business" className="sync-callout__cta">
+                        Start a Conversation &rarr;
+                      </Link>
+                    </aside>
                   </div>
                 </div>
               </section>
@@ -813,15 +854,6 @@ export function SongDetail({
               </section>
             )}
 
-            {/* Business Inquiries CTA */}
-            <div className="song-landing__cta">
-              <span className="song-landing__cta-text">
-                Interested in licensing, sync placement, or collaboration?
-              </span>
-              <Link href="/business" className="song-landing__cta-link">
-                Business Inquiries
-              </Link>
-            </div>
           </div>
         );
       })()}

@@ -1,5 +1,5 @@
 import { createPublicClient } from "@/lib/supabase-server";
-import { MerchExploreGrid, type ExploreKind } from "@/components/MerchExploreGrid";
+import { ExploreGrid, type ExploreKind } from "@/components/ExploreGrid";
 
 interface ExploreItem {
   key: string;
@@ -36,11 +36,11 @@ function pickN<T>(arr: T[], n: number): T[] {
 interface Props {
   /** Merch product IDs to exclude from the strip (e.g. items already shown on the page). */
   excludeMerchIds?: string[];
-  /** When true, wrap in a `.page-merch` container so the strip can stand alone outside the merch index. */
-  standalone?: boolean;
+  /** When true, wrap in a width-constrained container so the strip can stand alone outside an existing page container. */
+  wrap?: boolean;
 }
 
-export async function MerchExplore({ excludeMerchIds = [], standalone = false }: Props) {
+export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props) {
   const supabase = createPublicClient();
   const excludeSet = new Set(excludeMerchIds);
 
@@ -150,18 +150,18 @@ export async function MerchExplore({ excludeMerchIds = [], standalone = false }:
   if (explore.length === 0) return null;
 
   const strip = (
-    <section className="page-merch__explore">
-      <div className="page-merch__explore-frame">
-        <span className="page-merch__explore-frame-label" aria-hidden="true">░▒▓█</span>
-        <h2 className="page-merch__explore-heading">Explore</h2>
-        <span className="page-merch__explore-frame-label" aria-hidden="true">█▓▒░</span>
+    <section className="explore-strip">
+      <div className="explore-strip__frame">
+        <span className="explore-strip__frame-label" aria-hidden="true">░▒▓█</span>
+        <h2 className="explore-strip__heading">Explore</h2>
+        <span className="explore-strip__frame-label" aria-hidden="true">█▓▒░</span>
       </div>
-      <MerchExploreGrid items={explore} />
+      <ExploreGrid items={explore} />
     </section>
   );
 
-  if (standalone) {
-    return <div className="page-merch">{strip}</div>;
+  if (wrap) {
+    return <div className="explore-strip__wrap">{strip}</div>;
   }
 
   return strip;

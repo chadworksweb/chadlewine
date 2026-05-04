@@ -83,6 +83,9 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   async function handleLogout() {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("cl_posthog_reset", "1");
+    }
     await fetch("/api/auth/session", { method: "DELETE" });
     window.location.href = "/cl-admin-6nnn";
   }

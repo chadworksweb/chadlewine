@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 // ---------- Public data shapes ----------
 
@@ -17,6 +16,13 @@ export type ArcSong = {
   instrumental: boolean;
   rc_charge: number | null;
   rc_tier: string | null;
+};
+
+export type ArcAlbum = {
+  id: string;
+  slug: string;
+  title: string;
+  release_date: string | null;
 };
 
 export type ArcEra = {
@@ -39,98 +45,173 @@ export type ArcLifeEvent = {
 
 export type ArcInitialData = {
   songs: ArcSong[];
+  albums: ArcAlbum[];
   eras: ArcEra[];
   lifeEvents: ArcLifeEvent[];
   yearRange: [number, number];
 };
 
+type SelectedItem =
+  | { type: "song"; data: ArcSong }
+  | { type: "album"; data: ArcAlbum }
+  | { type: "event"; data: ArcLifeEvent }
+  | null;
+
 // ---------- Constants ----------
 
-const ZOOM_LEVELS: readonly number[] = [1, 2, 5, 10, 20, 35, 50];
-const ZOOM_LABELS: Record<number, string> = {
-  1: "Lifetime",
-  2: "Decade",
-  5: "Year",
-  10: "Era",
-  20: "Release",
-  35: "Song",
-  50: "Day",
-};
+// Zoom is continuous between MIN and MAX. The named bands below are just
+// readable labels for the current scale — they don't snap the value.
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 80;
 
+function zoomLabel(z: number): string {
+  if (z < 1.5) return "Lifetime";
+  if (z < 3.5) return "Decade";
+  if (z < 7.5) return "Year";
+  if (z < 15) return "Era";
+  if (z < 28) return "Release";
+  if (z < 45) return "Song";
+  return "Day";
+}
+
+// Exact tier colors from Rising Compass — keeps the chadlewine arc visually
+// consistent with the per-song dots and the RC aggregate chart gradient.
 const TIER_COLORS: Record<string, string> = {
-  violet: "#9d6efb",
-  blue: "#4d8fff",
-  green: "#2dd07a",
-  orange: "#ff9933",
-  red: "#ff3b3b",
+  violet: "#aa54ff",
+  blue: "#3388ff",
+  green: "#33cc55",
+  orange: "#ffbb33",
+  red: "#ff3333",
 };
+const TIER_ORDER: ReadonlyArray<keyof typeof TIER_COLORS> = ["violet", "blue", "green", "orange", "red"];
 
-const LAYER_KEYS = ["music", "eras", "lifeEvents", "compass"] as const;
+const LAYER_KEYS = ["music", "lifeEvents", "lifeEras", "releaseEras", "compass"] as const;
 type LayerKey = (typeof LAYER_KEYS)[number];
 
 const LAYER_LABELS: Record<LayerKey, string> = {
   music: "Music",
-  eras: "Eras",
   lifeEvents: "Life Events",
+  lifeEras: "Life Eras",
+  releaseEras: "Album Eras",
   compass: "Compass Charge",
 };
 
-const PHASE_2_LAYERS = ["Visual Art", "Writing", "Geography", "Relationships", "Thematic Threads", "Industry Encounters"];
+// Visual canvas height: graphics live above the centerline, year strip + spine
+// sit at the bottom (the "horizon"). Canvas height is responsive — scales with
+// viewport so the layers always have generous vertical space.
+const CANVAS_HEIGHT_MIN = 480;
+const SPINE_RESERVED_PX = 40; // bottom strip reserved for year ticks + labels
 
-// Pre-catalog formation years are sparse (childhood, adolescence, pre-Pittsburgh).
-// Collapse them into a compact band by default so the visible arc starts where
-// the catalog and life-density actually does.
-const COLLAPSE_END_YEAR = 2010;
-const COLLAPSE_BAND_PX = 90;
+// Era zone — stacked just above the spine. Two sub-rows per kind keep adjacent
+// eras visually separated even when their date ranges are tight.
+const ERA_ROW_HEIGHT = 22;
+const ERA_ROW_GAP = 2;
+const ERA_LIFE_ROW_BOTTOM = SPINE_RESERVED_PX + 6;
+const ERA_RELEASE_ROW_BOTTOM = ERA_LIFE_ROW_BOTTOM + 2 * (ERA_ROW_HEIGHT + ERA_ROW_GAP) + 8;
+// Total era zone reserved height above spine
+const ERA_ZONE_TOP = ERA_RELEASE_ROW_BOTTOM + 2 * (ERA_ROW_HEIGHT + ERA_ROW_GAP);
+
+// Branch zone — dots and labels live here, well above the era zone so the
+// layers don't overlap visually. Patterns span this zone with wide variation.
+const BRANCH_BOTTOM = ERA_ZONE_TOP + 12;
+const BRANCH_TOP_PADDING = 30;
+
+// Heights are written from spine. Branches with `bottom: SPINE_RESERVED_PX`
+// rise upward by `branchHeight`. So height = position-of-dot above spine.
+// The patterns below land dots well above the era zone.
+const SONG_HEIGHT_PATTERN = [220, 340, 280, 420, 200, 380, 260, 450, 240, 360, 300, 410, 320, 230, 390];
+const ALBUM_HEIGHT_PATTERN = [430, 380, 460, 410, 350, 440];
+const EVENT_HEIGHT_PATTERN = [180, 300, 240, 380, 210, 330, 270, 410, 190, 350, 290];
 
 // ---------- Component ----------
 
 export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialData; proseAvailable?: boolean }) {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
-    music: true, eras: true, lifeEvents: true, compass: true,
+    music: true, lifeEvents: true, lifeEras: true, releaseEras: true, compass: true,
   });
-  const [selectedEvent, setSelectedEvent] = useState<ArcLifeEvent | null>(null);
-  const [preCollapsed, setPreCollapsed] = useState(true);
+  const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
+  const [hover, setHover] = useState<{ title: string; x: number; y: number } | null>(null);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [yearStart, yearEnd] = data.yearRange;
-  const yearSpan = yearEnd - yearStart;
+  const yearSpan = Math.max(1, yearEnd - yearStart);
 
-  // Vertical canvas height = viewport * zoomLevel. At Lifetime (1x), the whole
-  // arc fits in one viewport. At deeper levels, it scales up — page scrolls
-  // naturally (no internal scroll container).
-  const baseHeight = typeof window !== "undefined" ? Math.max(600, window.innerHeight - 160) : 800;
-  const totalHeight = baseHeight * zoomLevel;
-  const pxPerYear = totalHeight / yearSpan;
+  // Sizing — start with stable SSR values, sync to viewport after mount to
+  // avoid hydration mismatches. Width scales with viewport (deeper zoom →
+  // wider total width → horizontal scroll). Canvas height also scales with
+  // viewport so layers always get generous breathing room.
+  const [baseWidth, setBaseWidth] = useState<number>(1200);
+  const [canvasHeight, setCanvasHeight] = useState<number>(540);
+  useEffect(() => {
+    function update() {
+      setBaseWidth(Math.max(900, window.innerWidth - 60));
+      setCanvasHeight(Math.max(CANVAS_HEIGHT_MIN, window.innerHeight - 280));
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const totalWidth = baseWidth * zoomLevel;
+  const pxPerYear = totalWidth / yearSpan;
+  const branchTop = canvasHeight - BRANCH_TOP_PADDING;
+  function clamp(h: number): number {
+    return Math.max(BRANCH_BOTTOM, Math.min(branchTop, h));
+  }
 
   // Pinch state (two-pointer)
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const lastPinchDistRef = useRef<number | null>(null);
 
-  // Year-aggregated charge data
   const chargeByYear = useMemo(() => buildChargeByYear(data.songs, yearStart, yearEnd), [data.songs, yearStart, yearEnd]);
 
-  // Mounted check (createPortal is browser-only)
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  // Snap to nearest zoom level
-  function snapZoom(target: number): number {
-    let best = ZOOM_LEVELS[0];
-    let bestDist = Math.abs(target - best);
-    for (const z of ZOOM_LEVELS) {
-      const d = Math.abs(target - z);
-      if (d < bestDist) { best = z; bestDist = d; }
+  // Vertical labels are ~14px wide. Two labels collide when their x-bands
+  // overlap. Greedy claim: walk most-recent-first, claim each x-band; skip
+  // labels whose band is already taken. This naturally hides older/duplicate
+  // labels while preserving the most recent ones at every zoom level.
+  const LABEL_WIDTH_PX = 16;
+  function pickVisibleLabels<T extends { id: string; date: string | null; x: number }>(items: T[]): Set<string> {
+    const sorted = [...items].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+    const claimed: Array<[number, number]> = [];
+    const visible = new Set<string>();
+    for (const item of sorted) {
+      const lo = item.x - LABEL_WIDTH_PX / 2;
+      const hi = item.x + LABEL_WIDTH_PX / 2;
+      if (claimed.some(([a, b]) => lo < b && hi > a)) continue;
+      claimed.push([lo, hi]);
+      visible.add(item.id);
     }
-    return best;
+    return visible;
   }
+
+  // Pre-sort eras by kind + date, fill in missing date_end values from the
+  // NEXT same-kind era's date_start (or today if last). Most release eras come
+  // from the discography ingest with no explicit "Era: Month - Month" window,
+  // so date_end arrives null. Without chaining, every dateless era would
+  // stretch from its start all the way to today and they'd all visually
+  // overlap. Adjacent same-kind eras also alternate sub-rows so labels don't
+  // pile up when date ranges are still tight.
+  const stackedEras = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    function chain(eras: ArcEra[]) {
+      const sorted = [...eras].sort((a, b) => a.date_start.localeCompare(b.date_start));
+      return sorted.map((era, i) => {
+        const nextStart = sorted[i + 1]?.date_start ?? today;
+        // Honor an explicit date_end if present; otherwise cap to next era's start.
+        const effectiveEnd = era.date_end && era.date_end < nextStart ? era.date_end : nextStart;
+        return { era, effectiveEnd, subRow: i % 2 };
+      });
+    }
+    return [
+      ...chain(data.eras.filter((e) => e.kind === "life")),
+      ...chain(data.eras.filter((e) => e.kind === "release")),
+    ];
+  }, [data.eras]);
 
   function applyZoomDelta(factor: number) {
-    setZoomLevel((current) => snapZoom(current * factor));
+    setZoomLevel((current) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, current * factor)));
   }
 
-  // Pointer-event pinch handler
   function onPointerDown(e: React.PointerEvent) {
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointersRef.current.size === 2) {
@@ -146,10 +227,10 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
       const [a, b] = Array.from(pointersRef.current.values());
       const dist = Math.hypot(b.x - a.x, b.y - a.y);
       const ratio = dist / lastPinchDistRef.current;
-      if (Math.abs(ratio - 1) > 0.05) {
-        applyZoomDelta(ratio);
-        lastPinchDistRef.current = dist;
-      }
+      // Apply every frame for fluid zoom; no threshold gate (which used to
+      // produce a jittery, stepped feel).
+      applyZoomDelta(ratio);
+      lastPinchDistRef.current = dist;
     }
   }
   function onPointerEnd(e: React.PointerEvent) {
@@ -157,83 +238,74 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     if (pointersRef.current.size < 2) lastPinchDistRef.current = null;
   }
 
-  // Ctrl + wheel zoom (desktop)
-  function onWheel(e: React.WheelEvent) {
-    if (!e.ctrlKey) return;
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.5 : 1 / 1.5;
-    applyZoomDelta(factor);
+
+  function dateToX(d: string | null | undefined): number | null {
+    if (!d) return null;
+    const [y, m = "1", day = "1"] = d.split("-");
+    const year = parseInt(y, 10);
+    const month = parseInt(m, 10);
+    const dayN = parseInt(day, 10);
+    if (Number.isNaN(year)) return null;
+    const yearFloat = year + (month - 1) / 12 + (dayN - 1) / 365;
+    return (yearFloat - yearStart) * pxPerYear;
   }
 
-  // Scroll the window to "now" on first mount (only — don't yank scroll on every
-  // zoom change). Canvas is part of page document flow, no internal scroll.
+  // Initial horizontal scroll to "now" — only on first mount.
   const didInitialScrollRef = useRef(false);
   useEffect(() => {
     if (didInitialScrollRef.current) return;
     const el = canvasRef.current;
     if (!el) return;
     const now = new Date();
-    const nowFrac = (now.getFullYear() + now.getMonth() / 12 - yearStart) / yearSpan;
-    const innerEl = el.querySelector(".arc-radiant__inner") as HTMLElement | null;
-    if (!innerEl) return;
-    const targetY = innerEl.offsetTop + totalHeight * nowFrac - window.innerHeight * 0.7;
-    window.scrollTo({ top: Math.max(0, targetY), behavior: "instant" as ScrollBehavior });
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const targetX = dateToX(today);
+    if (targetX != null) {
+      el.scrollLeft = Math.max(0, targetX - el.clientWidth * 0.7);
+    }
     didInitialScrollRef.current = true;
-  }, [totalHeight, yearStart, yearSpan]);
-
-  // When pre-catalog years are collapsed: the 1989..COLLAPSE_END_YEAR span maps
-  // into a fixed COLLAPSE_BAND_PX band at the top, and the rest of the timeline
-  // claims the remaining height with year-level resolution. When expanded:
-  // standard linear year-to-pixel mapping.
-  const collapseActive = preCollapsed && COLLAPSE_END_YEAR > yearStart && COLLAPSE_END_YEAR < yearEnd;
-  const postBandHeight = collapseActive ? totalHeight - COLLAPSE_BAND_PX : totalHeight;
-  const pxPerPostYear = collapseActive ? postBandHeight / (yearEnd - COLLAPSE_END_YEAR) : pxPerYear;
-
-  function yToYear(y: number): number {
-    if (!collapseActive) return yearStart + y / pxPerYear;
-    if (y < COLLAPSE_BAND_PX) {
-      return yearStart + (y / COLLAPSE_BAND_PX) * (COLLAPSE_END_YEAR - yearStart);
-    }
-    return COLLAPSE_END_YEAR + (y - COLLAPSE_BAND_PX) / pxPerPostYear;
-  }
-  function dateToY(d: string | null): number | null {
-    if (!d) return null;
-    const [y, m = "1", day = "1"] = d.split("-");
-    const year = parseInt(y, 10);
-    const month = parseInt(m, 10);
-    const dayN = parseInt(day, 10);
-    const yearFloat = year + (month - 1) / 12 + (dayN - 1) / 365;
-    if (collapseActive) {
-      if (yearFloat < COLLAPSE_END_YEAR) {
-        const frac = (yearFloat - yearStart) / (COLLAPSE_END_YEAR - yearStart);
-        return frac * COLLAPSE_BAND_PX;
-      }
-      return COLLAPSE_BAND_PX + (yearFloat - COLLAPSE_END_YEAR) * pxPerPostYear;
-    }
-    return (yearFloat - yearStart) * pxPerYear;
-  }
+  }, [totalWidth]);
 
   return (
     <div className="arc-radiant">
       <div className="arc-radiant__toolbar">
-        <div className="arc-radiant__zoom">
-          <span className="arc-radiant__zoom-label">{ZOOM_LABELS[zoomLevel]}</span>
-          <button onClick={() => applyZoomDelta(0.5)} aria-label="Zoom out">−</button>
-          <button onClick={() => applyZoomDelta(2)} aria-label="Zoom in">+</button>
-        </div>
+        <span className="arc-radiant__zoom-hint" aria-hidden="true">
+          Pinch on mobile · ± buttons on desktop
+        </span>
         <div className="arc-radiant__toolbar-right">
-          <span className="arc-radiant__layers-summary">
-            {LAYER_KEYS.filter((k) => layers[k]).length} of {LAYER_KEYS.length} layers
-          </span>
           {proseAvailable && (
             <Link href="/chad-lewine?view=prose" className="arc-radiant__view-switch">
               Switch to Prose →
             </Link>
           )}
+          <div className="arc-radiant__zoom">
+            <span className="arc-radiant__zoom-label">{zoomLabel(zoomLevel)}</span>
+            <button onClick={() => applyZoomDelta(1 / 1.4)} aria-label="Zoom out">−</button>
+            <button onClick={() => applyZoomDelta(1.4)} aria-label="Zoom in">+</button>
+          </div>
         </div>
       </div>
 
-      <div className="arc-radiant__main">
+      <div className="arc-radiant__upper">
+        <aside className="arc-radiant__key" aria-label="Layer key">
+          <h3 className="arc-radiant__key-title">Key</h3>
+          {LAYER_KEYS.map((k) => (
+            <label
+              key={k}
+              className={`arc-radiant__key-row arc-radiant__key-row--${k}${layers[k] ? "" : " is-off"}`}
+            >
+              <input
+                type="checkbox"
+                checked={layers[k]}
+                onChange={(e) => setLayers((l) => ({ ...l, [k]: e.target.checked }))}
+              />
+              <span className="arc-radiant__key-swatch" aria-hidden="true">
+                <KeySwatch layer={k} />
+              </span>
+              <span className="arc-radiant__key-label">{LAYER_LABELS[k]}</span>
+            </label>
+          ))}
+        </aside>
+
         <div
           ref={canvasRef}
           className="arc-radiant__canvas"
@@ -241,68 +313,52 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
           onPointerMove={onPointerMove}
           onPointerUp={onPointerEnd}
           onPointerCancel={onPointerEnd}
-          onWheel={onWheel}
-          style={{ touchAction: "pan-y" }}
+          style={{ touchAction: "pan-x" }}
         >
-          <div className="arc-radiant__inner" style={{ height: totalHeight }}>
-            {/* Central spine — the lifeline. Everything anchors here. */}
-            <div className="arc-radiant__spine" />
+          <div
+            className="arc-radiant__inner"
+            style={{ width: totalWidth, height: canvasHeight }}
+          >
+            {/* Horizontal centerline — the timeline / horizon */}
+            <div className="arc-radiant__spine" style={{ bottom: SPINE_RESERVED_PX }} />
 
-            {/* Year axis (ticks span full width but kept faint).
-                Inside the collapsed pre-catalog band, ticks are suppressed. */}
+            {/* Year ticks rise from the centerline; labels sit just below it */}
             <div className="arc-radiant__years">
               {Array.from({ length: yearSpan + 1 }, (_, i) => yearStart + i).map((year) => {
-                if (collapseActive && year < COLLAPSE_END_YEAR) return null;
-                const y = (dateToY(`${year}-01-01`) ?? 0);
+                const x = dateToX(`${year}-01-01`) ?? 0;
                 const showLabel = zoomLevel >= 5 || year % 5 === 0;
                 return (
-                  <div key={year} className="arc-radiant__year-tick" style={{ top: y }}>
+                  <div
+                    key={year}
+                    className="arc-radiant__year-tick"
+                    style={{ left: x, bottom: 0, height: SPINE_RESERVED_PX + 8 }}
+                  >
                     {showLabel && <span className="arc-radiant__year-label">{year}</span>}
                   </div>
                 );
               })}
             </div>
 
-            {/* Collapsed pre-catalog band — clickable to expand */}
-            {collapseActive && (
-              <button
-                className="arc-radiant__pre-band"
-                style={{ height: COLLAPSE_BAND_PX }}
-                onClick={() => setPreCollapsed(false)}
-                title="Click to expand 1989-2009"
-              >
-                <span className="arc-radiant__pre-band-label">
-                  {yearStart}–{COLLAPSE_END_YEAR - 1} · formation years
-                </span>
-                <span className="arc-radiant__pre-band-cta">expand ↓</span>
-              </button>
-            )}
-            {!collapseActive && COLLAPSE_END_YEAR > yearStart && (
-              <button
-                className="arc-radiant__pre-collapse-cta"
-                style={{ top: ((COLLAPSE_END_YEAR - yearStart) * pxPerYear) - 28 }}
-                onClick={() => setPreCollapsed(true)}
-                title="Click to collapse 1989-2009"
-              >
-                ↑ collapse {yearStart}–{COLLAPSE_END_YEAR - 1}
-              </button>
-            )}
-
-            {/* Eras layer (background bands as absolute divs — more reliable than SVG % coords).
-                Labels only show when the band has enough vertical room or zoom is high enough,
-                otherwise multiple overlapping eras stack their labels and become unreadable. */}
-            {layers.eras && data.eras.map((era) => {
-              const y1 = dateToY(era.date_start);
-              const y2 = dateToY(era.date_end ?? new Date().toISOString().slice(0, 10));
-              if (y1 == null || y2 == null) return null;
-              const height = Math.max(8, y2 - y1);
-              const minLabelHeight = zoomLevel >= 5 ? 24 : zoomLevel >= 2 ? 80 : 200;
-              const showLabel = height >= minLabelHeight;
+            {/* Eras: horizontal segments, life kind sits in lower band, release
+                kind in upper band — well separated so the two don't merge.
+                Within a kind, adjacent eras alternate sub-rows so their labels
+                don't pile up when date ranges are tight. */}
+            {stackedEras.map(({ era, effectiveEnd, subRow }) => {
+              if (era.kind === "life" && !layers.lifeEras) return null;
+              if (era.kind === "release" && !layers.releaseEras) return null;
+              const x1 = dateToX(era.date_start);
+              const x2 = dateToX(effectiveEnd);
+              if (x1 == null || x2 == null) return null;
+              const width = Math.max(8, x2 - x1);
+              const minLabelWidth = zoomLevel >= 5 ? 60 : zoomLevel >= 2 ? 120 : 180;
+              const showLabel = width >= minLabelWidth;
+              const baseBottom = era.kind === "life" ? ERA_LIFE_ROW_BOTTOM : ERA_RELEASE_ROW_BOTTOM;
+              const bottomOffset = baseBottom + subRow * (ERA_ROW_HEIGHT + ERA_ROW_GAP);
               return (
                 <div
                   key={era.id}
                   className={`arc-radiant__era arc-radiant__era--${era.kind}`}
-                  style={{ top: y1, height }}
+                  style={{ left: x1, width, bottom: bottomOffset, height: ERA_ROW_HEIGHT }}
                 >
                   {showLabel && (
                     <span className="arc-radiant__era-label">{era.title}</span>
@@ -311,76 +367,134 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               );
             })}
 
-            {/* Compass charge line */}
+            {/* Compass charge — horizontal SVG ribbon. y=0 is centerline,
+                positive charge bulges UP, negative bulges DOWN (here, since
+                only top half is visible, negative just dips toward the spine). */}
             {layers.compass && chargeByYear.length > 1 && (
               <svg
                 className="arc-radiant__layer arc-radiant__layer--compass"
                 preserveAspectRatio="none"
                 viewBox="0 0 100 100"
-                style={{ height: totalHeight }}
+                style={{
+                  width: totalWidth,
+                  height: branchTop,
+                  bottom: SPINE_RESERVED_PX,
+                }}
               >
                 <defs>
-                  <linearGradient id="charge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#9d6efb" />
-                    <stop offset="25%" stopColor="#4d8fff" />
-                    <stop offset="50%" stopColor="#2dd07a" />
-                    <stop offset="75%" stopColor="#ff9933" />
-                    <stop offset="100%" stopColor="#ff3b3b" />
+                  {/* Top of curve = violet (high charge), bottom = red (low),
+                      matching the RC aggregate chart's tier gradient. */}
+                  <linearGradient id="charge-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%"   stopColor="#aa54ff" />
+                    <stop offset="25%"  stopColor="#3388ff" />
+                    <stop offset="50%"  stopColor="#33cc55" />
+                    <stop offset="75%"  stopColor="#ffbb33" />
+                    <stop offset="100%" stopColor="#ff3333" />
                   </linearGradient>
                 </defs>
                 <ChargePath data={chargeByYear} yearStart={yearStart} yearSpan={yearSpan} />
               </svg>
             )}
 
-            {/* Songs — anchor on the spine, branch right */}
+            {/* Songs — vertical branches rising from spine. Tier color drives
+                the CD ring color; labels run vertically up from each dot, with
+                collision-aware visibility so the most recent never gets hidden
+                behind older duplicates at the same x. */}
             {layers.music && (() => {
               const items = data.songs
-                .map((s) => ({ s, y: dateToY(s.write_date ?? s.release_date) }))
-                .filter((e): e is { s: ArcSong; y: number } => e.y != null)
-                .sort((a, b) => a.y - b.y);
-              let lastLabelY = -Infinity;
-              const labelBand = zoomLevel >= 5 ? 14 : zoomLevel >= 2 ? 18 : 26;
-              return items.map(({ s, y }) => {
-                const showLabel = zoomLevel >= 2 && y - lastLabelY > labelBand;
-                if (showLabel) lastLabelY = y;
-                const tierColor = s.rc_tier ? TIER_COLORS[s.rc_tier] : "var(--text-tertiary)";
+                .map((s, i) => ({ s, i, x: dateToX(s.write_date ?? s.release_date) }))
+                .filter((e): e is { s: ArcSong; i: number; x: number } => e.x != null)
+                .sort((a, b) => a.x - b.x);
+              const visibleLabels = pickVisibleLabels(items.map(({ s, x }) => ({
+                id: s.id, date: s.write_date ?? s.release_date, x,
+              })));
+              return items.map(({ s, i, x }) => {
+                const branchHeight = clamp(SONG_HEIGHT_PATTERN[i % SONG_HEIGHT_PATTERN.length]);
+                const showLabel = zoomLevel >= 2 && visibleLabels.has(s.id);
+                const tierColor = s.rc_tier ? TIER_COLORS[s.rc_tier] : "var(--arc-gold-bright)";
+                const isSelected = selectedItem?.type === "song" && selectedItem.data.id === s.id;
                 return (
-                  <Link
+                  <button
                     key={s.id}
-                    href={`/music/songs/${s.slug}`}
-                    className="arc-radiant__branch arc-radiant__branch--right"
-                    style={{ top: y }}
-                    title={`${s.title}${s.song_state ? ` [${s.song_state}]` : ""}`}
+                    type="button"
+                    className={`arc-radiant__branch arc-radiant__branch--song${isSelected ? " is-selected" : ""}`}
+                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
+                    onClick={() => setSelectedItem({ type: "song", data: s })}
+                    onPointerEnter={(e) => setHover({ title: s.title, x: e.clientX, y: e.clientY })}
+                    onPointerMove={(e) => setHover({ title: s.title, x: e.clientX, y: e.clientY })}
+                    onPointerLeave={() => setHover(null)}
                   >
-                    <span className="arc-radiant__branch-dot" style={{ background: tierColor, borderColor: tierColor }} />
-                    <span className="arc-radiant__branch-line" />
+                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
+                    <span
+                      className="arc-radiant__cd arc-radiant__cd--single"
+                      style={{ background: tierColor, borderColor: tierColor }}
+                    />
                     {showLabel && <span className="arc-radiant__branch-label">{s.title}</span>}
-                  </Link>
+                  </button>
                 );
               });
             })()}
 
-            {/* Life events — anchor on the spine, branch left */}
+            {/* Albums — same CD icon as singles (slightly larger), placed at
+                the album's release_date. Differentiation between singles and
+                albums beyond size will come later. */}
+            {layers.music && (() => {
+              const items = data.albums
+                .map((a, i) => ({ a, i, x: dateToX(a.release_date) }))
+                .filter((e): e is { a: ArcAlbum; i: number; x: number } => e.x != null)
+                .sort((a, b) => a.x - b.x);
+              const visibleLabels = pickVisibleLabels(items.map(({ a, x }) => ({
+                id: a.id, date: a.release_date, x,
+              })));
+              return items.map(({ a, i, x }) => {
+                const branchHeight = clamp(ALBUM_HEIGHT_PATTERN[i % ALBUM_HEIGHT_PATTERN.length]);
+                const showLabel = zoomLevel >= 2 && visibleLabels.has(a.id);
+                const isSelected = selectedItem?.type === "album" && selectedItem.data.id === a.id;
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className={`arc-radiant__branch arc-radiant__branch--album${isSelected ? " is-selected" : ""}`}
+                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
+                    onClick={() => setSelectedItem({ type: "album", data: a })}
+                    onPointerEnter={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
+                    onPointerMove={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
+                    onPointerLeave={() => setHover(null)}
+                  >
+                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 12 }} />
+                    <span className="arc-radiant__cd arc-radiant__cd--album" />
+                    {showLabel && <span className="arc-radiant__branch-label">{a.title}</span>}
+                  </button>
+                );
+              });
+            })()}
+
+            {/* Life events — vertical branches rising from spine, complementary green dots */}
             {layers.lifeEvents && (() => {
               const events = data.lifeEvents
-                .map((ev) => ({ ev, y: dateToY(ev.date_start) }))
-                .filter((e): e is { ev: ArcLifeEvent; y: number } => e.y != null)
-                .sort((a, b) => a.y - b.y);
-              let lastLabelY = -Infinity;
-              const labelBand = zoomLevel >= 5 ? 14 : zoomLevel >= 2 ? 22 : 32;
-              return events.map(({ ev, y }) => {
-                const showLabel = zoomLevel >= 2 && y - lastLabelY > labelBand;
-                if (showLabel) lastLabelY = y;
+                .map((ev, i) => ({ ev, i, x: dateToX(ev.date_start) }))
+                .filter((e): e is { ev: ArcLifeEvent; i: number; x: number } => e.x != null)
+                .sort((a, b) => a.x - b.x);
+              const visibleLabels = pickVisibleLabels(events.map(({ ev, x }) => ({
+                id: ev.id, date: ev.date_start, x,
+              })));
+              return events.map(({ ev, i, x }) => {
+                const branchHeight = clamp(EVENT_HEIGHT_PATTERN[i % EVENT_HEIGHT_PATTERN.length]);
+                const showLabel = zoomLevel >= 2 && visibleLabels.has(ev.id);
+                const isSelected = selectedItem?.type === "event" && selectedItem.data.id === ev.id;
                 return (
                   <button
                     key={ev.id}
-                    className="arc-radiant__branch arc-radiant__branch--left"
-                    style={{ top: y }}
-                    onClick={() => setSelectedEvent(ev)}
-                    title={ev.title}
+                    type="button"
+                    className={`arc-radiant__branch arc-radiant__branch--event${isSelected ? " is-selected" : ""}`}
+                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
+                    onClick={() => setSelectedItem({ type: "event", data: ev })}
+                    onPointerEnter={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
+                    onPointerMove={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
+                    onPointerLeave={() => setHover(null)}
                   >
+                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
                     <span className="arc-radiant__branch-dot arc-radiant__branch-dot--event" />
-                    <span className="arc-radiant__branch-line" />
                     {showLabel && <span className="arc-radiant__branch-label">{ev.title}</span>}
                   </button>
                 );
@@ -389,41 +503,126 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
           </div>
         </div>
 
-        {/* Layer toggle panel */}
-        <aside className="arc-radiant__layer-panel">
-          <h3 className="arc-radiant__panel-title">Layers</h3>
-          {LAYER_KEYS.map((k) => (
-            <label key={k} className="arc-radiant__layer-toggle">
-              <input
-                type="checkbox"
-                checked={layers[k]}
-                onChange={(e) => setLayers((l) => ({ ...l, [k]: e.target.checked }))}
-              />
-              <span>{LAYER_LABELS[k]}</span>
-            </label>
-          ))}
-          <h4 className="arc-radiant__panel-subtitle">Coming in v2</h4>
-          {PHASE_2_LAYERS.map((label) => (
-            <div key={label} className="arc-radiant__layer-toggle arc-radiant__layer-toggle--disabled">
-              <input type="checkbox" disabled />
-              <span>{label}</span>
-            </div>
-          ))}
-        </aside>
       </div>
 
-      {selectedEvent && mounted && createPortal(
-        <div className="arc-radiant__detail-overlay" onClick={() => setSelectedEvent(null)}>
-          <div className="arc-radiant__detail" onClick={(e) => e.stopPropagation()}>
-            <button className="arc-radiant__detail-close" onClick={() => setSelectedEvent(null)} aria-label="Close">×</button>
-            <h3>{selectedEvent.title}</h3>
-            <div className="arc-radiant__detail-meta">{selectedEvent.date_start ?? "—"}</div>
-            <div className="arc-radiant__detail-body" dangerouslySetInnerHTML={{ __html: selectedEvent.body_html }} />
-          </div>
-        </div>,
-        document.body
+      {hover && (
+        <div
+          className="arc-radiant__hover-chip"
+          style={{ left: hover.x + 14, top: hover.y + 14 }}
+        >
+          {hover.title}
+        </div>
       )}
+
+      <div className="arc-radiant__bottom">
+        {selectedItem ? (
+          selectedItem.type === "song" ? (
+            <SongDetail song={selectedItem.data} onClose={() => setSelectedItem(null)} />
+          ) : selectedItem.type === "album" ? (
+            <AlbumDetail album={selectedItem.data} onClose={() => setSelectedItem(null)} />
+          ) : (
+            <EventDetail event={selectedItem.data} onClose={() => setSelectedItem(null)} />
+          )
+        ) : (
+          <div className="arc-radiant__bottom-empty">
+            Tap any node above to read its story.
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+// ---------- Detail panels ----------
+
+function SongDetail({ song, onClose }: { song: ArcSong; onClose: () => void }) {
+  const date = song.release_date ?? song.write_date;
+  return (
+    <div className="arc-radiant__detail">
+      <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
+      <div className="arc-radiant__detail-meta">
+        <span className="arc-radiant__detail-kind">Song</span>
+        {date && <span>{date}</span>}
+        {song.rc_tier && <span className={`arc-radiant__tier arc-radiant__tier--${song.rc_tier}`}>{song.rc_tier}</span>}
+        {song.song_state && <span>{song.song_state}</span>}
+      </div>
+      <h3 className="arc-radiant__detail-title">{song.title}</h3>
+      <Link href={`/music/songs/${song.slug}`} className="arc-radiant__detail-cta">
+        Open song page →
+      </Link>
+    </div>
+  );
+}
+
+function AlbumDetail({ album, onClose }: { album: ArcAlbum; onClose: () => void }) {
+  return (
+    <div className="arc-radiant__detail">
+      <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
+      <div className="arc-radiant__detail-meta">
+        <span className="arc-radiant__detail-kind">Album</span>
+        {album.release_date && <span>{album.release_date}</span>}
+      </div>
+      <h3 className="arc-radiant__detail-title">{album.title}</h3>
+      <Link href={`/music/albums/${album.slug}`} className="arc-radiant__detail-cta">
+        Open album page →
+      </Link>
+    </div>
+  );
+}
+
+function EventDetail({ event, onClose }: { event: ArcLifeEvent; onClose: () => void }) {
+  return (
+    <div className="arc-radiant__detail">
+      <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
+      <div className="arc-radiant__detail-meta">
+        <span className="arc-radiant__detail-kind">Life Event</span>
+        {event.date_start && <span>{event.date_start}</span>}
+      </div>
+      <h3 className="arc-radiant__detail-title">{event.title}</h3>
+      <div className="arc-radiant__detail-body" dangerouslySetInnerHTML={{ __html: event.body_html }} />
+    </div>
+  );
+}
+
+// ---------- Key swatch ----------
+
+function KeySwatch({ layer }: { layer: LayerKey }) {
+  // Each swatch mirrors the on-canvas appearance: a strip of tier-colored
+  // dots for music, a glowing dot for life events, a colored band for era
+  // layers, a curve for compass charge.
+  if (layer === "music") {
+    return (
+      <span className="arc-radiant__swatch-tier-row" aria-hidden="true">
+        {TIER_ORDER.map((t) => (
+          <span
+            key={t}
+            className="arc-radiant__swatch-tier-cd"
+            style={{ background: TIER_COLORS[t], borderColor: TIER_COLORS[t] }}
+          />
+        ))}
+      </span>
+    );
+  }
+  if (layer === "lifeEvents") {
+    return <span className="arc-radiant__swatch-dot arc-radiant__swatch-dot--event" />;
+  }
+  if (layer === "lifeEras") {
+    return <span className="arc-radiant__swatch-band arc-radiant__swatch-band--life" />;
+  }
+  if (layer === "releaseEras") {
+    return <span className="arc-radiant__swatch-band arc-radiant__swatch-band--release" />;
+  }
+  return (
+    <svg className="arc-radiant__swatch-curve" viewBox="0 0 24 12" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="key-charge-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%"   stopColor="#aa54ff" />
+          <stop offset="50%"  stopColor="#33cc55" />
+          <stop offset="100%" stopColor="#ff3333" />
+        </linearGradient>
+      </defs>
+      <path d="M 1 9 Q 5 1, 9 6 T 17 5 T 23 7" stroke="url(#key-charge-gradient)" strokeWidth="1.4" fill="none" />
+    </svg>
   );
 }
 
@@ -434,27 +633,27 @@ function ChargePath({ data, yearStart, yearSpan }: {
   yearStart: number;
   yearSpan: number;
 }) {
-  // Map year -> y in 0..100, charge -> x in 0..100 (centered at 50, range -100..+100)
+  // x = position along timeline (0..100), y = charge mapped to height
+  // (positive charge rises from spine: charge=+100 → y=10, charge=-100 → y=90).
   const points = data.map((d) => ({
-    x: 50 + (d.charge / 100) * 40, // -100 → 10, +100 → 90
-    y: ((d.year - yearStart) / yearSpan) * 100,
+    x: ((d.year - yearStart) / yearSpan) * 100,
+    y: 50 - (d.charge / 100) * 40,
   }));
   if (points.length < 2) return null;
 
-  // Smooth path via Catmull-Rom-ish quadratic curves
-  let d = `M ${points[0].x} ${points[0].y}`;
+  let dPath = `M ${points[0].x} ${points[0].y}`;
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1];
     const curr = points[i];
     const cx = (prev.x + curr.x) / 2;
     const cy = (prev.y + curr.y) / 2;
-    d += ` Q ${prev.x} ${prev.y}, ${cx} ${cy}`;
+    dPath += ` Q ${prev.x} ${prev.y}, ${cx} ${cy}`;
   }
-  d += ` T ${points[points.length - 1].x} ${points[points.length - 1].y}`;
+  dPath += ` T ${points[points.length - 1].x} ${points[points.length - 1].y}`;
 
   return (
     <>
-      <path d={d} stroke="url(#charge-gradient)" strokeWidth={1.2} fill="none" vectorEffect="non-scaling-stroke" />
+      <path d={dPath} stroke="url(#charge-gradient)" strokeWidth={1.2} fill="none" vectorEffect="non-scaling-stroke" />
       {points.map((p, i) => (
         <circle key={i} cx={p.x} cy={p.y} r={0.6} fill="#fff" stroke="url(#charge-gradient)" strokeWidth={0.4} vectorEffect="non-scaling-stroke" />
       ))}

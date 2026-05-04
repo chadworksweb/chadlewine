@@ -30,7 +30,7 @@ const DROP_GAP_PX = 10;
 // out even if the cursor leaves the card immediately after dropping it.
 const SETTLE_MS = 3800;
 
-export function MerchExploreGrid({ items }: Props) {
+export function ExploreGrid({ items }: Props) {
   const gridRef = useRef<HTMLDivElement>(null);
   // Refs target the image-link element (just the image area), NOT the outer
   // card. The outer card includes the title text below the image, so using
@@ -153,7 +153,7 @@ export function MerchExploreGrid({ items }: Props) {
   if (items.length === 0) return null;
 
   return (
-    <div ref={gridRef} className="page-merch__explore-grid">
+    <div ref={gridRef} className="explore-strip__grid">
       {items.map((item, idx) => {
         const active = activeIdxs.has(idx);
         const hovered = hoveredIdx === idx;

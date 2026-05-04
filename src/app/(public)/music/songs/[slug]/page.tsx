@@ -4,9 +4,10 @@ import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
 import { SongMerchSection } from "@/components/SongMerchSection";
+import { ExploreStrip } from "@/components/ExploreStrip";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge } from "@/lib/rising-compass";
-import { markdownToHtml } from "@/lib/markdown";
+import { renderSection, extractSongSlugs } from "@/lib/visibility-sections";
 
 export const revalidate = 60;
 
@@ -90,15 +91,50 @@ async function getSongData(songSlug: string) {
     .filter((a): a is PairedArt & { status: string } => !!a && (a.status === "published" || a.status === "unreleased"))
     .map(({ status: _status, ...rest }) => rest);
 
-  // Convert ALL visibility sections to HTML (used in integrated landing page)
+  // Convert ALL visibility sections to render-ready data. Centralized in
+  // renderSection so any markdown-bearing field (content, key_points,
+  // future additions) is converted in exactly one place.
   const renderedSections = await Promise.all(
-    (visibilitySections || []).map(async (s: any) => ({
-      ...s,
-      contentHtml: s.content ? await markdownToHtml(s.content) : "",
-      directAnswer: s.direct_answer || null,
-      keyPoints: s.key_points || [],
-    }))
+    (visibilitySections || []).map((s: any) => renderSection(s))
   );
+
+  // Pull songs mentioned by the Connections section so the page can render
+  // a song-art grid for them. Excludes the current song to avoid self-ref.
+  const connectionsSection = renderedSections.find((s) => s.category === "connections");
+  const mentionedSlugs = connectionsSection
+    ? extractSongSlugs(connectionsSection).filter((slug) => slug !== song.slug)
+    : [];
+
+  let connectionsSongs: Array<{ id: string; slug: string; title: string; art_image_path: string | null; art_alt: string | null }> = [];
+  if (mentionedSlugs.length > 0) {
+    // Pull each mentioned song with its album cover so album tracks that
+    // never got their own art still surface a visual (the album cover).
+    const { data: connSongs } = await supabase
+      .from("songs")
+      .select("id, slug, title, art_image_path, art_alt, album_songs(album:albums(cover_art_path, cover_art_alt))")
+      .in("slug", mentionedSlugs)
+      .in("status", ["unreleased", "published"]);
+    // Preserve the mention order so the grid mirrors the prose flow.
+    const bySlug = new Map(
+      (connSongs || []).map((s: any) => {
+        const albumCover = s.album_songs?.[0]?.album?.cover_art_path || null;
+        const albumAlt = s.album_songs?.[0]?.album?.cover_art_alt || null;
+        return [
+          s.slug,
+          {
+            id: s.id,
+            slug: s.slug,
+            title: s.title,
+            art_image_path: s.art_image_path || albumCover,
+            art_alt: s.art_alt || albumAlt,
+          },
+        ];
+      })
+    );
+    connectionsSongs = mentionedSlugs
+      .map((slug) => bySlug.get(slug))
+      .filter((s): s is typeof connectionsSongs[number] => !!s && !!s.art_image_path);
+  }
 
   return {
     album,
@@ -107,6 +143,7 @@ async function getSongData(songSlug: string) {
     expansions: expansions || [],
     visibilitySections: renderedSections,
     pairedArt,
+    connectionsSongs,
   };
 }
 
@@ -155,7 +192,7 @@ export default async function SongDetailPage({
   const result = await getSongData(slug);
   if (!result) notFound();
 
-  const { album, song, totalTracks, expansions, visibilitySections, pairedArt } = result;
+  const { album, song, totalTracks, expansions, visibilitySections, pairedArt, connectionsSongs } = result;
 
   const [badge, playbackMode] = await Promise.all([
     fetchBadge(song.title, "Chad Lewine"),
@@ -232,6 +269,7 @@ export default async function SongDetailPage({
         expansions={expansions}
         visibilitySections={visibilitySections}
         pairedArt={pairedArt}
+        connectionsSongs={connectionsSongs}
         playbackMode={playbackMode}
         songFormats={(() => {
           const explicit = (["mp3", "flac", "wav"] as const).filter((f) => song[`download_path_${f}`]);
@@ -268,6 +306,7 @@ export default async function SongDetailPage({
         } : null}
         merchSlot={<SongMerchSection songId={song.id} />}
       />
+      <ExploreStrip wrap />
       {badge && album && (
         <SongChargeJsonLd
           songTitle={song.title}

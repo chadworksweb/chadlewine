@@ -8038,14 +8038,14 @@ h3.aw-heading {
   z-index: 2;
 }
 
-.page-merch__explore-grid .merch-shop__card-img,
-.page-merch__explore-grid .merch-shop__card-water {
+.explore-strip__grid .merch-shop__card-img,
+.explore-strip__grid .merch-shop__card-water {
   filter: brightness(1);
   transition: filter 0.35s ease;
 }
 
-.page-merch__explore-grid .merch-shop__card--hovered .merch-shop__card-img,
-.page-merch__explore-grid .merch-shop__card--hovered .merch-shop__card-water {
+.explore-strip__grid .merch-shop__card--hovered .merch-shop__card-img,
+.explore-strip__grid .merch-shop__card--hovered .merch-shop__card-water {
   filter: brightness(1.15);
 }
 
@@ -8054,17 +8054,17 @@ h3.aw-heading {
    blinks straight to brightness(1.15). @starting-style gives the browser
    an explicit pre-insertion value so the first hover fades like the rest. */
 @starting-style {
-  .page-merch__explore-grid .merch-shop__card--hovered .merch-shop__card-water {
+  .explore-strip__grid .merch-shop__card--hovered .merch-shop__card-water {
     filter: brightness(1);
   }
 }
 
-.page-merch__explore-grid .merch-shop__card-img-link:has(.merch-shop__card-img:hover)::before {
+.explore-strip__grid .merch-shop__card-img-link:has(.merch-shop__card-img:hover)::before {
   animation: none;
   opacity: 0;
 }
 
-.page-merch__explore-grid .merch-shop__card-img:hover {
+.explore-strip__grid .merch-shop__card-img:hover {
   animation: none;
 }
 
@@ -8303,22 +8303,32 @@ h3.aw-heading {
   font-size: var(--text-sm);
 }
 
-.page-merch__explore {
+/* Generic Explore strip — section that surfaces a mix of merch, songs,
+   albums, and art. Used on the merch index, merch detail, song detail,
+   and anywhere else we want a "discover more" tail. */
+.explore-strip {
   margin-top: var(--space-2xl);
 }
 
-/* Explore grid — independent from .merch-shop__grid so the main grid and the
-   Explore strip can have different column counts. */
-.page-merch__explore-grid {
+/* Standalone wrapper — provides the same width + gutter as .page-merch so
+   the strip can stand alone outside an existing page container. */
+.explore-strip__wrap {
+  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  margin: 0 auto;
+  padding: 0 0 calc(var(--space-4xl) / 2);
+}
+
+/* Explore grid — independent from any other grid so columns can be tuned
+   for this strip without affecting page-level grids. */
+.explore-strip__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
 }
 
-/* Bracketed/ticked divider — mirrors .explore-songs__frame on the homepage,
-   but sized to the parent .page-merch (no extra width/gutter). */
-.page-merch__explore-frame {
+/* Bracketed/ticked divider — mirrors .explore-songs__frame on the homepage. */
+.explore-strip__frame {
   position: relative;
   height: 65px;
   margin: 0 0 var(--space-xl);
@@ -8334,8 +8344,8 @@ h3.aw-heading {
   );
 }
 
-.page-merch__explore-frame::before,
-.page-merch__explore-frame::after {
+.explore-strip__frame::before,
+.explore-strip__frame::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -8345,21 +8355,21 @@ h3.aw-heading {
   pointer-events: none;
 }
 
-.page-merch__explore-frame::before {
+.explore-strip__frame::before {
   left: 0;
   border-left: 1px solid var(--text-accent);
   border-top: 1px solid var(--text-accent);
   border-bottom: 1px solid var(--text-accent);
 }
 
-.page-merch__explore-frame::after {
+.explore-strip__frame::after {
   right: 0;
   border-right: 1px solid var(--text-accent);
   border-top: 1px solid var(--text-accent);
   border-bottom: 1px solid var(--text-accent);
 }
 
-.page-merch__explore-frame-label {
+.explore-strip__frame-label {
   position: relative;
   padding: 0 var(--space-md);
   background: #000;
@@ -8372,7 +8382,7 @@ h3.aw-heading {
   white-space: nowrap;
 }
 
-.page-merch__explore-heading {
+.explore-strip__heading {
   font-family: var(--font-ui);
   font-size: 1.82rem;
   color: var(--text-primary);
@@ -8385,13 +8395,13 @@ h3.aw-heading {
 }
 
 @media (max-width: 720px) {
-  .page-merch__explore-frame {
+  .explore-strip__frame {
     flex-direction: column;
     height: auto;
     gap: var(--space-xs);
     padding: var(--space-md) 0;
   }
-  .page-merch__explore-heading {
+  .explore-strip__heading {
     white-space: normal;
     text-align: center;
     padding: 0 var(--space-sm);
@@ -8530,7 +8540,7 @@ h3.aw-heading {
   .merch-shop__grid {
     grid-template-columns: 1fr;
   }
-  .page-merch__explore-grid {
+  .explore-strip__grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -13021,6 +13031,127 @@ h3.aw-heading {
 .song-landing__cta-link:hover {
   color: #00d4ff;
   border-color: #00d4ff40;
+}
+
+/* Connections song grid — surfaces every song mentioned in the section's
+   prose / key points as art tiles. Reuses ExploreGrid markup; this wrapper
+   tightens cell sizing so the cards read as a supporting reference grid
+   rather than a hero strip. */
+.connections-songs {
+  margin-top: var(--space-xl);
+}
+
+.connections-songs .explore-strip__grid {
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+  margin-bottom: 0;
+  max-width: 88%;
+}
+
+.connections-songs .merch-shop__card-title {
+  font-size: 0.85rem;
+  margin-top: var(--space-xs);
+  grid-template-columns: 1fr;
+  text-align: center;
+  justify-items: center;
+}
+
+.connections-songs .merch-shop__card-kind {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .connections-songs .explore-strip__grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 100%;
+  }
+}
+
+/* Sync callout — full-width blatant CTA inside the Sync Placements section.
+   Sits at the bottom of the right-column main flow, fills the column edge to
+   edge, and pushes hard for licensing/sync inquiries. */
+
+.sync-callout {
+  display: block;
+  width: 100%;
+  margin: var(--space-2xl) 0 0;
+  padding: var(--space-xl) var(--space-xl);
+  background:
+    linear-gradient(135deg, rgba(255, 149, 0, 0.08) 0%, rgba(255, 149, 0, 0) 60%),
+    #0a0a14;
+  border: 1px solid rgba(255, 149, 0, 0.25);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sync-callout::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #ff9500 0%, rgba(255, 149, 0, 0.3) 100%);
+}
+
+.sync-callout__eyebrow {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ff9500;
+  margin: 0 0 var(--space-md);
+}
+
+.sync-callout__headline {
+  font-family: var(--font-ui);
+  font-size: clamp(1.4rem, 2.4vw, 1.85rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md);
+}
+
+.sync-callout__body {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-lg);
+  max-width: 56ch;
+}
+
+.sync-callout__cta {
+  display: inline-block;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0a0a14;
+  background: #ff9500;
+  text-decoration: none;
+  padding: 0.85rem 1.6rem;
+  border: 1px solid #ff9500;
+  border-radius: 3px;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.sync-callout__cta:hover {
+  background: transparent;
+  color: #ff9500;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(255, 149, 0, 0.25);
+}
+
+@media (max-width: 720px) {
+  .sync-callout {
+    padding: var(--space-lg);
+  }
+  .sync-callout__cta {
+    display: block;
+    text-align: center;
+  }
 }
 
 /* Business CTA — anchors the bottom of the visibility cluster */

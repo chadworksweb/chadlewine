@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { MerchProductCard } from "@/components/MerchProductCard";
-import { MerchExplore } from "@/components/MerchExplore";
+import { ExploreStrip } from "@/components/ExploreStrip";
 
 const DEFAULT_METADATA: Metadata = {
   title: "Merch — Chad Lewine",
@@ -79,7 +79,7 @@ export default async function MerchPage() {
         </div>
       )}
 
-      <MerchExplore excludeMerchIds={allProducts.map((p) => p.id)} />
+      <ExploreStrip excludeMerchIds={allProducts.map((p) => p.id)} />
     </div>
   );
 }

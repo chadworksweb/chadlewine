@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { MerchProductDetail } from "@/components/MerchProductDetail";
-import { MerchExplore } from "@/components/MerchExplore";
+import { ExploreStrip } from "@/components/ExploreStrip";
 import type { ProductVariant } from "@/components/MerchProductCard";
 import { getGalleryForProduct, type GalleryImage } from "@/lib/product-images";
 
@@ -100,7 +100,7 @@ export default async function MerchProductPage({
         variants={Array.isArray(product.variants) ? product.variants : []}
         linkedPrintSlug={linkedPrintSlug}
       />
-      <MerchExplore excludeMerchIds={[product.id]} standalone />
+      <ExploreStrip excludeMerchIds={[product.id]} wrap />
     </>
   );
 }
