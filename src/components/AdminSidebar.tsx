@@ -49,6 +49,7 @@ const adminNav: NavItem[] = [
     label: "Merch",
     children: [
       { href: "/admin/merch", label: "Products" },
+      { href: "/admin/collections", label: "Collections" },
       { href: "/admin/merch/orders", label: "Orders" },
     ],
   },

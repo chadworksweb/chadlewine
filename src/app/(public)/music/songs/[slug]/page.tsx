@@ -37,7 +37,7 @@ async function getSongData(songSlug: string) {
   // Get album via junction (optional — singles have no album)
   const { data: junction } = await supabase
     .from("album_songs")
-    .select("track_number, album:albums(id, title, slug, cover_art_path, cover_art_alt, price, status, download_path_mp3, download_path_flac, download_path_wav)")
+    .select("track_number, album:albums(id, title, slug, cover_art_path, cover_art_alt, price, status, release_date, download_path_mp3, download_path_flac, download_path_wav)")
     .eq("song_id", song.id)
     .maybeSingle();
 
@@ -262,6 +262,7 @@ export default async function SongDetailPage({
                 cover_art_path: album.cover_art_path,
                 cover_art_alt: album.cover_art_alt,
                 price: album.price,
+                release_date: album.release_date,
               }
             : null
         }

@@ -239,6 +239,69 @@ function SongCoverArtPanel({
   );
 }
 
+export async function detectAudioDuration(url: string, timeoutMs = 20000): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio();
+    audio.preload = "metadata";
+    let done = false;
+    const cleanup = () => { audio.src = ""; };
+    const finish = (fn: () => void) => { if (done) return; done = true; fn(); };
+    audio.onloadedmetadata = () => finish(() => {
+      const d = Math.floor(audio.duration);
+      cleanup();
+      if (!isFinite(d) || d <= 0) reject(new Error("invalid duration"));
+      else resolve(d);
+    });
+    audio.onerror = () => finish(() => { cleanup(); reject(new Error("failed to load audio")); });
+    setTimeout(() => finish(() => { cleanup(); reject(new Error("timeout")); }), timeoutMs);
+    audio.src = url;
+  });
+}
+
+function FindDurationButton({ streamingPath, onDetected }: { streamingPath: string | null; onDetected: (d: number) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  async function run() {
+    if (!streamingPath) {
+      setStatus({ msg: "set streaming path first", ok: false });
+      return;
+    }
+    setBusy(true);
+    setStatus(null);
+    try {
+      const d = await detectAudioDuration(streamingPath);
+      onDetected(d);
+      const mins = Math.floor(d / 60);
+      const secs = d % 60;
+      setStatus({ msg: `${d}s (${mins}:${secs < 10 ? "0" : ""}${secs})`, ok: true });
+    } catch (err) {
+      setStatus({ msg: err instanceof Error ? err.message : "failed", ok: false });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+      <button
+        type="button"
+        className="admin-btn admin-btn--secondary"
+        onClick={run}
+        disabled={busy || !streamingPath}
+        style={{ fontSize: "0.6875rem", padding: "4px 10px", whiteSpace: "nowrap" }}
+      >
+        {busy ? "Detecting..." : "Find Duration"}
+      </button>
+      {status && (
+        <span style={{ fontSize: "0.65rem", fontFamily: "var(--font-ui)", color: status.ok ? "#33cc55" : "#ff3333" }}>
+          {status.msg}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; presetAlbumId?: string }) {
   const router = useRouter();
   const sectionsRef = useRef<SongVisibilitySectionsHandle>(null);
@@ -672,14 +735,21 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
 
             <div className="obsv-editor__field">
               <label className="obsv-editor__label" htmlFor="duration_seconds">Duration (seconds)</label>
-              <input
-                id="duration_seconds"
-                className="obsv-editor__input"
-                type="number"
-                min={0}
-                value={form.duration_seconds ?? ""}
-                onChange={(e) => set("duration_seconds", e.target.value ? parseInt(e.target.value) : null)}
-              />
+              <div style={{ display: "flex", gap: "var(--space-xs)", alignItems: "center" }}>
+                <input
+                  id="duration_seconds"
+                  className="obsv-editor__input"
+                  type="number"
+                  min={0}
+                  value={form.duration_seconds ?? ""}
+                  onChange={(e) => set("duration_seconds", e.target.value ? parseInt(e.target.value) : null)}
+                  style={{ flex: 1 }}
+                />
+                <FindDurationButton
+                  streamingPath={form.streaming_path}
+                  onDetected={(d) => set("duration_seconds", d)}
+                />
+              </div>
             </div>
 
             <div className="obsv-editor__field">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePlayer, type PlaybackMode } from "@/components/PlayerContext";
 
 interface MiniPlayerProps {
@@ -120,7 +121,9 @@ export function MiniPlayer({
       </button>
 
       <span className="mini-player__number">{trackNumber}</span>
-      <span className="mini-player__name">{trackTitle}</span>
+      <Link href={`/music/songs/${songSlug}`} className="mini-player__name">
+        {trackTitle}
+      </Link>
 
       <div className="mini-player__waveform">
         <div className="mini-player__wf-layer mini-player__wf-bg">

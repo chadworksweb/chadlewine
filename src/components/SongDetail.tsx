@@ -40,6 +40,7 @@ interface AlbumProps {
   cover_art_path: string | null;
   cover_art_alt: string | null;
   price: number | null;
+  release_date: string | null;
 }
 
 interface ExpansionProps {
@@ -176,8 +177,9 @@ export function SongDetail({
 
   const infoCells: { key: string; label: string; value: React.ReactNode }[] = [];
 
-  if (song.release_date) {
-    const d = new Date(song.release_date);
+  const effectiveReleaseDate = song.release_date ?? album?.release_date ?? null;
+  if (effectiveReleaseDate) {
+    const d = new Date(effectiveReleaseDate);
     infoCells.push({
       key: "released",
       label: "Released",

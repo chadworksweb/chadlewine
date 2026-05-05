@@ -19,6 +19,9 @@
  *   npx tsx scripts/upload-album-downloads.ts --album "001 The Human Link"
  *   npx tsx scripts/upload-album-downloads.ts --album "001 The Human Link" --force
  *   npx tsx scripts/upload-album-downloads.ts --album "001 The Human Link" --formats mp3
+ *
+ * Standalone-single mode (no album row in DB; loose files map to one song):
+ *   npx tsx scripts/upload-album-downloads.ts --album "008B Boomerang" --song boomerang --dry-run
  */
 import { createReadStream, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "fs";
 import { basename, join } from "path";
@@ -116,31 +119,74 @@ type AlbumSong = {
   existing: Record<Format, string | null>;
 };
 
-async function loadAlbumSongs(albumFolder: string): Promise<{ albumId: string; albumTitle: string; songs: AlbumSong[] }> {
-  // Strip leading order prefix like "001 " or "009B " from folder name.
-  const titleGuess = albumFolder.replace(/^\d{1,4}[A-Z]?\s+/, "").trim();
-  const { data: albums, error: aErr } = await supabase
-    .from("albums")
-    .select("id, title")
-    .ilike("title", titleGuess)
-    .limit(2);
-  if (aErr) throw aErr;
-  if (!albums || albums.length === 0) {
-    // Try fuzzy
-    const { data: fuzzy, error: fErr } = await supabase
+async function loadSingleSong(songSlug: string): Promise<{ albumId: string; albumTitle: string; songs: AlbumSong[] }> {
+  const { data: rows, error } = await supabase
+    .from("songs")
+    .select("id, title, slug, download_path_mp3, download_path_flac, download_path_wav")
+    .eq("slug", songSlug)
+    .limit(1);
+  if (error) throw error;
+  if (!rows || rows.length === 0) throw new Error(`No song with slug "${songSlug}"`);
+  const s = rows[0];
+  return {
+    albumId: "(none - standalone single)",
+    albumTitle: `(single: ${s.title})`,
+    songs: [
+      {
+        songId: s.id,
+        songSlug: s.slug,
+        songTitle: s.title,
+        trackNumber: 1,
+        existing: {
+          mp3: s.download_path_mp3,
+          flac: s.download_path_flac,
+          wav: s.download_path_wav,
+        },
+      },
+    ],
+  };
+}
+
+async function loadAlbumSongs(
+  albumFolder: string,
+  albumSlugOverride: string | null,
+): Promise<{ albumId: string; albumTitle: string; songs: AlbumSong[] }> {
+  let album: { id: string; title: string } | null = null;
+  if (albumSlugOverride) {
+    const { data, error } = await supabase
       .from("albums")
       .select("id, title")
-      .ilike("title", `%${titleGuess}%`);
-    if (fErr) throw fErr;
-    if (!fuzzy || fuzzy.length === 0) {
-      throw new Error(`No album matched "${titleGuess}" (from "${albumFolder}")`);
+      .eq("slug", albumSlugOverride)
+      .limit(1);
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error(`No album with slug "${albumSlugOverride}"`);
+    album = data[0];
+  } else {
+    // Strip leading order prefix like "001 " or "009B " from folder name.
+    const titleGuess = albumFolder.replace(/^\d{1,4}[A-Z]?\s+/, "").trim();
+    const { data: albums, error: aErr } = await supabase
+      .from("albums")
+      .select("id, title")
+      .ilike("title", titleGuess)
+      .limit(2);
+    if (aErr) throw aErr;
+    if (!albums || albums.length === 0) {
+      // Try fuzzy
+      const { data: fuzzy, error: fErr } = await supabase
+        .from("albums")
+        .select("id, title")
+        .ilike("title", `%${titleGuess}%`);
+      if (fErr) throw fErr;
+      if (!fuzzy || fuzzy.length === 0) {
+        throw new Error(`No album matched "${titleGuess}" (from "${albumFolder}"). Try --album-slug.`);
+      }
+      if (fuzzy.length > 1) {
+        throw new Error(`Multiple albums matched "${titleGuess}": ${fuzzy.map((a) => a.title).join(", ")}. Use --album-slug.`);
+      }
+      albums.push(fuzzy[0]);
     }
-    if (fuzzy.length > 1) {
-      throw new Error(`Multiple albums matched "${titleGuess}": ${fuzzy.map((a) => a.title).join(", ")}`);
-    }
-    albums.push(fuzzy[0]);
+    album = albums[0];
   }
-  const album = albums[0];
 
   const { data: rows, error: rErr } = await supabase
     .from("album_songs")
@@ -234,6 +280,26 @@ function trackNumFromFilename(name: string): number | null {
   return parseInt(m[1], 10);
 }
 
+// Slugify a string the way the app does (lowercase, alnum-or-hyphen),
+// for filename-title -> song-slug fallback matching.
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/['"`]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// Strip leading track number, trailing extension, parent path, and any
+// "(Original 2014 Version)" / "(Sped Up)" style suffixes. Returns slug.
+function titleSlugFromFilename(filePath: string): string {
+  let name = basename(filePath).replace(/\.(mp3|flac|wav)$/i, "");
+  name = name.replace(/^\d{1,4}[\s_-]+/, "");
+  // Drop the all-caps "HIDDEN TRACK -" prefix if present.
+  name = name.replace(/^HIDDEN\s+TRACK\s*[-:]\s*/i, "");
+  return slugify(name);
+}
+
 type Plan = {
   format: Format;
   source: string;
@@ -257,6 +323,10 @@ async function main() {
   const formats: Format[] = formatsIdx >= 0
     ? (args[formatsIdx + 1].split(",") as Format[])
     : ALL_FORMATS;
+  const songIdx = args.indexOf("--song");
+  const songSlugArg = songIdx >= 0 ? args[songIdx + 1] : null;
+  const albumSlugIdx = args.indexOf("--album-slug");
+  const albumSlugArg = albumSlugIdx >= 0 ? args[albumSlugIdx + 1] : null;
 
   const albumFolder = join(RECORDS_ROOT, albumFolderName);
   if (!existsSync(albumFolder)) throw new Error(`Album folder not found: ${albumFolder}`);
@@ -264,7 +334,9 @@ async function main() {
   console.log(`\n=== ALBUM: ${albumFolderName} ===`);
   console.log(`  Dry-run: ${dryRun}   Force: ${force}   Formats: ${formats.join(",")}`);
 
-  const { albumId, albumTitle, songs } = await loadAlbumSongs(albumFolderName);
+  const { albumId, albumTitle, songs } = songSlugArg
+    ? await loadSingleSong(songSlugArg)
+    : await loadAlbumSongs(albumFolderName, albumSlugArg);
   console.log(`  Album in DB: ${albumTitle} (${albumId})`);
   console.log(`  Songs in DB: ${songs.length}`);
 
@@ -307,20 +379,52 @@ async function main() {
     }
   }
 
-  // Build plan: for each (format, song) pick the file with matching track.
+  // Build plan: for each (format, song) pick the file with matching track,
+  // falling back to title-slug match (filename's title -> song.slug) when
+  // numbering diverges (e.g. demos inserted, hidden tracks, reordered EPs).
   const plan: Plan[] = [];
   const skips: string[] = [];
+  const usedSrcByFormat: Record<Format, Set<string>> = {
+    mp3: new Set(),
+    flac: new Set(),
+    wav: new Set(),
+  };
   for (const format of formats) {
     const files = filesByFormat[format];
     if (files.length === 0) {
       skips.push(`No ${format.toUpperCase()} source for album.`);
       continue;
     }
+    // Pass 1: title-slug matches (more reliable when track numbers drift).
+    // Pass 2: track-number matches for the remainder.
+    const matched = new Map<string, { src: string; track: number | null; matchedBy: string }>();
     for (const song of songs) {
-      const file = files.find((f) => f.track === song.trackNumber);
+      const f = files.find(
+        (x) => titleSlugFromFilename(x.src) === song.songSlug && !usedSrcByFormat[format].has(x.src),
+      );
+      if (f) {
+        matched.set(song.songSlug, { ...f, matchedBy: "title" });
+        usedSrcByFormat[format].add(f.src);
+      }
+    }
+    for (const song of songs) {
+      if (matched.has(song.songSlug)) continue;
+      const f = files.find(
+        (x) => x.track === song.trackNumber && !usedSrcByFormat[format].has(x.src),
+      );
+      if (f) {
+        matched.set(song.songSlug, { ...f, matchedBy: "track" });
+        usedSrcByFormat[format].add(f.src);
+      }
+    }
+    for (const song of songs) {
+      const file = matched.get(song.songSlug);
       if (!file) {
         skips.push(`[${format}] track ${song.trackNumber} (${song.songSlug}) - no matching source file.`);
         continue;
+      }
+      if (file.matchedBy === "title") {
+        console.log(`  (matched by title) [${format}] ${song.songSlug} <- ${basename(file.src)}`);
       }
       const filename = sanitizeBasename(basename(file.src));
       const targetPath = `songs/${song.songSlug}/${filename}`;
