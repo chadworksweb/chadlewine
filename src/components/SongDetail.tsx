@@ -307,7 +307,7 @@ export function SongDetail({
                     });
                   }}
                 >
-                  {songInCart ? "Already in Cart" : "Add to Cart"}
+                  {songInCart ? "Already in Cart" : "Add Song to Cart"}
                 </button>
               )}
               {ringtoneAvailable && song.ringtone_price && (
