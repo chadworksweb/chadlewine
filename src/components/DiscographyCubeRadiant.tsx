@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { focalCropStyle } from "@/lib/focal-crop";
-import { DiscoFaceWater, type DiscoFaceWaterHandle } from "./DiscoFaceWater";
+import { CubeWaterRenderer, type CubeFaceSource } from "./CubeWaterRenderer";
+import { FaceWaterPresenter } from "./FaceWaterPresenter";
 
 export interface DiscographyCubeFace {
   slot: number; // 1=front, 2=top, 3=right, 4=bottom, 5=left
@@ -89,8 +90,57 @@ export function DiscographyCubeRadiant({
   // Last screen position we injected a water drop from. When the cursor
   // moves > DROP_GAP_PX, we drop on every face the cursor projects into.
   const lastDropAtRef = useRef<{ x: number; y: number } | null>(null);
-  // Imperative handles to each face's GPU water sim, indexed by slot-1.
-  const faceWaterRefs = useRef<(DiscoFaceWaterHandle | null)[]>([null, null, null, null, null]);
+  // Single WebGL2 renderer for all 5 faces of this cube. Lazy-initialized on
+  // first hover; persists across hover cycles; destroyed on unmount.
+  const rendererRef = useRef<CubeWaterRenderer | null>(null);
+  const [rendererReady, setRendererReady] = useState(false);
+
+  // Build per-face source specs once. The renderer needs:
+  //   - the imageSrc per slot (face media or cover fallback)
+  //   - the crop params (focal point + zoom) to mimic CSS object-fit:cover
+  const faceSources = useMemo<CubeFaceSource[]>(() => {
+    const map = new Map<number, DiscographyCubeFace>();
+    for (const f of faces) map.set(f.slot, f);
+    return [1, 2, 3, 4, 5].map((slot) => {
+      const face = map.get(slot);
+      const fallbackToCover = !face && !!coverArtPath;
+      const src =
+        face?.media_type === "image"
+          ? face.media_path
+          : fallbackToCover
+            ? coverArtPath
+            : null;
+      const fxRaw = face ? face.focal_x : cardFocalX ?? null;
+      const fyRaw = face ? face.focal_y : cardFocalY ?? null;
+      const zRaw = face ? face.zoom : cardZoom ?? null;
+      return {
+        src,
+        fx: (fxRaw ?? 50) / 100,
+        fy: (fyRaw ?? 50) / 100,
+        zoom: zRaw ?? 1,
+      };
+    });
+  }, [faces, coverArtPath, cardFocalX, cardFocalY, cardZoom]);
+
+  const ensureRenderer = useCallback(() => {
+    if (rendererRef.current) return rendererRef.current;
+    const r = new CubeWaterRenderer(faceSources);
+    rendererRef.current = r;
+    setRendererReady(true);
+    return r;
+  }, [faceSources]);
+
+  // Destroy the renderer when the cube unmounts. We keep it alive across
+  // hover cycles intentionally — the whole point of this refactor is to
+  // pay the WebGL setup cost once per cube, not once per hover.
+  useEffect(() => {
+    return () => {
+      if (rendererRef.current) {
+        rendererRef.current.destroy();
+        rendererRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     cubesLocked = false;
@@ -111,8 +161,10 @@ export function DiscographyCubeRadiant({
 
   const dropOnFaces = useCallback((cx: number, cy: number) => {
     if (!boxRef.current) return;
-    const faces = boxRef.current.querySelectorAll<HTMLElement>(".disco-cube__face");
-    faces.forEach((face, idx) => {
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    const faceEls = boxRef.current.querySelectorAll<HTMLElement>(".disco-cube__face");
+    faceEls.forEach((face, idx) => {
       const fr = face.getBoundingClientRect();
       if (fr.width < 4 || fr.height < 4) return;
       const fx = ((cx - fr.left) / fr.width) * 100;
@@ -120,8 +172,7 @@ export function DiscographyCubeRadiant({
       // Only drop on faces whose projected rect actually contains the cursor —
       // prevents the same wake from rendering on every face simultaneously.
       if (fx < 0 || fx > 100 || fy < 0 || fy > 100) return;
-      const handle = faceWaterRefs.current[idx];
-      if (handle) handle.drop(fx, fy, 0.22);
+      renderer.drop(idx, fx, fy, 0.22);
     });
   }, []);
 
@@ -179,14 +230,30 @@ export function DiscographyCubeRadiant({
 
   const handlePointerEnter = useCallback((e: React.PointerEvent<HTMLAnchorElement>) => {
     if (cubesLocked && !frozenRef.current) return;
-    if (e.pointerType === "mouse") setActive(true);
-  }, []);
+    if (e.pointerType === "mouse") {
+      ensureRenderer();
+      setActive(true);
+    }
+  }, [ensureRenderer]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLAnchorElement>) => {
     if (cubesLocked && !frozenRef.current) return;
     lastPointerTypeRef.current = e.pointerType;
-    if (e.pointerType !== "mouse") setActive(true);
-  }, []);
+    if (e.pointerType !== "mouse") {
+      ensureRenderer();
+      setActive(true);
+    }
+  }, [ensureRenderer]);
+
+  // Drive the renderer's animation loop from the active state. The renderer
+  // is kept alive (and its WebGL context retained) between hover cycles —
+  // we only pause/resume the rAF tick.
+  useEffect(() => {
+    const r = rendererRef.current;
+    if (!r) return;
+    if (active) r.start();
+    else r.stop();
+  }, [active]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLAnchorElement>) => {
     if (cubesLocked && !frozenRef.current) return;
@@ -323,9 +390,6 @@ export function DiscographyCubeRadiant({
                 : fallbackToCover
                   ? coverArtPath
                   : null;
-            const imageFx = face ? face.focal_x : cardFocalX ?? null;
-            const imageFy = face ? face.focal_y : cardFocalY ?? null;
-            const imageZoom = face ? face.zoom : cardZoom ?? null;
             return (
               <div key={slot} className={`disco-cube__face ${SLOT_CLASS[slot]}`}>
                 {face?.media_type === "video" && active && (
@@ -354,15 +418,11 @@ export function DiscographyCubeRadiant({
                     aria-hidden="true"
                   />
                 )}
-                {imageSrc && active && (
-                  <DiscoFaceWater
-                    ref={(handle) => {
-                      faceWaterRefs.current[slot - 1] = handle;
-                    }}
-                    src={imageSrc}
-                    focalX={imageFx}
-                    focalY={imageFy}
-                    zoom={imageZoom}
+                {imageSrc && active && rendererReady && (
+                  <FaceWaterPresenter
+                    renderer={rendererRef.current}
+                    faceIdx={slot - 1}
+                    active={active}
                     className="disco-cube__face-water"
                   />
                 )}
