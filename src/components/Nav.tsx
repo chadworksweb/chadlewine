@@ -68,7 +68,9 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
     >
       <nav className="site-nav">
         <Link href="/" className="site-nav__logo">
-          Chad Lewine
+          <span className="site-nav__logo-frame" aria-hidden="true">░▒▓█</span>
+          <span className="site-nav__logo-text">Chad Lewine</span>
+          <span className="site-nav__logo-frame" aria-hidden="true">█▓▒░</span>
         </Link>
 
         <div className="nav-links">

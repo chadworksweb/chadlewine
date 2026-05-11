@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Prompt } from "@/components/Prompt";
 
 // Event constants. When the page is cloned to a dedicated event detail
 // route, lift these into a shared module. Edit them in one place to keep
@@ -32,7 +31,11 @@ export const POPUP_EVENT = {
     name: "Chad Lewine",
     url: "https://chadlewine.com",
   },
-  url: "https://chadlewine.com/super-individual",
+  /** Canonical URL for the event (where Event JSON-LD points). The popup
+     section is embedded on /super-individual as a teaser, but the
+     authoritative event page is /irl/super-individual-pop-up. */
+  url: "https://chadlewine.com/irl/super-individual-pop-up",
+  pathname: "/irl/super-individual-pop-up",
 };
 
 // Daily schedule — placeholder slots for talk / discourse / live-set, plus
@@ -129,7 +132,22 @@ function googleCalendarLink() {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-export function SuperIndividualPopupSection() {
+interface PopupSectionProps {
+  /** Render the Event JSON-LD. Only true on the canonical event page
+     (/irl/super-individual-pop-up). When the section is embedded on
+     /super-individual as a teaser, JSON-LD must NOT render — search
+     engines should see one authoritative MusicEvent, not two. */
+  includeEventSchema?: boolean;
+  /** Show the "See full event details →" link directing readers to the
+     canonical event page. True only when this section is embedded on a
+     page OTHER than the event page itself. */
+  showEventPageLink?: boolean;
+}
+
+export function SuperIndividualPopupSection({
+  includeEventSchema = false,
+  showEventPageLink = false,
+}: PopupSectionProps = {}) {
   const v = POPUP_EVENT.venue;
 
   // Event JSON-LD. Maximally populated for Google Events / rich results.
@@ -184,10 +202,12 @@ export function SuperIndividualPopupSection() {
 
   return (
     <section className="si-popup" id="popup" aria-labelledby="si-popup-heading">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      {includeEventSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
 
       <div className="explore-songs__frame explore-songs__frame--top">
         <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
@@ -197,72 +217,69 @@ export function SuperIndividualPopupSection() {
         <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
       </div>
 
+      <div className="si-popup__media si-popup__media--full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/super-individual/popup-hero.webp"
+          alt="Chad Lewine — Super Individual Pop-Up"
+          className="si-popup__media-img"
+        />
+      </div>
+
       <div className="si-popup__inner">
-        <div className="si-popup__header">
-          <span className="si-popup__eyebrow">Three Days Only — Live Pop-Up</span>
+        <div className="si-popup__meta-row">
+          <div className="si-popup__info-cell">
+            <span className="si-popup__info-label">Dates</span>
+            <div className="si-popup__info-value si-popup__info-value--display">June 26 – 28, 2026</div>
+          </div>
+          <div className="si-popup__info-cell">
+            <span className="si-popup__info-label">Venue</span>
+            <div className="si-popup__info-value si-popup__info-value--display">{v.name}</div>
+            <span className="si-popup__address">
+              {v.streetAddress}, {v.city}, {v.state} {v.postalCode}
+            </span>
+          </div>
+          <div className="si-popup__info-cell">
+            <span className="si-popup__info-label">Hours</span>
+            <ul className="si-popup__hours">
+              {POPUP_EVENT.hours.map((h) => (
+                <li key={h.day}>
+                  <span className="si-popup__hours-day">{h.day}</span>
+                  <span className="si-popup__hours-time">{h.time}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        <div className="si-popup__grid">
-          <div className="si-popup__media">
-            <Prompt label="Pop-up hero image">
-              Photo or graphic that anchors the event. Storefront mock-up, performance shot, or a typographic graphic. Aspect roughly 4:3. Replace this block with the actual image when ready.
-            </Prompt>
-          </div>
-
-          <div className="si-popup__meta">
-            <dl className="si-popup__details">
-              <div className="si-popup__detail">
-                <dt>Dates</dt>
-                <dd>June 26 – 28, 2026</dd>
-              </div>
-              <div className="si-popup__detail">
-                <dt>Venue</dt>
-                <dd>
-                  {v.name}
-                  <br />
-                  <span className="si-popup__address">
-                    {v.streetAddress}, {v.city}, {v.state} {v.postalCode}
-                  </span>
-                </dd>
-              </div>
-              <div className="si-popup__detail">
-                <dt>Hours</dt>
-                <dd>
-                  {POPUP_EVENT.hours.map((h) => (
-                    <div key={h.day}>
-                      <strong>{h.day}</strong> — {h.time}
-                    </div>
-                  ))}
-                </dd>
-              </div>
-              <div className="si-popup__detail">
-                <dt>Inside</dt>
-                <dd>Live painting all day. Talks, discourse, and live sets scheduled across the weekend.</dd>
-              </div>
-            </dl>
-
-            <div className="si-popup__cta-row">
-              <a
-                href={googleCalendarLink()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="si-popup__cta si-popup__cta--primary"
-              >
-                Add to calendar
-              </a>
-              <a
-                href={googleMapsLink()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="si-popup__cta"
-              >
-                Get directions
-              </a>
-              <Link href="#popup-notify" className="si-popup__cta">
-                Tell me when it starts
-              </Link>
-            </div>
-          </div>
+        <div className="si-popup__cta-grid">
+          {showEventPageLink && (
+            <Link
+              href={POPUP_EVENT.pathname}
+              className="si-popup__cta si-popup__cta--primary"
+            >
+              See full event details &rarr;
+            </Link>
+          )}
+          <a
+            href={googleCalendarLink()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`si-popup__cta${showEventPageLink ? "" : " si-popup__cta--primary"}`}
+          >
+            Add to calendar
+          </a>
+          <a
+            href={googleMapsLink()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="si-popup__cta"
+          >
+            Get directions
+          </a>
+          <Link href="#popup-notify" className="si-popup__cta">
+            Tell me when it starts
+          </Link>
         </div>
 
         <div className="si-popup__concept reading-column">

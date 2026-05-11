@@ -171,13 +171,13 @@ export function MiniLyricalCharger() {
         required
       />
       {error && <p className="mini-charger__error">{error}</p>}
-      <div className="mini-charger__actions">
+      <div className="mini-charger__actions mini-charger__actions--stacked">
         <button
           type="submit"
-          className="mini-charger__btn-primary"
+          className="mini-charger__btn-primary mini-charger__btn-primary--full"
           disabled={submitting}
         >
-          {submitting ? "Reading the frequency…" : "Read the frequency"}
+          {submitting ? "Calibrating Lyrics…" : "Calibrate Lyrics"}
         </button>
         <a
           href="https://risingcompass.net/lyrical-charger/"

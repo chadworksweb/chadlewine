@@ -4,9 +4,11 @@ import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { Prompt } from "@/components/Prompt";
 import { SuperIndividualMerchCarousel, type CarouselProduct } from "@/components/SuperIndividualMerchCarousel";
+import { MerchProductCard } from "@/components/MerchProductCard";
 import { AlbumHero, type AlbumHeroItem } from "@/components/AlbumHero";
 import { DiscographyCubeRadiant, type DiscographyCubeFace } from "@/components/DiscographyCubeRadiant";
-import { RCNowPlayingTile } from "@/components/RCNowPlayingTile";
+import { CompassCard } from "@/components/CompassCard";
+import { RCTop10Card } from "@/components/RCTop10Card";
 import { MiniLyricalCharger } from "@/components/MiniLyricalCharger";
 import { SuperIndividualPopupSection } from "@/components/SuperIndividualPopup";
 import { SuperIndividualFloatingTag } from "@/components/SuperIndividualFloatingTag";
@@ -213,6 +215,7 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
       artAlt: a.cover_art_alt || a.title,
       href: `/music/albums/${a.slug}`,
       ctaLabel: "Open Album →",
+      kind: "album" as const,
       focalX: a.card_focal_x != null ? a.card_focal_x / 100 : 0.5,
       focalY: a.card_focal_y != null ? a.card_focal_y / 100 : 0.5,
       zoom: a.card_zoom != null && a.card_zoom >= 1 ? a.card_zoom : 1,
@@ -235,6 +238,7 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
         artAlt: alt,
         href: `/music/songs/${s.slug}`,
         ctaLabel: "Explore Song →",
+        kind: "single" as const,
         focalX: s.card_focal_x != null ? s.card_focal_x / 100 : 0.5,
         focalY: s.card_focal_y != null ? s.card_focal_y / 100 : 0.5,
         zoom: s.card_zoom != null && s.card_zoom >= 1 ? s.card_zoom : 1,
@@ -301,13 +305,15 @@ export default async function SuperIndividualPage() {
       {/* Section 1 — Hero */}
       <section className="si-hero" aria-label="Super Individual">
         <div className="si-hero__inner">
-          <h1 className="si-hero__headline">Take back your power.</h1>
+          <h1 className="si-hero__eyebrow">Take back your power</h1>
+          <h2 className="si-hero__headline">Super Individual</h2>
           <p className="si-hero__sub">Chad Lewine's Super Individual Series.</p>
           <div className="si-hero__nav">
-            <a href="#what" className="si-hero__nav-link">What is a Super Individual?</a>
-            <a href="#thesis" className="si-hero__nav-link">The Thesis</a>
-            <a href="#doors" className="si-hero__nav-link">Three Doors</a>
-            <a href="#popup" className="si-hero__nav-link">The Pop-Up</a>
+            <a href="#what" className="si-hero__nav-link">Super Individual</a>
+            <a href="#thesis" className="si-hero__nav-link">My Thesis</a>
+            <a href="#door-merch" className="si-hero__nav-link">Merch</a>
+            <a href="#door-music" className="si-hero__nav-link">My Music</a>
+            <a href="#popup" className="si-hero__nav-link">Pop-Up</a>
           </div>
         </div>
       </section>
@@ -348,7 +354,7 @@ export default async function SuperIndividualPage() {
         <div className="explore-songs__frame explore-songs__frame--top">
           <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
           <h2 className="explore-songs__heading" id="si-thesis-heading">
-            Take back your power starts with your soundtrack.
+            Reclaim the soundtrack to your life
           </h2>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
@@ -369,15 +375,8 @@ export default async function SuperIndividualPage() {
       </section>
 
       {/* ============ THREE DOORS ============ */}
-      <section className="si-section" id="doors" aria-labelledby="si-doors-heading">
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h2 className="explore-songs__heading" id="si-doors-heading">
-            Three Doors
-          </h2>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
-        </div>
-        <div className="reading-column">
+      <section className="si-section si-section--doors-intro" id="doors">
+        <div className="reading-column si-doors-intro__prose">
           <p>
             It is with this awareness that I create and present the following three pathways to offer individuals an entry point to reclaiming their power on the road to becoming the Super Individual that they were already born as.
           </p>
@@ -385,11 +384,12 @@ export default async function SuperIndividualPage() {
       </section>
 
       {/* Door 1 — Merch */}
-      <section className="si-door si-door--merch" aria-labelledby="si-door-merch-heading">
+      <section id="door-merch" className="si-door si-door--merch" aria-labelledby="si-door-merch-heading">
+        <p className="si-door__eyebrow">Merchandise</p>
         <div className="explore-songs__frame explore-songs__frame--top">
           <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
           <h2 className="explore-songs__heading" id="si-door-merch-heading">
-            Door 1 — Wear the clothes.
+            Reclaim your light emanation
           </h2>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
@@ -401,9 +401,23 @@ export default async function SuperIndividualPage() {
         </div>
 
         {merch.length > 0 ? (
-          <div className="si-door__merch-stage">
-            <SuperIndividualMerchCarousel products={merch} />
-          </div>
+          <>
+            <div className="si-door__merch-stage">
+              <SuperIndividualMerchCarousel products={merch} />
+            </div>
+            <div className="si-door__merch-grid merch-shop__grid">
+              {merch.slice(0, 9).map((p) => (
+                <MerchProductCard
+                  key={p.id}
+                  id={p.id}
+                  slug={p.slug}
+                  title={p.title}
+                  image_url={p.image_url}
+                  image_alt={p.image_alt}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           <div className="si-door__empty">
             <p>The Series collection is being assembled. Check back shortly.</p>
@@ -413,14 +427,19 @@ export default async function SuperIndividualPage() {
       </section>
 
       {/* Door 2 — Music (HeroLens + Discography 4-up) */}
-      <section className="si-door si-door--music" aria-labelledby="si-door-music-heading">
+      <section id="door-music" className="si-door si-door--music" aria-labelledby="si-door-music-heading">
+        <p className="si-door__eyebrow">Original Music</p>
         <div className="explore-songs__frame explore-songs__frame--top">
           <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
           <h2 className="explore-songs__heading" id="si-door-music-heading">
-            Door 2 — Listen to the catalog.
+            Follow my personal reclamation journey
           </h2>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
+
+        <p className="si-door__lead">
+          Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, expanding painting of my personal journey out of the machine, and a new trail to follow, should you choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
+        </p>
 
         <div className="reading-column" style={{ marginBottom: 'var(--space-xl)' }}>
           <p>
@@ -439,11 +458,6 @@ export default async function SuperIndividualPage() {
 
         {discoItems.length > 0 && (
           <>
-            <div className="explore-songs__frame explore-songs__frame--top si-frame--sub">
-              <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-              <h3 className="explore-songs__heading">Discography</h3>
-              <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
-            </div>
             <div className="si-discography si-discography--three-up">
               {discoItems.slice(0, 6).map((item) => {
                 const year = item.release_date
@@ -479,17 +493,19 @@ export default async function SuperIndividualPage() {
         )}
 
         <div className="si-door__footer">
-          <Link href="/music" className="si-door__cta">Open the Music hub →</Link>
-          <Link href="/discography" className="si-door__cta">See the full discography →</Link>
+          <Link href="/music/songs" className="si-door__cta si-door__cta--primary">Explore my song database →</Link>
+          <Link href="/music" className="si-door__cta">Open my music hub →</Link>
+          <Link href="/discography" className="si-door__cta">See my full discography →</Link>
         </div>
       </section>
 
       {/* Door 3 — Rising Compass */}
       <section className="si-door si-door--rc" aria-labelledby="si-door-rc-heading">
+        <p className="si-door__eyebrow">Rising Compass</p>
         <div className="explore-songs__frame explore-songs__frame--top">
           <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
           <h2 className="explore-songs__heading" id="si-door-rc-heading">
-            Door 3 — Test your music. Then pass it on.
+            Scan what you&rsquo;re listening to right now
           </h2>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
@@ -505,19 +521,16 @@ export default async function SuperIndividualPage() {
             So, instead of trying to scream over the noise and static of the degraded social media algorithms, I built the Rising Compass, a free tool that tracks and diagnoses songs (not artists) for their positive/negative charge on a scale from 100 to -100, from Ascended down to Corrupted, as a meter for you to make your own decision about what you decide to listen to.
           </p>
           <p>
-            I believe this is an evolution of the Parental Advisory Explicit Content label, an initiative that could have been helpful but was rooted in racism and has been rendered ineffective in the digital/streaming age. The explicit label tells us if there are harsh words and profanity, but there is no label that tells us what the song is actually saying, and the modern music industry has gotten so creative and so sly that the messages that are slipped into the music we&rsquo;re listening to fly right under the radar not only of the explicit label but to anyone not dissecting the cohesive messages a song is delivering, messages that are more damning than any F-bomb could ever be.
+            I believe this is an evolution of the Parental Advisory Explicit Content label, an initiative that could have been helpful but was likely rooted in racism and has been rendered ineffective in the digital/streaming age. The explicit label tells us if there are harsh words and profanity, but there is no label that tells us what the song is actually saying, and the modern music industry has gotten so creative and so sly that the messages that are slipped into the music we&rsquo;re listening to fly right under the radar not only of the explicit label but to anyone not dissecting the cohesive messages a song is delivering, messages that are more damning than any F-bomb could ever be.
           </p>
         </div>
 
-        <div className="si-door__rc-grid">
-          <div className="si-door__rc-tile">
-            <RCNowPlayingTile />
-          </div>
-          <div className="si-door__rc-charger">
-            <h3 className="si-door__rc-charger-heading">
-              Read any song&rsquo;s frequency
-            </h3>
-            <p className="si-door__rc-charger-sub">
+        <div className="si-door__rc-grid si-door__rc-grid--3up">
+          <CompassCard />
+          <RCTop10Card />
+          <div className="si-door__rc-charger rc-card rc-card--charger">
+            <div className="rc-card__header">Read any song&rsquo;s frequency</div>
+            <p className="rc-card__desc">
               Paste the lyrics. The Rising Compass calibration engine reads the frequency it carries.
             </p>
             <MiniLyricalCharger />
@@ -525,8 +538,10 @@ export default async function SuperIndividualPage() {
         </div>
       </section>
 
-      {/* Section 5 — The Pop-Up (capstone, end of page) */}
-      <SuperIndividualPopupSection />
+      {/* Section 5 — The Pop-Up teaser. The JSON-LD lives on the canonical
+          event page at /irl/super-individual-pop-up (set there via
+          includeEventSchema). The teaser links there via showEventPageLink. */}
+      <SuperIndividualPopupSection showEventPageLink />
 
       <SuperIndividualFloatingTag />
     </div>

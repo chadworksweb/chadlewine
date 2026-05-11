@@ -12,6 +12,8 @@ export interface AlbumHeroItem {
   artAlt: string;
   href: string;
   ctaLabel?: string;
+  /** Release kind. Drives the badge above the title. Defaults to "album". */
+  kind?: "album" | "single" | "ep";
   /** Focal point on the 1:1 cover (0-1). Defaults to centered. */
   focalX?: number;
   focalY?: number;
@@ -138,7 +140,7 @@ export function AlbumHero({ items }: Props) {
                 </Link>
 
                 <div className="album-hero__meta">
-                  <span className="hero-lens__kind hero-lens__kind--album album-hero__badge">album</span>
+                  <span className={`hero-lens__kind hero-lens__kind--${item.kind ?? "album"} album-hero__badge`}>{item.kind ?? "album"}</span>
                   <h2 className="album-hero__title">
                     <Link
                       href={item.href}
