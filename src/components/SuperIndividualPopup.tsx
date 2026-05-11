@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PopupCalendarSplit } from "@/components/PopupCalendarSplit";
 
 // Event constants. When the page is cloned to a dedicated event detail
 // route, lift these into a shared module. Edit them in one place to keep
@@ -132,6 +133,62 @@ function googleCalendarLink() {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+/** Generates the .ics file body for the Pop-Up event. Used by the
+   /api/calendar/super-individual-pop-up route. Includes three VALARM
+   reminders: 1 week before, 1 day before, 2 hours before the start. */
+export function buildPopupIcsContent(): string {
+  const v = POPUP_EVENT.venue;
+  const fmtUtc = (iso: string) =>
+    new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const escapeText = (s: string) =>
+    s.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+  const description = escapeText(
+    `Three days of live painting, talks, discourse, and live sets. Super Individual merch on display, Rising Compass listening zone in back. Full schedule: ${POPUP_EVENT.url}#schedule`
+  );
+  const location = escapeText(`${v.name}, ${v.streetAddress}, ${v.city}, ${v.state} ${v.postalCode}`);
+  const dtstamp = fmtUtc(new Date().toISOString());
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//chadlewine.com//Super Individual Pop-Up//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${POPUP_EVENT.slug}@chadlewine.com`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART:${fmtUtc(POPUP_EVENT.startISO)}`,
+    `DTEND:${fmtUtc(POPUP_EVENT.endISO)}`,
+    `SUMMARY:${escapeText(POPUP_EVENT.name)}`,
+    `DESCRIPTION:${description}`,
+    `LOCATION:${location}`,
+    `URL:${POPUP_EVENT.url}`,
+    `GEO:${v.latitude};${v.longitude}`,
+    `ORGANIZER;CN=${escapeText(POPUP_EVENT.organizer.name)}:MAILTO:chad@chadworks.co`,
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    "DESCRIPTION:Super Individual Pop-Up in 1 week",
+    "TRIGGER:-P7D",
+    "END:VALARM",
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    "DESCRIPTION:Super Individual Pop-Up tomorrow",
+    "TRIGGER:-P1D",
+    "END:VALARM",
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    "DESCRIPTION:Super Individual Pop-Up in 2 hours",
+    "TRIGGER:-PT2H",
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  return lines.join("\r\n") + "\r\n";
+}
+
+export const POPUP_ICS_URL = "/api/calendar/super-individual-pop-up";
+export { googleCalendarLink };
+
 interface PopupSectionProps {
   /** Render the Event JSON-LD. Only true on the canonical event page
      (/irl/super-individual-pop-up). When the section is embedded on
@@ -209,6 +266,7 @@ export function SuperIndividualPopupSection({
         />
       )}
 
+      <p className="si-popup__eyebrow">IRL Event</p>
       <div className="explore-songs__frame explore-songs__frame--top">
         <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
         <h2 className="explore-songs__heading" id="si-popup-heading">
@@ -253,22 +311,11 @@ export function SuperIndividualPopupSection({
         </div>
 
         <div className="si-popup__cta-grid">
-          {showEventPageLink && (
-            <Link
-              href={POPUP_EVENT.pathname}
-              className="si-popup__cta si-popup__cta--primary"
-            >
-              See full event details &rarr;
-            </Link>
-          )}
-          <a
-            href={googleCalendarLink()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`si-popup__cta${showEventPageLink ? "" : " si-popup__cta--primary"}`}
-          >
-            Add to calendar
-          </a>
+          <PopupCalendarSplit
+            googleUrl={googleCalendarLink()}
+            icsUrl={POPUP_ICS_URL}
+            primary={!showEventPageLink}
+          />
           <a
             href={googleMapsLink()}
             target="_blank"
@@ -277,9 +324,14 @@ export function SuperIndividualPopupSection({
           >
             Get directions
           </a>
-          <Link href="#popup-notify" className="si-popup__cta">
-            Tell me when it starts
-          </Link>
+          {showEventPageLink && (
+            <Link
+              href={POPUP_EVENT.pathname}
+              className="si-popup__cta si-popup__cta--primary"
+            >
+              See full event details &rarr;
+            </Link>
+          )}
         </div>
 
         <div className="si-popup__concept si-prose">
@@ -301,7 +353,7 @@ export function SuperIndividualPopupSection({
       <div id="schedule" className="si-schedule">
         <div className="explore-songs__frame explore-songs__frame--top">
           <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h3 className="explore-songs__heading">Three-Day Schedule</h3>
+          <h3 className="explore-songs__heading">Super Individual Pop Up Schedule</h3>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
 
@@ -337,7 +389,9 @@ export function SuperIndividualPopupSection({
           </div>
 
           <p className="si-schedule__note">
-            Talks are short, structural, and skippable. Discourse is open mic — anyone can take it. Live sets are full songs from the catalog.
+            <span>Talks are short, structural, and skippable.</span>
+            <span>Discourse is open mic &mdash; anyone can take it.</span>
+            <span>Live sets are full songs from the catalog.</span>
           </p>
         </div>
       </div>

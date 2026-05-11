@@ -16737,7 +16737,7 @@ body.cart-open {
 
 .si-album-hero {
   max-width: var(--site-width);
-  margin: 0 auto;
+  margin: 0 auto var(--space-3xl);
 }
 
 .si-door__rc-grid {
@@ -17919,7 +17919,7 @@ body.cart-open {
 
 /* --- Pop-Up section --- */
 .si-popup {
-  padding: clamp(2rem, 5vw, 4rem) 0 clamp(4rem, 9vw, 7rem);
+  padding: clamp(5rem, 10vw, 8rem) 0 clamp(4rem, 9vw, 7rem);
   background: var(--bg-deep);
 }
 .si-popup__inner {
@@ -17933,6 +17933,17 @@ body.cart-open {
   padding: 0;
   overflow: hidden;
 }
+.si-popup__eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: clamp(0.95rem, 1.4vw, 1.2rem);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin: 0 0 var(--space-md);
+  text-indent: 0.175em;
+}
 .si-popup__media-img {
   display: block;
   width: 100%;
@@ -17944,7 +17955,7 @@ body.cart-open {
 .si-popup__meta-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2xl);
+  gap: var(--space-md);
   margin-top: var(--space-2xl);
   border-top: 1px solid var(--border-subtle);
   padding-top: var(--space-xl);
@@ -17955,7 +17966,13 @@ body.cart-open {
 .si-popup__info-cell {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: var(--space-xs);
+  background: color-mix(in oklab, var(--bg-elevated), white 6%);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: var(--space-lg) var(--space-md);
 }
 .si-popup__info-label {
   font-family: var(--font-ui);
@@ -18016,9 +18033,12 @@ body.cart-open {
 
 .si-popup__cta-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-md);
-  margin-top: var(--space-2xl);
+  margin-top: var(--space-md);
+}
+.si-popup__cta-grid > .si-popup__cta:nth-child(-n+2) {
+  border-color: var(--text-accent);
 }
 @media (max-width: 880px) {
   .si-popup__cta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -18061,6 +18081,117 @@ body.cart-open {
   color: var(--bg-deep);
   border-color: var(--text-primary);
 }
+
+/* Split CTA — "Add to calendar" slot that reveals Google / Apple /
+   Outlook sub-buttons in place. Desktop reveals on hover; mobile
+   reveals on tap (data-open via React state). */
+.si-popup__cta--split {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+}
+.si-popup__cta--split:hover,
+.si-popup__cta--split:focus-within {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+  transform: none;
+}
+.si-popup__cta--split.si-popup__cta--primary:hover,
+.si-popup__cta--split.si-popup__cta--primary:focus-within {
+  background: var(--text-accent);
+  color: var(--bg-deep);
+  border-color: var(--text-accent);
+}
+.si-popup__cta-split-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 64px;
+  padding: 18px 22px;
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+.si-popup__cta-split-options {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-slow) var(--ease-out),
+              visibility 0s linear var(--duration-slow);
+}
+.si-popup__cta-split-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: inherit;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+  text-decoration: none;
+  background: color-mix(in oklab, var(--bg-elevated), white 8%);
+  border: none;
+  border-right: 1px solid var(--border-subtle);
+  transition: background var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out);
+}
+.si-popup__cta-split-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+.si-popup__cta-split-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.si-popup__cta-split-icon--google svg {
+  width: 90%;
+  height: 90%;
+}
+.si-popup__cta-split-option:last-child {
+  border-right: none;
+}
+.si-popup__cta-split-option:hover {
+  background: var(--text-primary);
+  color: var(--bg-deep);
+}
+.si-popup__cta--split.si-popup__cta--primary .si-popup__cta-split-option:hover {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+@media (hover: hover) {
+  .si-popup__cta--split:hover .si-popup__cta-split-label,
+  .si-popup__cta--split:focus-within .si-popup__cta-split-label {
+    opacity: 0;
+  }
+  .si-popup__cta--split:hover .si-popup__cta-split-options,
+  .si-popup__cta--split:focus-within .si-popup__cta-split-options {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+}
+.si-popup__cta--split[data-open] .si-popup__cta-split-label {
+  opacity: 0;
+}
+.si-popup__cta--split[data-open] .si-popup__cta-split-options {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
 .si-popup__concept {
   margin-top: var(--space-2xl);
 }
@@ -18089,6 +18220,9 @@ body.cart-open {
 .si-schedule__note {
   margin-top: var(--space-xl);
   font-style: italic;
+}
+.si-schedule__note span {
+  display: block;
 }
 .si-schedule__grid {
   display: grid;
