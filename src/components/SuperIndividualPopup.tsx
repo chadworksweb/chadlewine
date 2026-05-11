@@ -282,7 +282,7 @@ export function SuperIndividualPopupSection({
           </Link>
         </div>
 
-        <div className="si-popup__concept reading-column">
+        <div className="si-popup__concept si-prose">
           <p>
             Now, I would like to invite you to join me and experience the physical manifestation of my life&rsquo;s work thus far as described above: Chad Lewine&rsquo;s Super Individual Pop Up at Montgomery Mall in North Wales, PA, about an hour outside of Philadelphia and 2 hours away from NYC.
           </p>

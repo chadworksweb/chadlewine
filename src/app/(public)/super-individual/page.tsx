@@ -15,17 +15,33 @@ import { SuperIndividualFloatingTag } from "@/components/SuperIndividualFloating
 
 export const revalidate = 60;
 
+const SUPER_INDIVIDUAL_DEFINITION =
+  "A sovereign human being that has fully reclaimed their power from and operates outside of the failing institutions of modernity.";
+
 const DEFAULT_METADATA: Metadata = {
   title: "Super Individual — Take Back Your Power — Chad Lewine",
-  description:
-    "Take back your power. Chad Lewine's Super Individual Series — the wearable thesis. Withdraw from institutional modernity, starting with your soundtrack.",
+  description: `Super Individual (noun): ${SUPER_INDIVIDUAL_DEFINITION} Chad Lewine's Super Individual Series — withdraw from institutional modernity, starting with your soundtrack.`,
   alternates: { canonical: "https://chadlewine.com/super-individual" },
   openGraph: {
     title: "Super Individual — Chad Lewine",
-    description:
-      "Take back your power. Chad Lewine's Super Individual Series.",
+    description: `Super Individual (noun): ${SUPER_INDIVIDUAL_DEFINITION}`,
     url: "https://chadlewine.com/super-individual",
   },
+};
+
+const SUPER_INDIVIDUAL_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "DefinedTerm",
+  name: "Super Individual",
+  termCode: "super-individual",
+  description: SUPER_INDIVIDUAL_DEFINITION,
+  url: "https://chadlewine.com/super-individual#what",
+  inDefinedTermSet: {
+    "@type": "DefinedTermSet",
+    name: "Chad Lewine — Super Individual",
+    url: "https://chadlewine.com/super-individual",
+  },
+  inLanguage: "en",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -302,6 +318,10 @@ export default async function SuperIndividualPage() {
 
   return (
     <div id="page-super-individual" className="page-super-individual">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(SUPER_INDIVIDUAL_JSON_LD) }}
+      />
       {/* Section 1 — Hero */}
       <section className="si-hero" aria-label="Super Individual">
         <div className="si-hero__inner">
@@ -327,12 +347,15 @@ export default async function SuperIndividualPage() {
           </h2>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
-        <div className="reading-column">
+        <div className="si-prose">
           <p>
             Super Individual is a phrase that&apos;s emerging from the AI productivity space that describes the ability of one person to execute at the level of a team; of an entire agency; an entire company. I&apos;m taking it further. <strong>My definition of Super Individual is:</strong>
           </p>
-          <p>
-            <em>A sovereign human being that has fully reclaimed their power from and operates outside of the failing institutions of modernity.</em>
+          <p className="si-excerpt">
+            <span className="si-excerpt__head">
+              <dfn id="super-individual-term"><strong>Super Individual</strong></dfn> · <em>noun</em>
+            </span>
+            <em className="si-excerpt__def">{SUPER_INDIVIDUAL_DEFINITION}</em>
           </p>
           <p>
             The Super Individual is someone who 1) realizes that their power has been being drained from birth, 2) who sees where the drains are, 3) who calls out the drain, whether to others or themselves and 4) who cuts off the energy drain and reclaims 100% of their energy for their own use.
@@ -358,7 +381,7 @@ export default async function SuperIndividualPage() {
           </h2>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
-        <div className="reading-column">
+        <div className="si-prose">
           <p>
             I believe one of the monolithic institutions that is draining our power is the recorded music business. I&apos;ve spent my entire conscious life—over 30 years—consuming, studying, analyzing and producing recorded music. For the entirety of that period, I&apos;ve known, in different severities, that there was an invisible yet non-trivial power behind music; a power whose origin and foundation was being intentionally deluded, secret and hidden from the masses; the consumers of such music.
           </p>
@@ -376,7 +399,7 @@ export default async function SuperIndividualPage() {
 
       {/* ============ THREE DOORS ============ */}
       <section className="si-section si-section--doors-intro" id="doors">
-        <div className="reading-column si-doors-intro__prose">
+        <div className="si-prose si-doors-intro__prose">
           <p>
             It is with this awareness that I create and present the following three pathways to offer individuals an entry point to reclaiming their power on the road to becoming the Super Individual that they were already born as.
           </p>
@@ -394,7 +417,7 @@ export default async function SuperIndividualPage() {
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
 
-        <div className="reading-column" style={{ marginBottom: 'var(--space-xl)' }}>
+        <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
           <p>
             Reclaim your power by donning the Super Individual Series 1 by Chad Lewine. Featuring original artwork designed with the intention of positively disrupting the immediate visible light spectrum in an effort to create a space where the individuals in proximity may feel literal atomic shifts in a way that allows them to expand and express themselves in a way the rigid structural blandness permeating our modern public spaces. Don this apparel to emanate Super Individuality. Not in a sense of superiority, but total reclamation of one&rsquo;s and all&rsquo;s individual empowerment.
           </p>
@@ -402,10 +425,10 @@ export default async function SuperIndividualPage() {
 
         {merch.length > 0 ? (
           <>
-            <div className="si-door__merch-stage">
+            <div className="si-merch-stage">
               <SuperIndividualMerchCarousel products={merch} />
             </div>
-            <div className="si-door__merch-grid merch-shop__grid">
+            <div className="si-merch-grid">
               {merch.slice(0, 9).map((p) => (
                 <MerchProductCard
                   key={p.id}
@@ -441,7 +464,7 @@ export default async function SuperIndividualPage() {
           Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, expanding painting of my personal journey out of the machine, and a new trail to follow, should you choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
         </p>
 
-        <div className="reading-column" style={{ marginBottom: 'var(--space-xl)' }}>
+        <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
           <p>
             Reclaim your power by listening to music specifically designed to call out institutional dysfunction and raise your frequency by meeting you where you&rsquo;re at and bringing you higher, should you be open to it, as opposed to most popular music these days which meets you where you&rsquo;re at by relating to or commiserating with what-is instead of what could be, let alone corrupting or degrading your vibe entirely.
           </p>
@@ -451,7 +474,7 @@ export default async function SuperIndividualPage() {
         </div>
 
         {heroItems.length > 0 && (
-          <div className="si-door__album-hero">
+          <div className="si-album-hero">
             <AlbumHero items={heroItems} />
           </div>
         )}
@@ -510,7 +533,7 @@ export default async function SuperIndividualPage() {
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
 
-        <div className="reading-column" style={{ marginBottom: 'var(--space-xl)' }}>
+        <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
           <p>
             For my whole adult life I have been trying to spread the idea that the modern music industry is corrupted and most current music keeps us trapped and complacent in lower vibrations. When I say this on social media, obviously I get laughed out of the room and have even been threatened because some feel that this message is an attempt to censor artistic expression. Those people don&rsquo;t know me at all. What I am actually trying to do is expose the truth that art is not inherently good, positive or uplifting. Art is a manifestation of thought; it is a bring-into-physical that which is non-physical. Art is the first step in manifesting from the ether into physical reality, and not all that is available in the ether has a place in this world we all, ideally, want to remain wholesome, beautiful and safe.
           </p>
