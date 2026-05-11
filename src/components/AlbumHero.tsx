@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
+import { MiniPlayer } from "./MiniPlayer";
 
 export interface AlbumHeroItem {
   slug: string;
@@ -15,6 +16,12 @@ export interface AlbumHeroItem {
   focalX?: number;
   focalY?: number;
   zoom?: number;
+  /** When present, renders a MiniPlayer above the CTA. */
+  audio?: {
+    songId: string;
+    streamingUrl: string;
+    durationSeconds: number;
+  } | null;
 }
 
 interface Props {
@@ -142,6 +149,21 @@ export function AlbumHero({ items }: Props) {
                     </Link>
                   </h2>
                   {year && <span className="album-hero__year">{year}</span>}
+                  {item.audio && role === "current" && (
+                    <div className="album-hero__mini-player">
+                      <MiniPlayer
+                        songId={item.audio.songId}
+                        songSlug={item.slug}
+                        streamingUrl={item.audio.streamingUrl}
+                        trackNumber={1}
+                        trackTitle={item.title}
+                        durationSeconds={item.audio.durationSeconds}
+                        artImagePath={item.artImagePath}
+                        artAlt={item.artAlt}
+                        playbackMode="preview"
+                      />
+                    </div>
+                  )}
                   <Link
                     href={item.href}
                     className="album-hero__cta"

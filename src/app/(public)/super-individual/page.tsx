@@ -9,6 +9,7 @@ import { DiscographyCubeRadiant, type DiscographyCubeFace } from "@/components/D
 import { RCNowPlayingTile } from "@/components/RCNowPlayingTile";
 import { MiniLyricalCharger } from "@/components/MiniLyricalCharger";
 import { SuperIndividualPopupSection } from "@/components/SuperIndividualPopup";
+import { SuperIndividualFloatingTag } from "@/components/SuperIndividualFloatingTag";
 
 export const revalidate = 60;
 
@@ -68,6 +69,8 @@ interface SongRow {
   card_focal_x: number | null;
   card_focal_y: number | null;
   card_zoom: number | null;
+  streaming_path: string | null;
+  duration_seconds: number | null;
 }
 
 interface DiscoItem {
@@ -141,7 +144,7 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
     supabase
       .from("songs")
       .select(
-        "id, title, slug, release_date, art_image_path, art_alt, is_single, card_focal_x, card_focal_y, card_zoom"
+        "id, title, slug, release_date, art_image_path, art_alt, is_single, card_focal_x, card_focal_y, card_zoom, streaming_path, duration_seconds"
       )
       .eq("status", "published")
       .eq("is_single", true)
@@ -220,6 +223,10 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
       const cover = s.art_image_path || albumArtBySong[s.id]?.cover_art_path || null;
       const alt = s.art_alt || albumArtBySong[s.id]?.cover_art_alt || s.title;
       if (!cover) return null;
+      const audio =
+        s.streaming_path && s.duration_seconds
+          ? { songId: s.id, streamingUrl: s.streaming_path, durationSeconds: s.duration_seconds }
+          : null;
       return {
         slug: s.slug,
         title: s.title,
@@ -227,10 +234,11 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
         artImagePath: cover,
         artAlt: alt,
         href: `/music/songs/${s.slug}`,
-        ctaLabel: "Listen →",
+        ctaLabel: "Explore Song →",
         focalX: s.card_focal_x != null ? s.card_focal_x / 100 : 0.5,
         focalY: s.card_focal_y != null ? s.card_focal_y / 100 : 0.5,
         zoom: s.card_zoom != null && s.card_zoom >= 1 ? s.card_zoom : 1,
+        audio,
       } as AlbumHeroItem;
     })
     .filter((x): x is AlbumHeroItem => x !== null);
@@ -313,16 +321,25 @@ export default async function SuperIndividualPage() {
           </h2>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
-        <div className="si-section__inner">
-          <Prompt label="Definition body">
-            Two-to-three short paragraphs.
-            <br /><br />
-            Para 1: Name the AI-era origin. The phrase is borrowed from the AI conversation, where it means one person now capable of producing what used to take a team and months. Credit it openly.
-            <br /><br />
-            Para 2: Expand past tech into life itself. Humans doing exponentially more with new tools — and the new tool isn't only AI. The deeper tool is awareness: realizing your power is being drained, sensing it, stopping it, taking it back.
-            <br /><br />
-            Para 3 (optional): One sentence claiming the word for the bigger meaning. The Super Individual is the sovereign, empowered being. Voice: declarative, calm, no hype.
-          </Prompt>
+        <div className="reading-column">
+          <p>
+            Super Individual is a phrase that&apos;s emerging from the AI productivity space that describes the ability of one person to execute at the level of a team; of an entire agency; an entire company. I&apos;m taking it further. <strong>My definition of Super Individual is:</strong>
+          </p>
+          <p>
+            <em>A sovereign human being that has fully reclaimed their power from and operates outside of the failing institutions of modernity.</em>
+          </p>
+          <p>
+            The Super Individual is someone who 1) realizes that their power has been being drained from birth, 2) who sees where the drains are, 3) who calls out the drain, whether to others or themselves and 4) who cuts off the energy drain and reclaims 100% of their energy for their own use.
+          </p>
+          <p>
+            A single human being who is fully empowered is more powerful than any institution that derives their power from draining others. These institutions cannot stand, cannot function when we all take our power back.
+          </p>
+          <p>
+            A super individual is <strong>the sovereign, empowered being</strong>: in full and total control of the universally-sourced energy running through their mind, body and soul. An individual wholly reliant on themselves with no physical or non-physical external institutional support, guidance or programming.
+          </p>
+          <p>
+            The Super Individual is a person that has been fully deprogrammed from the at-birth programming of modernity.
+          </p>
         </div>
       </section>
 
@@ -335,19 +352,37 @@ export default async function SuperIndividualPage() {
           </h2>
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
-        <div className="si-section__inner">
-          <Prompt label="Thesis body">
-            Two short paragraphs.
-            <br /><br />
-            Para 1: The institution being escaped is the modern recorded music business. Name it specifically. Why this institution drains you, and how the drain is invisible until you measure it.
-            <br /><br />
-            Para 2: The bridge to the three doors below. Three ways in, in order of depth: wear the clothes (the Series), listen to the music, test what you already listen to with the Rising Compass. Same message, three on-ramps.
-          </Prompt>
+        <div className="reading-column">
+          <p>
+            I believe one of the monolithic institutions that is draining our power is the recorded music business. I&apos;ve spent my entire conscious life—over 30 years—consuming, studying, analyzing and producing recorded music. For the entirety of that period, I&apos;ve known, in different severities, that there was an invisible yet non-trivial power behind music; a power whose origin and foundation was being intentionally deluded, secret and hidden from the masses; the consumers of such music.
+          </p>
+          <p>
+            Music being applauded and marketed as entertainment is a lie. Music is power. Music is prescription medicine for the mind. Music is a highly advanced and complex metaphysical technology that influences brain chemistry on a scientifically proven, physical level.
+          </p>
+          <p>
+            Music is real and raw <strong>power.</strong> Whether that power is used for good or bad lies in the hands of those wielding it, and I believe that those currently wielding the power en masse are using it for control, suppression and dominance over the modern human populace.
+          </p>
+          <p>
+            Music feels good, but most people don&rsquo;t have the tools (or desire) to understand why or how, and that is what those in control bank on. A society consuming the music that we&rsquo;re consuming at the rate and density that we&rsquo;re consuming it will show signs of dysfunction. And aren&rsquo;t we showing dysfunction en masse? But the powers that be have positioned themselves and the power of music to be non-targets of this dysfunction by default. The programming and propaganda we&rsquo;re fed is that &ldquo;music is harmless&rdquo; and &ldquo;music is actually an outlet for everything else going wrong in the world.&rdquo; But those are both lies. Popular music is actually one of the main perpetrators of what&rsquo;s going wrong in the world because music directly and without fail influences each listener&rsquo;s internal world, and when our internal worlds are corrupted and degraded by the music coming from the mainstream propaganda megaphone, society falters: mental illness and instability spikes, yet the perpetrators that contribute to the instability are so highly regarded and in collusion with the other population control platforms that the real cause of the symptom never gets uncovered. Then, when there is no framework to support and solve the mental illness and societal fragmenting we are experiencing, society collapses.
+          </p>
         </div>
       </section>
 
       {/* ============ THREE DOORS ============ */}
-      <div id="doors" />
+      <section className="si-section" id="doors" aria-labelledby="si-doors-heading">
+        <div className="explore-songs__frame explore-songs__frame--top">
+          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
+          <h2 className="explore-songs__heading" id="si-doors-heading">
+            Three Doors
+          </h2>
+          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+        </div>
+        <div className="reading-column">
+          <p>
+            It is with this awareness that I create and present the following three pathways to offer individuals an entry point to reclaiming their power on the road to becoming the Super Individual that they were already born as.
+          </p>
+        </div>
+      </section>
 
       {/* Door 1 — Merch */}
       <section className="si-door si-door--merch" aria-labelledby="si-door-merch-heading">
@@ -359,10 +394,10 @@ export default async function SuperIndividualPage() {
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
 
-        <div className="si-door__intro">
-          <Prompt label="Merch door framing">
-            Two short paragraphs. The wearable thesis: a stranger buys the hoodie because the idea resonates, not because they're a Chad fan. The hoodie distributes the message through a body, in a city you've never been to. Trojan horse logic. Close with the carousel CTA — every piece is below.
-          </Prompt>
+        <div className="reading-column" style={{ marginBottom: 'var(--space-xl)' }}>
+          <p>
+            Reclaim your power by donning the Super Individual Series 1 by Chad Lewine. Featuring original artwork designed with the intention of positively disrupting the immediate visible light spectrum in an effort to create a space where the individuals in proximity may feel literal atomic shifts in a way that allows them to expand and express themselves in a way the rigid structural blandness permeating our modern public spaces. Don this apparel to emanate Super Individuality. Not in a sense of superiority, but total reclamation of one&rsquo;s and all&rsquo;s individual empowerment.
+          </p>
         </div>
 
         {merch.length > 0 ? (
@@ -387,14 +422,28 @@ export default async function SuperIndividualPage() {
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
 
-        <div className="si-door__intro">
-          <Prompt label="Music door framing">
-            Two short paragraphs. The catalog as the message — the song is the atomic unit, not the post. Albums, EPs, singles, compilations all carry the thesis somewhere different. Voice: artist patron register. Close with the coverflow CTA: pick one and start.
-          </Prompt>
+        <div className="reading-column" style={{ marginBottom: 'var(--space-xl)' }}>
+          <p>
+            Reclaim your power by listening to music specifically designed to call out institutional dysfunction and raise your frequency by meeting you where you&rsquo;re at and bringing you higher, should you be open to it, as opposed to most popular music these days which meets you where you&rsquo;re at by relating to or commiserating with what-is instead of what could be, let alone corrupting or degrading your vibe entirely.
+          </p>
+          <p>
+            Chad Lewine&rsquo;s music is designed to make you think without thinking; to change without trying; to lay tracks of new neural pathways you can continue to carve deeper and deeper into new thought patterns, which may in turn create micro improvements in your life that stack over time.
+          </p>
         </div>
+
+        {heroItems.length > 0 && (
+          <div className="si-door__album-hero">
+            <AlbumHero items={heroItems} />
+          </div>
+        )}
 
         {discoItems.length > 0 && (
           <>
+            <div className="explore-songs__frame explore-songs__frame--top si-frame--sub">
+              <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
+              <h3 className="explore-songs__heading">Discography</h3>
+              <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+            </div>
             <div className="si-discography si-discography--three-up">
               {discoItems.slice(0, 6).map((item) => {
                 const year = item.release_date
@@ -429,19 +478,6 @@ export default async function SuperIndividualPage() {
           </>
         )}
 
-        {heroItems.length > 0 && (
-          <>
-            <div className="explore-songs__frame explore-songs__frame--top si-frame--sub">
-              <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-              <h3 className="explore-songs__heading">Coverflow</h3>
-              <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
-            </div>
-            <div className="si-door__album-hero">
-              <AlbumHero items={heroItems} />
-            </div>
-          </>
-        )}
-
         <div className="si-door__footer">
           <Link href="/music" className="si-door__cta">Open the Music hub →</Link>
           <Link href="/discography" className="si-door__cta">See the full discography →</Link>
@@ -458,10 +494,19 @@ export default async function SuperIndividualPage() {
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
 
-        <div className="si-door__intro">
-          <Prompt label="Rising Compass framing">
-            Two short paragraphs. The Rising Compass is the diagnostic to measure what your soundtrack is doing to your psyche. The institution being measured is the modern recorded music business — every song carries a frequency, and most of the chart is doing something to you you didn't consent to. Voice: structural / consciousness register. Lead the reader straight to the inline tool below.
-          </Prompt>
+        <div className="reading-column" style={{ marginBottom: 'var(--space-xl)' }}>
+          <p>
+            For my whole adult life I have been trying to spread the idea that the modern music industry is corrupted and most current music keeps us trapped and complacent in lower vibrations. When I say this on social media, obviously I get laughed out of the room and have even been threatened because some feel that this message is an attempt to censor artistic expression. Those people don&rsquo;t know me at all. What I am actually trying to do is expose the truth that art is not inherently good, positive or uplifting. Art is a manifestation of thought; it is a bring-into-physical that which is non-physical. Art is the first step in manifesting from the ether into physical reality, and not all that is available in the ether has a place in this world we all, ideally, want to remain wholesome, beautiful and safe.
+          </p>
+          <p>
+            That is not to say that negativity has no place in our art or our world, for positive and negative must exist simultaneously. I just believe that darkness has overstepped, that we have manifested an imbalance of negativity, and that should be clear to anyone paying real attention to the world we live in. There is too much darkness, and lots of that is being perpetuated by not only the music industry, but the entertainment industry at large.
+          </p>
+          <p>
+            So, instead of trying to scream over the noise and static of the degraded social media algorithms, I built the Rising Compass, a free tool that tracks and diagnoses songs (not artists) for their positive/negative charge on a scale from 100 to -100, from Ascended down to Corrupted, as a meter for you to make your own decision about what you decide to listen to.
+          </p>
+          <p>
+            I believe this is an evolution of the Parental Advisory Explicit Content label, an initiative that could have been helpful but was rooted in racism and has been rendered ineffective in the digital/streaming age. The explicit label tells us if there are harsh words and profanity, but there is no label that tells us what the song is actually saying, and the modern music industry has gotten so creative and so sly that the messages that are slipped into the music we&rsquo;re listening to fly right under the radar not only of the explicit label but to anyone not dissecting the cohesive messages a song is delivering, messages that are more damning than any F-bomb could ever be.
+          </p>
         </div>
 
         <div className="si-door__rc-grid">
@@ -482,6 +527,8 @@ export default async function SuperIndividualPage() {
 
       {/* Section 5 — The Pop-Up (capstone, end of page) */}
       <SuperIndividualPopupSection />
+
+      <SuperIndividualFloatingTag />
     </div>
   );
 }

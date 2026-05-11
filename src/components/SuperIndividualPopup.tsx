@@ -265,10 +265,19 @@ export function SuperIndividualPopupSection() {
           </div>
         </div>
 
-        <div className="si-popup__concept">
-          <Prompt label="Pop-up concept paragraph">
-            Two-to-three sentences describing what's actually happening in the room. Keep it physical: front window broadcasts a live jukebox where strangers pick a song and you sing it on the spot, lyrics scrolling huge inside; back of the space is the Rising Compass listening zone. Anchor song: "Malls Back." Voice should be gravitas, not hype.
-          </Prompt>
+        <div className="si-popup__concept reading-column">
+          <p>
+            Now, I would like to invite you to join me and experience the physical manifestation of my life&rsquo;s work thus far as described above: Chad Lewine&rsquo;s Super Individual Pop Up at Montgomery Mall in North Wales, PA, about an hour outside of Philadelphia and 2 hours away from NYC.
+          </p>
+          <p>
+            This event-experience is a solution to the fact that I have been rejected by all current institutions that hold art, music and apparel: art galleries, music venues and fashion retailers. All of these institutions have boxes that you must check or you are not allowed in.
+          </p>
+          <p>
+            It&rsquo;s no wonder they won&rsquo;t let me in: my mission, my initiatives and my entire existence are a threat to all that they are: structural, institutional hierarchy, control and programming. My initiatives are designed to help individuals see through the very facades that these institutions operate under, so it&rsquo;s no wonder that they don&rsquo;t want to promote my message. Yet, here I am, having found a space in a mall&mdash;a place we perceive as a dying industry yet maybe just the Third Place we need at this time of isolation. And I believe, as does the administrator of this pop-up program, that dead malls might just be the existing infrastructure for the community hubs that we are so desperately seeking: places and space for physical experience, both free and paid, that we are starved of in an age of social media, digital, virtual burnout.
+          </p>
+          <p>
+            Come. Meet me face to face. Come experience all of the above in real time, real world, real life. Come reclaim your power. Become the Super Individual you were born to be.
+          </p>
         </div>
       </div>
 
