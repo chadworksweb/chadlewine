@@ -6,7 +6,7 @@ import { MeditationArchive } from "@/components/MeditationArchive";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Meditations — Chad Lewine",
+  title: "Meditations",
   description: "Short form real time verbatim channelings",
   alternates: { canonical: "https://chadlewine.com/meditations" },
   openGraph: {

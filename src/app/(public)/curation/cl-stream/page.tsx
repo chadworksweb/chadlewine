@@ -7,7 +7,7 @@ import { fetchBadge } from "@/lib/rising-compass";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "CL Stream — Chad Lewine",
+  title: "CL Stream",
   description: "Songs I've been hearing — pointed at the compass.",
   alternates: { canonical: "https://chadlewine.com/curation/cl-stream" },
 };

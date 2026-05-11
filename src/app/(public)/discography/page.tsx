@@ -6,7 +6,7 @@ import { DiscographyExplorer } from "@/components/DiscographyExplorer";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Discography — Chad Lewine",
+  title: "Discography",
   description: "Browse Chad Lewine's full discography — albums, EPs, and singles.",
   alternates: { canonical: "https://chadlewine.com/discography" },
 };

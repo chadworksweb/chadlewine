@@ -21,8 +21,8 @@ export const POPUP_EVENT = {
     state: "PA",
     postalCode: "19454",
     country: "US",
-    latitude: 40.2229,
-    longitude: -75.2557,
+    latitude: 40.234864,
+    longitude: -75.244737,
   },
   performer: {
     name: "Chad Lewine",

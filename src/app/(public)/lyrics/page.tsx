@@ -6,7 +6,7 @@ import LyricBook from "@/components/LyricBook";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Lyrics — Chad Lewine",
+  title: "Lyrics",
   description: "Read lyrics from Chad Lewine's discography.",
   alternates: { canonical: "https://chadlewine.com/lyrics" },
 };

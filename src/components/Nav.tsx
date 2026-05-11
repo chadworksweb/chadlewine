@@ -68,9 +68,13 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
     >
       <nav className="site-nav">
         <Link href="/" className="site-nav__logo">
-          <span className="site-nav__logo-frame" aria-hidden="true">░▒▓█</span>
+          <span className="site-nav__logo-frame site-nav__logo-frame--left" aria-hidden="true">
+            <span className="logo-shape">░</span><span className="logo-shape">▒</span><span className="logo-shape">▓</span><span className="logo-shape">█</span>
+          </span>
           <span className="site-nav__logo-text">Chad Lewine</span>
-          <span className="site-nav__logo-frame" aria-hidden="true">█▓▒░</span>
+          <span className="site-nav__logo-frame site-nav__logo-frame--right" aria-hidden="true">
+            <span className="logo-shape">█</span><span className="logo-shape">▓</span><span className="logo-shape">▒</span><span className="logo-shape">░</span>
+          </span>
         </Link>
 
         <div className="nav-links">

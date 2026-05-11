@@ -4,7 +4,7 @@ import { mergeMetadata } from "@/lib/page-meta";
 import { POPUP_EVENT } from "@/components/SuperIndividualPopup";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "IRL Events — Chad Lewine",
+  title: "IRL Events",
   description:
     "Upcoming in-person events from Chad Lewine — pop-ups, live sets, talks, and the Super Individual Series.",
   alternates: { canonical: "https://chadlewine.com/irl" },

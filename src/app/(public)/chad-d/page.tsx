@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Chad D — The Early Identity | Chad Lewine",
+  title: "Chad D — The Early Identity",
   description:
     "The Chad D era — where it started. How the earliest version of Chad Lewine's creative identity laid the groundwork for everything that followed.",
   alternates: {

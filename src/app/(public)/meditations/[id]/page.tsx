@@ -58,7 +58,7 @@ export async function generateMetadata(
   const meditation = await getMeditation(id);
 
   if (!meditation) {
-    return { title: "Not Found — Chad Lewine" };
+    return { title: "Not Found" };
   }
 
   const description = meditation.plain_text.length > 160
@@ -66,11 +66,11 @@ export async function generateMetadata(
     : meditation.plain_text;
 
   return {
-    title: `Meditation — Chad Lewine`,
+    title: `Meditation`,
     description,
     alternates: { canonical: `https://chadlewine.com/meditations/${id}` },
     openGraph: {
-      title: `Meditation — Chad Lewine`,
+      title: `Meditation`,
       description,
       url: `https://chadlewine.com/meditations/${id}`,
       type: "article",

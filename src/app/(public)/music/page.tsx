@@ -9,7 +9,7 @@ import { CurationGrid } from "@/components/CurationGrid";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Music — Chad Lewine",
+  title: "Music",
   description: "Music by Chad Lewine — discography, curated selections, and lyrics.",
   alternates: { canonical: "https://chadlewine.com/music" },
 };

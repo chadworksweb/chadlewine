@@ -19,7 +19,7 @@ const SUPER_INDIVIDUAL_DEFINITION =
   "A sovereign human being that has fully reclaimed their power from and operates outside of the failing institutions of modernity.";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Super Individual — Take Back Your Power — Chad Lewine",
+  title: "Super Individual — Take Back Your Power",
   description: `Super Individual (noun): ${SUPER_INDIVIDUAL_DEFINITION} Chad Lewine's Super Individual Series — withdraw from institutional modernity, starting with your soundtrack.`,
   alternates: { canonical: "https://chadlewine.com/super-individual" },
   openGraph: {
@@ -565,6 +565,38 @@ export default async function SuperIndividualPage() {
           event page at /irl/super-individual-pop-up (set there via
           includeEventSchema). The teaser links there via showEventPageLink. */}
       <SuperIndividualPopupSection showEventPageLink />
+
+      {/* Section 6 — Who Is Chad Lewine? The about-the-author closer. */}
+      <section className="si-section si-who" id="who-is-chad-lewine" aria-labelledby="si-who-heading">
+        <p className="si-door__eyebrow">Who Am I</p>
+        <div className="explore-songs__frame explore-songs__frame--top">
+          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
+          <h2 className="explore-songs__heading" id="si-who-heading">
+            Chad Lewine: The Deprogrammer
+          </h2>
+          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+        </div>
+
+        <div className="si-who__grid">
+          <div className="si-who__image">
+            <Prompt label="Portrait of Chad">
+              Photo or self-portrait of Chad that anchors the about section. Roughly portrait-orientation; will be cropped to a 4:5 frame. Replace this block with the actual image when ready.
+            </Prompt>
+          </div>
+
+          <div className="si-prose si-who__copy">
+            <p>
+              [Placeholder bio — replace with Chad&rsquo;s own words.] Musician, artist, builder, deprogrammer. Spent the last three decades inside the modern recorded-music machine, and the last several writing his way back out of it. Now operates as a Super Individual: makes the songs, paints the art, runs the tools, books the room.
+            </p>
+            <p>
+              [Placeholder bio — replace.] Lives and works in southeastern Pennsylvania. Has released over 150 songs across 13 albums. Builds web tools when the existing ones won&rsquo;t serve the message. The Super Individual Series is the wearable thesis of everything he&rsquo;s figured out so far.
+            </p>
+            <Link href="/chad-lewine" className="si-who__cta">
+              Read the full story &rarr;
+            </Link>
+          </div>
+        </div>
+      </section>
 
       <SuperIndividualFloatingTag />
     </div>

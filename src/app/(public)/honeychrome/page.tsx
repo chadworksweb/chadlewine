@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "HoneyChrome — The Design Era | Chad Lewine",
+  title: "HoneyChrome — The Design Era",
   description:
     "The HoneyChrome era — when Chad Lewine operated under a design-forward identity. What was built, what it meant, and how it evolved into what came next.",
   alternates: {

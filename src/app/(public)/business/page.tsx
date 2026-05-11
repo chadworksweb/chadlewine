@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Business Inquiries & Licensing — Chad Lewine",
+  title: "Business Inquiries & Licensing",
   description:
     "Sync licensing, placements, collaborations, and business inquiries for Chad Lewine's music catalog.",
   alternates: {
