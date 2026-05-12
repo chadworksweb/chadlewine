@@ -23,6 +23,8 @@ export const RESERVED_SLUGS = new Set<string>([
   "observations",
   "video",
   "doors",
+  "super-individual",
+  "superindividual",
 ]);
 
 export function isReservedSlug(slug: string): boolean {

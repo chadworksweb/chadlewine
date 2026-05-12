@@ -7,7 +7,7 @@ import type { PortfolioItem } from "@/lib/sliding-portfolio";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Art — Chad Lewine",
+  title: "Art",
   description: "Digital and visual art by Chad Lewine.",
   alternates: { canonical: "https://chadlewine.com/art" },
 };

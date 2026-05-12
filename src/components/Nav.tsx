@@ -68,7 +68,13 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
     >
       <nav className="site-nav">
         <Link href="/" className="site-nav__logo">
-          Chad Lewine
+          <span className="site-nav__logo-frame site-nav__logo-frame--left" aria-hidden="true">
+            <span className="logo-shape">░</span><span className="logo-shape">▒</span><span className="logo-shape">▓</span><span className="logo-shape">█</span>
+          </span>
+          <span className="site-nav__logo-text">Chad Lewine</span>
+          <span className="site-nav__logo-frame site-nav__logo-frame--right" aria-hidden="true">
+            <span className="logo-shape">█</span><span className="logo-shape">▓</span><span className="logo-shape">▒</span><span className="logo-shape">░</span>
+          </span>
         </Link>
 
         <div className="nav-links">
@@ -123,8 +129,10 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
         </button>
       </nav>
 
-      {menuOpen && (
-        <div className="nav-mobile-menu">
+      <div
+        className={`nav-mobile-menu${menuOpen ? " nav-mobile-menu--open" : ""}`}
+        aria-hidden={!menuOpen}
+      >
           {navItems.map((item) =>
             item.children ? (
               <div key={item.label} className="nav-mobile-menu__group">
@@ -173,8 +181,7 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
               </Link>
             )
           )}
-        </div>
-      )}
+      </div>
     </header>
   );
 }

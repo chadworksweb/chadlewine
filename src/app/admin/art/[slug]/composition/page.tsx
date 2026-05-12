@@ -150,7 +150,7 @@ export default function ArtCompositionPage() {
           placeholder="Write the making-of. Markdown supported. Each save archives the prior version as a revision."
         />
       ) : (
-        <div className="reading-column" style={{ border: "1px solid var(--border-subtle, #2a2a35)", borderRadius: 6, padding: "var(--space-md)", minHeight: 540 }}>
+        <div className="prose" style={{ border: "1px solid var(--border-subtle, #2a2a35)", borderRadius: 6, padding: "var(--space-md)", minHeight: 540 }}>
           {content.trim() ? (
             <div dangerouslySetInnerHTML={{ __html: composition?.content_html || "" }} />
           ) : (
@@ -206,7 +206,7 @@ export default function ArtCompositionPage() {
                 </div>
               </div>
               <div
-                className="reading-column"
+                className="prose"
                 style={{ maxHeight: 400, overflowY: "auto" }}
                 dangerouslySetInnerHTML={{ __html: viewingRevision.content_html || "" }}
               />

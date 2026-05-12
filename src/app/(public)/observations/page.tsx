@@ -7,7 +7,7 @@ import { FeedEntry } from "@/components/FeedEntry";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Observations — Chad Lewine",
+  title: "Observations",
   description: "The full archive of Chad Lewine's Observations.",
   alternates: { canonical: "https://chadlewine.com/observations" },
 };

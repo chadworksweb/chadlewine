@@ -19,11 +19,15 @@ export async function generateMetadata(): Promise<Metadata> {
 async function getHomepageSongs() {
   const supabase = createPublicClient();
 
+  // Latest 10 songs that have a manually-set release_date. The hero lens
+  // intentionally excludes songs with no song-level date even if their
+  // album has one — manual dates are the curation signal.
   const { data } = await supabase
     .from("songs")
     .select("id, title, slug, release_date, art_image_path, art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, song_summary")
     .in("status", ["unreleased", "published"])
-    .order("release_date", { ascending: false, nullsFirst: false })
+    .not("release_date", "is", null)
+    .order("release_date", { ascending: false })
     .limit(10);
 
   const songs = data || [];
@@ -305,10 +309,10 @@ export default async function HomePage() {
 
       {homepageMerch.length > 0 && (
         <section className="home-merch">
-          <div className="explore-songs__frame explore-songs__frame--top">
-            <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-            <h2 className="explore-songs__heading">Shop Chad Lewine Merchandise</h2>
-            <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <div className="glyph-title-bar glyph-title-bar--top">
+            <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+            <h2 className="glyph-title-bar__heading">Shop Chad Lewine Merchandise</h2>
+            <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
           <div className="home-merch__inner site-contain">
             <div className="home-merch__grid">
@@ -332,10 +336,10 @@ export default async function HomePage() {
 
       {songBriefs.length > 0 && (
         <section className="song-brief-feed">
-          <div className="explore-songs__frame explore-songs__frame--top">
-            <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-            <h2 className="explore-songs__heading">Read About Chad Lewine Songs</h2>
-            <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <div className="glyph-title-bar glyph-title-bar--top">
+            <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+            <h2 className="glyph-title-bar__heading">Read About Chad Lewine Songs</h2>
+            <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
           <div className="song-brief-feed__inner">
             <div className="song-brief-feed__grid">

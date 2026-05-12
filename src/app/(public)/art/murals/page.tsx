@@ -6,7 +6,7 @@ import { focalCropStyle } from "@/lib/focal-crop";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Murals — Chad Lewine",
+  title: "Murals",
   description: "Large-format murals by Chad Lewine — locations, neighborhoods, and stories.",
   alternates: { canonical: "https://chadlewine.com/art/murals" },
 };

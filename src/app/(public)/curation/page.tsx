@@ -8,7 +8,7 @@ import { CurationGrid } from "@/components/CurationGrid";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Curation — Chad Lewine",
+  title: "Curation",
   description: "The world's largest collection of positively charged music, quantified by Rising Compass.",
   alternates: { canonical: "https://chadlewine.com/curation" },
 };

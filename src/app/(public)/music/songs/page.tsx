@@ -4,7 +4,7 @@ import { SongsExplorer } from "@/components/SongsExplorer";
 export const revalidate = 60;
 
 export const metadata = {
-  title: "Songs — Chad Lewine",
+  title: "Songs",
   description: "Explore every song by theme. Filter by topic, sort by release date or title.",
 };
 

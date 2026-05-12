@@ -7,7 +7,7 @@ import { FeedEntry } from "@/components/FeedEntry";
 export const revalidate = 60;
 
 export const metadata = {
-  title: "Home Preview — Chad Lewine",
+  title: "Home Preview",
   robots: { index: false, follow: false },
 };
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Chad D — The Early Identity | Chad Lewine",
+  title: "Chad D — The Early Identity",
   description:
     "The Chad D era — where it started. How the earliest version of Chad Lewine's creative identity laid the groundwork for everything that followed.",
   alternates: {
@@ -32,7 +32,7 @@ export default function ChadDPage() {
     <article id="page-chad-d" className="page-static">
       <h1 className="page-static__title">Chad D</h1>
 
-      <div className="reading-column" style={{ maxWidth: "100%", padding: 0 }}>
+      <div className="prose">
         <p className="page-who__placeholder">
           Content in progress.
         </p>

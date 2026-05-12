@@ -5,7 +5,7 @@ interface MarkdownRendererProps {
 export function MarkdownRenderer({ html }: MarkdownRendererProps) {
   return (
     <div
-      className="reading-column"
+      className="prose"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

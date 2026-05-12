@@ -301,7 +301,7 @@ export function SongCompositionPanel({
               <div className="song-composition__preview-body">
                 {previewMode === "preview" ? (
                   <div
-                    className="song-composition__rendered reading-column"
+                    className="song-composition__rendered prose"
                     dangerouslySetInnerHTML={{ __html: composition.content_html }}
                   />
                 ) : (
@@ -334,7 +334,7 @@ export function SongCompositionPanel({
                 </div>
               </div>
               <div
-                className="song-composition__rendered reading-column"
+                className="song-composition__rendered prose"
                 dangerouslySetInnerHTML={{ __html: viewingRevision.content_html }}
                 style={{ maxHeight: "300px", overflowY: "auto" }}
               />

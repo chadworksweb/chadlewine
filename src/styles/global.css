@@ -63,11 +63,16 @@
   --space-3xl: 6rem;
   --space-4xl: 10rem;
 
-  /* --- Layout --- */
-  --reading-width: calc((var(--site-width) - var(--space-xl)) * 3 / 4);
+  /* --- Layout ---
+     SITE WIDTH is the box. Everything sits inside it by default; sections
+     can break out to viewport via .full-bleed. There is no "gutter" — the
+     space outside the box is just empty viewport. Site-width itself shrinks
+     when the viewport gets narrow so content never kisses the edge. */
+  --site-width-cap: 1260px;
+  --site-edge-min: 0.75rem;   /* breathing room each side at any viewport */
+  --site-width: min(var(--site-width-cap), calc(100vw - var(--site-edge-min) * 2));
+  --reading-width: calc((var(--site-width-cap) - var(--space-xl)) * 3 / 4);
   --content-width: 1100px;
-  --site-width: 1320px;
-  --page-gutter: clamp(1rem, 4vw, 2.5rem);
   --nav-height: 80px;
   --sticky-top: calc(var(--nav-height) + var(--space-md));
 
@@ -85,18 +90,21 @@
 
 
 /* ============================================================
-   LAYOUT PRIMITIVES
-   ============================================================ */
+   LAYOUT PRIMITIVES — SITE-WIDTH BOX
+   ============================================================
+   The site is a centered box of --site-width. Everything sits inside
+   the box by default. To put a section flush to the viewport edges
+   (full-width background bands, hero images), mark it `.full-bleed`.
+   Inside a full-bleed section, content automatically re-anchors back
+   to the box. There is no "gutter" concept — the space outside the
+   box is just empty viewport. --site-width itself shrinks responsively
+   so content never kisses the edge. */
 
-/* Standard content container — matches nav alignment.
-   Use on the inner wrapper of any full-bleed section.
-   Mirrors the formula used by main's content rail and .site-nav so
-   inner content edges always track the C-of-CHAD-LEWINE / right-edge-of-ABOUT
-   landmarks. The clamp is what supplies the outer gutter on narrow viewports;
-   no inner left/right padding here. */
+/* Utility class — applies the box width to any arbitrary element.
+   Rarely needed; the page-shell pattern below covers structural use. */
 .site-contain {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto;
+  max-width: var(--site-width);
+  margin-inline: auto;
 }
 
 /* ============================================================
@@ -116,7 +124,11 @@ html {
   text-rendering: optimizeLegibility;
   overflow-x: clip; /* clip instead of hidden keeps position:sticky working */
   max-width: 100%;
+  scroll-behavior: smooth;
 }
+/* NOTE: previously had a `@media (prefers-reduced-motion: reduce)` rule that
+   reset scroll-behavior to auto. Removed because in-page anchor scrolls
+   should feel smooth on every device; site owner accepts the override. */
 
 body {
   font-family: var(--font-body);
@@ -146,56 +158,126 @@ p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption, dt, dd {
 
 main {
   padding-top: var(--nav-height);
+}
 
-  /* ─────────────────────────────────────────────────────────────────────
-     SITE-WIDTH GRID — the default container for every page.
-     Three rails: a left gutter, a centered content rail capped at
-     --site-width, and a right gutter. Direct children of <main> sit in
-     the centered rail by default. Sections that need to bleed edge-to-edge
-     (backgrounds, sliders, hero strips) opt OUT by setting grid-column to
-     full, either via the .full-bleed class or by being on the named list
-     below. This is the global guard that stops content from breaking out
-     of site width unless explicitly opted out.
-     ───────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────
+   PAGE-SHELL GRID — the global containment rule.
+   Every element on this list becomes a three-track grid: an empty left
+   space, a centered content track at --site-width, and an empty right
+   space. Direct children fall into the content track by default; a
+   `.full-bleed` child spans all three tracks to reach the viewport edges.
+   The pattern is recursive: a section that's full-bleed in main can
+   itself be a page-shell, and its own children re-anchor to --site-width.
+   This is what makes the site "boxed" — there is exactly ONE width rule
+   for the whole site, and every container inherits it structurally.
+   ───────────────────────────────────────────────────────────────────── */
+:where(
+  main,
+  .page-shell,
+  /* page-level wrappers (DOM-full-bleed in main; content re-anchors) */
+  .page-super-individual,
+  .page-home,
+  .page-merch,
+  .page-curation,
+  .page-music-hub__banner,
+  /* section-level wrappers with full-width backgrounds */
+  .si-hero,
+  .si-section,
+  .si-door,
+  .si-popup,
+  .si-schedule,
+  .album-section,
+  .observation-body,
+  .home-merch,
+  .subscribe-section,
+  .song-landing__section,
+  .track-visibility__block,
+  .site-footer
+) {
   display: grid;
   grid-template-columns:
-    [full-start] minmax(var(--page-gutter), 1fr)
-    [content-start] min(calc(100% - var(--page-gutter) * 2), var(--site-width)) [content-end]
-    minmax(var(--page-gutter), 1fr) [full-end];
+    [full-start] 1fr
+    [content-start] var(--site-width) [content-end]
+    1fr [full-end];
   align-content: start;
 }
 
-main > * {
+:where(
+  main,
+  .page-shell,
+  .page-super-individual,
+  .page-home,
+  .page-merch,
+  .page-curation,
+  .page-music-hub__banner,
+  .si-hero,
+  .si-section,
+  .si-door,
+  .si-popup,
+  .si-schedule,
+  .album-section,
+  .observation-body,
+  .home-merch,
+  .subscribe-section,
+  .song-landing__section,
+  .track-visibility__block,
+  .site-footer
+) > * {
   grid-column: content;
   min-width: 0; /* prevents grid blowout from long unbroken text */
 }
 
-/* Explicit opt-out class — apply to anything that needs to bleed. */
-main > .full-bleed,
-/* Sections with full-bleed backgrounds, hero strips, or page wrappers
-   that manage their own internal width. */
+:where(
+  main,
+  .page-shell,
+  .page-super-individual,
+  .page-home,
+  .page-merch,
+  .page-curation,
+  .page-music-hub__banner,
+  .si-hero,
+  .si-section,
+  .si-door,
+  .si-popup,
+  .si-schedule,
+  .album-section,
+  .observation-body,
+  .home-merch,
+  .subscribe-section,
+  .song-landing__section,
+  .track-visibility__block,
+  .site-footer
+) > .full-bleed {
+  grid-column: full;
+}
+
+/* Nested-shell promotion — when a section-level shell sits inside another
+   shell, it spans the parent's full track so its own background bleeds
+   edge-to-edge while its content re-anchors to --site-width via its own
+   content track. Without this, .si-door's colored band stops at site-width. */
+:where(.page-super-individual, .page-home, .page-merch, .page-curation, .page-shell)
+  > :where(.si-hero, .si-section, .si-door, .si-popup, .si-schedule,
+           .album-section, .home-merch, .subscribe-section,
+           .page-music-hub__banner, .observation-body) {
+  grid-column: full;
+}
+
+/* Page wrappers that are themselves shells need to opt out at the main
+   level so their full-bleed sections can reach viewport edges. */
 main > .hero-lens,
 main > .album-section,
 main > .observation-body,
 main > .home-merch,
 main > .subscribe-section,
 main > .album-rc-classifications,
-main > .site-patronage,
-/* Page wrappers — opt out at the wrapper level so the sections inside
-   keep their existing layout.
-   NOTE: .page-static REMOVED from this list — when a .page-static element
-   sits in a grid-column: full track AND its own max-width uses the
-   canonical min(100% - 2*gutter, site-width) formula, the grid track
-   sizing collapses on short-content pages (chad-d, honeychrome, xanga
-   were rendering sub-600px at vw≈1335). Letting .page-static use the
-   default grid-column: content places it cleanly in the canonical
-   1255px rail — matches merch and discography. */
 main > .page-home,
 main > #page-home,
 main > .page-merch,
 main > #page-merch,
 main > .page-curation,
 main > #page-curation,
+main > .page-super-individual,
+main > #page-super-individual,
 main > .page-music-hub__banner {
   grid-column: full;
 }
@@ -206,7 +288,8 @@ main > .page-music-hub__banner {
   color: var(--text-primary);
 }
 
-.reading-column ::selection {
+.reading-column ::selection,
+.prose ::selection {
   background: rgba(80, 100, 200, 0.3);
   color: var(--reading-text);
 }
@@ -274,7 +357,7 @@ h2, h3, h4, h5, h6 {
 }
 
 .site-nav {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
   padding: var(--space-md) 0;
   display: flex;
@@ -287,12 +370,78 @@ h2, h3, h4, h5, h6 {
 }
 
 .site-nav__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
   font-family: var(--font-ui);
-  font-size: var(--text-sm);
+  font-size: 1rem;
   font-weight: 500;
   color: var(--text-primary);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+.site-nav__logo-frame {
+  /* Match .glyph-title-bar__label exactly so the same block-element
+     glyphs rasterize the same way. Same font-family, font-size, weight,
+     and letter-spacing means same fallback font selection (and same
+     subpixel rasterization on Windows). */
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  color: var(--text-accent);
+}
+.logo-shape {
+  display: inline-block;
+  position: relative;
+  transition: color 0.35s ease;
+}
+/* ::before must have a base `content` declaration outside the keyframes
+   so the pseudo-element actually generates — otherwise the animation
+   has nothing to target. */
+.logo-shape::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  pointer-events: none;
+}
+/* On hover, hide the original char and let ::before render the
+   animated content + color. Each position's animation-delay sets which
+   shape it starts on — combined with the shared keyframes, the result
+   is that shapes physically migrate outward each beat. */
+.site-nav__logo:hover .logo-shape {
+  color: transparent;
+}
+.site-nav__logo:hover .logo-shape::before {
+  animation: logo-shape-shimmer 0.6s linear infinite;
+}
+/* Left frame DOM order ░▒▓█ — outermost to innermost */
+.site-nav__logo:hover .site-nav__logo-frame--left .logo-shape:nth-child(1)::before { animation-delay: 0s;     }
+.site-nav__logo:hover .site-nav__logo-frame--left .logo-shape:nth-child(2)::before { animation-delay: -0.15s; }
+.site-nav__logo:hover .site-nav__logo-frame--left .logo-shape:nth-child(3)::before { animation-delay: -0.3s;  }
+.site-nav__logo:hover .site-nav__logo-frame--left .logo-shape:nth-child(4)::before { animation-delay: -0.45s; }
+/* Right frame DOM order █▓▒░ — innermost to outermost */
+.site-nav__logo:hover .site-nav__logo-frame--right .logo-shape:nth-child(1)::before { animation-delay: -0.45s; }
+.site-nav__logo:hover .site-nav__logo-frame--right .logo-shape:nth-child(2)::before { animation-delay: -0.3s;  }
+.site-nav__logo:hover .site-nav__logo-frame--right .logo-shape:nth-child(3)::before { animation-delay: -0.15s; }
+.site-nav__logo:hover .site-nav__logo-frame--right .logo-shape:nth-child(4)::before { animation-delay: 0s;     }
+@keyframes logo-shape-shimmer {
+  0%   { content: "░"; color: var(--text-accent); }
+  25%  { content: "▒"; color: #ff7ad9; }
+  50%  { content: "▓"; color: #6ee7ff; }
+  75%  { content: "█"; color: #d8b25c; }
+  100% { content: "░"; color: var(--text-accent); }
+}
+@keyframes logo-text-shimmer {
+  0%   { color: var(--text-primary); }
+  25%  { color: #ff7ad9; }
+  50%  { color: #6ee7ff; }
+  75%  { color: #d8b25c; }
+  100% { color: var(--text-primary); }
+}
+.site-nav__logo:hover .site-nav__logo-text {
+  animation: logo-text-shimmer 0.6s linear infinite;
 }
 
 .nav-links {
@@ -431,24 +580,37 @@ h2, h3, h4, h5, h6 {
   background: none;
   border: none;
   color: var(--text-primary);
-  font-size: 1.25rem;
+  font-size: 2rem;
+  line-height: 1;
   cursor: pointer;
-  padding: var(--space-xs);
+  padding: var(--space-sm) var(--space-xs);
 }
 
 .nav-mobile-menu {
-  padding: var(--space-sm, 0.75rem) var(--page-gutter) var(--space-lg);
+  padding-inline: var(--site-edge-min);
+  padding-bottom: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: calc(100vh - 64px);
-  overflow-y: auto;
-  animation: nav-mobile-slide var(--duration-base) var(--ease-out);
+  /* Always mounted; collapsed by default. max-height grows when --open and
+   * padding-bottom fades in, so the menu animates in BOTH directions. */
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: max-height var(--duration-base) var(--ease-out),
+              opacity var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out),
+              padding-bottom var(--duration-base) var(--ease-out);
 }
 
-@keyframes nav-mobile-slide {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+.nav-mobile-menu--open {
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  opacity: 1;
+  transform: translateY(0);
+  padding-bottom: var(--space-lg);
+  padding-top: var(--space-sm);
 }
 
 .nav-mobile-menu__group {
@@ -583,7 +745,7 @@ h2, h3, h4, h5, h6 {
   border: none;
   position: relative;
   overflow: hidden;
-  padding: var(--space-4xl) var(--page-gutter);
+  padding-block: var(--space-4xl);
 }
 
 .subscribe-section::before {
@@ -737,12 +899,10 @@ h2, h3, h4, h5, h6 {
 
 .site-footer {
   border-top: 1px solid var(--border-subtle);
-  padding: var(--space-xl) var(--page-gutter);
+  padding-block: var(--space-xl);
 }
 
 .site-footer__inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -833,8 +993,11 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .hero-lens {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto 50px;
+  /* Width handled by parent shell's content track; auto-margins were causing
+     this section to collapse to 0 width inside a grid (auto-margin on a grid
+     item with auto width sizes to content, then absorbs free space — and
+     this section's slides are position: absolute, so content size is 0). */
+  margin-bottom: 50px;
   /* Peek surface width — narrowed from 110 to make room for the inter-card
      padding (var(--hero-gap)) without losing the click target entirely. */
   --hero-peek: 90px;
@@ -1244,8 +1407,10 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .cover-hero {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto;
+  /* Width handled by parent shell's content track; auto-margins would
+     collapse this element to 0 width in grid context (its art-wrap child
+     is width:auto + aspect-ratio, which can't size itself without a
+     defined width on parent). */
 }
 
 /* Art is peer — never covered by header. CoverHero always clears nav. */
@@ -1386,7 +1551,9 @@ h2, h3, h4, h5, h6 {
 }
 
 .hero-lens__kind--song { color: var(--text-accent); border-color: rgba(64, 96, 255, 0.5); }
-.hero-lens__kind--album { color: #ffd166; border-color: rgba(255, 209, 102, 0.5); }
+.hero-lens__kind--single { color: var(--text-accent); border-color: rgba(64, 96, 255, 0.5); }
+.hero-lens__kind--album { color: #d8b25c; border-color: rgba(255, 209, 102, 0.5); }
+.hero-lens__kind--ep { color: #d8b25c; border-color: rgba(255, 209, 102, 0.5); }
 .hero-lens__kind--merch { color: #06d6a0; border-color: rgba(6, 214, 160, 0.5); }
 .hero-lens__kind--observation { color: #ef476f; border-color: rgba(239, 71, 111, 0.5); }
 .hero-lens__kind--art { color: #c084fc; border-color: rgba(192, 132, 252, 0.5); }
@@ -1803,8 +1970,8 @@ h2, h3, h4, h5, h6 {
 
 .archive {
   max-width: var(--content-width);
-  margin: 0 auto;
-  padding: var(--space-3xl) var(--page-gutter);
+  margin-inline: auto;
+  padding-block: var(--space-3xl);
 }
 
 .archive__heading {
@@ -1928,13 +2095,13 @@ h2, h3, h4, h5, h6 {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--space-xl);
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
   padding: 0 0 var(--space-2xl, 4rem);
 }
 
 .observations-archive {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
 }
 
@@ -2201,14 +2368,12 @@ h2, h3, h4, h5, h6 {
   color: var(--reading-text);
   padding-top: var(--space-xl);
   padding-bottom: var(--space-4xl);
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
+  /* observation-body is in main's full track + is itself a shell; the
+     100vw / negative-margin breakout hack is no longer needed. */
 }
 
+/* Observation 2-col reading layout — only on .reading-column inside body. */
 .observation-body .reading-column {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding-inline: var(--page-gutter);
   color: var(--reading-text);
   display: grid;
   grid-template-columns: 3fr 1fr;
@@ -2219,23 +2384,20 @@ h2, h3, h4, h5, h6 {
   grid-column: 1;
 }
 
-/* Reading column width handles constraint — no additional max-width needed */
-
-.observation-body .reading-column h2,
-.observation-body .reading-column h3 {
+.observation-body .prose h2,
+.observation-body .prose h3 {
   color: var(--reading-text);
 }
 
-.observation-body .reading-column a {
+.observation-body .prose a {
   color: var(--reading-accent);
 }
 
-.observation-body .reading-column a:hover {
+.observation-body .prose a:hover {
   color: var(--reading-text);
 }
 
-.observation-body .reading-column img,
-.reading-column img {
+.prose img {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -2244,8 +2406,6 @@ h2, h3, h4, h5, h6 {
   border-radius: 4px;
 }
 
-/* Shortcode components inherit reading column width */
-
 
 /* ============================================================
    FOUNDATIONS PAGE
@@ -2253,8 +2413,8 @@ h2, h3, h4, h5, h6 {
 
 .page-foundations {
   max-width: var(--reading-width);
-  margin: 0 auto;
-  padding: var(--space-xl) var(--page-gutter) var(--space-4xl);
+  margin-inline: auto;
+  padding-block: var(--space-xl) var(--space-4xl);
 }
 
 .page-foundations__title {
@@ -2337,13 +2497,14 @@ h2, h3, h4, h5, h6 {
   margin-bottom: var(--space-2xl);
 }
 
-.page-music-hub__banner > .explore-songs__frame--top {
+.page-music-hub__banner > .glyph-title-bar--top {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 175px;
-  margin: 0 auto;
+  margin-inline: auto;
+  max-width: var(--site-width);
   z-index: 3;
 }
 
@@ -2367,15 +2528,15 @@ h2, h3, h4, h5, h6 {
   z-index: 2;
 }
 
-.page-music-hub__banner .explore-songs__heading,
-.page-music-hub__banner .explore-songs__frame-label {
+.page-music-hub__banner .glyph-title-bar__heading,
+.page-music-hub__banner .glyph-title-bar__label {
   background: var(--bg-elevated);
   box-shadow: 0 0 0 12px var(--bg-elevated);
   position: relative;
   z-index: 1;
 }
 
-.page-music-hub__banner .explore-songs__heading {
+.page-music-hub__banner .glyph-title-bar__heading {
   font-size: 3.64rem;
 }
 
@@ -2477,13 +2638,10 @@ h2, h3, h4, h5, h6 {
 /* ── Album Hero (music page) ─────────────────────────────────────── */
 
 .album-hero {
-  /* Square art is the smaller of half the site-width and the leftover
-     viewport height (nav + page title + dots + buffer), then knocked down
-     15% so the hero takes up less of the page. */
-  --ah-art-size: calc(min(
-    calc((var(--site-width) - 18px) / 2),
-    calc(100vh - var(--nav-height) - 12rem)
-  ) * 0.85);
+  /* Square art is half the site-width, knocked down 15%. Same size on
+     every screen — no vh-based constraint, which used to shrink the
+     hero on laptops. */
+  --ah-art-size: calc((var(--site-width) - 18px) / 2 * 0.85);
   --ah-tab-w: 60px;
   position: relative;
   margin-bottom: var(--space-2xl);
@@ -2534,7 +2692,23 @@ h2, h3, h4, h5, h6 {
   right: 0;
 }
 
-.album-hero__nav-tab:hover,
+/* Gate :hover behind hover-capable devices so iOS doesn't stick the lit
+   state until the user taps elsewhere. */
+@media (hover: hover) {
+  .album-hero__nav-tab:hover,
+  .album-hero__nav-tab:focus-visible {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(64, 96, 255, 0.0) 10%,
+      rgba(64, 96, 255, 0.55) 50%,
+      rgba(64, 96, 255, 0.0) 90%,
+      transparent 100%
+    );
+    box-shadow: 0 0 24px rgba(64, 96, 255, 0.4), 0 0 48px rgba(64, 96, 255, 0.18);
+    color: var(--text-accent);
+  }
+}
 .album-hero__nav-tab:focus-visible {
   background: linear-gradient(
     180deg,
@@ -2714,6 +2888,27 @@ h2, h3, h4, h5, h6 {
   letter-spacing: 0.1em;
 }
 
+.album-hero__mini-player {
+  width: 100%;
+  max-width: 480px;
+  margin: var(--space-sm) 0;
+  /* MiniPlayer reads --td-* vars from its parent scope (originally defined
+     on .featured-track). Redefine them here so the player renders with its
+     proper theme outside the song detail page. */
+  --td-bg: #0d0d1a;
+  --td-bg-card: #12121a;
+  --td-border: #3a3a5c;
+  --td-active: #ff9500;
+  --td-cyan: #00ffcc;
+  --td-teal: #00d4aa;
+  --td-text: #e0e0e0;
+  --td-text-muted: #888;
+  --td-font-mono: 'Share Tech Mono', 'Courier New', monospace;
+}
+.album-hero__mini-player .mini-player {
+  margin-bottom: 0;
+}
+
 .album-hero__cta {
   display: inline-flex;
   align-items: center;
@@ -2778,9 +2973,14 @@ h2, h3, h4, h5, h6 {
 
 @media (max-width: 768px) {
   .album-hero {
-    --ah-tab-w: 40px;
-    --ah-art-size: min(100%, calc(100vw - var(--page-gutter) * 2 - var(--ah-tab-w) * 2));
+    --ah-tab-w: 56px;
+    /* Pixel-only calc so percentages don't collapse in vertical context.
+       Caps at 420px so the cover doesn't dominate on mid-size tablets. */
+    --ah-art-size: min(420px, calc(100vw - var(--site-edge-min) * 2 - var(--ah-tab-w) * 2 - 2rem));
   }
+  /* Slides are absolute (so they translate), so viewport needs explicit
+     height. min-height = cover-size + budget for the meta column below it
+     (stacked on mobile via flex-direction: column). */
   .album-hero__viewport {
     height: auto;
     min-height: calc(var(--ah-art-size) + 240px);
@@ -2789,10 +2989,12 @@ h2, h3, h4, h5, h6 {
     flex-direction: column;
     gap: var(--space-lg);
     padding: 0 calc(var(--ah-tab-w) + var(--space-sm));
+    height: auto;
   }
   .album-hero__stage > .album-hero__cover-link {
-    flex: 0 0 var(--ah-art-size);
+    flex: 0 0 auto;
     width: var(--ah-art-size);
+    height: var(--ah-art-size);
   }
   .album-hero__stage > .album-hero__meta {
     flex: 0 1 auto;
@@ -2802,6 +3004,10 @@ h2, h3, h4, h5, h6 {
   }
   .album-hero__nav-tab {
     font-size: 28px;
+    z-index: 5;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(110, 143, 255, 0.25);
+    cursor: pointer;
   }
 }
 
@@ -3272,19 +3478,16 @@ h2, h3, h4, h5, h6 {
 .meditation-archive {
   background: var(--reading-bg);
   color: var(--reading-text);
-  padding-top: var(--space-xl);
-  padding-bottom: var(--space-4xl);
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
+  padding-block: var(--space-xl) var(--space-4xl);
+  /* 100vw / negative-margin breakout removed — this section needs to be
+     opted into main's full-bleed list (or its parent declared .full-bleed)
+     if it should bleed to viewport. */
 }
 
 .meditation-archive__layout {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--space-xl);
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
 }
 
 /* Sidebar */
@@ -3450,7 +3653,7 @@ h2, h3, h4, h5, h6 {
 .page-meditation-single {
   max-width: var(--reading-width);
   margin-inline: auto;
-  padding: var(--space-xl) var(--page-gutter);
+  padding-block: var(--space-xl);
   min-height: 60vh;
   display: flex;
   flex-direction: column;
@@ -3511,34 +3714,32 @@ h2, h3, h4, h5, h6 {
 }
 
 /* ============================================================
-   READING COLUMN
+   PROSE — typography utility for any rendered prose block
+   (markdown, song landing copy, admin previews, static prose pages).
+   Width is supplied by the parent shell's content track; .prose itself
+   has no max-width or horizontal padding. The observation 2-col layout
+   lives on .reading-column, NOT here.
    ============================================================ */
 
-.reading-column {
-  max-width: var(--reading-width);
-  margin-inline: auto;
-  padding-inline: var(--page-gutter);
-}
-
-.reading-column p {
+.prose p {
   margin-bottom: 1.5em;
 }
 
-.reading-column h2 {
+.prose h2 {
   font-size: var(--text-xl);
   margin-top: 1.25em;
   margin-bottom: 0.75em;
   color: var(--reading-text);
 }
 
-.reading-column h3 {
+.prose h3 {
   font-size: var(--text-lg);
   margin-top: 1em;
   margin-bottom: 0.5em;
   color: var(--reading-text);
 }
 
-.reading-column blockquote {
+.prose blockquote {
   border-left: 2px solid var(--reading-border);
   padding-left: var(--space-lg);
   color: var(--reading-text-secondary);
@@ -3546,34 +3747,42 @@ h2, h3, h4, h5, h6 {
   margin-block: 1.5em;
 }
 
-.reading-column ul,
-.reading-column ol {
+.prose ul,
+.prose ol {
   padding-left: 1.25em;
   margin-bottom: 1.5em;
 }
 
-.reading-column li {
+.prose li {
   margin-bottom: 0.5em;
 }
 
-.reading-column strong {
-  color: var(--reading-text);
+.prose strong {
+  color: var(--text-accent);
   font-weight: 600;
 }
 
-.reading-column a {
+.prose a {
   color: var(--reading-accent);
 }
 
-.reading-column a:hover {
+.prose a:hover {
   color: var(--reading-text);
 }
 
-.reading-column hr {
+.prose hr {
   border: none;
   border-top: 1px solid var(--reading-border);
   margin-block: 3em;
 }
+
+/* ============================================================
+   READING COLUMN — observation-only 2-col reading layout.
+   Used by MarkdownRenderer when rendering inside .observation-body.
+   Outside of .observation-body, .reading-column has no width or layout
+   styles of its own — the 2-col grid is scoped via the parent body
+   class (see line near "OBSERVATION PAGE" above).
+   ============================================================ */
 
 /* ============================================================
    GLASS PANEL
@@ -4009,7 +4218,7 @@ h3.aw-heading {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: var(--page-gutter);
+  padding: var(--site-edge-min);
 }
 
 .login-form {
@@ -5139,7 +5348,7 @@ h3.aw-heading {
 }
 
 .song-brief-feed__inner {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
 }
 
@@ -5717,9 +5926,6 @@ h3.aw-heading {
 }
 
 .obsv-nav {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: var(--space-lg);
@@ -5787,9 +5993,7 @@ h3.aw-heading {
    ============================================================ */
 
 .synapse-jumper {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: var(--space-3xl) var(--page-gutter) calc(var(--space-3xl) * 1.15);
+  padding-block: var(--space-3xl) calc(var(--space-3xl) * 1.15);
   position: relative;
   z-index: 2;
 }
@@ -5895,9 +6099,7 @@ h3.aw-heading {
    ============================================================ */
 
 .related-observations {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: var(--space-2xl) var(--page-gutter) var(--space-3xl);
+  padding-block: var(--space-2xl) var(--space-3xl);
 }
 
 .related-observations__heading {
@@ -5972,8 +6174,9 @@ h3.aw-heading {
 
 .observation-footer {
   max-width: var(--reading-width);
-  margin: var(--space-2xl) auto 0;
-  padding: 0 var(--page-gutter) var(--space-3xl);
+  margin-inline: auto;
+  margin-top: var(--space-2xl);
+  padding-bottom: var(--space-3xl);
 }
 
 /* ============================================================
@@ -7556,9 +7759,7 @@ h3.aw-heading {
 /* --- Merch Page + Configurator --- */
 
 .page-merch {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto;
-  padding: 0 0 calc(var(--space-4xl) / 2);
+  padding-bottom: calc(var(--space-4xl) / 2);
 }
 
 .page-merch__header {
@@ -8313,7 +8514,7 @@ h3.aw-heading {
 /* Standalone wrapper — provides the same width + gutter as .page-merch so
    the strip can stand alone outside an existing page container. */
 .explore-strip__wrap {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
   padding: 0 0 calc(var(--space-4xl) / 2);
 }
@@ -8327,7 +8528,7 @@ h3.aw-heading {
   margin-bottom: var(--space-2xl);
 }
 
-/* Bracketed/ticked divider — mirrors .explore-songs__frame on the homepage. */
+/* Bracketed/ticked divider — mirrors .glyph-title-bar on the homepage. */
 .explore-strip__frame {
   position: relative;
   height: 65px;
@@ -8817,8 +9018,7 @@ h3.aw-heading {
   grid-template-columns: 320px 1fr;
   min-height: calc(100vh - var(--nav-height));
   max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
+  margin-inline: auto;
   background: var(--bg-deep);
   color: var(--text-primary);
 }
@@ -9324,13 +9524,14 @@ h3.aw-heading {
    re-applies the base rule's horizontal centering after absolute positioning,
    so the max-width: var(--site-width) box stays centered instead of getting
    anchored to left: 0. */
-.home-merch > .explore-songs__frame--top {
+.home-merch > .glyph-title-bar--top {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 175px;
-  margin: 0 auto;
+  margin-inline: auto;
+  max-width: var(--site-width);
   z-index: 3;
 }
 
@@ -9412,8 +9613,8 @@ h3.aw-heading {
    The 12px box-shadow halo extends the bg-elevated mask beyond the text's
    own padding so the bright cyan band glow can't bleed through and wash out
    the heading. */
-.home-merch .explore-songs__heading,
-.home-merch .explore-songs__frame-label {
+.home-merch .glyph-title-bar__heading,
+.home-merch .glyph-title-bar__label {
   background: var(--bg-elevated);
   box-shadow: 0 0 0 12px var(--bg-elevated);
   position: relative;
@@ -9497,9 +9698,7 @@ h3.aw-heading {
   background: var(--bg-surface);
   border: none;
   border-radius: 0;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  padding: var(--space-3xl) var(--page-gutter);
+  padding: var(--space-3xl) var(--site-edge-min);
   margin-top: var(--space-2xl);
 }
 
@@ -9723,9 +9922,6 @@ h3.aw-heading {
 .patronage__submit:hover { opacity: 0.85; }
 .patronage__submit:disabled { opacity: 0.5; cursor: default; }
 
-.site-patronage {
-  max-width: 480px; margin: 0 auto; padding: 0 var(--space-md);
-}
 .site-patronage .patronage { margin-top: 0; }
 
 /* ============================================================
@@ -10958,22 +11154,15 @@ h3.aw-heading {
 
 .album-section {
   border-top: 1px solid rgba(139, 156, 247, 0.12);
-  padding: var(--space-2xl) var(--page-gutter);
+  padding-block: var(--space-2xl);
   background: linear-gradient(180deg, rgba(10, 10, 20, 0.0) 0%, rgba(139, 156, 247, 0.04) 100%);
 }
 
-.album-section--slider {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.album-section--slider > .album-section__inner {
-  padding: 0 var(--page-gutter);
-}
+/* .album-section--slider — modifier remains for any slider-specific
+   visual tweaks. The shell grid handles containment automatically. */
 
 .album-section__inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
+  /* width handled by .album-section shell content track */
 }
 
 .album-section__heading {
@@ -12294,7 +12483,7 @@ h3.aw-heading {
   overflow-y: auto;
 }
 
-.song-composition__rendered.reading-column {
+.song-composition__rendered.prose {
   max-width: none;
   margin-inline: 0;
   padding-inline: 0;
@@ -12395,9 +12584,6 @@ h3.aw-heading {
 }
 
 .track-visibility__block-inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--space-lg);
   display: grid;
   grid-template-columns: 200px 1fr;
   gap: var(--space-xl);
@@ -12443,14 +12629,14 @@ h3.aw-heading {
 }
 
 /* Override reading-column defaults inside visibility blocks */
-.track-visibility__content-col.reading-column {
+.track-visibility__content-col.prose {
   max-width: none;
   margin-inline: 0;
   padding-inline: 0;
   color: #c8c8d4;
 }
 
-.track-visibility__content-col.reading-column p {
+.track-visibility__content-col.prose p {
   font-family: var(--font-ui);
   font-size: 0.95rem;
   line-height: 1.75;
@@ -12458,11 +12644,11 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.track-visibility__content-col.reading-column p:last-child {
+.track-visibility__content-col.prose p:last-child {
   margin-bottom: 0;
 }
 
-.track-visibility__content-col.reading-column h2 {
+.track-visibility__content-col.prose h2 {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -12474,7 +12660,7 @@ h3.aw-heading {
   border-bottom: 1px solid #00d4ff20;
 }
 
-.track-visibility__content-col.reading-column h3 {
+.track-visibility__content-col.prose h3 {
   font-family: var(--font-ui);
   font-size: 0.9rem;
   font-weight: 600;
@@ -12483,8 +12669,8 @@ h3.aw-heading {
   margin-bottom: 0.5rem;
 }
 
-.track-visibility__content-col.reading-column ul,
-.track-visibility__content-col.reading-column ol {
+.track-visibility__content-col.prose ul,
+.track-visibility__content-col.prose ol {
   font-family: var(--font-ui);
   font-size: 0.95rem;
   line-height: 1.75;
@@ -12493,21 +12679,21 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.track-visibility__content-col.reading-column li {
+.track-visibility__content-col.prose li {
   margin-bottom: 0.4rem;
 }
 
-.track-visibility__content-col.reading-column strong {
+.track-visibility__content-col.prose strong {
   color: #e8e8f0;
   font-weight: 600;
 }
 
-.track-visibility__content-col.reading-column em {
+.track-visibility__content-col.prose em {
   color: #a8a8c0;
   font-style: italic;
 }
 
-.track-visibility__content-col.reading-column blockquote {
+.track-visibility__content-col.prose blockquote {
   border-left: 2px solid #00d4ff40;
   padding-left: 1rem;
   margin: 1.25rem 0;
@@ -12515,17 +12701,17 @@ h3.aw-heading {
   font-style: italic;
 }
 
-.track-visibility__content-col.reading-column a {
+.track-visibility__content-col.prose a {
   color: #00d4ff;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.track-visibility__content-col.reading-column a:hover {
+.track-visibility__content-col.prose a:hover {
   color: #00ffcc;
 }
 
-.track-visibility__content-col.reading-column code {
+.track-visibility__content-col.prose code {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 0.85em;
   color: #00d4ff;
@@ -12535,9 +12721,7 @@ h3.aw-heading {
 }
 
 .track-visibility__media-slot {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--space-lg);
+  /* width handled by parent .track-visibility__block shell */
 }
 
 .track-visibility__media-slot:empty {
@@ -12579,9 +12763,7 @@ h3.aw-heading {
 }
 
 .song-landing__container {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
+  /* width handled by .song-landing__section shell content track */
 }
 
 /* Three-column layout for format-stack layers in the ABOUT section (section 1).
@@ -12854,7 +13036,7 @@ h3.aw-heading {
   color: #c8c8d4;
 }
 
-.song-landing__prose.reading-column p {
+.song-landing__prose.prose p {
   font-family: var(--font-ui);
   font-size: 1.425rem;
   line-height: 1.6;
@@ -12862,9 +13044,9 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.song-landing__prose.reading-column p:last-child { margin-bottom: 0; }
+.song-landing__prose.prose p:last-child { margin-bottom: 0; }
 
-.song-landing__prose.reading-column h2 {
+.song-landing__prose.prose h2 {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -12876,7 +13058,7 @@ h3.aw-heading {
   border-bottom: 1px solid #00d4ff20;
 }
 
-.song-landing__prose.reading-column h3 {
+.song-landing__prose.prose h3 {
   font-family: var(--font-ui);
   font-size: 0.9rem;
   font-weight: 600;
@@ -12885,8 +13067,8 @@ h3.aw-heading {
   margin-bottom: 0.5rem;
 }
 
-.song-landing__prose.reading-column ul,
-.song-landing__prose.reading-column ol {
+.song-landing__prose.prose ul,
+.song-landing__prose.prose ol {
   font-family: var(--font-ui);
   font-size: 0.95rem;
   line-height: 1.75;
@@ -12895,11 +13077,11 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.song-landing__prose.reading-column li { margin-bottom: 0.4rem; }
-.song-landing__prose.reading-column strong { color: #e8e8f0; font-weight: 600; }
-.song-landing__prose.reading-column em { color: #a8a8c0; font-style: italic; }
+.song-landing__prose.prose li { margin-bottom: 0.4rem; }
+.song-landing__prose.prose strong { color: #e8e8f0; font-weight: 600; }
+.song-landing__prose.prose em { color: #a8a8c0; font-style: italic; }
 
-.song-landing__prose.reading-column blockquote {
+.song-landing__prose.prose blockquote {
   border-left: 2px solid #00d4ff40;
   padding-left: 1rem;
   margin: 1.25rem 0;
@@ -12907,16 +13089,16 @@ h3.aw-heading {
   font-style: italic;
 }
 
-.song-landing__prose.reading-column a {
+.song-landing__prose.prose a {
   color: #00d4ff;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.song-landing__prose.reading-column a:hover { color: #00ffcc; }
+.song-landing__prose.prose a:hover { color: #00ffcc; }
 
 /* Fragments — pull-quote styling */
-.song-landing__prose--fragments.reading-column blockquote {
+.song-landing__prose--fragments.prose blockquote {
   border-left: 3px solid #00d4ff60;
   padding: var(--space-md) var(--space-lg);
   font-size: 1.05rem;
@@ -13278,12 +13460,9 @@ h3.aw-heading {
 .explore-songs::after { bottom: 0; }
 
 /* Frame bars — tick-mark viewfinder style, top + bottom */
-.explore-songs__frame {
+.glyph-title-bar {
   position: relative;
   height: 65px;
-  margin: 0 auto;
-  max-width: var(--site-width);
-  padding: 0 var(--page-gutter);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13297,11 +13476,61 @@ h3.aw-heading {
   );
 }
 
-.explore-songs__frame--top { margin-bottom: var(--space-xl); }
-.explore-songs__frame--bottom { margin-top: var(--space-xl); }
+.glyph-title-bar--top { margin-bottom: var(--space-xl); }
+.glyph-title-bar--bottom { margin-top: var(--space-xl); }
 
-.explore-songs__frame::before,
-.explore-songs__frame::after {
+/* Banner-style wrapper for title bars — adds a glowing horizontal band behind
+   the bar (same treatment as .page-music-hub__banner) without scaling the
+   title bar up. The wrapper opts into the parent shell's full track so the
+   glow bleeds to viewport edges; the inner title bar stays at site-width so
+   corner brackets land at the box edges as usual. */
+.si-banner-bar {
+  position: relative;
+  isolation: isolate;
+  grid-column: full;
+  margin-bottom: var(--space-xl);
+  padding-block: 0.65rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.si-banner-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0) 5%,
+    var(--text-accent) 50%,
+    rgba(64, 96, 255, 0) 95%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.5), 0 0 48px rgba(64, 96, 255, 0.2);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+.si-banner-bar > .glyph-title-bar {
+  width: 100%;
+  max-width: var(--site-width);
+  margin-bottom: 0;
+  margin-top: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* Solid halo around the heading + label backplates so they cut cleanly
+   through the glow band — same idea as .page-music-hub__banner. */
+.si-banner-bar .glyph-title-bar__heading,
+.si-banner-bar .glyph-title-bar__label {
+  box-shadow: 0 0 0 10px #000;
+}
+
+.glyph-title-bar::before,
+.glyph-title-bar::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -13311,21 +13540,21 @@ h3.aw-heading {
   pointer-events: none;
 }
 
-.explore-songs__frame::before {
+.glyph-title-bar::before {
   left: 0;
   border-left: 1px solid var(--text-accent);
   border-top: 1px solid var(--text-accent);
   border-bottom: 1px solid var(--text-accent);
 }
 
-.explore-songs__frame::after {
+.glyph-title-bar::after {
   right: 0;
   border-right: 1px solid var(--text-accent);
   border-top: 1px solid var(--text-accent);
   border-bottom: 1px solid var(--text-accent);
 }
 
-.explore-songs__frame-label {
+.glyph-title-bar__label {
   position: relative;
   padding: 0 var(--space-md);
   background: #000;
@@ -13342,7 +13571,7 @@ h3.aw-heading {
   text-align: center;
 }
 
-.explore-songs__heading {
+.glyph-title-bar__heading {
   font-family: var(--font-ui);
   font-size: 1.82rem;
   color: var(--text-primary);
@@ -13355,13 +13584,19 @@ h3.aw-heading {
 }
 
 @media (max-width: 768px) {
-  .explore-songs__frame {
+  .glyph-title-bar {
     flex-direction: column;
     height: auto;
     gap: var(--space-xs);
-    padding: var(--space-md) var(--page-gutter);
+    padding-block: var(--space-md);
   }
-  .explore-songs__heading {
+  /* Corner brackets only make visual sense when the bar is horizontal —
+     when stacked, they'd land mid-content. */
+  .glyph-title-bar::before,
+  .glyph-title-bar::after {
+    display: none;
+  }
+  .glyph-title-bar__heading {
     white-space: normal;
     text-align: center;
     padding: 0 var(--space-sm);
@@ -13639,8 +13874,7 @@ h3.aw-heading {
 
 .songs-explorer__inner {
   max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
+  margin-inline: auto;
 }
 
 .songs-explorer__header {
@@ -14251,8 +14485,8 @@ h3.aw-heading {
 .album-rc-classifications {
   display: none;
   max-width: var(--content-width);
-  margin: var(--space-xl) auto 0;
-  padding: 0 var(--page-gutter);
+  margin-inline: auto;
+  margin-top: var(--space-xl);
 }
 
 .album-rc-classifications__title {
@@ -16291,4 +16525,2197 @@ body.cart-open {
   font-family: var(--font-ui);
   font-size: 0.6875rem;
   color: var(--text-tertiary);
+}
+
+
+/* ============================================================
+   PROMPT (TO-WRITE PLACEHOLDER) BLOCK
+   ============================================================ */
+
+.prompt-block {
+  background: rgba(255, 176, 0, 0.06);
+  border: 1px dashed rgba(255, 176, 0, 0.4);
+  border-radius: 6px;
+  padding: var(--space-md) var(--space-lg);
+  margin: var(--space-md) 0;
+  font-family: var(--font-ui);
+  color: rgba(255, 207, 100, 0.95);
+}
+.prompt-block__label {
+  display: block;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 176, 0, 0.85);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.prompt-block__body {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(255, 220, 150, 0.85);
+}
+
+
+/* ============================================================
+   SUPER INDIVIDUAL LANDING PAGE
+   ============================================================ */
+
+.page-super-individual {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+
+/* --- Hero --- */
+.si-hero {
+  padding-top: clamp(5rem, 12vw, 10rem);
+  background: var(--bg-deep);
+}
+.si-hero__inner {
+  text-align: center;
+}
+.si-hero__eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: clamp(0.95rem, 1.4vw, 1.2rem);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-md);
+  /* Pull the eyebrow leftward by half a letter-spacing so the optical center
+     aligns with the headline below — uppercase + tracking pushes everything
+     visually right of true center otherwise. */
+  text-indent: 0.175em;
+}
+.si-hero__headline {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(4.8rem, 8vw, 7.5rem);
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  margin: 0 0 var(--space-md);
+  text-align: center;
+  background-image: url('/images/super-individual/popup-hero.webp');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.si-hero__sub {
+  display: none;
+}
+/* Glowing accent bar passes through the row, interrupted by the halo on
+   each link — same trick as .page-music-hub__banner on the Music page. */
+.si-hero__nav {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-md) var(--space-lg);
+  margin-top: var(--space-2xl);
+  padding: clamp(2rem, 4vw, 2.75rem) var(--space-lg);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+@media (max-width: 640px) {
+  .si-hero__nav {
+    gap: var(--space-sm);
+    padding-block: var(--space-lg);
+  }
+  .si-hero__nav-link {
+    padding: 0.15rem 0.5rem;
+  }
+}
+/* Tick-mark backplate, same density as .glyph-title-bar. */
+.si-hero__nav::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--border-subtle) 0,
+    var(--border-subtle) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 72%, transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 72%, transparent 100%);
+}
+.si-hero__nav-link {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-ui);
+  font-size: clamp(1.12rem, 2.08vw, 1.8rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6e8fff;
+  text-shadow: 0 0 18px rgba(64, 96, 255, 0.45);
+  text-decoration: none;
+  padding: 0.15rem 1rem;
+  transition: color var(--duration-base) var(--ease-out),
+              text-shadow var(--duration-base) var(--ease-out);
+}
+.si-hero__nav-link:hover {
+  color: #ffffff;
+  text-shadow: 0 0 22px rgba(110, 143, 255, 0.85), 0 0 40px rgba(64, 96, 255, 0.45);
+}
+.si-hero__nav-link:hover::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -4px;
+  height: 1px;
+  background: var(--text-accent);
+  box-shadow: 0 0 12px rgba(110, 143, 255, 0.8);
+}
+
+/* --- Generic SI section (What / Thesis) ---
+   Full-bleed by default; only the prose body gets a reading max-width
+   so the prompt block stays readable while the section itself participates
+   in the page's image-driven rhythm. */
+.si-section {
+  padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(2rem, 5vw, 4rem);
+  background: var(--bg-deep);
+}
+
+/* "What is a Super Individual?" — 2-col grid below the dictionary excerpt.
+   Left: stylized 4-step list. Right: closing prose. */
+.si-what__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2xl);
+  align-items: start;
+  margin-top: var(--space-xl);
+}
+@media (max-width: 880px) {
+  .si-what__grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-xl);
+  }
+}
+.si-what__steps-lead {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-md);
+}
+.si-what__steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: si-step;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.si-what__steps > li {
+  counter-increment: si-step;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  align-items: center;
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.si-what__note {
+  margin: var(--space-lg) 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.si-what__steps > li::before {
+  content: counter(si-step, decimal-leading-zero);
+  font-family: var(--font-ui);
+  font-size: clamp(1.6rem, 2.8vw, 2.3rem);
+  font-weight: 600;
+  color: var(--text-accent);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  align-self: center;
+}
+
+/* Three Doors intro — title-less, larger centered prose, shaded backdrop. */
+.si-section--doors-intro {
+  padding-block: 0;
+}
+.si-doors-intro__bg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0;
+}
+.si-doors-intro__prose {
+  text-align: center;
+}
+.si-doors-intro__prose p {
+  font-size: clamp(1.1rem, 2.64vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1.4;
+  /* Whole-text color shimmer — same keyframes the header logo uses on hover,
+     but always running and slower. Cycles primary → pink → cyan → gold →
+     primary so the prose feels alive. */
+  animation: logo-text-shimmer 6s linear infinite;
+}
+
+@media (max-width: 640px) {
+  /* Cap the fractal art height so it doesn't dwarf the paragraph below. */
+  .si-doors-intro__bg {
+    max-height: 60vh;
+    width: auto;
+    margin-inline: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .si-doors-intro__prose p {
+    animation: none;
+  }
+}
+
+/* Super Individual prose — typography in .si-prose p/h2/etc rules below.
+   Width is handled by the parent .si-section / .si-door shell. */
+.si-excerpt {
+  position: relative;
+  isolation: isolate;
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+  line-height: 1.4;
+  text-align: center;
+  background: var(--text-primary);
+  color: var(--bg-deep);
+  border-left: 3px solid var(--text-accent);
+  border-right: 3px solid var(--text-accent);
+  padding: clamp(var(--space-md), 3vw, var(--space-xl)) clamp(var(--space-md), 4vw, var(--space-2xl));
+  border-radius: 4px;
+  margin: var(--space-xl) auto;
+  overflow: hidden;
+}
+.si-excerpt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/images/super-individual/excerpt-bg.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: -1;
+}
+.si-excerpt__head,
+.si-excerpt__def {
+  display: block;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.si-excerpt__glyph-cell {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+.si-excerpt__glyph {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--text-accent);
+  pointer-events: none;
+  display: block;
+}
+.si-excerpt__glyph--right {
+  transform: scaleX(-1);
+}
+.si-excerpt em {
+  font-style: italic;
+}
+.si-excerpt__head {
+  display: block;
+  font-size: 1.4em;
+  font-family: var(--font-ui);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  margin-bottom: var(--space-sm);
+  color: var(--bg-deep);
+}
+.si-excerpt__head dfn {
+  display: inline-block;
+  background: var(--text-accent);
+  color: var(--text-primary);
+  padding: 0.1em 0.45em;
+  border-radius: 3px;
+  font-style: normal;
+}
+.si-excerpt__head dfn strong {
+  color: inherit;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.si-excerpt__head strong {
+  color: var(--text-accent);
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.si-excerpt__head em {
+  font-style: italic;
+  color: var(--bg-deep);
+  opacity: 0.6;
+}
+@media (max-width: 720px) {
+  .si-excerpt-wrap {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .si-excerpt__glyph-cell { display: none; }
+}
+.si-prose p { margin-bottom: 1.5em; }
+.si-prose h2 {
+  font-size: var(--text-xl);
+  margin-top: 1.25em;
+  margin-bottom: 0.75em;
+  color: var(--reading-text);
+}
+.si-prose h3 {
+  font-size: var(--text-lg);
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  color: var(--reading-text);
+}
+.si-prose blockquote {
+  border-left: 2px solid var(--reading-border);
+  padding-left: var(--space-lg);
+  color: var(--reading-text-secondary);
+  font-style: italic;
+  margin-block: 1.5em;
+}
+.si-prose ul,
+.si-prose ol {
+  padding-left: 1.25em;
+  margin-bottom: 1.5em;
+}
+.si-prose li { margin-bottom: 0.5em; }
+.si-prose strong {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+.si-prose a { color: var(--reading-accent); }
+.si-prose a:hover { color: var(--reading-text); }
+.si-prose hr {
+  border: none;
+  border-top: 1px solid var(--reading-border);
+  margin-block: 3em;
+}
+
+.si-door__lead {
+  font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+  line-height: 1.55;
+  text-align: center;
+  padding-block: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  border-top: 1px solid var(--border-medium);
+  border-bottom: 1px solid var(--border-medium);
+}
+.si-door__lead strong {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--text-accent);
+  font-weight: 600;
+}
+.si-door--music .si-excerpt::before {
+  background-image: url('/images/super-individual/know-to-let-go.webp');
+}
+.si-door--music .si-excerpt {
+  text-shadow:
+    0 0 8px rgba(228, 228, 236, 0.95),
+    0 0 18px rgba(228, 228, 236, 0.7),
+    0 0 36px rgba(228, 228, 236, 0.45);
+}
+/* --- Door section wrappers (full-bleed, image-driven) --- */
+.si-door {
+  padding: clamp(2rem, 5vw, 4rem) 0 clamp(4rem, 9vw, 7rem);
+  background: var(--bg-deep);
+}
+.si-door--merch { background: transparent; }
+.si-door--music { background: var(--bg-deep); }
+.si-door--rc { background: var(--bg-surface); }
+
+.si-door__intro {
+  margin-bottom: var(--space-xl);
+}
+
+/* Eyebrow above each door's frame heading — same treatment as the hero
+   eyebrow (wide-tracked uppercase, tertiary color), centered. */
+.si-door__eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: clamp(0.95rem, 1.4vw, 1.2rem);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin: 0 0 var(--space-md);
+  text-indent: 0.175em;
+}
+
+.si-merch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+  margin-top: var(--space-2xl);
+}
+.si-merch-grid .merch-shop__card-title {
+  display: block;
+  text-align: center;
+}
+@media (max-width: 720px) {
+  .si-merch-grid { grid-template-columns: 1fr; }
+}
+
+.si-album-hero {
+  margin-bottom: var(--space-3xl);
+}
+
+.si-door__rc-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .si-door__rc-grid { grid-template-columns: 1fr; }
+}
+
+/* 3-column variant: compass | top 10 | charger. Equal column heights via
+   align-items: stretch (default for grid items); each card uses flex
+   internally so its body can scroll while the card frame stays put. */
+.si-door__rc-grid--3up {
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: stretch;
+}
+@media (max-width: 1100px) {
+  .si-door__rc-grid--3up { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 720px) {
+  .si-door__rc-grid--3up { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Rising Compass card chrome (ported from rising-compass/css/main.css)
+   ============================================================ */
+.rc-card {
+  background: #12121e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 1.5rem;
+  color: #eeeef4;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* allow inner overflow to scroll */
+}
+.rc-card__header {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #eeeef4;
+  margin: 0 0 0.4rem;
+}
+.rc-card__desc {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: #808094;
+  line-height: 1.45;
+  margin: 0 0 0.9rem;
+}
+.rc-card__placeholder {
+  color: #808094;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+  margin: 0;
+}
+.rc-card__error {
+  color: #ff8866;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  margin: 0.5rem 0 0;
+}
+.rc-card__error a {
+  color: #00d4aa;
+  text-decoration: underline;
+}
+
+/* === Compass colour tokens + SVG gauge (verbatim from RC) === */
+.rc-card--compass {
+  --rc-violet: #aa54ff;
+  --rc-blue: #3388ff;
+  --rc-green: #33cc55;
+  --rc-orange: #ffbb33;
+  --rc-red: #ff3333;
+  --rc-bg-dark: #0a0a14;
+  --rc-text: #c8c8d8;
+  --rc-text-bright: #eeeef4;
+  --rc-text-dim: #808094;
+  --rc-divider: rgba(255, 255, 255, 0.04);
+  --rc-border: #2a2a3e;
+  --rc-white: #fff;
+  --rc-font: var(--font-ui);
+  --rc-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --rc-shadow-needle: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+}
+.rc-card__compass-host {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 0.25rem;
+  flex: 1;
+}
+.compass-svg {
+  width: 100%;
+  max-width: 360px;
+  max-height: 100%;
+  overflow: visible;
+}
+.compass-arc {
+  fill: none;
+  stroke-width: 18;
+  stroke-linecap: butt;
+  opacity: 1;
+}
+.compass-arc.violet { stroke: var(--rc-violet); }
+.compass-arc.blue { stroke: var(--rc-blue); }
+.compass-arc.green { stroke: var(--rc-green); }
+.compass-arc.orange { stroke: var(--rc-orange); }
+.compass-arc.red { stroke: var(--rc-red); }
+.compass-tick {
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 1;
+}
+.compass-tick-major {
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 1.5;
+}
+.compass-needle {
+  transition: transform 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: 180px 170px;
+}
+.needle-line {
+  fill: var(--rc-white);
+  filter: var(--rc-shadow-needle);
+}
+.needle-cap {
+  fill: var(--rc-bg-dark);
+  stroke: var(--rc-white);
+  stroke-width: 2;
+}
+.compass-score-bg {
+  fill: var(--rc-bg-dark);
+  stroke: var(--rc-border);
+  stroke-width: 1;
+}
+.compass-label-bg {
+  fill: var(--rc-divider);
+  stroke: var(--rc-border);
+  stroke-width: 0.5;
+}
+.compass-score-text {
+  font-family: var(--rc-font-mono);
+  font-size: 1.6rem;
+  fill: var(--rc-text-bright);
+  text-anchor: middle;
+  font-weight: 700;
+}
+.compass-label-text {
+  font-family: var(--rc-font-mono);
+  font-size: 1.2rem;
+  fill: var(--rc-text-bright);
+  text-anchor: middle;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.compass-tier-label {
+  font-family: var(--rc-font);
+  font-size: 0.6rem;
+  fill: var(--rc-text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.compass-date-text {
+  font-family: var(--rc-font-mono);
+  font-size: 0.78rem;
+  fill: var(--rc-text);
+  text-anchor: middle;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+/* === Daily Top 10 song list === */
+.rc-song-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  max-height: 100%;
+  flex: 1;
+}
+.rc-song-list__item {
+  display: grid;
+  grid-template-columns: 22px 12px 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 0.85rem;
+}
+.rc-song-list__item:last-child { border-bottom: none; }
+.rc-song-list__pos {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  color: #808094;
+  font-size: 0.72rem;
+  text-align: right;
+}
+.rc-song-list__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background: #444;
+}
+.rc-song-list__dot.violet { background: #aa54ff; box-shadow: 0 0 6px #aa54ff; }
+.rc-song-list__dot.blue { background: #3388ff; }
+.rc-song-list__dot.green { background: #33cc55; }
+.rc-song-list__dot.orange { background: #ffbb33; }
+.rc-song-list__dot.red { background: #ff3333; box-shadow: 0 0 6px #ff3333; }
+.rc-song-list__info {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85rem;
+}
+.rc-song-list__title {
+  color: #eeeef4;
+  font-weight: 600;
+}
+.rc-song-list__title-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--duration-base) var(--ease-out);
+}
+.rc-song-list__title-link:hover { border-color: #00d4aa; }
+.rc-song-list__sep {
+  color: #808094;
+  margin: 0 0.15em;
+}
+.rc-song-list__artist {
+  color: #808094;
+}
+.rc-song-list__score {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.72rem;
+  color: #808094;
+}
+.rc-song-list__score.violet { color: #aa54ff; }
+.rc-song-list__score.blue { color: #3388ff; }
+.rc-song-list__score.green { color: #33cc55; }
+.rc-song-list__score.orange { color: #ffbb33; }
+.rc-song-list__score.red { color: #ff3333; }
+
+/* === Charger card overflow behavior === */
+.rc-card--charger { min-height: 0; }
+.rc-card--charger .mini-charger {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.rc-card--charger .mini-charger__textarea {
+  /* Cap height + scroll internally if pasted lyrics blow past the column. */
+  max-height: 280px;
+  overflow-y: auto;
+}
+/* Wrap heading + sub + form in one visual RC-style card. Mini-charger
+   inside drops its own card chrome and inherits this one. */
+.si-door__rc-charger {
+  background: #12121e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+.si-door__rc-charger-heading {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 0.4rem;
+  color: #eeeef4;
+}
+.si-door__rc-charger-sub {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: #808094;
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+/* Mini-charger inside the rc-charger wrapper sheds its own card chrome
+   so the heading + form read as one card. */
+.si-door__rc-charger .mini-charger {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.si-door__empty {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-xl);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.si-door__cta {
+  display: inline-block;
+  padding: 12px 22px;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: all var(--duration-base) var(--ease-out);
+}
+.si-door__cta:hover {
+  background: var(--text-primary);
+  color: var(--bg-deep);
+  border-color: var(--text-primary);
+}
+.si-door__cta--primary {
+  background: #6e8fff;
+  border-color: #6e8fff;
+  color: #0a0a14;
+  box-shadow: 0 0 18px rgba(110, 143, 255, 0.45);
+}
+.si-door__cta--primary:hover {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #0a0a14;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.35), 0 0 36px rgba(110, 143, 255, 0.5);
+}
+.si-door__footer {
+  margin-top: var(--space-xl);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+/* Sub-frame heading (smaller than section frames) */
+.si-frame--sub .glyph-title-bar__heading {
+  font-size: clamp(1.25rem, 2.5vw, 1.75rem) !important;
+}
+.si-frame--sub {
+  margin-top: var(--space-2xl);
+}
+
+/* Discography 4-up grid — variant of .discography-grid that defaults to 4 cols */
+.si-discography {
+  display: grid;
+  gap: var(--space-lg);
+}
+.si-discography--four-up {
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 1100px) {
+  .si-discography--four-up { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 820px) {
+  .si-discography--four-up { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 540px) {
+  .si-discography--four-up { grid-template-columns: 1fr; }
+}
+
+.si-discography--three-up {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 820px) {
+  .si-discography--three-up { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 540px) {
+  .si-discography--three-up { grid-template-columns: 1fr; }
+}
+.si-discography__card {
+  /* Inherits .discography-grid__card spacing for matching info row look */
+}
+
+
+/* --- SI Merch Carousel --- */
+.si-merch-carousel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+.si-merch-carousel__stage {
+  --si-tab-w: 60px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  margin-inline: auto;
+}
+.si-merch-carousel__viewport {
+  position: relative;
+  flex: 0 1 742px;
+  max-width: 742px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.si-merch-carousel__slide {
+  position: absolute;
+  inset: 0;
+  transition: transform 1000ms var(--ease-out),
+              opacity 1000ms var(--ease-out);
+}
+.si-merch-carousel__slide--current { z-index: 2; opacity: 1; }
+.si-merch-carousel__slide--prev,
+.si-merch-carousel__slide--next { z-index: 1; opacity: 0.4; }
+.si-merch-carousel__image-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.si-merch-carousel__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.si-merch-carousel__image--empty {
+  background: linear-gradient(135deg, var(--bg-elevated), var(--bg-surface));
+}
+/* Sovereign side-tab paddles — same treatment as .album-hero__nav-tab.
+   Lives outside the viewport as a flex sibling so paddles don't overlap
+   the product image. */
+.si-merch-carousel__nav {
+  flex: 0 0 var(--si-tab-w);
+  align-self: stretch;
+  transform: scaleY(0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 15%,
+    rgba(64, 96, 255, 0.32) 50%,
+    rgba(64, 96, 255, 0.0) 85%,
+    transparent 100%
+  );
+  box-shadow: 0 0 16px rgba(64, 96, 255, 0.22), 0 0 32px rgba(64, 96, 255, 0.08);
+  border: none;
+  color: var(--text-primary);
+  font-size: 36px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out);
+}
+/* Hover styles only on devices with real hover — iOS makes :hover sticky
+   on tap, which leaves the paddle "lit" until you tap somewhere else. */
+@media (hover: hover) {
+  .si-merch-carousel__nav:hover,
+  .si-merch-carousel__nav:focus-visible {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(64, 96, 255, 0.0) 10%,
+      rgba(64, 96, 255, 0.55) 50%,
+      rgba(64, 96, 255, 0.0) 90%,
+      transparent 100%
+    );
+    box-shadow: 0 0 24px rgba(64, 96, 255, 0.4), 0 0 48px rgba(64, 96, 255, 0.18);
+    color: var(--text-accent);
+  }
+}
+.si-merch-carousel__nav:focus-visible {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 10%,
+    rgba(64, 96, 255, 0.55) 50%,
+    rgba(64, 96, 255, 0.0) 90%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.4), 0 0 48px rgba(64, 96, 255, 0.18);
+  color: var(--text-accent);
+}
+.si-merch-carousel__nav:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: -4px;
+}
+.si-merch-carousel__nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  /* Mobile: paddles overlay the image (don't reserve flex columns) so the
+     product image expands to nearly full content-track width. */
+  .si-merch-carousel__stage {
+    --si-tab-w: 56px;
+    position: relative;
+    display: block;
+    gap: 0;
+  }
+  .si-merch-carousel__viewport {
+    flex: none;
+    max-width: 100%;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+  .si-merch-carousel__nav {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--si-tab-w);
+    flex: none;
+    align-self: auto;
+    transform: none;
+    font-size: 32px;
+    z-index: 4;
+    /* Background dims toward the edge so paddles read as overlay accents
+       without obscuring the product image. */
+    background: linear-gradient(
+      to right,
+      rgba(15, 15, 25, 0.6) 0%,
+      rgba(15, 15, 25, 0.1) 100%
+    );
+    box-shadow: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(110, 143, 255, 0.25);
+    cursor: pointer;
+  }
+  .si-merch-carousel__nav--prev { left: 0; }
+  .si-merch-carousel__nav--next {
+    right: 0;
+    background: linear-gradient(
+      to left,
+      rgba(15, 15, 25, 0.6) 0%,
+      rgba(15, 15, 25, 0.1) 100%
+    );
+  }
+}
+.si-merch-carousel__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding-top: var(--space-md);
+}
+.si-merch-carousel__title {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(1.4rem, 2.5vw, 1.85rem);
+  line-height: 1.2;
+  margin: 0;
+}
+.si-merch-carousel__title-link {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.si-merch-carousel__title-link:hover { text-decoration: underline; }
+.si-merch-carousel__price {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+.si-merch-carousel__cta {
+  margin-top: 8px;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--text-tertiary);
+  padding-bottom: 2px;
+  transition: border-color var(--duration-base) var(--ease-out);
+}
+.si-merch-carousel__cta:hover { border-color: var(--text-primary); }
+.si-merch-carousel__indicator {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.si-merch-carousel__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-medium);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-out);
+}
+.si-merch-carousel__dot--active { background: var(--text-primary); }
+.si-merch-carousel__counter {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+/* ============================================================
+   Event detail pages (e.g. /irl/super-individual-pop-up)
+   ============================================================ */
+
+.event-page {
+  padding-bottom: clamp(4rem, 8vw, 6rem);
+}
+
+.event-page__breadcrumb {
+  padding-top: var(--space-md);
+}
+
+.event-page__breadcrumb-link {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: color var(--duration-base) var(--ease-out);
+}
+.event-page__breadcrumb-link:hover {
+  color: var(--text-primary);
+}
+
+
+/* ============================================================
+   IRL Events page (/irl)
+   ============================================================ */
+
+.irl-page {
+  padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(4rem, 9vw, 6rem);
+  background: var(--bg-deep);
+}
+.irl-page__header {
+  /* No max-width / padding here — the frame and intro self-bound to
+     --site-width. Nesting another constraint stacked the gutters and
+     made the frame visibly narrower than .irl-events below it. */
+  margin: 0 auto var(--space-xl);
+}
+.irl-page__intro {
+  margin-top: var(--space-md);
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 1.3vw, 1.15rem);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.irl-events {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.irl-event-card {
+  display: block;
+  position: relative;
+  padding: clamp(1.5rem, 3vw, 2.25rem);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
+}
+.irl-event-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  pointer-events: none;
+  background: radial-gradient(120% 80% at 50% -10%, rgba(255, 149, 0, 0.05), transparent 60%);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.irl-event-card:hover {
+  border-color: var(--text-accent, var(--text-primary));
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.irl-event-card:hover::before {
+  opacity: 1;
+}
+
+.irl-event-card__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-md);
+}
+.irl-event-card__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff9500;
+  box-shadow: 0 0 8px rgba(255, 149, 0, 0.6);
+  animation: irl-status-pulse 2.5s ease-in-out infinite;
+}
+@keyframes irl-status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .irl-event-card__status-dot { animation: none; }
+}
+
+.irl-event-card__title {
+  font-family: var(--font-heading, var(--font-body));
+  font-size: clamp(1.5rem, 3.2vw, 2.1rem);
+  line-height: 1.15;
+  margin: 0 0 var(--space-sm);
+  color: var(--text-primary);
+}
+
+.irl-event-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+}
+.irl-event-card__sep {
+  color: var(--text-tertiary);
+}
+
+.irl-event-card__desc {
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-body);
+  font-size: clamp(0.95rem, 1.2vw, 1.05rem);
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.irl-event-card__cta {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-accent, var(--text-primary));
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+
+
+/* --- SI Floating "come see me" tag ---
+   Appears after 10s of inactivity (see SuperIndividualFloatingTag.tsx).
+   Hidden by default; --visible triggers fade-up + gentle bob. */
+.si-floating-tag {
+  position: fixed;
+  bottom: clamp(1rem, 3vw, 2rem);
+  left: 50%;
+  z-index: 100;
+  padding: clamp(0.55rem, 2vw, 0.75rem) clamp(0.9rem, 4vw, 1.5rem);
+  background: var(--text-primary);
+  color: var(--bg-deep);
+  font-family: var(--font-ui);
+  font-size: clamp(0.72rem, 2.6vw, 0.85rem);
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  border-radius: 999px;
+  /* Blue glow halo, layered: soft inner ring + wider diffused ring. The
+     pill itself stays light; the glow gives it lift off the page. */
+  box-shadow:
+    0 0 18px rgba(110, 143, 255, 0.55),
+    0 0 36px rgba(64, 96, 255, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+  transition: opacity 600ms var(--ease-out),
+              transform 600ms var(--ease-out),
+              bottom 350ms var(--ease-out);
+}
+/* Lift above the sticky player when a song is loaded (StickyPlayer sits at
+   bottom:0, ~60px tall + safe-area). */
+.si-floating-tag--lifted {
+  bottom: calc(clamp(1rem, 3vw, 2rem) + 72px);
+}
+.si-floating-tag--visible {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  animation: si-floating-tag-bob 3.5s ease-in-out 700ms infinite;
+}
+.si-floating-tag:hover {
+  /* Subtle blue tint on hover — pill shifts toward the accent without
+     flipping to dark. Reads as "warmed up", not inverted. */
+  background: color-mix(in srgb, var(--text-primary) 78%, #6e8fff);
+  color: var(--bg-deep);
+  box-shadow:
+    0 0 22px rgba(110, 143, 255, 0.85),
+    0 0 48px rgba(64, 96, 255, 0.55),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+}
+@keyframes si-floating-tag-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .si-floating-tag--visible { animation: none; }
+}
+
+
+/* --- SI Music Coverflow --- */
+.si-coverflow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+.si-coverflow__stage {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.si-coverflow__track {
+  position: relative;
+  width: 100%;
+  height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+}
+.si-coverflow__item {
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  transition: all var(--duration-slow) var(--ease-out);
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+  display: block;
+}
+.si-coverflow__item--current {
+  z-index: 5;
+  width: 320px;
+  height: 320px;
+  transform: translateX(0) scale(1);
+  opacity: 1;
+}
+.si-coverflow__item--prev-1 {
+  z-index: 4;
+  transform: translateX(-260px) scale(0.85) rotateY(28deg);
+  opacity: 0.7;
+}
+.si-coverflow__item--next-1 {
+  z-index: 4;
+  transform: translateX(260px) scale(0.85) rotateY(-28deg);
+  opacity: 0.7;
+}
+.si-coverflow__item--prev-2 {
+  z-index: 3;
+  transform: translateX(-440px) scale(0.7) rotateY(40deg);
+  opacity: 0.4;
+}
+.si-coverflow__item--next-2 {
+  z-index: 3;
+  transform: translateX(440px) scale(0.7) rotateY(-40deg);
+  opacity: 0.4;
+}
+.si-coverflow__item--prev-3 {
+  z-index: 2;
+  transform: translateX(-580px) scale(0.55) rotateY(48deg);
+  opacity: 0.18;
+}
+.si-coverflow__item--next-3 {
+  z-index: 2;
+  transform: translateX(580px) scale(0.55) rotateY(-48deg);
+  opacity: 0.18;
+}
+.si-coverflow__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.si-coverflow__cover--empty {
+  background: linear-gradient(135deg, var(--bg-elevated), var(--bg-surface));
+}
+.si-coverflow__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--duration-base) var(--ease-out);
+}
+.si-coverflow__nav:hover:not(:disabled) { background: rgba(0, 0, 0, 0.85); }
+.si-coverflow__nav:disabled { opacity: 0.3; cursor: default; }
+.si-coverflow__nav--prev { left: var(--space-md); }
+.si-coverflow__nav--next { right: var(--space-md); }
+.si-coverflow__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding-top: var(--space-md);
+}
+.si-coverflow__format {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-tertiary);
+}
+.si-coverflow__title {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+  line-height: 1.15;
+  margin: 0;
+}
+.si-coverflow__title-link {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.si-coverflow__title-link:hover { text-decoration: underline; }
+.si-coverflow__year {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.si-coverflow__counter {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+@media (max-width: 720px) {
+  .si-coverflow__track { height: 280px; }
+  .si-coverflow__item { width: 180px; height: 180px; }
+  .si-coverflow__item--current { width: 240px; height: 240px; }
+  .si-coverflow__item--prev-1 { transform: translateX(-180px) scale(0.8) rotateY(24deg); }
+  .si-coverflow__item--next-1 { transform: translateX(180px) scale(0.8) rotateY(-24deg); }
+  .si-coverflow__item--prev-2 { transform: translateX(-300px) scale(0.65) rotateY(36deg); opacity: 0.3; }
+  .si-coverflow__item--next-2 { transform: translateX(300px) scale(0.65) rotateY(-36deg); opacity: 0.3; }
+  .si-coverflow__item--prev-3,
+  .si-coverflow__item--next-3 { display: none; }
+}
+
+
+/* --- RC Now Playing Tile --- */
+/* Door 3 module styling. Ports the Rising Compass homepage's `.card` look:
+   panel #12121e bg + #2a2a3e border + 8px radius + 1.5rem padding, with
+   uppercase tracked "card-header" labels and the teal #00d4aa accent. */
+.rc-now-tile {
+  background: #12121e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  color: #eeeef4;
+}
+.rc-now-tile__label {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #eeeef4;
+  margin-bottom: 0.2rem;
+}
+.rc-now-tile__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.rc-now-tile__charge {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+.rc-now-tile__charge-level {
+  font-family: var(--font-body);
+  font-size: clamp(2rem, 4vw, 3rem);
+  text-transform: capitalize;
+  color: #eeeef4;
+  line-height: 1;
+  font-weight: 400;
+}
+.rc-now-tile__score {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 1rem;
+  color: #808094;
+  letter-spacing: 0.04em;
+}
+.rc-now-tile__top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rc-now-tile__top-label {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #808094;
+}
+.rc-now-tile__top-song {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  color: #eeeef4;
+  flex-wrap: wrap;
+}
+.rc-now-tile__rubric-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 6px currentColor;
+}
+.rc-now-tile__top-title { font-weight: 600; color: #eeeef4; }
+.rc-now-tile__top-artist { color: #808094; }
+.rc-now-tile__summary {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #b8b8c8;
+  margin: 0;
+}
+.rc-now-tile__cta {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: #00d4aa;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(0, 212, 170, 0.4);
+  padding-bottom: 2px;
+  align-self: flex-start;
+  transition: color var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out);
+}
+.rc-now-tile__cta:hover { color: #2effc4; border-color: #2effc4; }
+.rc-now-tile__placeholder {
+  color: #808094;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+}
+.rc-now-tile__fallback-link {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: #00d4aa;
+  text-decoration: underline;
+}
+
+
+/* --- Mini Lyrical Charger --- */
+.mini-charger {
+  background: #12121e;
+  border: 1px solid #2a2a3e;
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  color: #eeeef4;
+}
+.mini-charger__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+@media (max-width: 540px) {
+  .mini-charger__row { grid-template-columns: 1fr; }
+}
+.mini-charger__input,
+.mini-charger__textarea {
+  width: 100%;
+  background: #0d0d18;
+  border: 1px solid #2a2a3e;
+  border-radius: 4px;
+  padding: 11px 14px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  color: #eeeef4;
+  transition: border-color var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
+}
+.mini-charger__textarea {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.55;
+}
+.mini-charger__input::placeholder,
+.mini-charger__textarea::placeholder {
+  color: #808094;
+}
+.mini-charger__input:focus,
+.mini-charger__textarea:focus {
+  outline: none;
+  border-color: #00d4aa;
+  box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.12);
+}
+.mini-charger__error {
+  color: #ff8866;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  margin: 0;
+}
+.mini-charger__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+/* Stacked variant: full-width button + centered link beneath it. */
+.mini-charger__actions--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+.mini-charger__actions--stacked .mini-charger__btn-link {
+  text-align: center;
+  align-self: center;
+}
+.mini-charger__btn-primary--full {
+  width: 100%;
+  text-align: center;
+}
+.mini-charger__btn-primary {
+  background: #6e8fff;
+  color: #0a0a14;
+  border: 1px solid #6e8fff;
+  border-radius: 4px;
+  padding: 11px 22px;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  box-shadow: 0 0 18px rgba(110, 143, 255, 0.45);
+  transition: background var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out);
+}
+.mini-charger__btn-primary:hover {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #0a0a14;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.35), 0 0 36px rgba(110, 143, 255, 0.5);
+}
+.mini-charger__btn-primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+.mini-charger__btn-secondary {
+  background: transparent;
+  color: #eeeef4;
+  border: 1px solid #2a2a3e;
+  border-radius: 4px;
+  padding: 11px 22px;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out);
+}
+.mini-charger__btn-secondary:hover {
+  border-color: #00d4aa;
+  color: #00d4aa;
+}
+.mini-charger__btn-link {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  color: #00d4aa;
+  text-decoration: underline;
+  letter-spacing: 0.03em;
+  transition: color var(--duration-base) var(--ease-out);
+}
+.mini-charger__btn-link:hover { color: #2effc4; }
+.mini-charger--result,
+.mini-charger--blocked {
+  gap: var(--space-md);
+}
+.mini-charger__result-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+.mini-charger__tier-pill {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.mini-charger__charge {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+.mini-charger__result-song {
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  color: var(--text-primary);
+}
+.mini-charger__summary {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.mini-charger__contam {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: #ff9966;
+  margin: 0;
+}
+.mini-charger__blocked-msg {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.mini-charger__result-actions {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+
+/* --- Pop-Up section --- */
+.si-popup {
+  padding: clamp(5rem, 10vw, 8rem) 0 clamp(4rem, 9vw, 7rem);
+  background: var(--bg-deep);
+}
+.si-popup__inner {
+  /* width handled by .si-popup shell content track */
+}
+.si-popup__media {
+  background: var(--bg-elevated);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.si-popup__eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: clamp(0.95rem, 1.4vw, 1.2rem);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin: 0 0 var(--space-md);
+  text-indent: 0.175em;
+}
+.si-popup__media-img {
+  display: block;
+  width: 100%;
+  height: clamp(320px, 38vw, 520px);
+  object-fit: cover;
+  object-position: center;
+}
+
+.si-popup__meta-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-2xl);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-xl);
+}
+@media (max-width: 880px) {
+  .si-popup__meta-row { grid-template-columns: 1fr; gap: var(--space-xl); }
+}
+.si-popup__info-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-xs);
+  background: color-mix(in oklab, var(--bg-elevated), white 6%);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: var(--space-lg) var(--space-md);
+}
+.si-popup__info-label {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--text-tertiary);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-xs);
+}
+.si-popup__info-value {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.si-popup__info-value--display {
+  font-family: var(--font-display, var(--font-body));
+  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+}
+.si-popup__address {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.si-popup__hours {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.si-popup__hours li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+.si-popup__hours-day {
+  font-weight: 500;
+}
+.si-popup__hours-time {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.si-popup__cta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+.si-popup__cta-grid > .si-popup__cta:nth-child(-n+2) {
+  border-color: var(--text-accent);
+}
+@media (max-width: 880px) {
+  .si-popup__cta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 540px) {
+  .si-popup__cta-grid { grid-template-columns: 1fr; }
+}
+.si-popup__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  padding: 18px 22px;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  text-align: center;
+  text-decoration: none;
+  transition: all var(--duration-base) var(--ease-out);
+}
+.si-popup__cta:hover {
+  background: var(--text-primary);
+  color: var(--bg-deep);
+  border-color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.si-popup__cta--primary {
+  background: var(--text-accent);
+  color: var(--bg-deep);
+  border-color: var(--text-accent);
+}
+.si-popup__cta--primary:hover {
+  background: var(--text-primary);
+  color: var(--bg-deep);
+  border-color: var(--text-primary);
+}
+
+/* Split CTA — "Add to calendar" slot that reveals Google / Apple /
+   Outlook sub-buttons in place. Desktop reveals on hover; mobile
+   reveals on tap (data-open via React state). */
+.si-popup__cta--split {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+}
+.si-popup__cta--split:hover,
+.si-popup__cta--split:focus-within {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+  transform: none;
+}
+.si-popup__cta--split.si-popup__cta--primary:hover,
+.si-popup__cta--split.si-popup__cta--primary:focus-within {
+  background: var(--text-accent);
+  color: var(--bg-deep);
+  border-color: var(--text-accent);
+}
+.si-popup__cta-split-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 64px;
+  padding: 18px 22px;
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+.si-popup__cta-split-options {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-slow) var(--ease-out),
+              visibility 0s linear var(--duration-slow);
+}
+.si-popup__cta-split-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: inherit;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+  text-decoration: none;
+  background: color-mix(in oklab, var(--bg-elevated), white 8%);
+  border: none;
+  border-right: 1px solid var(--border-subtle);
+  transition: background var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out);
+}
+.si-popup__cta-split-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+.si-popup__cta-split-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.si-popup__cta-split-icon--google svg {
+  width: 90%;
+  height: 90%;
+}
+.si-popup__cta-split-option:last-child {
+  border-right: none;
+}
+.si-popup__cta-split-option:hover {
+  background: var(--text-primary);
+  color: var(--bg-deep);
+}
+.si-popup__cta--split.si-popup__cta--primary .si-popup__cta-split-option:hover {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+@media (hover: hover) {
+  .si-popup__cta--split:hover .si-popup__cta-split-label,
+  .si-popup__cta--split:focus-within .si-popup__cta-split-label {
+    opacity: 0;
+  }
+  .si-popup__cta--split:hover .si-popup__cta-split-options,
+  .si-popup__cta--split:focus-within .si-popup__cta-split-options {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+}
+.si-popup__cta--split[data-open] .si-popup__cta-split-label {
+  opacity: 0;
+}
+.si-popup__cta--split[data-open] .si-popup__cta-split-options {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.si-popup__concept {
+  margin-top: var(--space-2xl);
+}
+
+/* --- Who Is Chad Lewine — about-the-author closer on /super-individual --- */
+.si-who {
+  background: var(--bg-deep);
+  padding-top: 0;
+  padding-bottom: clamp(4rem, 9vw, 7rem);
+}
+.si-who__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-2xl);
+  align-items: center;
+}
+@media (max-width: 880px) {
+  .si-who__grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-xl);
+  }
+}
+.si-who__image {
+  border-radius: 6px;
+}
+.si-who__image > * {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.si-who__copy {
+  line-height: 1.6;
+}
+.si-who__cta {
+  margin-top: var(--space-md);
+}
+
+/* --- Pop-Up Schedule --- */
+.si-schedule {
+  margin-top: clamp(2.5rem, 6vw, 4.5rem);
+}
+.si-schedule__inner {
+  /* width handled by .si-schedule shell content track */
+}
+.si-schedule__lede,
+.si-schedule__note {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.si-schedule__lede {
+  margin-bottom: var(--space-xl);
+}
+.si-schedule__lede:has(+ .si-schedule__lede) {
+  margin-bottom: var(--space-xs);
+}
+.si-schedule__note {
+  margin-top: var(--space-xl);
+  font-style: italic;
+}
+.si-schedule__note span {
+  display: block;
+}
+.si-schedule__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-lg);
+}
+@media (max-width: 880px) {
+  .si-schedule__grid { grid-template-columns: 1fr; }
+}
+.si-schedule__day {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.si-schedule__day-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.si-schedule__day-name {
+  font-family: var(--font-body);
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+.si-schedule__day-date {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.si-schedule__day-hours {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
+.si-schedule__slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.si-schedule__slot {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px dashed var(--border-subtle);
+}
+.si-schedule__slot:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.si-schedule__time {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  padding-top: 4px;
+  letter-spacing: 0.02em;
+}
+.si-schedule__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.si-schedule__pill {
+  align-self: flex-start;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border-subtle);
+}
+.si-schedule__pill--painting {
+  background: rgba(255, 176, 0, 0.18);
+  border-color: rgba(255, 176, 0, 0.45);
+  color: #ffcc66;
+}
+.si-schedule__pill--talk {
+  background: rgba(91, 156, 255, 0.18);
+  border-color: rgba(91, 156, 255, 0.45);
+  color: #a4c8ff;
+}
+.si-schedule__pill--discourse {
+  background: rgba(80, 200, 120, 0.18);
+  border-color: rgba(80, 200, 120, 0.45);
+  color: #8be0a4;
+}
+.si-schedule__pill--live-set {
+  background: rgba(255, 86, 110, 0.18);
+  border-color: rgba(255, 86, 110, 0.45);
+  color: #ff9aae;
+}
+.si-schedule__desc {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
 }

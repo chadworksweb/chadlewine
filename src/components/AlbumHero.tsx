@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
+import { MiniPlayer } from "./MiniPlayer";
 
 export interface AlbumHeroItem {
   slug: string;
@@ -11,10 +12,18 @@ export interface AlbumHeroItem {
   artAlt: string;
   href: string;
   ctaLabel?: string;
+  /** Release kind. Drives the badge above the title. Defaults to "album". */
+  kind?: "album" | "single" | "ep";
   /** Focal point on the 1:1 cover (0-1). Defaults to centered. */
   focalX?: number;
   focalY?: number;
   zoom?: number;
+  /** When present, renders a MiniPlayer above the CTA. */
+  audio?: {
+    songId: string;
+    streamingUrl: string;
+    durationSeconds: number;
+  } | null;
 }
 
 interface Props {
@@ -131,7 +140,7 @@ export function AlbumHero({ items }: Props) {
                 </Link>
 
                 <div className="album-hero__meta">
-                  <span className="hero-lens__kind hero-lens__kind--album album-hero__badge">album</span>
+                  <span className={`hero-lens__kind hero-lens__kind--${item.kind ?? "album"} album-hero__badge`}>{item.kind ?? "album"}</span>
                   <h2 className="album-hero__title">
                     <Link
                       href={item.href}
@@ -142,6 +151,21 @@ export function AlbumHero({ items }: Props) {
                     </Link>
                   </h2>
                   {year && <span className="album-hero__year">{year}</span>}
+                  {item.audio && role === "current" && (
+                    <div className="album-hero__mini-player">
+                      <MiniPlayer
+                        songId={item.audio.songId}
+                        songSlug={item.slug}
+                        streamingUrl={item.audio.streamingUrl}
+                        trackNumber={1}
+                        trackTitle={item.title}
+                        durationSeconds={item.audio.durationSeconds}
+                        artImagePath={item.artImagePath}
+                        artAlt={item.artAlt}
+                        playbackMode="preview"
+                      />
+                    </div>
+                  )}
                   <Link
                     href={item.href}
                     className="album-hero__cta"

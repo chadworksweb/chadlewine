@@ -42,7 +42,10 @@ export async function mergeMetadata(
   const og: Record<string, unknown> = { ...existingOg };
 
   if (title) {
-    merged.title = title;
+    // Absolute form tells Next.js to use this title verbatim and skip
+    // the root layout's title template. Admin-set overrides are
+    // authoritative — they shouldn't get " — Chad Lewine" appended.
+    merged.title = { absolute: title };
     og.title = title;
   }
   if (description) {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { detectAudioDuration } from "@/components/SongEditor";
 
 interface Song {
   id: string;
@@ -26,6 +27,37 @@ export default function AdminSongsPage() {
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [bulkRun, setBulkRun] = useState<null | { idx: number; total: number; current: string; failures: { title: string; reason: string }[] }>(null);
+
+  async function runBulkDurations() {
+    const targets = songs.filter((s) => s.streaming_path && !s.duration_seconds);
+    if (targets.length === 0) {
+      alert("No songs missing duration.");
+      return;
+    }
+    if (!confirm(`Detect duration for ${targets.length} song(s)?`)) return;
+
+    const failures: { title: string; reason: string }[] = [];
+    for (let i = 0; i < targets.length; i++) {
+      const s = targets[i];
+      setBulkRun({ idx: i + 1, total: targets.length, current: s.title, failures: [...failures] });
+      try {
+        const duration = await detectAudioDuration(s.streaming_path as string);
+        const res = await fetch(`/api/admin/songs/${s.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ duration_seconds: duration }),
+        });
+        if (!res.ok) throw new Error(`save failed (${res.status})`);
+        setSongs((prev) => prev.map((p) => (p.id === s.id ? { ...p, duration_seconds: duration } : p)));
+      } catch (err) {
+        failures.push({ title: s.title, reason: err instanceof Error ? err.message : "unknown" });
+      }
+    }
+    setBulkRun({ idx: targets.length, total: targets.length, current: "done", failures });
+  }
+
+  const missingDurationCount = songs.filter((s) => s.streaming_path && !s.duration_seconds).length;
 
   useEffect(() => {
     fetch("/api/admin/songs")
@@ -87,6 +119,16 @@ export default function AdminSongsPage() {
       <div className="admin-page__header">
         <h1 className="admin-page__title">Songs</h1>
         <div style={{ display: "flex", gap: 8 }}>
+          {missingDurationCount > 0 && (
+            <button
+              type="button"
+              onClick={runBulkDurations}
+              disabled={!!bulkRun && bulkRun.idx < bulkRun.total}
+              className="admin-btn admin-btn--secondary"
+            >
+              Find Missing Durations ({missingDurationCount})
+            </button>
+          )}
           <a
             href="/music/songs"
             target="_blank"
@@ -98,6 +140,26 @@ export default function AdminSongsPage() {
           <Link href="/admin/music/songs/new" className="admin-btn admin-btn--primary">New Song</Link>
         </div>
       </div>
+
+      {bulkRun && (
+        <div style={{ margin: "0 0 var(--space-md)", padding: "var(--space-sm)", border: "1px solid var(--border)", borderRadius: 4, fontFamily: "var(--font-ui)", fontSize: "0.8rem" }}>
+          <div>
+            {bulkRun.current === "done"
+              ? `Done. ${bulkRun.total - bulkRun.failures.length}/${bulkRun.total} succeeded.`
+              : `Detecting ${bulkRun.idx}/${bulkRun.total}: ${bulkRun.current}`}
+          </div>
+          {bulkRun.failures.length > 0 && (
+            <details style={{ marginTop: 6 }}>
+              <summary style={{ cursor: "pointer", color: "#ff3333" }}>{bulkRun.failures.length} failure(s)</summary>
+              <ul style={{ margin: "4px 0 0 1rem", padding: 0 }}>
+                {bulkRun.failures.map((f, i) => (
+                  <li key={i}>{f.title} - {f.reason}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
 
       <div className="admin-stats" style={{ marginBottom: "var(--space-xl)" }}>
         <div className="admin-stats__card"><span className="admin-stats__value">{songs.length}</span><span className="admin-stats__label">Total</span></div>

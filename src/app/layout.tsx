@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://chadlewine.com"),
   title: {
     default: "Chad Lewine",
-    template: "%s — Chad Lewine",
+    template: "%s - Chad Lewine",
   },
   description:
     "Chad Lewine — musician. Songs at the center of a catalog that tells a life. Art, merch, and live shows.",
@@ -50,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body>
         <SiteJsonLd />
         <CartProvider>

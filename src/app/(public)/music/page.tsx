@@ -9,7 +9,7 @@ import { CurationGrid } from "@/components/CurationGrid";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Music — Chad Lewine",
+  title: "Music",
   description: "Music by Chad Lewine — discography, curated selections, and lyrics.",
   alternates: { canonical: "https://chadlewine.com/music" },
 };
@@ -189,10 +189,10 @@ export default async function MusicHubPage() {
   return (
     <>
       <section className="page-music-hub__banner">
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h1 className="explore-songs__heading">Music</h1>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h1 className="glyph-title-bar__heading">Music</h1>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
       </section>
 

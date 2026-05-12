@@ -17,7 +17,14 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
   },
   { href: "/merch", label: "Merch" },
   { href: "/art", label: "Art" },
+  { href: "/irl", label: "IRL" },
   // { href: "/meditations", label: "Meditations" },   // hidden — music-first pivot
   { href: "/observations", label: "Observations" },
-  { href: "/chad-lewine", label: "About" },
+  {
+    href: "/chad-lewine",
+    label: "About",
+    children: [
+      { href: "/super-individual", label: "Super Individual" },
+    ],
+  },
 ];

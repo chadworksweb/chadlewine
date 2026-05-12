@@ -6,7 +6,7 @@ import { VideoGrid } from "@/components/VideoGrid";
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Video — Chad Lewine",
+  title: "Video",
   description: "Watch Chad Lewine's videos.",
   alternates: { canonical: "https://chadlewine.com/video" },
 };

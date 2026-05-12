@@ -43,8 +43,7 @@ export default function XangaArchivePage() {
 
       <div
         id="xanga-entries"
-        className="reading-column"
-        style={{ maxWidth: "100%", padding: 0 }}
+        className="prose"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </article>

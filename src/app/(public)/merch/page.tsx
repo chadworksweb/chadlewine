@@ -5,7 +5,7 @@ import { MerchProductCard } from "@/components/MerchProductCard";
 import { ExploreStrip } from "@/components/ExploreStrip";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Merch — Chad Lewine",
+  title: "Merch",
   description:
     "Citation goes physical. The hoodie is a hyperlink made physical.",
   alternates: { canonical: "https://chadlewine.com/merch" },
