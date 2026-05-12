@@ -561,7 +561,7 @@ export function SongDetail({
                   <div className="song-landing__main">
                     {audience.contentHtml && (
                       <div
-                        className="song-landing__prose reading-column"
+                        className="song-landing__prose prose"
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(audience.contentHtml) }}
                       />
                     )}
@@ -593,7 +593,7 @@ export function SongDetail({
                   <div className="song-landing__main">
                     {world.contentHtml && (
                       <div
-                        className="song-landing__prose reading-column"
+                        className="song-landing__prose prose"
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(world.contentHtml) }}
                       />
                     )}
@@ -622,7 +622,7 @@ export function SongDetail({
                   <div className="song-landing__main">
                     {fragments.contentHtml && (
                       <div
-                        className="song-landing__prose song-landing__prose--fragments reading-column"
+                        className="song-landing__prose song-landing__prose--fragments prose"
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(fragments.contentHtml) }}
                       />
                     )}
@@ -651,7 +651,7 @@ export function SongDetail({
                   <div className="song-landing__main">
                     {culturalPosition.contentHtml && (
                       <div
-                        className="song-landing__prose reading-column"
+                        className="song-landing__prose prose"
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(culturalPosition.contentHtml) }}
                       />
                     )}
@@ -680,7 +680,7 @@ export function SongDetail({
                   <div className="song-landing__main">
                     {story.contentHtml && (
                       <div
-                        className="song-landing__prose reading-column"
+                        className="song-landing__prose prose"
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(story.contentHtml) }}
                       />
                     )}
@@ -709,7 +709,7 @@ export function SongDetail({
                   <div className="song-landing__main">
                     {breakdown.contentHtml && (
                       <div
-                        className="song-landing__prose reading-column"
+                        className="song-landing__prose prose"
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(breakdown.contentHtml) }}
                       />
                     )}
@@ -738,7 +738,7 @@ export function SongDetail({
                   <div className="song-landing__main">
                     {connections.contentHtml && (
                       <div
-                        className="song-landing__prose reading-column"
+                        className="song-landing__prose prose"
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(connections.contentHtml) }}
                       />
                     )}
@@ -783,7 +783,7 @@ export function SongDetail({
                   <div className="song-landing__main">
                     {syncPlacements.contentHtml && (
                       <div
-                        className="song-landing__prose reading-column"
+                        className="song-landing__prose prose"
                         dangerouslySetInnerHTML={{ __html: stripLeadingHeading(syncPlacements.contentHtml) }}
                       />
                     )}

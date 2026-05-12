@@ -44,10 +44,10 @@ export default function IRLPage() {
   return (
     <div className="irl-page">
       <section className="irl-page__header">
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h1 className="explore-songs__heading">IRL Events</h1>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h1 className="glyph-title-bar__heading">IRL Events</h1>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
         <p className="irl-page__intro">
           In-person experiences. Pop-ups, live sets, talks, and the

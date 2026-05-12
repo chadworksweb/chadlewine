@@ -63,11 +63,20 @@
   --space-3xl: 6rem;
   --space-4xl: 10rem;
 
-  /* --- Layout --- */
-  --reading-width: calc((var(--site-width) - var(--space-xl)) * 3 / 4);
+  /* --- Layout ---
+     SITE WIDTH is the box. Everything sits inside it by default; sections
+     can break out to viewport via .full-bleed. There is no "gutter" — the
+     space outside the box is just empty viewport. Site-width itself shrinks
+     when the viewport gets narrow so content never kisses the edge. */
+  --site-width-cap: 1260px;
+  --site-edge-min: 0.75rem;   /* breathing room each side at any viewport */
+  --site-width: min(var(--site-width-cap), calc(100vw - var(--site-edge-min) * 2));
+  --reading-width: calc((var(--site-width-cap) - var(--space-xl)) * 3 / 4);
   --content-width: 1100px;
-  --site-width: 1320px;
-  --page-gutter: clamp(1rem, 4vw, 2.5rem);
+  /* Legacy alias — kept ONLY for non-containment math (e.g. art-size calcs,
+     small mobile padding cases). Do NOT use for content containment;
+     containment is handled by --site-width via the page-shell grid. */
+  --page-gutter: clamp(0.75rem, 4vw, 2.5rem);
   --nav-height: 80px;
   --sticky-top: calc(var(--nav-height) + var(--space-md));
 
@@ -85,18 +94,21 @@
 
 
 /* ============================================================
-   LAYOUT PRIMITIVES
-   ============================================================ */
+   LAYOUT PRIMITIVES — SITE-WIDTH BOX
+   ============================================================
+   The site is a centered box of --site-width. Everything sits inside
+   the box by default. To put a section flush to the viewport edges
+   (full-width background bands, hero images), mark it `.full-bleed`.
+   Inside a full-bleed section, content automatically re-anchors back
+   to the box. There is no "gutter" concept — the space outside the
+   box is just empty viewport. --site-width itself shrinks responsively
+   so content never kisses the edge. */
 
-/* Standard content container — matches nav alignment.
-   Use on the inner wrapper of any full-bleed section.
-   Mirrors the formula used by main's content rail and .site-nav so
-   inner content edges always track the C-of-CHAD-LEWINE / right-edge-of-ABOUT
-   landmarks. The clamp is what supplies the outer gutter on narrow viewports;
-   no inner left/right padding here. */
+/* Utility class — applies the box width to any arbitrary element.
+   Rarely needed; the page-shell pattern below covers structural use. */
 .site-contain {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto;
+  max-width: var(--site-width);
+  margin-inline: auto;
 }
 
 /* ============================================================
@@ -116,7 +128,11 @@ html {
   text-rendering: optimizeLegibility;
   overflow-x: clip; /* clip instead of hidden keeps position:sticky working */
   max-width: 100%;
+  scroll-behavior: smooth;
 }
+/* NOTE: previously had a `@media (prefers-reduced-motion: reduce)` rule that
+   reset scroll-behavior to auto. Removed because in-page anchor scrolls
+   should feel smooth on every device; site owner accepts the override. */
 
 body {
   font-family: var(--font-body);
@@ -146,34 +162,112 @@ p, h1, h2, h3, h4, h5, h6, li, blockquote, figcaption, dt, dd {
 
 main {
   padding-top: var(--nav-height);
+}
 
-  /* ─────────────────────────────────────────────────────────────────────
-     SITE-WIDTH GRID — the default container for every page.
-     Three rails: a left gutter, a centered content rail capped at
-     --site-width, and a right gutter. Direct children of <main> sit in
-     the centered rail by default. Sections that need to bleed edge-to-edge
-     (backgrounds, sliders, hero strips) opt OUT by setting grid-column to
-     full, either via the .full-bleed class or by being on the named list
-     below. This is the global guard that stops content from breaking out
-     of site width unless explicitly opted out.
-     ───────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────
+   PAGE-SHELL GRID — the global containment rule.
+   Every element on this list becomes a three-track grid: an empty left
+   space, a centered content track at --site-width, and an empty right
+   space. Direct children fall into the content track by default; a
+   `.full-bleed` child spans all three tracks to reach the viewport edges.
+   The pattern is recursive: a section that's full-bleed in main can
+   itself be a page-shell, and its own children re-anchor to --site-width.
+   This is what makes the site "boxed" — there is exactly ONE width rule
+   for the whole site, and every container inherits it structurally.
+   ───────────────────────────────────────────────────────────────────── */
+:where(
+  main,
+  .page-shell,
+  /* page-level wrappers (DOM-full-bleed in main; content re-anchors) */
+  .page-super-individual,
+  .page-home,
+  .page-merch,
+  .page-curation,
+  .page-music-hub__banner,
+  /* section-level wrappers with full-width backgrounds */
+  .si-hero,
+  .si-section,
+  .si-door,
+  .si-popup,
+  .si-schedule,
+  .album-section,
+  .observation-body,
+  .home-merch,
+  .subscribe-section,
+  .song-landing__section,
+  .track-visibility__block,
+  .site-footer
+) {
   display: grid;
   grid-template-columns:
-    [full-start] minmax(var(--page-gutter), 1fr)
-    [content-start] min(calc(100% - var(--page-gutter) * 2), var(--site-width)) [content-end]
-    minmax(var(--page-gutter), 1fr) [full-end];
+    [full-start] 1fr
+    [content-start] var(--site-width) [content-end]
+    1fr [full-end];
   align-content: start;
 }
 
-main > * {
+:where(
+  main,
+  .page-shell,
+  .page-super-individual,
+  .page-home,
+  .page-merch,
+  .page-curation,
+  .page-music-hub__banner,
+  .si-hero,
+  .si-section,
+  .si-door,
+  .si-popup,
+  .si-schedule,
+  .album-section,
+  .observation-body,
+  .home-merch,
+  .subscribe-section,
+  .song-landing__section,
+  .track-visibility__block,
+  .site-footer
+) > * {
   grid-column: content;
   min-width: 0; /* prevents grid blowout from long unbroken text */
 }
 
-/* Explicit opt-out class — apply to anything that needs to bleed. */
-main > .full-bleed,
-/* Sections with full-bleed backgrounds, hero strips, or page wrappers
-   that manage their own internal width. */
+:where(
+  main,
+  .page-shell,
+  .page-super-individual,
+  .page-home,
+  .page-merch,
+  .page-curation,
+  .page-music-hub__banner,
+  .si-hero,
+  .si-section,
+  .si-door,
+  .si-popup,
+  .si-schedule,
+  .album-section,
+  .observation-body,
+  .home-merch,
+  .subscribe-section,
+  .song-landing__section,
+  .track-visibility__block,
+  .site-footer
+) > .full-bleed {
+  grid-column: full;
+}
+
+/* Nested-shell promotion — when a section-level shell sits inside another
+   shell, it spans the parent's full track so its own background bleeds
+   edge-to-edge while its content re-anchors to --site-width via its own
+   content track. Without this, .si-door's colored band stops at site-width. */
+:where(.page-super-individual, .page-home, .page-merch, .page-curation, .page-shell)
+  > :where(.si-hero, .si-section, .si-door, .si-popup, .si-schedule,
+           .album-section, .home-merch, .subscribe-section,
+           .page-music-hub__banner, .observation-body) {
+  grid-column: full;
+}
+
+/* Page wrappers that are themselves shells need to opt out at the main
+   level so their full-bleed sections can reach viewport edges. */
 main > .hero-lens,
 main > .album-section,
 main > .observation-body,
@@ -181,15 +275,6 @@ main > .home-merch,
 main > .subscribe-section,
 main > .album-rc-classifications,
 main > .site-patronage,
-/* Page wrappers — opt out at the wrapper level so the sections inside
-   keep their existing layout.
-   NOTE: .page-static REMOVED from this list — when a .page-static element
-   sits in a grid-column: full track AND its own max-width uses the
-   canonical min(100% - 2*gutter, site-width) formula, the grid track
-   sizing collapses on short-content pages (chad-d, honeychrome, xanga
-   were rendering sub-600px at vw≈1335). Letting .page-static use the
-   default grid-column: content places it cleanly in the canonical
-   1255px rail — matches merch and discography. */
 main > .page-home,
 main > #page-home,
 main > .page-merch,
@@ -208,7 +293,8 @@ main > .page-music-hub__banner {
   color: var(--text-primary);
 }
 
-.reading-column ::selection {
+.reading-column ::selection,
+.prose ::selection {
   background: rgba(80, 100, 200, 0.3);
   color: var(--reading-text);
 }
@@ -276,7 +362,7 @@ h2, h3, h4, h5, h6 {
 }
 
 .site-nav {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
   padding: var(--space-md) 0;
   display: flex;
@@ -300,7 +386,7 @@ h2, h3, h4, h5, h6 {
   text-transform: uppercase;
 }
 .site-nav__logo-frame {
-  /* Match .explore-songs__frame-label exactly so the same block-element
+  /* Match .glyph-title-bar__label exactly so the same block-element
      glyphs rasterize the same way. Same font-family, font-size, weight,
      and letter-spacing means same fallback font selection (and same
      subpixel rasterization on Windows). */
@@ -499,24 +585,37 @@ h2, h3, h4, h5, h6 {
   background: none;
   border: none;
   color: var(--text-primary);
-  font-size: 1.25rem;
+  font-size: 2rem;
+  line-height: 1;
   cursor: pointer;
-  padding: var(--space-xs);
+  padding: var(--space-sm) var(--space-xs);
 }
 
 .nav-mobile-menu {
-  padding: var(--space-sm, 0.75rem) var(--page-gutter) var(--space-lg);
+  padding-inline: var(--page-gutter);
+  padding-bottom: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: calc(100vh - 64px);
-  overflow-y: auto;
-  animation: nav-mobile-slide var(--duration-base) var(--ease-out);
+  /* Always mounted; collapsed by default. max-height grows when --open and
+   * padding-bottom fades in, so the menu animates in BOTH directions. */
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: max-height var(--duration-base) var(--ease-out),
+              opacity var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out),
+              padding-bottom var(--duration-base) var(--ease-out);
 }
 
-@keyframes nav-mobile-slide {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+.nav-mobile-menu--open {
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  opacity: 1;
+  transform: translateY(0);
+  padding-bottom: var(--space-lg);
+  padding-top: var(--space-sm);
 }
 
 .nav-mobile-menu__group {
@@ -651,7 +750,7 @@ h2, h3, h4, h5, h6 {
   border: none;
   position: relative;
   overflow: hidden;
-  padding: var(--space-4xl) var(--page-gutter);
+  padding-block: var(--space-4xl);
 }
 
 .subscribe-section::before {
@@ -805,12 +904,10 @@ h2, h3, h4, h5, h6 {
 
 .site-footer {
   border-top: 1px solid var(--border-subtle);
-  padding: var(--space-xl) var(--page-gutter);
+  padding-block: var(--space-xl);
 }
 
 .site-footer__inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -901,8 +998,11 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .hero-lens {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto 50px;
+  /* Width handled by parent shell's content track; auto-margins were causing
+     this section to collapse to 0 width inside a grid (auto-margin on a grid
+     item with auto width sizes to content, then absorbs free space — and
+     this section's slides are position: absolute, so content size is 0). */
+  margin-bottom: 50px;
   /* Peek surface width — narrowed from 110 to make room for the inter-card
      padding (var(--hero-gap)) without losing the click target entirely. */
   --hero-peek: 90px;
@@ -1312,8 +1412,10 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .cover-hero {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto;
+  /* Width handled by parent shell's content track; auto-margins would
+     collapse this element to 0 width in grid context (its art-wrap child
+     is width:auto + aspect-ratio, which can't size itself without a
+     defined width on parent). */
 }
 
 /* Art is peer — never covered by header. CoverHero always clears nav. */
@@ -1873,8 +1975,8 @@ h2, h3, h4, h5, h6 {
 
 .archive {
   max-width: var(--content-width);
-  margin: 0 auto;
-  padding: var(--space-3xl) var(--page-gutter);
+  margin-inline: auto;
+  padding-block: var(--space-3xl);
 }
 
 .archive__heading {
@@ -1998,13 +2100,13 @@ h2, h3, h4, h5, h6 {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--space-xl);
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
   padding: 0 0 var(--space-2xl, 4rem);
 }
 
 .observations-archive {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
 }
 
@@ -2271,14 +2373,12 @@ h2, h3, h4, h5, h6 {
   color: var(--reading-text);
   padding-top: var(--space-xl);
   padding-bottom: var(--space-4xl);
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
+  /* observation-body is in main's full track + is itself a shell; the
+     100vw / negative-margin breakout hack is no longer needed. */
 }
 
+/* Observation 2-col reading layout — only on .reading-column inside body. */
 .observation-body .reading-column {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding-inline: var(--page-gutter);
   color: var(--reading-text);
   display: grid;
   grid-template-columns: 3fr 1fr;
@@ -2289,23 +2389,20 @@ h2, h3, h4, h5, h6 {
   grid-column: 1;
 }
 
-/* Reading column width handles constraint — no additional max-width needed */
-
-.observation-body .reading-column h2,
-.observation-body .reading-column h3 {
+.observation-body .prose h2,
+.observation-body .prose h3 {
   color: var(--reading-text);
 }
 
-.observation-body .reading-column a {
+.observation-body .prose a {
   color: var(--reading-accent);
 }
 
-.observation-body .reading-column a:hover {
+.observation-body .prose a:hover {
   color: var(--reading-text);
 }
 
-.observation-body .reading-column img,
-.reading-column img {
+.prose img {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -2314,8 +2411,6 @@ h2, h3, h4, h5, h6 {
   border-radius: 4px;
 }
 
-/* Shortcode components inherit reading column width */
-
 
 /* ============================================================
    FOUNDATIONS PAGE
@@ -2323,8 +2418,8 @@ h2, h3, h4, h5, h6 {
 
 .page-foundations {
   max-width: var(--reading-width);
-  margin: 0 auto;
-  padding: var(--space-xl) var(--page-gutter) var(--space-4xl);
+  margin-inline: auto;
+  padding-block: var(--space-xl) var(--space-4xl);
 }
 
 .page-foundations__title {
@@ -2407,13 +2502,14 @@ h2, h3, h4, h5, h6 {
   margin-bottom: var(--space-2xl);
 }
 
-.page-music-hub__banner > .explore-songs__frame--top {
+.page-music-hub__banner > .glyph-title-bar--top {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 175px;
-  margin: 0 auto;
+  margin-inline: auto;
+  max-width: var(--site-width);
   z-index: 3;
 }
 
@@ -2437,15 +2533,15 @@ h2, h3, h4, h5, h6 {
   z-index: 2;
 }
 
-.page-music-hub__banner .explore-songs__heading,
-.page-music-hub__banner .explore-songs__frame-label {
+.page-music-hub__banner .glyph-title-bar__heading,
+.page-music-hub__banner .glyph-title-bar__label {
   background: var(--bg-elevated);
   box-shadow: 0 0 0 12px var(--bg-elevated);
   position: relative;
   z-index: 1;
 }
 
-.page-music-hub__banner .explore-songs__heading {
+.page-music-hub__banner .glyph-title-bar__heading {
   font-size: 3.64rem;
 }
 
@@ -2547,13 +2643,10 @@ h2, h3, h4, h5, h6 {
 /* ── Album Hero (music page) ─────────────────────────────────────── */
 
 .album-hero {
-  /* Square art is the smaller of half the site-width and the leftover
-     viewport height (nav + page title + dots + buffer), then knocked down
-     15% so the hero takes up less of the page. */
-  --ah-art-size: calc(min(
-    calc((var(--site-width) - 18px) / 2),
-    calc(100vh - var(--nav-height) - 12rem)
-  ) * 0.85);
+  /* Square art is half the site-width, knocked down 15%. Same size on
+     every screen — no vh-based constraint, which used to shrink the
+     hero on laptops. */
+  --ah-art-size: calc((var(--site-width) - 18px) / 2 * 0.85);
   --ah-tab-w: 60px;
   position: relative;
   margin-bottom: var(--space-2xl);
@@ -2604,7 +2697,23 @@ h2, h3, h4, h5, h6 {
   right: 0;
 }
 
-.album-hero__nav-tab:hover,
+/* Gate :hover behind hover-capable devices so iOS doesn't stick the lit
+   state until the user taps elsewhere. */
+@media (hover: hover) {
+  .album-hero__nav-tab:hover,
+  .album-hero__nav-tab:focus-visible {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(64, 96, 255, 0.0) 10%,
+      rgba(64, 96, 255, 0.55) 50%,
+      rgba(64, 96, 255, 0.0) 90%,
+      transparent 100%
+    );
+    box-shadow: 0 0 24px rgba(64, 96, 255, 0.4), 0 0 48px rgba(64, 96, 255, 0.18);
+    color: var(--text-accent);
+  }
+}
 .album-hero__nav-tab:focus-visible {
   background: linear-gradient(
     180deg,
@@ -2869,9 +2978,14 @@ h2, h3, h4, h5, h6 {
 
 @media (max-width: 768px) {
   .album-hero {
-    --ah-tab-w: 40px;
-    --ah-art-size: min(100%, calc(100vw - var(--page-gutter) * 2 - var(--ah-tab-w) * 2));
+    --ah-tab-w: 56px;
+    /* Pixel-only calc so percentages don't collapse in vertical context.
+       Caps at 420px so the cover doesn't dominate on mid-size tablets. */
+    --ah-art-size: min(420px, calc(100vw - var(--site-edge-min) * 2 - var(--ah-tab-w) * 2 - 2rem));
   }
+  /* Slides are absolute (so they translate), so viewport needs explicit
+     height. min-height = cover-size + budget for the meta column below it
+     (stacked on mobile via flex-direction: column). */
   .album-hero__viewport {
     height: auto;
     min-height: calc(var(--ah-art-size) + 240px);
@@ -2880,10 +2994,12 @@ h2, h3, h4, h5, h6 {
     flex-direction: column;
     gap: var(--space-lg);
     padding: 0 calc(var(--ah-tab-w) + var(--space-sm));
+    height: auto;
   }
   .album-hero__stage > .album-hero__cover-link {
-    flex: 0 0 var(--ah-art-size);
+    flex: 0 0 auto;
     width: var(--ah-art-size);
+    height: var(--ah-art-size);
   }
   .album-hero__stage > .album-hero__meta {
     flex: 0 1 auto;
@@ -2893,6 +3009,10 @@ h2, h3, h4, h5, h6 {
   }
   .album-hero__nav-tab {
     font-size: 28px;
+    z-index: 5;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(110, 143, 255, 0.25);
+    cursor: pointer;
   }
 }
 
@@ -3363,19 +3483,16 @@ h2, h3, h4, h5, h6 {
 .meditation-archive {
   background: var(--reading-bg);
   color: var(--reading-text);
-  padding-top: var(--space-xl);
-  padding-bottom: var(--space-4xl);
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
+  padding-block: var(--space-xl) var(--space-4xl);
+  /* 100vw / negative-margin breakout removed — this section needs to be
+     opted into main's full-bleed list (or its parent declared .full-bleed)
+     if it should bleed to viewport. */
 }
 
 .meditation-archive__layout {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--space-xl);
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
 }
 
 /* Sidebar */
@@ -3541,7 +3658,7 @@ h2, h3, h4, h5, h6 {
 .page-meditation-single {
   max-width: var(--reading-width);
   margin-inline: auto;
-  padding: var(--space-xl) var(--page-gutter);
+  padding-block: var(--space-xl);
   min-height: 60vh;
   display: flex;
   flex-direction: column;
@@ -3602,34 +3719,32 @@ h2, h3, h4, h5, h6 {
 }
 
 /* ============================================================
-   READING COLUMN
+   PROSE — typography utility for any rendered prose block
+   (markdown, song landing copy, admin previews, static prose pages).
+   Width is supplied by the parent shell's content track; .prose itself
+   has no max-width or horizontal padding. The observation 2-col layout
+   lives on .reading-column, NOT here.
    ============================================================ */
 
-.reading-column {
-  max-width: var(--reading-width);
-  margin-inline: auto;
-  padding-inline: var(--page-gutter);
-}
-
-.reading-column p {
+.prose p {
   margin-bottom: 1.5em;
 }
 
-.reading-column h2 {
+.prose h2 {
   font-size: var(--text-xl);
   margin-top: 1.25em;
   margin-bottom: 0.75em;
   color: var(--reading-text);
 }
 
-.reading-column h3 {
+.prose h3 {
   font-size: var(--text-lg);
   margin-top: 1em;
   margin-bottom: 0.5em;
   color: var(--reading-text);
 }
 
-.reading-column blockquote {
+.prose blockquote {
   border-left: 2px solid var(--reading-border);
   padding-left: var(--space-lg);
   color: var(--reading-text-secondary);
@@ -3637,34 +3752,42 @@ h2, h3, h4, h5, h6 {
   margin-block: 1.5em;
 }
 
-.reading-column ul,
-.reading-column ol {
+.prose ul,
+.prose ol {
   padding-left: 1.25em;
   margin-bottom: 1.5em;
 }
 
-.reading-column li {
+.prose li {
   margin-bottom: 0.5em;
 }
 
-.reading-column strong {
+.prose strong {
   color: var(--text-accent);
   font-weight: 600;
 }
 
-.reading-column a {
+.prose a {
   color: var(--reading-accent);
 }
 
-.reading-column a:hover {
+.prose a:hover {
   color: var(--reading-text);
 }
 
-.reading-column hr {
+.prose hr {
   border: none;
   border-top: 1px solid var(--reading-border);
   margin-block: 3em;
 }
+
+/* ============================================================
+   READING COLUMN — observation-only 2-col reading layout.
+   Used by MarkdownRenderer when rendering inside .observation-body.
+   Outside of .observation-body, .reading-column has no width or layout
+   styles of its own — the 2-col grid is scoped via the parent body
+   class (see line near "OBSERVATION PAGE" above).
+   ============================================================ */
 
 /* ============================================================
    GLASS PANEL
@@ -5230,7 +5353,7 @@ h3.aw-heading {
 }
 
 .song-brief-feed__inner {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
 }
 
@@ -5808,9 +5931,6 @@ h3.aw-heading {
 }
 
 .obsv-nav {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: var(--space-lg);
@@ -5878,9 +5998,7 @@ h3.aw-heading {
    ============================================================ */
 
 .synapse-jumper {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: var(--space-3xl) var(--page-gutter) calc(var(--space-3xl) * 1.15);
+  padding-block: var(--space-3xl) calc(var(--space-3xl) * 1.15);
   position: relative;
   z-index: 2;
 }
@@ -5986,9 +6104,7 @@ h3.aw-heading {
    ============================================================ */
 
 .related-observations {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: var(--space-2xl) var(--page-gutter) var(--space-3xl);
+  padding-block: var(--space-2xl) var(--space-3xl);
 }
 
 .related-observations__heading {
@@ -6063,8 +6179,9 @@ h3.aw-heading {
 
 .observation-footer {
   max-width: var(--reading-width);
-  margin: var(--space-2xl) auto 0;
-  padding: 0 var(--page-gutter) var(--space-3xl);
+  margin-inline: auto;
+  margin-top: var(--space-2xl);
+  padding-bottom: var(--space-3xl);
 }
 
 /* ============================================================
@@ -7647,9 +7764,7 @@ h3.aw-heading {
 /* --- Merch Page + Configurator --- */
 
 .page-merch {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
-  margin: 0 auto;
-  padding: 0 0 calc(var(--space-4xl) / 2);
+  padding-bottom: calc(var(--space-4xl) / 2);
 }
 
 .page-merch__header {
@@ -8404,7 +8519,7 @@ h3.aw-heading {
 /* Standalone wrapper — provides the same width + gutter as .page-merch so
    the strip can stand alone outside an existing page container. */
 .explore-strip__wrap {
-  max-width: min(calc(100% - var(--page-gutter) * 2), var(--site-width));
+  max-width: var(--site-width);
   margin: 0 auto;
   padding: 0 0 calc(var(--space-4xl) / 2);
 }
@@ -8418,7 +8533,7 @@ h3.aw-heading {
   margin-bottom: var(--space-2xl);
 }
 
-/* Bracketed/ticked divider — mirrors .explore-songs__frame on the homepage. */
+/* Bracketed/ticked divider — mirrors .glyph-title-bar on the homepage. */
 .explore-strip__frame {
   position: relative;
   height: 65px;
@@ -8908,8 +9023,7 @@ h3.aw-heading {
   grid-template-columns: 320px 1fr;
   min-height: calc(100vh - var(--nav-height));
   max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
+  margin-inline: auto;
   background: var(--bg-deep);
   color: var(--text-primary);
 }
@@ -9415,13 +9529,14 @@ h3.aw-heading {
    re-applies the base rule's horizontal centering after absolute positioning,
    so the max-width: var(--site-width) box stays centered instead of getting
    anchored to left: 0. */
-.home-merch > .explore-songs__frame--top {
+.home-merch > .glyph-title-bar--top {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 175px;
-  margin: 0 auto;
+  margin-inline: auto;
+  max-width: var(--site-width);
   z-index: 3;
 }
 
@@ -9503,8 +9618,8 @@ h3.aw-heading {
    The 12px box-shadow halo extends the bg-elevated mask beyond the text's
    own padding so the bright cyan band glow can't bleed through and wash out
    the heading. */
-.home-merch .explore-songs__heading,
-.home-merch .explore-songs__frame-label {
+.home-merch .glyph-title-bar__heading,
+.home-merch .glyph-title-bar__label {
   background: var(--bg-elevated);
   box-shadow: 0 0 0 12px var(--bg-elevated);
   position: relative;
@@ -11049,22 +11164,15 @@ h3.aw-heading {
 
 .album-section {
   border-top: 1px solid rgba(139, 156, 247, 0.12);
-  padding: var(--space-2xl) var(--page-gutter);
+  padding-block: var(--space-2xl);
   background: linear-gradient(180deg, rgba(10, 10, 20, 0.0) 0%, rgba(139, 156, 247, 0.04) 100%);
 }
 
-.album-section--slider {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.album-section--slider > .album-section__inner {
-  padding: 0 var(--page-gutter);
-}
+/* .album-section--slider — modifier remains for any slider-specific
+   visual tweaks. The shell grid handles containment automatically. */
 
 .album-section__inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
+  /* width handled by .album-section shell content track */
 }
 
 .album-section__heading {
@@ -12385,7 +12493,7 @@ h3.aw-heading {
   overflow-y: auto;
 }
 
-.song-composition__rendered.reading-column {
+.song-composition__rendered.prose {
   max-width: none;
   margin-inline: 0;
   padding-inline: 0;
@@ -12486,9 +12594,6 @@ h3.aw-heading {
 }
 
 .track-visibility__block-inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--space-lg);
   display: grid;
   grid-template-columns: 200px 1fr;
   gap: var(--space-xl);
@@ -12534,14 +12639,14 @@ h3.aw-heading {
 }
 
 /* Override reading-column defaults inside visibility blocks */
-.track-visibility__content-col.reading-column {
+.track-visibility__content-col.prose {
   max-width: none;
   margin-inline: 0;
   padding-inline: 0;
   color: #c8c8d4;
 }
 
-.track-visibility__content-col.reading-column p {
+.track-visibility__content-col.prose p {
   font-family: var(--font-ui);
   font-size: 0.95rem;
   line-height: 1.75;
@@ -12549,11 +12654,11 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.track-visibility__content-col.reading-column p:last-child {
+.track-visibility__content-col.prose p:last-child {
   margin-bottom: 0;
 }
 
-.track-visibility__content-col.reading-column h2 {
+.track-visibility__content-col.prose h2 {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -12565,7 +12670,7 @@ h3.aw-heading {
   border-bottom: 1px solid #00d4ff20;
 }
 
-.track-visibility__content-col.reading-column h3 {
+.track-visibility__content-col.prose h3 {
   font-family: var(--font-ui);
   font-size: 0.9rem;
   font-weight: 600;
@@ -12574,8 +12679,8 @@ h3.aw-heading {
   margin-bottom: 0.5rem;
 }
 
-.track-visibility__content-col.reading-column ul,
-.track-visibility__content-col.reading-column ol {
+.track-visibility__content-col.prose ul,
+.track-visibility__content-col.prose ol {
   font-family: var(--font-ui);
   font-size: 0.95rem;
   line-height: 1.75;
@@ -12584,21 +12689,21 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.track-visibility__content-col.reading-column li {
+.track-visibility__content-col.prose li {
   margin-bottom: 0.4rem;
 }
 
-.track-visibility__content-col.reading-column strong {
+.track-visibility__content-col.prose strong {
   color: #e8e8f0;
   font-weight: 600;
 }
 
-.track-visibility__content-col.reading-column em {
+.track-visibility__content-col.prose em {
   color: #a8a8c0;
   font-style: italic;
 }
 
-.track-visibility__content-col.reading-column blockquote {
+.track-visibility__content-col.prose blockquote {
   border-left: 2px solid #00d4ff40;
   padding-left: 1rem;
   margin: 1.25rem 0;
@@ -12606,17 +12711,17 @@ h3.aw-heading {
   font-style: italic;
 }
 
-.track-visibility__content-col.reading-column a {
+.track-visibility__content-col.prose a {
   color: #00d4ff;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.track-visibility__content-col.reading-column a:hover {
+.track-visibility__content-col.prose a:hover {
   color: #00ffcc;
 }
 
-.track-visibility__content-col.reading-column code {
+.track-visibility__content-col.prose code {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 0.85em;
   color: #00d4ff;
@@ -12626,9 +12731,7 @@ h3.aw-heading {
 }
 
 .track-visibility__media-slot {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--space-lg);
+  /* width handled by parent .track-visibility__block shell */
 }
 
 .track-visibility__media-slot:empty {
@@ -12670,9 +12773,7 @@ h3.aw-heading {
 }
 
 .song-landing__container {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
+  /* width handled by .song-landing__section shell content track */
 }
 
 /* Three-column layout for format-stack layers in the ABOUT section (section 1).
@@ -12945,7 +13046,7 @@ h3.aw-heading {
   color: #c8c8d4;
 }
 
-.song-landing__prose.reading-column p {
+.song-landing__prose.prose p {
   font-family: var(--font-ui);
   font-size: 1.425rem;
   line-height: 1.6;
@@ -12953,9 +13054,9 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.song-landing__prose.reading-column p:last-child { margin-bottom: 0; }
+.song-landing__prose.prose p:last-child { margin-bottom: 0; }
 
-.song-landing__prose.reading-column h2 {
+.song-landing__prose.prose h2 {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -12967,7 +13068,7 @@ h3.aw-heading {
   border-bottom: 1px solid #00d4ff20;
 }
 
-.song-landing__prose.reading-column h3 {
+.song-landing__prose.prose h3 {
   font-family: var(--font-ui);
   font-size: 0.9rem;
   font-weight: 600;
@@ -12976,8 +13077,8 @@ h3.aw-heading {
   margin-bottom: 0.5rem;
 }
 
-.song-landing__prose.reading-column ul,
-.song-landing__prose.reading-column ol {
+.song-landing__prose.prose ul,
+.song-landing__prose.prose ol {
   font-family: var(--font-ui);
   font-size: 0.95rem;
   line-height: 1.75;
@@ -12986,11 +13087,11 @@ h3.aw-heading {
   margin-bottom: 1.25rem;
 }
 
-.song-landing__prose.reading-column li { margin-bottom: 0.4rem; }
-.song-landing__prose.reading-column strong { color: #e8e8f0; font-weight: 600; }
-.song-landing__prose.reading-column em { color: #a8a8c0; font-style: italic; }
+.song-landing__prose.prose li { margin-bottom: 0.4rem; }
+.song-landing__prose.prose strong { color: #e8e8f0; font-weight: 600; }
+.song-landing__prose.prose em { color: #a8a8c0; font-style: italic; }
 
-.song-landing__prose.reading-column blockquote {
+.song-landing__prose.prose blockquote {
   border-left: 2px solid #00d4ff40;
   padding-left: 1rem;
   margin: 1.25rem 0;
@@ -12998,16 +13099,16 @@ h3.aw-heading {
   font-style: italic;
 }
 
-.song-landing__prose.reading-column a {
+.song-landing__prose.prose a {
   color: #00d4ff;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.song-landing__prose.reading-column a:hover { color: #00ffcc; }
+.song-landing__prose.prose a:hover { color: #00ffcc; }
 
 /* Fragments — pull-quote styling */
-.song-landing__prose--fragments.reading-column blockquote {
+.song-landing__prose--fragments.prose blockquote {
   border-left: 3px solid #00d4ff60;
   padding: var(--space-md) var(--space-lg);
   font-size: 1.05rem;
@@ -13369,12 +13470,9 @@ h3.aw-heading {
 .explore-songs::after { bottom: 0; }
 
 /* Frame bars — tick-mark viewfinder style, top + bottom */
-.explore-songs__frame {
+.glyph-title-bar {
   position: relative;
   height: 65px;
-  margin: 0 auto;
-  max-width: var(--site-width);
-  padding: 0 var(--page-gutter);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13388,11 +13486,11 @@ h3.aw-heading {
   );
 }
 
-.explore-songs__frame--top { margin-bottom: var(--space-xl); }
-.explore-songs__frame--bottom { margin-top: var(--space-xl); }
+.glyph-title-bar--top { margin-bottom: var(--space-xl); }
+.glyph-title-bar--bottom { margin-top: var(--space-xl); }
 
-.explore-songs__frame::before,
-.explore-songs__frame::after {
+.glyph-title-bar::before,
+.glyph-title-bar::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -13402,21 +13500,21 @@ h3.aw-heading {
   pointer-events: none;
 }
 
-.explore-songs__frame::before {
+.glyph-title-bar::before {
   left: 0;
   border-left: 1px solid var(--text-accent);
   border-top: 1px solid var(--text-accent);
   border-bottom: 1px solid var(--text-accent);
 }
 
-.explore-songs__frame::after {
+.glyph-title-bar::after {
   right: 0;
   border-right: 1px solid var(--text-accent);
   border-top: 1px solid var(--text-accent);
   border-bottom: 1px solid var(--text-accent);
 }
 
-.explore-songs__frame-label {
+.glyph-title-bar__label {
   position: relative;
   padding: 0 var(--space-md);
   background: #000;
@@ -13433,7 +13531,7 @@ h3.aw-heading {
   text-align: center;
 }
 
-.explore-songs__heading {
+.glyph-title-bar__heading {
   font-family: var(--font-ui);
   font-size: 1.82rem;
   color: var(--text-primary);
@@ -13446,13 +13544,19 @@ h3.aw-heading {
 }
 
 @media (max-width: 768px) {
-  .explore-songs__frame {
+  .glyph-title-bar {
     flex-direction: column;
     height: auto;
     gap: var(--space-xs);
-    padding: var(--space-md) var(--page-gutter);
+    padding-block: var(--space-md);
   }
-  .explore-songs__heading {
+  /* Corner brackets only make visual sense when the bar is horizontal —
+     when stacked, they'd land mid-content. */
+  .glyph-title-bar::before,
+  .glyph-title-bar::after {
+    display: none;
+  }
+  .glyph-title-bar__heading {
     white-space: normal;
     text-align: center;
     padding: 0 var(--space-sm);
@@ -13730,8 +13834,7 @@ h3.aw-heading {
 
 .songs-explorer__inner {
   max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
+  margin-inline: auto;
 }
 
 .songs-explorer__header {
@@ -14342,8 +14445,8 @@ h3.aw-heading {
 .album-rc-classifications {
   display: none;
   max-width: var(--content-width);
-  margin: var(--space-xl) auto 0;
-  padding: 0 var(--page-gutter);
+  margin-inline: auto;
+  margin-top: var(--space-xl);
 }
 
 .album-rc-classifications__title {
@@ -16425,12 +16528,10 @@ body.cart-open {
 
 /* --- Hero --- */
 .si-hero {
-  padding: clamp(5rem, 12vw, 10rem) var(--page-gutter) 0;
+  padding-top: clamp(5rem, 12vw, 10rem);
   background: var(--bg-deep);
 }
 .si-hero__inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
   text-align: center;
 }
 .si-hero__eyebrow {
@@ -16449,8 +16550,8 @@ body.cart-open {
 .si-hero__headline {
   font-family: var(--font-body);
   font-weight: 400;
-  font-size: clamp(3rem, 8vw, 7.5rem);
-  line-height: 1.3;
+  font-size: clamp(4.8rem, 18vw, 15rem);
+  line-height: 1;
   letter-spacing: -0.025em;
   margin: 0 0 var(--space-md);
   text-align: center;
@@ -16475,14 +16576,23 @@ body.cart-open {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: var(--space-md) var(--space-2xl);
+  gap: var(--space-md) var(--space-lg);
   margin-top: var(--space-2xl);
   padding: clamp(2rem, 4vw, 2.75rem) var(--space-lg);
   background: var(--bg-elevated);
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
 }
-/* Tick-mark backplate, same density as .explore-songs__frame. */
+@media (max-width: 640px) {
+  .si-hero__nav {
+    gap: var(--space-sm);
+    padding-block: var(--space-lg);
+  }
+  .si-hero__nav-link {
+    padding: 0.15rem 0.5rem;
+  }
+}
+/* Tick-mark backplate, same density as .glyph-title-bar. */
 .si-hero__nav::after {
   content: '';
   position: absolute;
@@ -16500,28 +16610,6 @@ body.cart-open {
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 72%, transparent 100%);
           mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 72%, transparent 100%);
 }
-/* Horizontal accent beam through the middle of the strip. */
-.si-hero__nav::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  transform: translateY(-0.5px);
-  z-index: 1;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(64, 96, 255, 0.0) 5%,
-    var(--text-accent) 50%,
-    rgba(64, 96, 255, 0.0) 95%,
-    transparent 100%
-  );
-  box-shadow: 0 0 24px rgba(64, 96, 255, 0.5), 0 0 48px rgba(64, 96, 255, 0.2);
-}
-
 .si-hero__nav-link {
   position: relative;
   z-index: 2;
@@ -16534,11 +16622,6 @@ body.cart-open {
   text-shadow: 0 0 18px rgba(64, 96, 255, 0.45);
   text-decoration: none;
   padding: 0.15rem 1rem;
-  /* The elevated-bg halo: the accent beam appears to pass behind the text,
-     because the link's background matches the strip and extends past its
-     content via the shared box-shadow ring. */
-  background: var(--bg-elevated);
-  box-shadow: 0 0 0 10px var(--bg-elevated);
   transition: color var(--duration-base) var(--ease-out),
               text-shadow var(--duration-base) var(--ease-out);
 }
@@ -16566,29 +16649,116 @@ body.cart-open {
   background: var(--bg-deep);
 }
 
+/* "What is a Super Individual?" — 2-col grid below the dictionary excerpt.
+   Left: stylized 4-step list. Right: closing prose. */
+.si-what__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2xl);
+  align-items: start;
+  margin-top: var(--space-xl);
+}
+@media (max-width: 880px) {
+  .si-what__grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-xl);
+  }
+}
+.si-what__steps-lead {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-md);
+}
+.si-what__steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: si-step;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.si-what__steps > li {
+  counter-increment: si-step;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  align-items: center;
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.si-what__note {
+  margin: var(--space-lg) 0 0;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.si-what__steps > li::before {
+  content: counter(si-step, decimal-leading-zero);
+  font-family: var(--font-ui);
+  font-size: clamp(1.6rem, 2.8vw, 2.3rem);
+  font-weight: 600;
+  color: var(--text-accent);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  align-self: center;
+}
+
 /* Three Doors intro — title-less, larger centered prose, shaded backdrop. */
 .si-section--doors-intro {
-  background: var(--bg-surface);
+  padding-block: 0;
+}
+.si-doors-intro__bg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0;
 }
 .si-doors-intro__prose {
   text-align: center;
 }
 .si-doors-intro__prose p {
-  font-size: clamp(1.3rem, 2.4vw, 2rem);
-  line-height: 1.45;
+  font-size: clamp(1.1rem, 2.64vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1.4;
+  /* Whole-text color shimmer — same keyframes the header logo uses on hover,
+     but always running and slower. Cycles primary → pink → cyan → gold →
+     primary so the prose feels alive. */
+  animation: logo-text-shimmer 6s linear infinite;
 }
 
-/* Super Individual prose — same typography as .reading-column but with
-   NO horizontal padding. Page sections handle their own gutter. */
-.si-prose {
-  max-width: var(--site-width);
-  margin-inline: auto;
+@media (max-width: 640px) {
+  /* Cap the fractal art height so it doesn't dwarf the paragraph below. */
+  .si-doors-intro__bg {
+    max-height: 60vh;
+    width: auto;
+    margin-inline: auto;
+  }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .si-doors-intro__prose p {
+    animation: none;
+  }
+}
+
+/* Super Individual prose — typography in .si-prose p/h2/etc rules below.
+   Width is handled by the parent .si-section / .si-door shell. */
 .si-excerpt {
   position: relative;
   isolation: isolate;
-  max-width: var(--site-width);
   font-size: clamp(1.4rem, 2.4vw, 2rem);
   line-height: 1.4;
   text-align: center;
@@ -16596,7 +16766,7 @@ body.cart-open {
   color: var(--bg-deep);
   border-left: 3px solid var(--text-accent);
   border-right: 3px solid var(--text-accent);
-  padding: var(--space-xl) var(--space-2xl);
+  padding: clamp(var(--space-md), 3vw, var(--space-xl)) clamp(var(--space-md), 4vw, var(--space-2xl));
   border-radius: 4px;
   margin: var(--space-xl) auto;
   overflow: hidden;
@@ -16616,7 +16786,7 @@ body.cart-open {
 .si-excerpt__head,
 .si-excerpt__def {
   display: block;
-  max-width: 780px;
+  max-width: 720px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -16724,11 +16894,10 @@ body.cart-open {
   font-size: clamp(1.15rem, 1.6vw, 1.4rem);
   line-height: 1.55;
   text-align: center;
-  padding: var(--space-lg) var(--page-gutter);
-  margin: 0 auto var(--space-lg);
+  padding-block: var(--space-lg);
+  margin-bottom: var(--space-lg);
   border-top: 1px solid var(--border-medium);
   border-bottom: 1px solid var(--border-medium);
-  max-width: var(--site-width);
 }
 .si-door__lead strong {
   display: block;
@@ -16745,12 +16914,6 @@ body.cart-open {
     0 0 18px rgba(228, 228, 236, 0.7),
     0 0 36px rgba(228, 228, 236, 0.45);
 }
-.si-section__inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: 0 var(--page-gutter);
-}
-
 /* --- Door section wrappers (full-bleed, image-driven) --- */
 .si-door {
   padding: clamp(2rem, 5vw, 4rem) 0 clamp(4rem, 9vw, 7rem);
@@ -16761,9 +16924,7 @@ body.cart-open {
 .si-door--rc { background: var(--bg-surface); }
 
 .si-door__intro {
-  max-width: var(--site-width);
-  margin: 0 auto var(--space-xl);
-  padding: 0 var(--page-gutter);
+  margin-bottom: var(--space-xl);
 }
 
 /* Eyebrow above each door's frame heading — same treatment as the hero
@@ -16780,17 +16941,11 @@ body.cart-open {
   text-indent: 0.175em;
 }
 
-.si-merch-stage {
-  max-width: var(--site-width);
-  margin: 0 auto;
-}
-
 .si-merch-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
-  max-width: var(--site-width);
-  margin: var(--space-2xl) auto 0;
+  margin-top: var(--space-2xl);
 }
 .si-merch-grid .merch-shop__card-title {
   display: block;
@@ -16801,8 +16956,7 @@ body.cart-open {
 }
 
 .si-album-hero {
-  max-width: var(--site-width);
-  margin: 0 auto var(--space-3xl);
+  margin-bottom: var(--space-3xl);
 }
 
 .si-door__rc-grid {
@@ -16810,8 +16964,6 @@ body.cart-open {
   grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr);
   gap: var(--space-xl);
   align-items: start;
-  max-width: var(--site-width);
-  margin: 0 auto;
 }
 @media (max-width: 720px) {
   .si-door__rc-grid { grid-template-columns: 1fr; }
@@ -17142,9 +17294,7 @@ body.cart-open {
   box-shadow: 0 0 22px rgba(255, 255, 255, 0.35), 0 0 36px rgba(110, 143, 255, 0.5);
 }
 .si-door__footer {
-  max-width: var(--site-width);
-  margin: var(--space-xl) auto 0;
-  padding: 0 var(--page-gutter);
+  margin-top: var(--space-xl);
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-md);
@@ -17152,7 +17302,7 @@ body.cart-open {
 }
 
 /* Sub-frame heading (smaller than section frames) */
-.si-frame--sub .explore-songs__heading {
+.si-frame--sub .glyph-title-bar__heading {
   font-size: clamp(1.25rem, 2.5vw, 1.75rem) !important;
 }
 .si-frame--sub {
@@ -17163,8 +17313,6 @@ body.cart-open {
 .si-discography {
   display: grid;
   gap: var(--space-lg);
-  max-width: var(--site-width);
-  margin: 0 auto;
 }
 .si-discography--four-up {
   grid-template-columns: repeat(4, 1fr);
@@ -17211,8 +17359,8 @@ body.cart-open {
 }
 .si-merch-carousel__viewport {
   position: relative;
-  flex: 0 1 675px;
-  max-width: 675px;
+  flex: 0 1 742px;
+  max-width: 742px;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border-radius: 8px;
@@ -17246,6 +17394,7 @@ body.cart-open {
 .si-merch-carousel__nav {
   flex: 0 0 var(--si-tab-w);
   align-self: stretch;
+  transform: scaleY(0.75);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -17268,7 +17417,23 @@ body.cart-open {
               box-shadow var(--duration-base) var(--ease-out),
               color var(--duration-base) var(--ease-out);
 }
-.si-merch-carousel__nav:hover,
+/* Hover styles only on devices with real hover — iOS makes :hover sticky
+   on tap, which leaves the paddle "lit" until you tap somewhere else. */
+@media (hover: hover) {
+  .si-merch-carousel__nav:hover,
+  .si-merch-carousel__nav:focus-visible {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(64, 96, 255, 0.0) 10%,
+      rgba(64, 96, 255, 0.55) 50%,
+      rgba(64, 96, 255, 0.0) 90%,
+      transparent 100%
+    );
+    box-shadow: 0 0 24px rgba(64, 96, 255, 0.4), 0 0 48px rgba(64, 96, 255, 0.18);
+    color: var(--text-accent);
+  }
+}
 .si-merch-carousel__nav:focus-visible {
   background: linear-gradient(
     180deg,
@@ -17291,8 +17456,51 @@ body.cart-open {
   pointer-events: none;
 }
 @media (max-width: 768px) {
-  .si-merch-carousel__stage { --si-tab-w: 40px; }
-  .si-merch-carousel__nav { font-size: 28px; }
+  /* Mobile: paddles overlay the image (don't reserve flex columns) so the
+     product image expands to nearly full content-track width. */
+  .si-merch-carousel__stage {
+    --si-tab-w: 56px;
+    position: relative;
+    display: block;
+    gap: 0;
+  }
+  .si-merch-carousel__viewport {
+    flex: none;
+    max-width: 100%;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+  .si-merch-carousel__nav {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--si-tab-w);
+    flex: none;
+    align-self: auto;
+    transform: none;
+    font-size: 32px;
+    z-index: 4;
+    /* Background dims toward the edge so paddles read as overlay accents
+       without obscuring the product image. */
+    background: linear-gradient(
+      to right,
+      rgba(15, 15, 25, 0.6) 0%,
+      rgba(15, 15, 25, 0.1) 100%
+    );
+    box-shadow: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(110, 143, 255, 0.25);
+    cursor: pointer;
+  }
+  .si-merch-carousel__nav--prev { left: 0; }
+  .si-merch-carousel__nav--next {
+    right: 0;
+    background: linear-gradient(
+      to left,
+      rgba(15, 15, 25, 0.6) 0%,
+      rgba(15, 15, 25, 0.1) 100%
+    );
+  }
 }
 .si-merch-carousel__meta {
   display: flex;
@@ -17363,9 +17571,7 @@ body.cart-open {
 }
 
 .event-page__breadcrumb {
-  max-width: var(--site-width);
-  margin: 0 auto;
-  padding: var(--space-md) var(--page-gutter) 0;
+  padding-top: var(--space-md);
 }
 
 .event-page__breadcrumb-link {
@@ -17397,9 +17603,7 @@ body.cart-open {
   margin: 0 auto var(--space-xl);
 }
 .irl-page__intro {
-  max-width: var(--site-width);
-  margin: var(--space-md) auto 0;
-  padding: 0 var(--page-gutter);
+  margin-top: var(--space-md);
   text-align: center;
   font-family: var(--font-body);
   font-size: clamp(1rem, 1.3vw, 1.15rem);
@@ -17408,9 +17612,7 @@ body.cart-open {
 }
 
 .irl-events {
-  max-width: var(--site-width);
-  margin: clamp(2.5rem, 5vw, 4rem) auto 0;
-  padding: 0 var(--page-gutter);
+  margin-top: clamp(2.5rem, 5vw, 4rem);
   display: grid;
   gap: var(--space-lg);
 }
@@ -17525,11 +17727,11 @@ body.cart-open {
   bottom: clamp(1rem, 3vw, 2rem);
   left: 50%;
   z-index: 100;
-  padding: 0.75rem 1.5rem;
+  padding: clamp(0.55rem, 2vw, 0.75rem) clamp(0.9rem, 4vw, 1.5rem);
   background: var(--text-primary);
   color: var(--bg-deep);
   font-family: var(--font-ui);
-  font-size: 0.85rem;
+  font-size: clamp(0.72rem, 2.6vw, 0.85rem);
   letter-spacing: 0.06em;
   text-decoration: none;
   border-radius: 999px;
@@ -18031,8 +18233,7 @@ body.cart-open {
   background: var(--bg-deep);
 }
 .si-popup__inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
+  /* width handled by .si-popup shell content track */
 }
 .si-popup__media {
   background: var(--bg-elevated);
@@ -18315,8 +18516,6 @@ body.cart-open {
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   gap: var(--space-2xl);
   align-items: center;
-  max-width: var(--site-width);
-  margin: 0 auto;
 }
 @media (max-width: 880px) {
   .si-who__grid {
@@ -18344,8 +18543,7 @@ body.cart-open {
   margin-top: clamp(2.5rem, 6vw, 4.5rem);
 }
 .si-schedule__inner {
-  max-width: var(--site-width);
-  margin: 0 auto;
+  /* width handled by .si-schedule shell content track */
 }
 .si-schedule__lede,
 .si-schedule__note {

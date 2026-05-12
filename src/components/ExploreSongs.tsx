@@ -37,10 +37,10 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
 
   return (
     <section className="explore-songs">
-      <div className="explore-songs__frame explore-songs__frame--top">
-        <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-        <h2 className="explore-songs__heading">Browse Chad Lewine Songs</h2>
-        <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+      <div className="glyph-title-bar glyph-title-bar--top">
+        <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+        <h2 className="glyph-title-bar__heading">Browse Chad Lewine Songs</h2>
+        <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
       </div>
 
       <div className="explore-songs__inner site-contain">

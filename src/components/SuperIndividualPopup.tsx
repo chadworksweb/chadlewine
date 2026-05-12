@@ -267,15 +267,15 @@ export function SuperIndividualPopupSection({
       )}
 
       <p className="si-popup__eyebrow">IRL Event</p>
-      <div className="explore-songs__frame explore-songs__frame--top">
-        <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-        <h2 className="explore-songs__heading" id="si-popup-heading">
+      <div className="glyph-title-bar glyph-title-bar--top">
+        <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+        <h2 className="glyph-title-bar__heading" id="si-popup-heading">
           The Super Individual Pop-Up
         </h2>
-        <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+        <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
       </div>
 
-      <div className="si-popup__media si-popup__media--full">
+      <div className="si-popup__media si-popup__media--full full-bleed">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/super-individual/popup-hero.webp"
@@ -351,10 +351,10 @@ export function SuperIndividualPopupSection({
       </div>
 
       <div id="schedule" className="si-schedule">
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h3 className="explore-songs__heading">Super Individual Pop Up Schedule</h3>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h3 className="glyph-title-bar__heading">Super Individual Pop Up Schedule</h3>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
 
         <div className="si-schedule__inner">

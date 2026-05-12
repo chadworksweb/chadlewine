@@ -32,7 +32,7 @@ export default function HoneyChromePage() {
     <article id="page-honeychrome" className="page-static">
       <h1 className="page-static__title">HoneyChrome</h1>
 
-      <div className="reading-column" style={{ maxWidth: "100%", padding: 0 }}>
+      <div className="prose">
         <p className="page-who__placeholder">
           Content in progress.
         </p>

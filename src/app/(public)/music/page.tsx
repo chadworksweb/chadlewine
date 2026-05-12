@@ -189,10 +189,10 @@ export default async function MusicHubPage() {
   return (
     <>
       <section className="page-music-hub__banner">
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h1 className="explore-songs__heading">Music</h1>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h1 className="glyph-title-bar__heading">Music</h1>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
       </section>
 

@@ -168,8 +168,8 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
       .order("release_date", { ascending: false }),
   ]);
 
-  const albums = (albumsRes.data || []) as AlbumRow[];
-  const singles = (singlesRes.data || []) as SongRow[];
+  const albums = (albumsRes.data || []) as unknown as AlbumRow[];
+  const singles = (singlesRes.data || []) as unknown as SongRow[];
 
   const singleIds = singles.map((s) => s.id);
   const albumArtBySong: Record<
@@ -184,8 +184,8 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
     for (const j of junctions || []) {
       const songId = (j as { song_id: string }).song_id;
       const alb = Array.isArray((j as { album: unknown }).album)
-        ? (j as { album: Array<{ cover_art_path: string | null; cover_art_alt: string | null }> }).album[0]
-        : (j as { album: { cover_art_path: string | null; cover_art_alt: string | null } | null }).album;
+        ? ((j as unknown) as { album: Array<{ cover_art_path: string | null; cover_art_alt: string | null }> }).album[0]
+        : ((j as unknown) as { album: { cover_art_path: string | null; cover_art_alt: string | null } | null }).album;
       if (alb?.cover_art_path && !albumArtBySong[songId]) {
         albumArtBySong[songId] = alb;
       }
@@ -325,7 +325,7 @@ export default async function SuperIndividualPage() {
       <section className="si-hero" aria-label="Super Individual">
         <div className="si-hero__inner">
           <h1 className="si-hero__eyebrow">Take back your power</h1>
-          <h2 className="si-hero__headline">Super Individual</h2>
+          <h2 className="si-hero__headline">Super<br />Individual</h2>
           <p className="si-hero__sub">Chad Lewine's Super Individual Series.</p>
           <div className="si-hero__nav">
             <a href="#what" className="si-hero__nav-link">Super Individual</a>
@@ -339,12 +339,12 @@ export default async function SuperIndividualPage() {
 
       {/* Section 2 — What is a Super Individual? */}
       <section className="si-section" id="what" aria-labelledby="si-what-heading">
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h2 className="explore-songs__heading" id="si-what-heading">
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h2 className="glyph-title-bar__heading" id="si-what-heading">
             What is a Super Individual?
           </h2>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
         <div className="si-prose">
           <p>
@@ -356,29 +356,45 @@ export default async function SuperIndividualPage() {
             </span>
             <em className="si-excerpt__def">{SUPER_INDIVIDUAL_DEFINITION}</em>
           </p>
-          <p>
-            The Super Individual is someone who 1) realizes that their power has been being drained from birth, 2) who sees where the drains are, 3) who calls out the drain, whether to others or themselves and 4) who cuts off the energy drain and reclaims 100% of their energy for their own use.
-          </p>
-          <p>
-            A single human being who is fully empowered is more powerful than any institution that derives their power from draining others. These institutions cannot stand, cannot function when we all take our power back.
-          </p>
-          <p>
-            A super individual is <strong>the sovereign, empowered being</strong>: in full and total control of the universally-sourced energy running through their mind, body and soul. An individual wholly reliant on themselves with no physical or non-physical external institutional support, guidance or programming.
-          </p>
-          <p>
-            The Super Individual is a person that has been fully deprogrammed from the at-birth programming of modernity.
-          </p>
+        </div>
+
+        <div className="si-what__grid">
+          <div className="si-what__steps-wrap">
+            <p className="si-what__steps-lead">A Super Individual is someone who:</p>
+            <ol className="si-what__steps">
+              <li>Realizes that their energy is being drained</li>
+              <li>Locates where the drains are</li>
+              <li>Calls out the drain, either to themselves or others</li>
+              <li>Cuts off the drain and reclaims 100% of their energy</li>
+              <li>Audits to see if they're draining others</li>
+            </ol>
+          </div>
+
+          <div className="si-prose">
+            <p>
+              A single human being who is fully empowered is more powerful than any institution that derives their power from draining others. These institutions cannot stand, cannot function when we all take our power back.
+            </p>
+            <p>
+              A super individual is <strong>the sovereign, empowered being</strong>: in full and total control of the universally-sourced energy running through their mind, body and soul. An individual wholly reliant on themselves with no physical or non-physical external institutional support, guidance or programming.
+            </p>
+            <p>
+              The Super Individual is a person that has been fully deprogrammed from the at-birth programming of modernity.
+            </p>
+            <p className="si-what__note">
+              Institutions are not only tangible and visible organizations (government, corporate, communal, spiritual) but also intangible and invisible ways of being, thinking and communicating.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Section 3 — The Thesis */}
       <section className="si-section" id="thesis" aria-labelledby="si-thesis-heading">
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h2 className="explore-songs__heading" id="si-thesis-heading">
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h2 className="glyph-title-bar__heading" id="si-thesis-heading">
             Reclaim the soundtrack to your life
           </h2>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
         <div className="si-prose">
           <p>
@@ -398,6 +414,13 @@ export default async function SuperIndividualPage() {
 
       {/* ============ THREE DOORS ============ */}
       <section className="si-section si-section--doors-intro" id="doors">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/super-individual/rise-with-feeling-transparent.webp"
+          alt=""
+          aria-hidden="true"
+          className="si-doors-intro__bg"
+        />
         <div className="si-prose si-doors-intro__prose">
           <p>
             It is with this awareness that I create and present the following three pathways to offer individuals an entry point to reclaiming their power on the road to becoming the Super Individual that they were already born as.
@@ -408,12 +431,12 @@ export default async function SuperIndividualPage() {
       {/* Door 1 — Merch */}
       <section id="door-merch" className="si-door si-door--merch" aria-labelledby="si-door-merch-heading">
         <p className="si-door__eyebrow">Merchandise</p>
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h2 className="explore-songs__heading" id="si-door-merch-heading">
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h2 className="glyph-title-bar__heading" id="si-door-merch-heading">
             Reclaim your light emanation
           </h2>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
 
         <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
@@ -451,16 +474,16 @@ export default async function SuperIndividualPage() {
       {/* Door 2 — Music (HeroLens + Discography 4-up) */}
       <section id="door-music" className="si-door si-door--music" aria-labelledby="si-door-music-heading">
         <p className="si-door__eyebrow">Original Music</p>
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h2 className="explore-songs__heading" id="si-door-music-heading">
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h2 className="glyph-title-bar__heading" id="si-door-music-heading">
             Follow my personal reclamation journey
           </h2>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
 
         <p className="si-excerpt">
-          Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, expanding painting of my personal journey out of the machine, and a new trail to follow, should you choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
+          Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, growing archive of my deprogramming personal journey, <em>and</em> a new trail to follow, should you choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
         </p>
 
         <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
@@ -524,12 +547,12 @@ export default async function SuperIndividualPage() {
       {/* Door 3 — Rising Compass */}
       <section className="si-door si-door--rc" aria-labelledby="si-door-rc-heading">
         <p className="si-door__eyebrow">Rising Compass</p>
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h2 className="explore-songs__heading" id="si-door-rc-heading">
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h2 className="glyph-title-bar__heading" id="si-door-rc-heading">
             Scan what you&rsquo;re listening to right now
           </h2>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
 
         <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
@@ -568,12 +591,12 @@ export default async function SuperIndividualPage() {
       {/* Section 6 — Who Is Chad Lewine? The about-the-author closer. */}
       <section className="si-section si-who" id="who-is-chad-lewine" aria-labelledby="si-who-heading">
         <p className="si-door__eyebrow">Who Am I</p>
-        <div className="explore-songs__frame explore-songs__frame--top">
-          <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-          <h2 className="explore-songs__heading" id="si-who-heading">
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h2 className="glyph-title-bar__heading" id="si-who-heading">
             Chad Lewine: The Deprogrammer
           </h2>
-          <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
         </div>
 
         <div className="si-who__grid">

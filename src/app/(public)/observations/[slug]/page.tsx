@@ -275,7 +275,9 @@ export default async function ObservationPage({
       </section>
 
       <article className="observation-body">
-        <MarkdownRenderer html={obsv.body} />
+        <div className="reading-column">
+          <MarkdownRenderer html={obsv.body} />
+        </div>
       </article>
 
       <SynapseDisplay sourceType="observation" sourceId={obsv.id} />

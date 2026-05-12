@@ -129,8 +129,10 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
         </button>
       </nav>
 
-      {menuOpen && (
-        <div className="nav-mobile-menu">
+      <div
+        className={`nav-mobile-menu${menuOpen ? " nav-mobile-menu--open" : ""}`}
+        aria-hidden={!menuOpen}
+      >
           {navItems.map((item) =>
             item.children ? (
               <div key={item.label} className="nav-mobile-menu__group">
@@ -179,8 +181,7 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
               </Link>
             )
           )}
-        </div>
-      )}
+      </div>
     </header>
   );
 }

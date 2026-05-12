@@ -309,10 +309,10 @@ export default async function HomePage() {
 
       {homepageMerch.length > 0 && (
         <section className="home-merch">
-          <div className="explore-songs__frame explore-songs__frame--top">
-            <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-            <h2 className="explore-songs__heading">Shop Chad Lewine Merchandise</h2>
-            <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <div className="glyph-title-bar glyph-title-bar--top">
+            <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+            <h2 className="glyph-title-bar__heading">Shop Chad Lewine Merchandise</h2>
+            <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
           <div className="home-merch__inner site-contain">
             <div className="home-merch__grid">
@@ -336,10 +336,10 @@ export default async function HomePage() {
 
       {songBriefs.length > 0 && (
         <section className="song-brief-feed">
-          <div className="explore-songs__frame explore-songs__frame--top">
-            <span className="explore-songs__frame-label" aria-hidden="true">░▒▓█</span>
-            <h2 className="explore-songs__heading">Read About Chad Lewine Songs</h2>
-            <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
+          <div className="glyph-title-bar glyph-title-bar--top">
+            <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+            <h2 className="glyph-title-bar__heading">Read About Chad Lewine Songs</h2>
+            <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
           <div className="song-brief-feed__inner">
             <div className="song-brief-feed__grid">

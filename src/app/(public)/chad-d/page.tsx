@@ -32,7 +32,7 @@ export default function ChadDPage() {
     <article id="page-chad-d" className="page-static">
       <h1 className="page-static__title">Chad D</h1>
 
-      <div className="reading-column" style={{ maxWidth: "100%", padding: 0 }}>
+      <div className="prose">
         <p className="page-who__placeholder">
           Content in progress.
         </p>
