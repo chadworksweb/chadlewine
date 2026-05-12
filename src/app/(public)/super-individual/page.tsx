@@ -344,7 +344,7 @@ export default async function SuperIndividualPage() {
       <section className="si-hero" aria-label="Super Individual">
         <div className="si-hero__inner">
           <h1 className="si-hero__eyebrow">Take back your power</h1>
-          <h2 className="si-hero__headline">Super<br />Individual</h2>
+          <h2 className="si-hero__headline">Super Individual</h2>
           <p className="si-hero__sub">Chad Lewine's Super Individual Series.</p>
           <div className="si-hero__nav">
             <a href="#what" className="si-hero__nav-link">Super Individual</a>
