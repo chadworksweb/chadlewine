@@ -68,7 +68,7 @@ const KIND_LABEL: Record<ScheduleKind, string> = {
 
 const KIND_BLURB: Record<ScheduleKind, string> = {
   painting:
-    "Chad paints in front of the glass, all day, every day. The work travels home on someone's wall.",
+    "Chad paints pieces of all shapes and sizes. Works will be available for purchase.",
   talk: "Chad on the mic — a monologue on a Super Individual theme. Sit, stand, walk past, listen.",
   discourse:
     "The floor opens. What's broken, what to do about it, what to build instead. Not self-help — structural. Anyone can speak.",
@@ -85,6 +85,7 @@ export const POPUP_SCHEDULE: ScheduleDay[] = [
       { time: "12:30 PM", kind: "live-set", label: KIND_LABEL["live-set"], description: KIND_BLURB["live-set"] },
       { time: "3:00 PM", kind: "talk", label: KIND_LABEL.talk, description: KIND_BLURB.talk },
       { time: "6:00 PM", kind: "discourse", label: KIND_LABEL.discourse, description: KIND_BLURB.discourse },
+      { time: "7:00 PM", kind: "live-set", label: KIND_LABEL["live-set"], description: KIND_BLURB["live-set"] },
     ],
   },
   {
@@ -94,8 +95,9 @@ export const POPUP_SCHEDULE: ScheduleDay[] = [
     slots: [
       { time: "All day", kind: "painting", label: KIND_LABEL.painting, description: KIND_BLURB.painting },
       { time: "11:30 AM", kind: "talk", label: KIND_LABEL.talk, description: KIND_BLURB.talk },
-      { time: "2:00 PM", kind: "discourse", label: KIND_LABEL.discourse, description: KIND_BLURB.discourse },
-      { time: "5:30 PM", kind: "live-set", label: KIND_LABEL["live-set"], description: KIND_BLURB["live-set"] },
+      { time: "2:00 PM", kind: "live-set", label: KIND_LABEL["live-set"], description: KIND_BLURB["live-set"] },
+      { time: "5:30 PM", kind: "discourse", label: KIND_LABEL.discourse, description: KIND_BLURB.discourse },
+      { time: "7:00 PM", kind: "live-set", label: KIND_LABEL["live-set"], description: KIND_BLURB["live-set"] },
     ],
   },
   {
@@ -107,6 +109,7 @@ export const POPUP_SCHEDULE: ScheduleDay[] = [
       { time: "12:30 PM", kind: "discourse", label: KIND_LABEL.discourse, description: KIND_BLURB.discourse },
       { time: "2:30 PM", kind: "live-set", label: KIND_LABEL["live-set"], description: KIND_BLURB["live-set"] },
       { time: "4:30 PM", kind: "talk", label: KIND_LABEL.talk, description: KIND_BLURB.talk },
+      { time: "5:00 PM", kind: "live-set", label: KIND_LABEL["live-set"], description: KIND_BLURB["live-set"] },
     ],
   },
 ];
@@ -267,12 +270,14 @@ export function SuperIndividualPopupSection({
       )}
 
       <p className="si-popup__eyebrow">IRL Event</p>
-      <div className="glyph-title-bar glyph-title-bar--top">
-        <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
-        <h2 className="glyph-title-bar__heading" id="si-popup-heading">
-          The Super Individual Pop-Up
-        </h2>
-        <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+      <div className="si-banner-bar">
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h2 className="glyph-title-bar__heading" id="si-popup-heading">
+            The Super Individual Pop-Up
+          </h2>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+        </div>
       </div>
 
       <div className="si-popup__media si-popup__media--full full-bleed">
@@ -336,7 +341,7 @@ export function SuperIndividualPopupSection({
 
         <div className="si-popup__concept si-prose">
           <p>
-            Now, I would like to invite you to join me and experience the physical manifestation of my life&rsquo;s work thus far as described above: Chad Lewine&rsquo;s Super Individual Pop Up at Montgomery Mall in North Wales, PA, about an hour outside of Philadelphia and 2 hours away from NYC.
+            Now, I would like to invite you to join me and experience the physical manifestation of my life&rsquo;s work thus far as described above: Chad Lewine&rsquo;s Super Individual Pop Up at Montgomery Mall in North Wales, PA (about an hour outside of Philadelphia and 2 hours away from NYC).
           </p>
           <p>
             This event-experience is a solution to the fact that I have been rejected by all current institutions that hold art, music and apparel: art galleries, music venues and fashion retailers. All of these institutions have boxes that you must check or you are not allowed in.
@@ -351,15 +356,20 @@ export function SuperIndividualPopupSection({
       </div>
 
       <div id="schedule" className="si-schedule">
-        <div className="glyph-title-bar glyph-title-bar--top">
-          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
-          <h3 className="glyph-title-bar__heading">Super Individual Pop Up Schedule</h3>
-          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+        <div className="si-banner-bar">
+          <div className="glyph-title-bar glyph-title-bar--top">
+            <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+            <h3 className="glyph-title-bar__heading">Super Individual Pop Up Schedule</h3>
+            <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+          </div>
         </div>
 
         <div className="si-schedule__inner">
           <p className="si-schedule__lede">
-            Times are placeholders. Final program will be confirmed closer to the date. Live painting runs continuously while the doors are open.
+            These are loose schedules that give you an idea of what to expect at the popup.
+          </p>
+          <p className="si-schedule__lede">
+            The only rigid events are the live sets.
           </p>
 
           <div className="si-schedule__grid">
@@ -390,7 +400,7 @@ export function SuperIndividualPopupSection({
 
           <p className="si-schedule__note">
             <span>Talks are short, structural, and skippable.</span>
-            <span>Discourse is open mic &mdash; anyone can take it.</span>
+            <span>Discourse is respectful and mannered open mic &mdash; anyone can speak or ask questions.</span>
             <span>Live sets are full songs from the catalog.</span>
           </p>
         </div>

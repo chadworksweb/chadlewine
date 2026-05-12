@@ -13479,6 +13479,56 @@ h3.aw-heading {
 .glyph-title-bar--top { margin-bottom: var(--space-xl); }
 .glyph-title-bar--bottom { margin-top: var(--space-xl); }
 
+/* Banner-style wrapper for title bars — adds a glowing horizontal band behind
+   the bar (same treatment as .page-music-hub__banner) without scaling the
+   title bar up. The wrapper opts into the parent shell's full track so the
+   glow bleeds to viewport edges; the inner title bar stays at site-width so
+   corner brackets land at the box edges as usual. */
+.si-banner-bar {
+  position: relative;
+  isolation: isolate;
+  grid-column: full;
+  margin-bottom: var(--space-xl);
+  padding-block: 0.65rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.si-banner-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0) 5%,
+    var(--text-accent) 50%,
+    rgba(64, 96, 255, 0) 95%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.5), 0 0 48px rgba(64, 96, 255, 0.2);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+.si-banner-bar > .glyph-title-bar {
+  width: 100%;
+  max-width: var(--site-width);
+  margin-bottom: 0;
+  margin-top: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* Solid halo around the heading + label backplates so they cut cleanly
+   through the glow band — same idea as .page-music-hub__banner. */
+.si-banner-bar .glyph-title-bar__heading,
+.si-banner-bar .glyph-title-bar__label {
+  box-shadow: 0 0 0 10px #000;
+}
+
 .glyph-title-bar::before,
 .glyph-title-bar::after {
   content: '';
@@ -18547,6 +18597,9 @@ body.cart-open {
 }
 .si-schedule__lede {
   margin-bottom: var(--space-xl);
+}
+.si-schedule__lede:has(+ .si-schedule__lede) {
+  margin-bottom: var(--space-xs);
 }
 .si-schedule__note {
   margin-top: var(--space-xl);

@@ -358,12 +358,14 @@ export default async function SuperIndividualPage() {
 
       {/* Section 2 — What is a Super Individual? */}
       <section className="si-section" id="what" aria-labelledby="si-what-heading">
-        <div className="glyph-title-bar glyph-title-bar--top">
+        <div className="si-banner-bar">
+          <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-what-heading">
             What is a Super Individual?
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+          </div>
         </div>
         <div className="si-prose">
           <p>
@@ -408,16 +410,18 @@ export default async function SuperIndividualPage() {
 
       {/* Section 3 — The Thesis */}
       <section className="si-section" id="thesis" aria-labelledby="si-thesis-heading">
-        <div className="glyph-title-bar glyph-title-bar--top">
+        <div className="si-banner-bar">
+          <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-thesis-heading">
             Reclaim the soundtrack to your life
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+          </div>
         </div>
         <div className="si-prose">
           <p>
-            I believe one of the monolithic institutions that is draining our power is the recorded music business. I&apos;ve spent my entire conscious life—over 30 years—consuming, studying, analyzing and producing recorded music. For the entirety of that period, I&apos;ve known, in different severities, that there was an invisible yet non-trivial power behind music; a power whose origin and foundation was being intentionally deluded, secret and hidden from the masses; the consumers of such music.
+            I believe one of the monolithic institutions that is draining our power is the recorded music business. I&apos;ve spent my entire conscious life—over 30 years—consuming, studying, analyzing and producing recorded music. For the entirety of that period, I&apos;ve known, in different severities, that there was an invisible yet non-trivial power behind music; a power whose origin and foundation was being intentionally deluded, kept secret and hidden from the masses; the consumers of such music.
           </p>
           <p>
             Music being applauded and marketed as entertainment is a lie. Music is power. Music is prescription medicine for the mind. Music is a highly advanced and complex metaphysical technology that influences brain chemistry on a scientifically proven, physical level.
@@ -426,7 +430,13 @@ export default async function SuperIndividualPage() {
             Music is real and raw <strong>power.</strong> Whether that power is used for good or bad lies in the hands of those wielding it, and I believe that those currently wielding the power en masse are using it for control, suppression and dominance over the modern human populace.
           </p>
           <p>
-            Music feels good, but most people don&rsquo;t have the tools (or desire) to understand why or how, and that is what those in control bank on. A society consuming the music that we&rsquo;re consuming at the rate and density that we&rsquo;re consuming it will show signs of dysfunction. And aren&rsquo;t we showing dysfunction en masse? But the powers that be have positioned themselves and the power of music to be non-targets of this dysfunction by default. The programming and propaganda we&rsquo;re fed is that &ldquo;music is harmless&rdquo; and &ldquo;music is actually an outlet for everything else going wrong in the world.&rdquo; But those are both lies. Popular music is actually one of the main perpetrators of what&rsquo;s going wrong in the world because music directly and without fail influences each listener&rsquo;s internal world, and when our internal worlds are corrupted and degraded by the music coming from the mainstream propaganda megaphone, society falters: mental illness and instability spikes, yet the perpetrators that contribute to the instability are so highly regarded and in collusion with the other population control platforms that the real cause of the symptom never gets uncovered. Then, when there is no framework to support and solve the mental illness and societal fragmenting we are experiencing, society collapses.
+            Music feels good, but most people don&rsquo;t have the tools (or desire) to understand why or how, and that is what those in control bank on. A society consuming the music that we&rsquo;re consuming at the rate and density that we&rsquo;re consuming it will show signs of dysfunction. And aren&rsquo;t we showing dysfunction en masse? But the powers that be have positioned themselves and the power of music to be non-targets of this dysfunction by default. The programming and propaganda we&rsquo;re fed is that &ldquo;music is harmless&rdquo; and &ldquo;music is actually an outlet for everything else going wrong in the world.&rdquo;
+          </p>
+          <p>
+            But those are both lies.
+          </p>
+          <p>
+            Popular music is actually one of the main perpetrators of what&rsquo;s going wrong in the world because music directly and without fail influences each listener&rsquo;s internal world, and when our internal worlds are corrupted and degraded by the music coming from the mainstream propaganda megaphone, society falters: mental illness and instability spikes, yet the perpetrators that contribute to the instability are so highly regarded and in collusion with the other population control platforms that the real cause of the symptom never gets uncovered. Then, when there is no framework to support and solve the mental illness and societal fragmenting we are experiencing, society collapses.
           </p>
         </div>
       </section>
@@ -450,17 +460,19 @@ export default async function SuperIndividualPage() {
       {/* Door 1 — Merch */}
       <section id="door-merch" className="si-door si-door--merch" aria-labelledby="si-door-merch-heading">
         <p className="si-door__eyebrow">Merchandise</p>
-        <div className="glyph-title-bar glyph-title-bar--top">
+        <div className="si-banner-bar">
+          <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-merch-heading">
             Reclaim your light emanation
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+          </div>
         </div>
 
         <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
           <p>
-            Reclaim your power by donning the Super Individual Series 1 by Chad Lewine. Featuring original artwork designed with the intention of positively disrupting the immediate visible light spectrum in an effort to create a space where the individuals in proximity may feel literal atomic shifts in a way that allows them to expand and express themselves in a way the rigid structural blandness permeating our modern public spaces. Don this apparel to emanate Super Individuality. Not in a sense of superiority, but total reclamation of one&rsquo;s and all&rsquo;s individual empowerment.
+            Reclaim your power by donning my Super Individual Series 1. Featuring original artwork I designed with the intention of positively disrupting the immediate visible light spectrum in an effort to create a space where the individuals in proximity may feel literal atomic shifts in a way that allows them to expand and express themselves in a way the rigid structural blandness permeating our modern public spaces does not. Don this apparel to emanate Super Individuality. Not in a sense of superiority, but total reclamation of one&rsquo;s and all&rsquo;s individual empowerment.
           </p>
         </div>
 
@@ -493,12 +505,14 @@ export default async function SuperIndividualPage() {
       {/* Door 2 — Music (HeroLens + Discography 4-up) */}
       <section id="door-music" className="si-door si-door--music" aria-labelledby="si-door-music-heading">
         <p className="si-door__eyebrow">Original Music</p>
-        <div className="glyph-title-bar glyph-title-bar--top">
+        <div className="si-banner-bar">
+          <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-music-heading">
             Follow my personal reclamation journey
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+          </div>
         </div>
 
         <p className="si-excerpt">
@@ -510,7 +524,7 @@ export default async function SuperIndividualPage() {
             Reclaim your power by listening to music specifically designed to call out institutional dysfunction and raise your frequency by meeting you where you&rsquo;re at and bringing you higher, should you be open to it, as opposed to most popular music these days which meets you where you&rsquo;re at by relating to or commiserating with what-is instead of what could be, let alone corrupting or degrading your vibe entirely.
           </p>
           <p>
-            Chad Lewine&rsquo;s music is designed to make you think without thinking; to change without trying; to lay tracks of new neural pathways you can continue to carve deeper and deeper into new thought patterns, which may in turn create micro improvements in your life that stack over time.
+            My music is designed to make you think without thinking; to change without trying; to lay tracks of new neural pathways you can continue to carve deeper and deeper into new thought patterns, which may in turn create micro improvements in your life that stack over time.
           </p>
         </div>
 
@@ -566,12 +580,14 @@ export default async function SuperIndividualPage() {
       {/* Door 3 — Rising Compass */}
       <section className="si-door si-door--rc" aria-labelledby="si-door-rc-heading">
         <p className="si-door__eyebrow">Rising Compass</p>
-        <div className="glyph-title-bar glyph-title-bar--top">
+        <div className="si-banner-bar">
+          <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-rc-heading">
             Scan what you&rsquo;re listening to right now
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+          </div>
         </div>
 
         <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
@@ -610,12 +626,14 @@ export default async function SuperIndividualPage() {
       {/* Section 6 — Who Is Chad Lewine? The about-the-author closer. */}
       <section className="si-section si-who" id="who-is-chad-lewine" aria-labelledby="si-who-heading">
         <p className="si-door__eyebrow">Who Am I</p>
-        <div className="glyph-title-bar glyph-title-bar--top">
+        <div className="si-banner-bar">
+          <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-who-heading">
             Chad Lewine: The Deprogrammer
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+          </div>
         </div>
 
         <div className="si-who__grid">
@@ -632,10 +650,10 @@ export default async function SuperIndividualPage() {
               I thought that I was fully autonomous and sovereign my whole life, but the reality is I was programmed by my parents, (mostly my mother) to live by their rules and to be constrained by their perceptions, their reality, their expectations, their limits, their dreams and their goals.
             </p>
             <p>
-              Due to this total lack of unconditional love from both parents, I ended up being programmed by the media and specifically sex. I was programmed to perceive sex as love; one of the biggest programming initiatives in our current society. This programming eventually led me into a deeply toxic and abusive relationship driven by substance abuse and aggressive co-dependency.
+              Due to this total lack of unconditional love from both parents, I ended up being programmed by the media and specifically sex. I was programmed to perceive sex as love and sex as success; one of the biggest programming initiatives in our current society. This programming eventually led me into a deeply toxic and abusive relationship driven by substance abuse and aggressive co-dependency.
             </p>
             <p>
-              It was in this relationship that I hit real rock bottom, which for me was dangerous substance use and interactions with the criminal justice system. This forced me to examine how I got there and how to get out. I did that un-learning (deprogramming) through an ongoing life-time of metaphysical and spiritual study bolstered by 1.5 years straight of weekly talk therapy that book-ended my being arrested in April 2022 and the successful leaving of the abusive relationship.
+              It was in this relationship that I hit real rock bottom, which for me was dangerous substance use and interactions with the criminal justice system. This forced me to examine how I got there and how to get out. I did that un-learning (deprogramming) through my ongoing metaphysical and spiritual study and practice, bolstered by 1.5 years straight of weekly talk therapy that book-ended my being arrested in April 2022 and the successful leaving of the abusive relationship.
             </p>
             <p>
               I was also programmed to follow the mainstream route of chasing a music dream; to get a record deal, to have millions of fans and stadium tours. I was guided by Michael Jackson but I also was programmed (maybe even programmed myself) to believe that if I wasn&rsquo;t reaching that, I wasn&rsquo;t successful.
