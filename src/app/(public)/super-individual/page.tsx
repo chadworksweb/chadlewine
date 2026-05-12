@@ -75,6 +75,24 @@ interface AlbumRow {
   release_formats: { label: string } | null;
 }
 
+// Raw shape as Supabase returns it: foreign-key joins come back as arrays
+// (or a single object) depending on cardinality. We normalize before use.
+type Joined<T> = T | T[] | null;
+
+interface AlbumRowRaw extends Omit<AlbumRow, "release_formats"> {
+  release_formats: Joined<{ label: string }>;
+}
+
+interface AlbumJunctionRaw {
+  song_id: string;
+  album: Joined<{ cover_art_path: string | null; cover_art_alt: string | null }>;
+}
+
+function firstOrNull<T>(value: Joined<T> | undefined): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
 interface SongRow {
   id: string;
   title: string;
@@ -168,8 +186,12 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
       .order("release_date", { ascending: false }),
   ]);
 
-  const albums = (albumsRes.data || []) as unknown as AlbumRow[];
-  const singles = (singlesRes.data || []) as unknown as SongRow[];
+  const albumsRaw = (albumsRes.data || []) as AlbumRowRaw[];
+  const albums: AlbumRow[] = albumsRaw.map(({ release_formats, ...rest }) => ({
+    ...rest,
+    release_formats: firstOrNull(release_formats),
+  }));
+  const singles = (singlesRes.data || []) as SongRow[];
 
   const singleIds = singles.map((s) => s.id);
   const albumArtBySong: Record<
@@ -181,13 +203,10 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
       .from("album_songs")
       .select("song_id, album:albums(cover_art_path, cover_art_alt)")
       .in("song_id", singleIds);
-    for (const j of junctions || []) {
-      const songId = (j as { song_id: string }).song_id;
-      const alb = Array.isArray((j as { album: unknown }).album)
-        ? ((j as unknown) as { album: Array<{ cover_art_path: string | null; cover_art_alt: string | null }> }).album[0]
-        : ((j as unknown) as { album: { cover_art_path: string | null; cover_art_alt: string | null } | null }).album;
-      if (alb?.cover_art_path && !albumArtBySong[songId]) {
-        albumArtBySong[songId] = alb;
+    for (const j of (junctions || []) as AlbumJunctionRaw[]) {
+      const alb = firstOrNull(j.album);
+      if (alb?.cover_art_path && !albumArtBySong[j.song_id]) {
+        albumArtBySong[j.song_id] = alb;
       }
     }
   }

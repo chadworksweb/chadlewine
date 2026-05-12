@@ -73,10 +73,6 @@
   --site-width: min(var(--site-width-cap), calc(100vw - var(--site-edge-min) * 2));
   --reading-width: calc((var(--site-width-cap) - var(--space-xl)) * 3 / 4);
   --content-width: 1100px;
-  /* Legacy alias — kept ONLY for non-containment math (e.g. art-size calcs,
-     small mobile padding cases). Do NOT use for content containment;
-     containment is handled by --site-width via the page-shell grid. */
-  --page-gutter: clamp(0.75rem, 4vw, 2.5rem);
   --nav-height: 80px;
   --sticky-top: calc(var(--nav-height) + var(--space-md));
 
@@ -274,7 +270,6 @@ main > .observation-body,
 main > .home-merch,
 main > .subscribe-section,
 main > .album-rc-classifications,
-main > .site-patronage,
 main > .page-home,
 main > #page-home,
 main > .page-merch,
@@ -592,7 +587,7 @@ h2, h3, h4, h5, h6 {
 }
 
 .nav-mobile-menu {
-  padding-inline: var(--page-gutter);
+  padding-inline: var(--site-edge-min);
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
@@ -4223,7 +4218,7 @@ h3.aw-heading {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: var(--page-gutter);
+  padding: var(--site-edge-min);
 }
 
 .login-form {
@@ -9703,9 +9698,7 @@ h3.aw-heading {
   background: var(--bg-surface);
   border: none;
   border-radius: 0;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  padding: var(--space-3xl) var(--page-gutter);
+  padding: var(--space-3xl) var(--site-edge-min);
   margin-top: var(--space-2xl);
 }
 
@@ -9929,9 +9922,6 @@ h3.aw-heading {
 .patronage__submit:hover { opacity: 0.85; }
 .patronage__submit:disabled { opacity: 0.5; cursor: default; }
 
-.site-patronage {
-  max-width: 480px; margin: 0 auto; padding: 0 var(--space-md);
-}
 .site-patronage .patronage { margin-top: 0; }
 
 /* ============================================================
