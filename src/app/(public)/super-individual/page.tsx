@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
-import { Prompt } from "@/components/Prompt";
 import { SuperIndividualMerchCarousel, type CarouselProduct } from "@/components/SuperIndividualMerchCarousel";
 import { MerchProductCard } from "@/components/MerchProductCard";
 import { AlbumHero, type AlbumHeroItem } from "@/components/AlbumHero";
@@ -19,11 +18,11 @@ const SUPER_INDIVIDUAL_DEFINITION =
   "A sovereign human being that has fully reclaimed their power from and operates outside of the failing institutions of modernity.";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Super Individual — Take Back Your Power",
+  title: "Super Individual - Take Back Your Power",
   description: `Super Individual (noun): ${SUPER_INDIVIDUAL_DEFINITION} Chad Lewine's Super Individual Series — withdraw from institutional modernity, starting with your soundtrack.`,
   alternates: { canonical: "https://chadlewine.com/super-individual" },
   openGraph: {
-    title: "Super Individual — Chad Lewine",
+    title: "Super Individual - Chad Lewine",
     description: `Super Individual (noun): ${SUPER_INDIVIDUAL_DEFINITION}`,
     url: "https://chadlewine.com/super-individual",
   },
@@ -460,7 +459,7 @@ export default async function SuperIndividualPage() {
           <span className="explore-songs__frame-label" aria-hidden="true">█▓▒░</span>
         </div>
 
-        <p className="si-door__lead">
+        <p className="si-excerpt">
           Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, expanding painting of my personal journey out of the machine, and a new trail to follow, should you choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
         </p>
 
@@ -579,20 +578,34 @@ export default async function SuperIndividualPage() {
 
         <div className="si-who__grid">
           <div className="si-who__image">
-            <Prompt label="Portrait of Chad">
-              Photo or self-portrait of Chad that anchors the about section. Roughly portrait-orientation; will be cropped to a 4:5 frame. Replace this block with the actual image when ready.
-            </Prompt>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/super-individual/chad-lewine_the-deprogrammer_blue-glow.webp"
+              alt="Chad Lewine, the Deprogrammer"
+            />
           </div>
 
           <div className="si-prose si-who__copy">
             <p>
-              [Placeholder bio — replace with Chad&rsquo;s own words.] Musician, artist, builder, deprogrammer. Spent the last three decades inside the modern recorded-music machine, and the last several writing his way back out of it. Now operates as a Super Individual: makes the songs, paints the art, runs the tools, books the room.
+              I thought that I was fully autonomous and sovereign my whole life, but the reality is I was programmed by my parents, (mostly my mother) to live by their rules and to be constrained by their perceptions, their reality, their expectations, their limits, their dreams and their goals.
             </p>
             <p>
-              [Placeholder bio — replace.] Lives and works in southeastern Pennsylvania. Has released over 150 songs across 13 albums. Builds web tools when the existing ones won&rsquo;t serve the message. The Super Individual Series is the wearable thesis of everything he&rsquo;s figured out so far.
+              Due to this total lack of unconditional love from both parents, I ended up being programmed by the media and specifically sex. I was programmed to perceive sex as love; one of the biggest programming initiatives in our current society. This programming eventually led me into a deeply toxic and abusive relationship driven by substance abuse and aggressive co-dependency.
             </p>
-            <Link href="/chad-lewine" className="si-who__cta">
-              Read the full story &rarr;
+            <p>
+              It was in this relationship that I hit real rock bottom, which for me was dangerous substance use and interactions with the criminal justice system. This forced me to examine how I got there and how to get out. I did that un-learning (deprogramming) through an ongoing life-time of metaphysical and spiritual study bolstered by 1.5 years straight of weekly talk therapy that book-ended my being arrested in April 2022 and the successful leaving of the abusive relationship.
+            </p>
+            <p>
+              I was also programmed to follow the mainstream route of chasing a music dream; to get a record deal, to have millions of fans and stadium tours. I was guided by Michael Jackson but I also was programmed (maybe even programmed myself) to believe that if I wasn&rsquo;t reaching that, I wasn&rsquo;t successful.
+            </p>
+            <p>
+              I was also programmed by the social media platforms to try to mold myself into something that could go viral. I wasn&rsquo;t changing my message or my appearance to be something I&rsquo;m not, but I did believe that I needed to be on these platforms to find success.
+            </p>
+            <p>
+              All of this is to say, I had my own type of programming installed and I&rsquo;ve faced and overcome myriad challenges, those challenges being the precise origins of my music and art, all culminating now, in 2026, as a movement that I&rsquo;m calling the Super Individual.
+            </p>
+            <Link href="/chad-lewine" className="si-popup__cta si-popup__cta--primary si-who__cta">
+              Read my full life story thus far &rarr;
             </Link>
           </div>
         </div>

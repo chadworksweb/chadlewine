@@ -16736,6 +16736,15 @@ body.cart-open {
   color: var(--text-accent);
   font-weight: 600;
 }
+.si-door--music .si-excerpt::before {
+  background-image: url('/images/super-individual/know-to-let-go.webp');
+}
+.si-door--music .si-excerpt {
+  text-shadow:
+    0 0 8px rgba(228, 228, 236, 0.95),
+    0 0 18px rgba(228, 228, 236, 0.7),
+    0 0 36px rgba(228, 228, 236, 0.45);
+}
 .si-section__inner {
   max-width: var(--site-width);
   margin: 0 auto;
@@ -16782,6 +16791,10 @@ body.cart-open {
   gap: var(--space-lg);
   max-width: var(--site-width);
   margin: var(--space-2xl) auto 0;
+}
+.si-merch-grid .merch-shop__card-title {
+  display: block;
+  text-align: center;
 }
 @media (max-width: 720px) {
   .si-merch-grid { grid-template-columns: 1fr; }
@@ -17187,10 +17200,19 @@ body.cart-open {
   align-items: center;
   gap: var(--space-md);
 }
+.si-merch-carousel__stage {
+  --si-tab-w: 60px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  margin-inline: auto;
+}
 .si-merch-carousel__viewport {
   position: relative;
-  width: 100%;
-  max-width: min(675px, 100%);
+  flex: 0 1 675px;
+  max-width: 675px;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border-radius: 8px;
@@ -17198,8 +17220,8 @@ body.cart-open {
 .si-merch-carousel__slide {
   position: absolute;
   inset: 0;
-  transition: transform var(--duration-slow) var(--ease-out),
-              opacity var(--duration-slow) var(--ease-out);
+  transition: transform 1000ms var(--ease-out),
+              opacity 1000ms var(--ease-out);
 }
 .si-merch-carousel__slide--current { z-index: 2; opacity: 1; }
 .si-merch-carousel__slide--prev,
@@ -17212,32 +17234,66 @@ body.cart-open {
 .si-merch-carousel__image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 .si-merch-carousel__image--empty {
   background: linear-gradient(135deg, var(--bg-elevated), var(--bg-surface));
 }
+/* Sovereign side-tab paddles — same treatment as .album-hero__nav-tab.
+   Lives outside the viewport as a flex sibling so paddles don't overlap
+   the product image. */
 .si-merch-carousel__nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid var(--border-medium);
+  flex: 0 0 var(--si-tab-w);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 15%,
+    rgba(64, 96, 255, 0.32) 50%,
+    rgba(64, 96, 255, 0.0) 85%,
+    transparent 100%
+  );
+  box-shadow: 0 0 16px rgba(64, 96, 255, 0.22), 0 0 32px rgba(64, 96, 255, 0.08);
+  border: none;
   color: var(--text-primary);
-  font-size: 1.5rem;
+  font-size: 36px;
+  line-height: 1;
   cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: background var(--duration-base) var(--ease-out);
+  padding: 0;
+  transition: background var(--duration-base) var(--ease-out),
+              box-shadow var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out);
 }
-.si-merch-carousel__nav:hover { background: rgba(0, 0, 0, 0.85); }
-.si-merch-carousel__nav--prev { left: 12px; }
-.si-merch-carousel__nav--next { right: 12px; }
+.si-merch-carousel__nav:hover,
+.si-merch-carousel__nav:focus-visible {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(64, 96, 255, 0.0) 10%,
+    rgba(64, 96, 255, 0.55) 50%,
+    rgba(64, 96, 255, 0.0) 90%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.4), 0 0 48px rgba(64, 96, 255, 0.18);
+  color: var(--text-accent);
+}
+.si-merch-carousel__nav:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: -4px;
+}
+.si-merch-carousel__nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .si-merch-carousel__stage { --si-tab-w: 40px; }
+  .si-merch-carousel__nav { font-size: 28px; }
+}
 .si-merch-carousel__meta {
   display: flex;
   flex-direction: column;
@@ -18251,7 +18307,8 @@ body.cart-open {
 /* --- Who Is Chad Lewine — about-the-author closer on /super-individual --- */
 .si-who {
   background: var(--bg-deep);
-  padding-block: clamp(4rem, 9vw, 7rem);
+  padding-top: 0;
+  padding-bottom: clamp(4rem, 9vw, 7rem);
 }
 .si-who__grid {
   display: grid;
@@ -18268,31 +18325,18 @@ body.cart-open {
   }
 }
 .si-who__image {
-  aspect-ratio: 4 / 5;
-  overflow: hidden;
   border-radius: 6px;
-  background: var(--bg-elevated);
 }
 .si-who__image > * {
   width: 100%;
-  height: 100%;
+  height: auto;
+  display: block;
 }
 .si-who__copy {
   line-height: 1.6;
 }
 .si-who__cta {
-  display: inline-block;
   margin-top: var(--space-md);
-  font-family: var(--font-ui);
-  font-size: 0.95rem;
-  letter-spacing: 0.05em;
-  color: var(--text-accent);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-color var(--duration-base) var(--ease-out);
-}
-.si-who__cta:hover {
-  border-bottom-color: var(--text-accent);
 }
 
 /* --- Pop-Up Schedule --- */

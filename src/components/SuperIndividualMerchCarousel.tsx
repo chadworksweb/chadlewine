@@ -16,10 +16,11 @@ interface Props {
   products: CarouselProduct[];
 }
 
-const TRANSITION_MS = 700;
+const TRANSITION_MS = 1000;
 
 export function SuperIndividualMerchCarousel({ products }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
   const lockoutRef = useRef(false);
   const total = products.length;
 
@@ -27,9 +28,11 @@ export function SuperIndividualMerchCarousel({ products }: Props) {
     (dir: 1 | -1) => {
       if (lockoutRef.current || total <= 1) return;
       lockoutRef.current = true;
+      setIsLocked(true);
       setCurrentIndex((i) => (i + dir + total) % total);
       setTimeout(() => {
         lockoutRef.current = false;
+        setIsLocked(false);
       }, TRANSITION_MS);
     },
     [total]
@@ -61,18 +64,20 @@ export function SuperIndividualMerchCarousel({ products }: Props) {
 
   return (
     <div className="si-merch-carousel">
-      <div className="si-merch-carousel__viewport">
+      <div className="si-merch-carousel__stage">
         {total > 1 && (
           <button
             type="button"
             className="si-merch-carousel__nav si-merch-carousel__nav--prev"
             onClick={() => advance(-1)}
+            disabled={isLocked}
             aria-label="Previous product"
           >
             <span aria-hidden>‹</span>
           </button>
         )}
 
+        <div className="si-merch-carousel__viewport">
         {products.map((p, i) => {
           let offset = i - currentIndex;
           if (offset > total / 2) offset -= total;
@@ -111,11 +116,14 @@ export function SuperIndividualMerchCarousel({ products }: Props) {
           );
         })}
 
+        </div>
+
         {total > 1 && (
           <button
             type="button"
             className="si-merch-carousel__nav si-merch-carousel__nav--next"
             onClick={() => advance(1)}
+            disabled={isLocked}
             aria-label="Next product"
           >
             <span aria-hidden>›</span>
