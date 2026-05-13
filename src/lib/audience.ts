@@ -1,4 +1,10 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import {
+  notifyNewMember,
+  notifyTierChange,
+  deriveTier,
+  type MemberTier,
+} from "@/lib/audience-notify";
 
 /* Audience helper library — single source of truth for upserting and
    tagging the master contact record. Every state-changing helper emits
@@ -80,12 +86,13 @@ export async function upsertAudienceFromSubscribe(opts: {
 
   const { data: existing } = await supabase
     .from("audience")
-    .select("id, subscriber_status")
+    .select("id, subscriber_status, user_id, lifetime_orders")
     .eq("email", email)
     .maybeSingle();
 
   let audienceId: string;
   const now = new Date().toISOString();
+  const isNew = !existing;
 
   if (existing) {
     audienceId = existing.id;
@@ -123,6 +130,16 @@ export async function upsertAudienceFromSubscribe(opts: {
     source_page: opts.source_page ?? null,
   });
   await refreshTags(supabase, audienceId);
+
+  // Notify admin — new member only (existing subscribers don't re-trigger).
+  if (isNew) {
+    void notifyNewMember({
+      audience_id: audienceId,
+      email,
+      tier: "subscriber",
+      source: opts.source_page ? `subscribe — ${opts.source_page}` : "subscribe",
+    });
+  }
   return audienceId;
 }
 
@@ -143,16 +160,33 @@ export async function upsertAudienceFromPurchase(opts: {
   const { data: existing } = await supabase
     .from("audience")
     .select(
-      "id, subscriber_status, display_name, mailing_line1, lifetime_orders, lifetime_spend, first_purchase_at"
+      "id, subscriber_status, display_name, mailing_line1, lifetime_orders, lifetime_spend, first_purchase_at, user_id"
     )
     .eq("email", email)
     .maybeSingle();
+
+  const prevTier: MemberTier | null = existing
+    ? deriveTier({
+        subscriber_status: existing.subscriber_status,
+        user_id: existing.user_id,
+        lifetime_orders: existing.lifetime_orders,
+      })
+    : null;
 
   // Build the update/insert payload. Never overwrite a user-provided
   // mailing address or display name — only fill if currently blank.
   const updateFromOrder: Record<string, unknown> = { updated_at: now };
   if (opts.display_name && (!existing || !existing.display_name)) {
     updateFromOrder.display_name = opts.display_name;
+    // Split full name into first/last (first space). Only fill if blank
+    // so a user who already typed their preferred name in /account stays
+    // authoritative.
+    const trimmed = opts.display_name.trim();
+    const spaceAt = trimmed.indexOf(" ");
+    const first = spaceAt === -1 ? trimmed : trimmed.slice(0, spaceAt);
+    const last = spaceAt === -1 ? null : trimmed.slice(spaceAt + 1).trim() || null;
+    updateFromOrder.first_name = first;
+    if (last) updateFromOrder.last_name = last;
   }
   if (opts.shipping && (!existing || !existing.mailing_line1)) {
     updateFromOrder.mailing_line1 = opts.shipping.line1 ?? null;
@@ -221,6 +255,30 @@ export async function upsertAudienceFromPurchase(opts: {
     });
   }
   await refreshTags(supabase, audienceId);
+
+  // Admin notifications — new member if this is the first time we've seen
+  // them, otherwise a tier-change notification (e.g. subscriber → customer
+  // on first purchase, customer → repeat-customer on second).
+  const newTier = deriveTier({
+    subscriber_status: (updateFromOrder.subscriber_status as string | undefined) ||
+      existing?.subscriber_status || "active",
+    user_id: existing?.user_id ?? null,
+    lifetime_orders: lifetimeOrders,
+  });
+  const memberCtx = {
+    audience_id: audienceId,
+    email,
+    display_name: opts.display_name ?? null,
+    tier: newTier,
+    source: opts.order_number ? `purchase — ${opts.order_number}` : "purchase",
+    lifetime_orders: lifetimeOrders,
+    lifetime_spend: lifetimeSpend,
+  };
+  if (!existing) {
+    void notifyNewMember(memberCtx);
+  } else if (prevTier && prevTier !== newTier) {
+    void notifyTierChange(memberCtx, prevTier);
+  }
   return audienceId;
 }
 
@@ -230,10 +288,15 @@ export async function markUnsubscribedByToken(token: string): Promise<boolean> {
   const supabase = createAdminClient();
   const { data: existing } = await supabase
     .from("audience")
-    .select("id, subscriber_status")
+    .select("id, email, display_name, subscriber_status, user_id, lifetime_orders, lifetime_spend")
     .eq("unsubscribe_token", token)
     .maybeSingle();
   if (!existing) return false;
+  const prevTier = deriveTier({
+    subscriber_status: existing.subscriber_status,
+    user_id: existing.user_id,
+    lifetime_orders: existing.lifetime_orders,
+  });
   const now = new Date().toISOString();
   await supabase
     .from("audience")
@@ -250,6 +313,19 @@ export async function markUnsubscribedByToken(token: string): Promise<boolean> {
     .eq("audience_id", existing.id);
   await emitEvent(supabase, existing.id, "unsubscribed", { via: "token" });
   await refreshTags(supabase, existing.id);
+
+  void notifyTierChange(
+    {
+      audience_id: existing.id,
+      email: existing.email,
+      display_name: existing.display_name,
+      tier: "unsubscribed",
+      source: "token unsubscribe link",
+      lifetime_orders: existing.lifetime_orders,
+      lifetime_spend: existing.lifetime_spend,
+    },
+    prevTier
+  );
   return true;
 }
 
@@ -258,7 +334,7 @@ export async function markResubscribedByToken(token: string): Promise<boolean> {
   const supabase = createAdminClient();
   const { data: existing } = await supabase
     .from("audience")
-    .select("id")
+    .select("id, email, display_name, user_id, lifetime_orders, lifetime_spend")
     .eq("unsubscribe_token", token)
     .maybeSingle();
   if (!existing) return false;
@@ -278,6 +354,24 @@ export async function markResubscribedByToken(token: string): Promise<boolean> {
     .eq("audience_id", existing.id);
   await emitEvent(supabase, existing.id, "resubscribed", { via: "token" });
   await refreshTags(supabase, existing.id);
+
+  const newTier = deriveTier({
+    subscriber_status: "active",
+    user_id: existing.user_id,
+    lifetime_orders: existing.lifetime_orders,
+  });
+  void notifyTierChange(
+    {
+      audience_id: existing.id,
+      email: existing.email,
+      display_name: existing.display_name,
+      tier: newTier,
+      source: "resubscribe link",
+      lifetime_orders: existing.lifetime_orders,
+      lifetime_spend: existing.lifetime_spend,
+    },
+    "unsubscribed"
+  );
   return true;
 }
 
@@ -287,6 +381,19 @@ export async function setSubscriberStatus(
   status: "active" | "unsubscribed"
 ): Promise<void> {
   const supabase = createAdminClient();
+  const { data: existing } = await supabase
+    .from("audience")
+    .select("email, display_name, subscriber_status, user_id, lifetime_orders, lifetime_spend")
+    .eq("id", audienceId)
+    .maybeSingle();
+  const prevTier = existing
+    ? deriveTier({
+        subscriber_status: existing.subscriber_status,
+        user_id: existing.user_id,
+        lifetime_orders: existing.lifetime_orders,
+      })
+    : null;
+
   const now = new Date().toISOString();
   await supabase
     .from("audience")
@@ -311,6 +418,28 @@ export async function setSubscriberStatus(
     { via: "admin" }
   );
   await refreshTags(supabase, audienceId);
+
+  if (existing && prevTier) {
+    const newTier = deriveTier({
+      subscriber_status: status,
+      user_id: existing.user_id,
+      lifetime_orders: existing.lifetime_orders,
+    });
+    if (newTier !== prevTier) {
+      void notifyTierChange(
+        {
+          audience_id: audienceId,
+          email: existing.email,
+          display_name: existing.display_name,
+          tier: newTier,
+          source: "admin action",
+          lifetime_orders: existing.lifetime_orders,
+          lifetime_spend: existing.lifetime_spend,
+        },
+        prevTier
+      );
+    }
+  }
 }
 
 /* Email events from the Resend webhook (delivered/opened/clicked/bounced/
@@ -418,6 +547,31 @@ export async function setDisplayName(
     .update({ display_name: displayName, updated_at: new Date().toISOString() })
     .eq("id", audienceId);
   await emitEvent(supabase, audienceId, "profile_updated", { display_name: displayName });
+}
+
+/** Master name update — sets first_name + last_name explicitly and keeps
+   display_name in sync as a "First Last" concat for any legacy callers. */
+export async function setNames(
+  audienceId: string,
+  opts: { first_name?: string | null; last_name?: string | null }
+): Promise<void> {
+  const supabase = createAdminClient();
+  const first = opts.first_name?.trim() || null;
+  const last = opts.last_name?.trim() || null;
+  const display = [first, last].filter(Boolean).join(" ") || null;
+  await supabase
+    .from("audience")
+    .update({
+      first_name: first,
+      last_name: last,
+      display_name: display,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", audienceId);
+  await emitEvent(supabase, audienceId, "profile_updated", {
+    first_name: first,
+    last_name: last,
+  });
 }
 
 export async function refreshAudienceTags(audienceId: string): Promise<void> {

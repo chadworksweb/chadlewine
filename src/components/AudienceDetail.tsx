@@ -342,11 +342,12 @@ export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {
                 </button>
               )}
               {a.user_id && (
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--secondary"
-                  onClick={async () => {
-                    if (!confirm("Delete the linked customer account? They can re-register with the same email afterward.")) return;
+                <DeleteWithInfo
+                  label="Delete account"
+                  variant="secondary"
+                  tooltip="Removes only their LOGIN (auth user). The member record + all history stays. They can re-register with the same email afterward and re-link automatically."
+                  confirmCopy="Delete the linked login? They can re-register with the same email afterward."
+                  onConfirm={async () => {
                     const res = await fetch(`/api/admin/audience/${a.id}/delete-account`, {
                       method: "DELETE",
                     });
@@ -357,15 +358,14 @@ export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {
                       alert(d.error || "Delete failed");
                     }
                   }}
-                >
-                  Delete account
-                </button>
+                />
               )}
-              <button
-                type="button"
-                className="admin-btn admin-btn--danger"
-                onClick={async () => {
-                  if (!confirm("Permanently delete this contact and ALL their history (timeline, tags)? Linked orders are preserved but unlinked. This can't be undone.")) return;
+              <DeleteWithInfo
+                label="Delete member"
+                variant="danger"
+                tooltip="NUCLEAR. Erases the member record, tags, activity timeline, AND their login account if one exists. The email is free to re-enter audience via subscribe/purchase/register. Linked orders + purchases stay in the books but become unattributed. Use for GDPR delete-my-data requests or spam contacts."
+                confirmCopy="Permanently delete this member AND their login (if any), including ALL history (timeline, tags)? Linked orders are preserved but unlinked. This can't be undone."
+                onConfirm={async () => {
                   const res = await fetch(`/api/admin/audience/${a.id}`, {
                     method: "DELETE",
                   });
@@ -375,9 +375,7 @@ export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {
                     alert("Delete failed");
                   }
                 }}
-              >
-                Delete contact
-              </button>
+              />
             </div>
           </section>
         </aside>
@@ -476,6 +474,45 @@ export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Destructive button with an inline (i) info icon. Hover the icon for the
+   full explanation; click the button to fire the confirm + onConfirm. */
+function DeleteWithInfo({
+  label,
+  variant,
+  tooltip,
+  confirmCopy,
+  onConfirm,
+}: {
+  label: string;
+  variant: "secondary" | "danger";
+  tooltip: string;
+  confirmCopy: string;
+  onConfirm: () => Promise<void>;
+}) {
+  return (
+    <div className="audience-detail__danger-row">
+      <button
+        type="button"
+        className={`admin-btn admin-btn--${variant}`}
+        onClick={async () => {
+          if (!confirm(confirmCopy)) return;
+          await onConfirm();
+        }}
+      >
+        {label}
+      </button>
+      <span
+        className="audience-detail__info-icon"
+        title={tooltip}
+        aria-label={tooltip}
+        tabIndex={0}
+      >
+        i
+      </span>
     </div>
   );
 }

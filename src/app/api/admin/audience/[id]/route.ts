@@ -75,7 +75,9 @@ export async function PATCH(
   return Response.json({ ok: true });
 }
 
-// DELETE — hard delete. Audit trail via on_delete cascades.
+// DELETE — hard delete the member record. Cascades to tags + events.
+// Also deletes the linked auth.users row (login) if one exists so the
+// email isn't left in a half-state that blocks re-registration.
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -85,9 +87,31 @@ export async function DELETE(
     return Response.json({ error: "Invalid id" }, { status: 400 });
   }
   const supabase = createAdminClient();
+
+  // Look up linked auth user before deleting the audience row.
+  const { data: row } = await supabase
+    .from("audience")
+    .select("user_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  // Delete audience first — cascades on audience_tags, audience_events;
+  // sets audience_id null on subscribers/orders/purchases/campaign_sends.
   const { error } = await supabase.from("audience").delete().eq("id", id);
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
+
+  // Kill the linked auth user too if present. Without this, the email
+  // would be stuck — re-registration would fail with "email taken" even
+  // though we have no member record for them anymore.
+  if (row?.user_id) {
+    const { error: authErr } = await supabase.auth.admin.deleteUser(row.user_id);
+    if (authErr) {
+      // Audience row is already gone; log but don't fail the request.
+      console.error("[audience DELETE] auth user cleanup failed:", authErr.message);
+    }
+  }
+
   return Response.json({ ok: true });
 }

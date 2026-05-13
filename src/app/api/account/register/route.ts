@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase-server";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { recordAttempt, clientIp, clientUA } from "@/lib/auth-attempt";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
   const turnstileToken =
     typeof body.turnstile_token === "string" ? body.turnstile_token : null;
   const honeypot = typeof body.honeypot === "string" ? body.honeypot : "";
+  const tosAccepted = body.tos_accepted === true;
 
   const ip = clientIp(request);
   const ua = clientUA(request);
@@ -37,6 +39,12 @@ export async function POST(request: Request) {
   if (password.length < MIN_PASSWORD) {
     return Response.json(
       { error: `Password must be at least ${MIN_PASSWORD} characters.` },
+      { status: 400 }
+    );
+  }
+  if (!tosAccepted) {
+    return Response.json(
+      { error: "You must agree to the Terms of Service to create an account." },
       { status: 400 }
     );
   }
@@ -70,7 +78,9 @@ export async function POST(request: Request) {
   const { data, error } = await anon.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${origin}/account` },
+    // Land confirmed users on the login form with a flag so we can surface
+    // a "Thanks for confirming" banner there.
+    options: { emailRedirectTo: `${origin}/account/login?confirmed=1` },
   });
 
   if (error) {
@@ -80,8 +90,62 @@ export async function POST(request: Request) {
     return Response.json(GENERIC_OK_RESPONSE);
   }
 
+  // Auto-subscribe to marketing campaigns + record TOS acceptance on the
+  // audience row. The handle_new_auth_user trigger already created the
+  // audience row; this update flips subscriber_status and timestamps the
+  // consent moments. Disclosure copy on the register form is the
+  // consent record. Notify admin so we know about every new signup.
+  if (data.user) {
+    try {
+      const admin = createAdminClient();
+      const now = new Date().toISOString();
+      const { data: updated } = await admin
+        .from("audience")
+        .update({
+          subscriber_status: "active",
+          marketing_opt_in_at: now,
+          marketing_opt_in_source: "account",
+          tos_accepted_at: now,
+          updated_at: now,
+        })
+        .eq("user_id", data.user.id)
+        .select("id, email, display_name, lifetime_orders, lifetime_spend")
+        .single();
+
+      if (updated) {
+        const { notifyNewMember, notifyTierChange } = await import("@/lib/audience-notify");
+        // Tier on a fresh account: subscriber+account (or customer+account
+        // if they previously bought as guest with this email).
+        const tier =
+          updated.lifetime_orders >= 2
+            ? "repeat-customer"
+            : updated.lifetime_orders >= 1
+              ? "customer+account"
+              : "subscriber+account";
+        const isFresh = updated.lifetime_orders === 0;
+        const ctx = {
+          audience_id: updated.id,
+          email: updated.email,
+          display_name: updated.display_name,
+          tier: tier as "subscriber+account" | "customer+account" | "repeat-customer",
+          source: "account registration",
+          lifetime_orders: updated.lifetime_orders,
+          lifetime_spend: updated.lifetime_spend,
+        };
+        if (isFresh) {
+          void notifyNewMember(ctx);
+        } else {
+          // Email matched an existing guest-buyer record. They claimed
+          // it by registering — surface as a tier change.
+          void notifyTierChange(ctx, "customer");
+        }
+      }
+    } catch (e) {
+      // Non-fatal — account is created, audience link will catch up.
+      console.error("[register] audience subscribe update failed:", e);
+    }
+  }
+
   await recordAttempt({ email, ip, user_agent: ua, action: "register", success: true });
-  // data.session may be non-null if email confirmations are disabled —
-  // but we'll still tell the user to check email, keeping a single shape.
   return Response.json(GENERIC_OK_RESPONSE);
 }

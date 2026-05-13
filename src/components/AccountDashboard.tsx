@@ -21,6 +21,8 @@ export interface AccountAudience {
   id: string;
   email: string;
   display_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   mailing_line1: string | null;
   mailing_line2: string | null;
   mailing_city: string | null;
@@ -64,6 +66,8 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
   const [a, setA] = useState(initial.audience);
 
   const [draft, setDraft] = useState({
+    first_name: a.first_name || "",
+    last_name: a.last_name || "",
     line1: a.mailing_line1 || "",
     line2: a.mailing_line2 || "",
     city: a.mailing_city || "",
@@ -71,9 +75,31 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
     postal_code: a.mailing_postal_code || "",
     country: a.mailing_country || "",
   });
+  const [savingName, setSavingName] = useState(false);
+  const [nameMsg, setNameMsg] = useState("");
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressMsg, setAddressMsg] = useState("");
   const [prefBusy, setPrefBusy] = useState(false);
+
+  const saveName = async () => {
+    setSavingName(true);
+    setNameMsg("");
+    const res = await fetch("/api/account/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        first_name: draft.first_name,
+        last_name: draft.last_name,
+      }),
+    });
+    setSavingName(false);
+    if (res.ok) {
+      setA({ ...a, first_name: draft.first_name || null, last_name: draft.last_name || null });
+      setNameMsg("Saved.");
+    } else {
+      setNameMsg("Save failed.");
+    }
+  };
   const [portalBusy, setPortalBusy] = useState(false);
   const [downloads, setDownloads] = useState<DownloadItem[] | null>(null);
 
@@ -167,6 +193,44 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
       </header>
 
       <div className="account-dashboard__grid">
+        <section className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Your name</h2>
+          <p className="account-dashboard__hint">
+            Used on receipts and personal notes from Chad.
+          </p>
+          <div className="account-dashboard__row">
+            <div style={{ flex: 1 }}>
+              <label className="account-dashboard__label">First name</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.first_name}
+                onChange={(e) => setDraft({ ...draft, first_name: e.target.value })}
+                autoComplete="given-name"
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="account-dashboard__label">Last name</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.last_name}
+                onChange={(e) => setDraft({ ...draft, last_name: e.target.value })}
+                autoComplete="family-name"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={saveName}
+            disabled={savingName}
+          >
+            {savingName ? "Saving..." : "Save name"}
+          </button>
+          {nameMsg && <p className="account-dashboard__msg">{nameMsg}</p>}
+        </section>
+
         <section className="account-dashboard__card">
           <h2 className="account-dashboard__card-title">Shipping/Mailing address</h2>
           <p className="account-dashboard__hint">

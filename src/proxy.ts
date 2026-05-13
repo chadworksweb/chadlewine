@@ -41,6 +41,13 @@ export async function proxy(request: NextRequest) {
   // Admin/API-admin gate. Unauth requests return 404 (not a redirect) so the
   // secret login URL never appears in a browser bar via guess-the-path probes.
   // Direct hits to /cl-admin-6nnn are how admins log in.
+  //
+  // EXCEPT /api/admin/login — that's the unauth-by-design login endpoint
+  // itself. Hardening (rate limit + lockout + audit) lives inside the
+  // route handler, not at the proxy.
+  if (pathname === "/api/admin/login") {
+    return NextResponse.next();
+  }
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const accessToken = request.cookies.get("sb-access-token")?.value;
     const authorized = accessToken ? await jwtIsAdmin(accessToken) : false;

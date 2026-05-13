@@ -212,13 +212,13 @@ export function AudienceAdmin({
                 padding: "var(--space-xl)",
               }}
             >
-              No contacts match.
+              No members match.
             </p>
           ) : (
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th className="admin-table__th">Contact</th>
+                  <th className="admin-table__th">Member</th>
                   <th className="admin-table__th">Status</th>
                   <th className="admin-table__th">Orders / Spend</th>
                   <th className="admin-table__th">Engagement</th>

@@ -1,5 +1,5 @@
 import { getCurrentSession } from "@/lib/account";
-import { setDisplayName, setMailingAddress } from "@/lib/audience";
+import { setDisplayName, setMailingAddress, setNames } from "@/lib/audience";
 import { createAdminClient } from "@/lib/supabase-server";
 
 export async function GET() {
@@ -23,7 +23,16 @@ export async function PATCH(request: Request) {
   }
   const body = await request.json().catch(() => ({}));
 
-  if (typeof body.display_name === "string") {
+  if (
+    typeof body.first_name === "string" ||
+    typeof body.last_name === "string"
+  ) {
+    await setNames(session.audienceId, {
+      first_name: typeof body.first_name === "string" ? body.first_name : undefined,
+      last_name: typeof body.last_name === "string" ? body.last_name : undefined,
+    });
+  } else if (typeof body.display_name === "string") {
+    // Backwards-compat for older clients still sending display_name.
     await setDisplayName(session.audienceId, body.display_name);
   }
   if (body.mailing_address && typeof body.mailing_address === "object") {

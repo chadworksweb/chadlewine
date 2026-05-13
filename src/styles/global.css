@@ -5399,6 +5399,40 @@ html {
   gap: 4px;
 }
 
+/* Destructive action row — button + (i) info icon with native tooltip. */
+.audience-detail__danger-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.audience-detail__danger-row > button {
+  flex: 1;
+}
+.audience-detail__info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 600;
+  cursor: help;
+  flex-shrink: 0;
+  transition: border-color var(--duration-fast), color var(--duration-fast);
+}
+.audience-detail__info-icon:hover,
+.audience-detail__info-icon:focus {
+  border-color: var(--text-accent);
+  color: var(--text-primary);
+  outline: none;
+}
+
 /* Activity timeline */
 .audience-timeline {
   list-style: none;
@@ -5447,32 +5481,69 @@ html {
   white-space: nowrap;
 }
 
-/* === Account auth (login/register/forgot/reset/claim) ============= */
+/* === Account auth (login/register/forgot/reset/claim) =============
+   Gmail-style horizontal layout: heading + sub on the left, form on
+   the right. Stacks on narrow screens. Sits high on the page so the
+   form is right at the eyeline. */
 .account-auth {
-  min-height: 70vh;
-  display: grid;
-  place-items: center;
-  padding-block: var(--space-3xl);
+  display: flex;
+  justify-content: center;
+  padding-block: var(--space-xl) var(--space-2xl);
 }
 .account-auth__card {
   width: 100%;
-  max-width: 420px;
-  padding: var(--space-xl);
+  max-width: 820px;
+  padding: var(--space-xl) var(--space-2xl);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: var(--space-2xl);
+  align-items: start;
 }
+@media (max-width: 760px) {
+  .account-auth__card {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+    padding: var(--space-lg);
+  }
+}
+/* Two top-aligned columns. Left holds title + sub; right holds banner /
+   form / footer. Confirmation view spans full width. */
+.account-auth__left,
+.account-auth__right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+.account-auth__confirm {
+  grid-column: 1 / span 2;
+  max-width: 480px;
+  margin: 0 auto;
+}
+@media (max-width: 760px) {
+  .account-auth__confirm { grid-column: 1; }
+}
+
 .account-auth__title {
   font-family: var(--font-body);
-  font-size: var(--text-2xl);
+  font-size: clamp(2rem, 1.6rem + 1.2vw, 2.6rem);
   color: var(--text-primary);
-  margin: 0 0 6px 0;
+  margin: 0 0 8px 0;
+  line-height: 1.1;
 }
 .account-auth__sub {
   color: var(--text-secondary);
-  margin: 0 0 var(--space-md) 0;
+  margin: 0;
   font-family: var(--font-ui);
   font-size: var(--text-sm);
+  line-height: 1.55;
+}
+@media (max-width: 760px) {
+  /* (left + right are already direct children, so they stack naturally
+     when grid drops to one column above) */
 }
 .account-auth__form {
   display: flex;
@@ -5481,7 +5552,7 @@ html {
 }
 .account-auth__label {
   font-family: var(--font-ui);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -5505,6 +5576,34 @@ html {
   color: var(--text-tertiary);
   margin: 4px 0 0 0;
 }
+.account-auth__hint--err { color: #ff8a8a; }
+
+.account-auth__password-wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+.account-auth__input--password {
+  padding-right: 44px;
+}
+.account-auth__reveal {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color var(--duration-fast);
+}
+.account-auth__reveal:hover { color: var(--text-primary); }
 .account-auth__err {
   color: #ff8a8a;
   font-family: var(--font-ui);
@@ -5530,6 +5629,40 @@ html {
   cursor: pointer;
 }
 .account-auth__submit:disabled { opacity: 0.5; cursor: not-allowed; }
+/* When loading, the disabled opacity would dim the loader too. Keep it
+   crisp by overriding opacity only for the loading state — the button
+   stays clearly active-looking while waiting on the network. */
+.account-auth__submit:has(.account-auth__loader) { opacity: 1; }
+
+.account-auth__loader {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+}
+.account-auth__loader-shape {
+  display: inline-block;
+  width: 1ch;
+  height: 1em;
+  position: relative;
+  color: transparent;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.account-auth__loader-shape::before {
+  content: "░";
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  pointer-events: none;
+  animation: logo-shape-shimmer 0.6s linear infinite;
+  color: var(--bg-deep);
+}
+.account-auth__loader-shape:nth-child(1)::before { animation-delay: 0s; }
+.account-auth__loader-shape:nth-child(2)::before { animation-delay: -0.1s; }
+.account-auth__loader-shape:nth-child(3)::before { animation-delay: -0.2s; }
+.account-auth__loader-shape:nth-child(4)::before { animation-delay: -0.3s; }
+.account-auth__loader-shape:nth-child(5)::before { animation-delay: -0.4s; }
+.account-auth__loader-shape:nth-child(6)::before { animation-delay: -0.5s; }
 .account-auth__footer {
   display: flex;
   justify-content: space-between;
@@ -5542,6 +5675,65 @@ html {
   text-decoration: none;
 }
 .account-auth__footer a:hover { text-decoration: underline; }
+
+.account-auth__banner {
+  margin-bottom: var(--space-md);
+  padding: 12px 14px;
+  border: 1px solid rgba(64, 96, 255, 0.4);
+  background: rgba(64, 96, 255, 0.08);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-accent);
+}
+
+.account-auth__confirm {
+  text-align: center;
+  padding: var(--space-md) 0 var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.account-auth__confirm-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-md);
+  border-radius: 50%;
+  background: rgba(64, 96, 255, 0.12);
+  color: var(--text-accent);
+  font-size: 26px;
+  line-height: 56px;
+  text-align: center;
+}
+
+.account-auth__disclosure {
+  margin: var(--space-sm) 0 0 0;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--text-tertiary);
+}
+.account-auth__disclosure strong { color: var(--text-secondary); font-weight: 500; }
+
+.account-auth__checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.account-auth__checkbox-row input[type="checkbox"] {
+  margin-top: 3px;
+  cursor: pointer;
+}
+.account-auth__checkbox-row a { color: var(--text-accent); }
 
 /* === Account dashboard =========================================== */
 .account-dashboard {
