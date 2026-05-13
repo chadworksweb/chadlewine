@@ -341,6 +341,43 @@ export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {
                   Resubscribe
                 </button>
               )}
+              {a.user_id && (
+                <button
+                  type="button"
+                  className="admin-btn admin-btn--secondary"
+                  onClick={async () => {
+                    if (!confirm("Delete the linked customer account? They can re-register with the same email afterward.")) return;
+                    const res = await fetch(`/api/admin/audience/${a.id}/delete-account`, {
+                      method: "DELETE",
+                    });
+                    if (res.ok) {
+                      setA({ ...a, user_id: null });
+                    } else {
+                      const d = await res.json().catch(() => ({}));
+                      alert(d.error || "Delete failed");
+                    }
+                  }}
+                >
+                  Delete account
+                </button>
+              )}
+              <button
+                type="button"
+                className="admin-btn admin-btn--danger"
+                onClick={async () => {
+                  if (!confirm("Permanently delete this contact and ALL their history (timeline, tags)? Linked orders are preserved but unlinked. This can't be undone.")) return;
+                  const res = await fetch(`/api/admin/audience/${a.id}`, {
+                    method: "DELETE",
+                  });
+                  if (res.ok) {
+                    router.push("/admin/audience");
+                  } else {
+                    alert("Delete failed");
+                  }
+                }}
+              >
+                Delete contact
+              </button>
             </div>
           </section>
         </aside>
