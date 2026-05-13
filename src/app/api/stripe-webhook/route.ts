@@ -156,6 +156,7 @@ export async function POST(request: Request) {
         return Response.json({ error: "Order insert failed" }, { status: 500 });
       }
       orderId = orderRow.id;
+      const newOrderId: string = orderRow.id;
       const orderNumber: string = orderRow.order_number;
 
       // Upsert into audience (master contact record) and link the order
@@ -179,11 +180,11 @@ export async function POST(request: Request) {
               }
             : null,
           marketing_opt_in: marketingOptIn,
-          order_id: orderId,
+          order_id: newOrderId,
           order_number: orderNumber,
           total,
         });
-        await supabase.from("orders").update({ audience_id: audienceId }).eq("id", orderId);
+        await supabase.from("orders").update({ audience_id: audienceId }).eq("id", newOrderId);
 
         // Persist the Stripe Customer id (created by customer_creation:'always')
         // so we can route this buyer through Billing Portal later. Only
