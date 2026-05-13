@@ -85,6 +85,11 @@ export async function createCartCheckoutSession(params: {
   return getStripe().checkout.sessions.create({
     mode: "payment",
     line_items: stripeLineItems,
+    // Create or attach a persistent Stripe Customer so the buyer can be
+    // routed through Billing Portal later (manage payment methods, view
+    // past invoices, update billing address). Webhook saves the resulting
+    // customer id onto the audience row.
+    customer_creation: "always",
     metadata: {
       type: "cart",
       cart_items: params.cart_items_metadata,

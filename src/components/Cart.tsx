@@ -201,6 +201,7 @@ export function CartUI() {
             format: i.format,
             product_config: i.product_config ?? null,
           })),
+          marketing_opt_in: true,
         }),
       });
       const data = await res.json();
@@ -309,6 +310,12 @@ export function CartUI() {
               <span className="cl-cart-subtotal__amount">{fmtPrice(subtotal)}</span>
             </div>
             {error && <p className="cl-cart-error">{error}</p>}
+            <p className="cl-cart-disclaimer">
+              By completing this purchase you&rsquo;ll receive transactional
+              emails (receipt, downloads, shipping). I&rsquo;ll also send the
+              occasional update about new music, art, and pop-ups.
+              {" "}<strong>One-click unsubscribe in every email.</strong>
+            </p>
             <button
               type="button"
               className="cl-cart-btn cl-cart-btn--primary"

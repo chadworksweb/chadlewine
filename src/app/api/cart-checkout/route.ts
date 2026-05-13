@@ -25,6 +25,11 @@ function isConfigurator(config: Record<string, unknown> | null | undefined): boo
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const items = body?.items as CartLineInput[] | undefined;
+  // Customer consent for marketing emails. Disclaimer above the
+  // checkout button is the visible consent record; this flag is the
+  // structured payload the Stripe webhook reads to set audience
+  // marketing_opt_in_at.
+  const marketingOptIn = body?.marketing_opt_in === true;
 
   if (!Array.isArray(items) || items.length === 0) {
     return Response.json({ error: "items required" }, { status: 400 });
@@ -343,7 +348,7 @@ export async function POST(request: Request) {
       cover_art_url: r.cover_art_url,
     })),
     cart_items_metadata: metaJson,
-    extra_metadata: cfgKeys,
+    extra_metadata: { ...cfgKeys, marketing_opt_in: marketingOptIn ? "true" : "false" },
     collect_shipping: hasPhysical,
     success_url: `${origin}${successPath}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/music`,

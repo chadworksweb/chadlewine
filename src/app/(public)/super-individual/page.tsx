@@ -11,6 +11,7 @@ import { RCTop10Card } from "@/components/RCTop10Card";
 import { MiniLyricalCharger } from "@/components/MiniLyricalCharger";
 import { SuperIndividualPopupSection } from "@/components/SuperIndividualPopup";
 import { SuperIndividualFloatingTag } from "@/components/SuperIndividualFloatingTag";
+import { FrutigerMiniPlayer } from "@/components/FrutigerMiniPlayer";
 
 export const revalidate = 60;
 
@@ -327,10 +328,58 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
   return { heroItems, discoItems };
 }
 
+interface FindingFreedomSong {
+  title: string;
+  slug: string;
+  streamingUrl: string;
+  durationSeconds: number;
+  artUrl: string | null;
+  artAlt: string | null;
+}
+
+async function fetchFindingFreedom(): Promise<FindingFreedomSong | null> {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("songs")
+    .select("id, title, slug, streaming_path, duration_seconds, art_image_path, art_alt")
+    .eq("slug", "finding-freedom")
+    .eq("status", "published")
+    .maybeSingle();
+  if (!data || !data.streaming_path || !data.duration_seconds) return null;
+
+  let artUrl: string | null = data.art_image_path;
+  let artAlt: string | null = data.art_alt;
+  // Fallback: pull cover art from the song's album when the song itself
+  // has no art_image_path set.
+  if (!artUrl) {
+    const { data: junction } = await supabase
+      .from("album_songs")
+      .select("album:albums(cover_art_path, cover_art_alt)")
+      .eq("song_id", data.id)
+      .limit(1);
+    const first = (junction || [])[0] as { album: Joined<{ cover_art_path: string | null; cover_art_alt: string | null }> } | undefined;
+    const album = firstOrNull(first?.album);
+    if (album?.cover_art_path) {
+      artUrl = album.cover_art_path;
+      artAlt = artAlt || album.cover_art_alt || data.title;
+    }
+  }
+
+  return {
+    title: data.title,
+    slug: data.slug,
+    streamingUrl: data.streaming_path,
+    durationSeconds: data.duration_seconds,
+    artUrl,
+    artAlt,
+  };
+}
+
 export default async function SuperIndividualPage() {
-  const [merch, releases] = await Promise.all([
+  const [merch, releases, findingFreedom] = await Promise.all([
     fetchSuperIndividualMerch(),
     fetchReleases(),
+    fetchFindingFreedom(),
   ]);
   const { heroItems, discoItems } = releases;
 
@@ -401,10 +450,22 @@ export default async function SuperIndividualPage() {
             <p>
               The Super Individual is a person that has been fully deprogrammed from the at-birth programming of modernity.
             </p>
-            <p className="si-what__note">
-              Institutions are not only tangible and visible organizations (government, corporate, communal, spiritual) but also intangible and invisible ways of being, thinking and communicating.
-            </p>
           </div>
+        </div>
+
+        <div className="si-prose" style={{ marginTop: 'var(--space-lg)' }}>
+          <p>
+            <strong>Institutions are not only tangible and visible organizations (government, corporate, communal, spiritual) but also intangible and invisible ways of being, thinking and communicating, including interpersonal relationships.</strong>
+          </p>
+          <p>
+            It is important to note that this is not about denouncing culture and society. It&rsquo;s not about abandoning civilization and living off the grid. It&rsquo;s about seeing our modern culture, society and civilization for what they are. It&rsquo;s about recognizing the energy flows both in and out of our beingness and deciding where our energy deserves to flow and where it doesn&rsquo;t.
+          </p>
+          <p>
+            We still need to rely on the electric and utility companies. We still need to rely on our government to serve and protect us, however well or poorly they do so. We still need to engage in commerce so that infrastructure, housing and food supplies can be built and maintained. We still need to participate in our communities. But the point of inflection is, are we participating in all of those institutions mindlessly? Blindly? Or are we participating with clear intention and total cognition? That is the way of the Super Individual. We cannot make change by abandoning our humanity and our fellow man. We cannot bring change to the world by scoffing and hiding ourselves away. We make change by calling out those who do harm, withdrawing our energy from where it is being abused, and redirecting it to where it is useful, both for ourselves, and for all.
+          </p>
+          <p>
+            We still need to have relationships with people. We still need love. We still need companionship and partnership. We still need physical intimacy. We still need to procreate. But it&rsquo;s about looking at what terms have been agreed to on top of or beneath those interactions. What are you giving to and what are you asking of others along with those engagements and are those terms in favor of extraction and control or are they unconditional with no strings attached?
+          </p>
         </div>
       </section>
 
@@ -459,12 +520,12 @@ export default async function SuperIndividualPage() {
 
       {/* Door 1 — Merch */}
       <section id="door-merch" className="si-door si-door--merch" aria-labelledby="si-door-merch-heading">
-        <p className="si-door__eyebrow">Merchandise</p>
+        <p className="si-door__eyebrow">Reclaim your light emanation</p>
         <div className="si-banner-bar">
           <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-merch-heading">
-            Reclaim your light emanation
+            Super Individual Merchandise
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
@@ -504,19 +565,19 @@ export default async function SuperIndividualPage() {
 
       {/* Door 2 — Music (HeroLens + Discography 4-up) */}
       <section id="door-music" className="si-door si-door--music" aria-labelledby="si-door-music-heading">
-        <p className="si-door__eyebrow">Original Music</p>
+        <p className="si-door__eyebrow">Follow my personal reclamation journey</p>
         <div className="si-banner-bar">
           <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-music-heading">
-            Follow my personal reclamation journey
+            Super Individual Music
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
         </div>
 
         <p className="si-excerpt">
-          Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, growing archive of my deprogramming personal journey, <em>and</em> a new trail to follow, should you choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
+          Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, growing archive of my own, personal deprogramming journey, <em>and</em> a new trail to follow, should one choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
         </p>
 
         <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
@@ -579,12 +640,12 @@ export default async function SuperIndividualPage() {
 
       {/* Door 3 — Rising Compass */}
       <section className="si-door si-door--rc" aria-labelledby="si-door-rc-heading">
-        <p className="si-door__eyebrow">Rising Compass</p>
+        <p className="si-door__eyebrow">Scan what you&rsquo;re listening to right now</p>
         <div className="si-banner-bar">
           <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-rc-heading">
-            Scan what you&rsquo;re listening to right now
+            Super Individual Soundtrack
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
@@ -643,6 +704,17 @@ export default async function SuperIndividualPage() {
               src="/images/super-individual/chad-lewine_the-deprogrammer_blue-glow.webp"
               alt="Chad Lewine, the Deprogrammer"
             />
+            {findingFreedom && (
+              <FrutigerMiniPlayer
+                songTitle={findingFreedom.title}
+                songSlug={findingFreedom.slug}
+                streamingUrl={findingFreedom.streamingUrl}
+                durationSeconds={findingFreedom.durationSeconds}
+                artUrl={findingFreedom.artUrl}
+                artAlt={findingFreedom.artAlt}
+                style={{ "--frutiger-mini-top": "12%", "--frutiger-mini-right": "32%" } as React.CSSProperties}
+              />
+            )}
           </div>
 
           <div className="si-prose si-who__copy">

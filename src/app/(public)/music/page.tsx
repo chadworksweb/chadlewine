@@ -245,14 +245,6 @@ export default async function MusicHubPage() {
         </section>
       )}
 
-        <div className="page-music-hub__cta-row">
-          <Link href="/discography" className="page-music-hub__cta">
-            Browse the full discography →
-          </Link>
-          <Link href="/music/songs" className="page-music-hub__cta">
-            All songs →
-          </Link>
-        </div>
       </div>
     </>
   );

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { upsertAudienceFromSubscribe } from "@/lib/audience";
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -8,18 +9,33 @@ export async function POST(request: Request) {
     return Response.json({ error: "Valid email required" }, { status: 400 });
   }
 
-  const supabase = createAdminClient();
+  let audienceId: string;
+  try {
+    audienceId = await upsertAudienceFromSubscribe({
+      email,
+      source_page: source_page || null,
+    });
+  } catch (e) {
+    return Response.json(
+      { error: e instanceof Error ? e.message : "Subscribe failed" },
+      { status: 500 }
+    );
+  }
 
-  const { error } = await supabase
+  // Keep the legacy `subscribers` row in sync for backwards compat
+  // (admin lists, exports). The audience row is the source of truth.
+  const supabase = createAdminClient();
+  await supabase
     .from("subscribers")
     .upsert(
-      { email: email.toLowerCase().trim(), source_page: source_page || null, status: "active" },
+      {
+        email: email.toLowerCase().trim(),
+        source_page: source_page || null,
+        status: "active",
+        audience_id: audienceId,
+      },
       { onConflict: "email" }
     );
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
 
   return Response.json({ ok: true });
 }

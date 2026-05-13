@@ -1,0 +1,363 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createBrowserClient } from "@/lib/supabase-browser";
+
+interface DownloadItem {
+  purchase_id: string;
+  order_id: string | null;
+  item_type: "song" | "album" | "ringtone";
+  title: string;
+  slug: string | null;
+  cover_art_path: string | null;
+  amount: number | null;
+  created_at: string;
+  formatLinks: Array<{ format: "mp3" | "flac" | "wav"; url: string }>;
+}
+
+export interface AccountAudience {
+  id: string;
+  email: string;
+  display_name: string | null;
+  mailing_line1: string | null;
+  mailing_line2: string | null;
+  mailing_city: string | null;
+  mailing_state: string | null;
+  mailing_postal_code: string | null;
+  mailing_country: string | null;
+  subscriber_status: string;
+  lifetime_orders: number;
+  lifetime_spend: number;
+  emails_received: number;
+  emails_opened: number;
+}
+
+export interface AccountData {
+  audience: AccountAudience;
+  orders: {
+    id: string;
+    order_number: string | null;
+    status: string;
+    total: number;
+    created_at: string;
+  }[];
+  hasStripeCustomer: boolean;
+}
+
+function fmtMoney(n: number | null): string {
+  if (!n) return "$0";
+  return `$${Number(n).toFixed(2)}`;
+}
+function fmtDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString();
+  } catch {
+    return iso;
+  }
+}
+
+export function AccountDashboard({ initial }: { initial: AccountData }) {
+  const router = useRouter();
+  const supabase = createBrowserClient();
+  const [a, setA] = useState(initial.audience);
+
+  const [draft, setDraft] = useState({
+    line1: a.mailing_line1 || "",
+    line2: a.mailing_line2 || "",
+    city: a.mailing_city || "",
+    state: a.mailing_state || "",
+    postal_code: a.mailing_postal_code || "",
+    country: a.mailing_country || "",
+  });
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [addressMsg, setAddressMsg] = useState("");
+  const [prefBusy, setPrefBusy] = useState(false);
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [downloads, setDownloads] = useState<DownloadItem[] | null>(null);
+
+  const openBillingPortal = async () => {
+    setPortalBusy(true);
+    const res = await fetch("/api/account/billing-portal", { method: "POST" });
+    const d = await res.json();
+    if (d.url) {
+      window.location.href = d.url;
+      return;
+    }
+    setPortalBusy(false);
+    alert(d.error || "Could not open billing portal.");
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/account/downloads")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && Array.isArray(d.items)) setDownloads(d.items);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveAddress = async () => {
+    setSavingAddress(true);
+    setAddressMsg("");
+    const res = await fetch("/api/account/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mailing_address: {
+          line1: draft.line1 || null,
+          line2: draft.line2 || null,
+          city: draft.city || null,
+          state: draft.state || null,
+          postal_code: draft.postal_code || null,
+          country: draft.country || null,
+        },
+      }),
+    });
+    setSavingAddress(false);
+    if (res.ok) {
+      setA({
+        ...a,
+        mailing_line1: draft.line1 || null,
+        mailing_line2: draft.line2 || null,
+        mailing_city: draft.city || null,
+        mailing_state: draft.state || null,
+        mailing_postal_code: draft.postal_code || null,
+        mailing_country: draft.country || null,
+      });
+      setAddressMsg("Saved.");
+    } else {
+      setAddressMsg("Save failed.");
+    }
+  };
+
+  const togglePref = async () => {
+    const next = a.subscriber_status === "active" ? "unsubscribed" : "active";
+    setPrefBusy(true);
+    const res = await fetch("/api/account/preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscriber_status: next }),
+    });
+    setPrefBusy(false);
+    if (res.ok) setA({ ...a, subscriber_status: next });
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    await fetch("/api/auth/session", { method: "DELETE" });
+    router.push("/");
+  };
+
+  return (
+    <div className="page-static account-dashboard">
+      <header className="account-dashboard__header">
+        <div>
+          <h1 className="account-dashboard__title">Your Account</h1>
+          <p className="account-dashboard__email">{a.email}</p>
+        </div>
+        <button type="button" className="account-dashboard__signout" onClick={signOut}>
+          Sign out
+        </button>
+      </header>
+
+      <div className="account-dashboard__grid">
+        <section className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Shipping/Mailing address</h2>
+          <p className="account-dashboard__hint">
+            Used at checkout as your default shipping address, and for any
+            physical mailers or giveaways.
+          </p>
+          <label className="account-dashboard__label">Line 1</label>
+          <input
+            type="text"
+            className="account-dashboard__input"
+            value={draft.line1}
+            onChange={(e) => setDraft({ ...draft, line1: e.target.value })}
+          />
+          <label className="account-dashboard__label">Line 2</label>
+          <input
+            type="text"
+            className="account-dashboard__input"
+            value={draft.line2}
+            onChange={(e) => setDraft({ ...draft, line2: e.target.value })}
+          />
+          <div className="account-dashboard__row">
+            <div style={{ flex: 2 }}>
+              <label className="account-dashboard__label">City</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.city}
+                onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="account-dashboard__label">State</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.state}
+                onChange={(e) => setDraft({ ...draft, state: e.target.value })}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="account-dashboard__label">Postal</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.postal_code}
+                onChange={(e) => setDraft({ ...draft, postal_code: e.target.value })}
+              />
+            </div>
+          </div>
+          <label className="account-dashboard__label">Country</label>
+          <input
+            type="text"
+            className="account-dashboard__input"
+            value={draft.country}
+            onChange={(e) => setDraft({ ...draft, country: e.target.value })}
+          />
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={saveAddress}
+            disabled={savingAddress}
+          >
+            {savingAddress ? "Saving..." : "Save address"}
+          </button>
+          {addressMsg && <p className="account-dashboard__msg">{addressMsg}</p>}
+        </section>
+
+        <section className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Marketing emails</h2>
+          <p className="account-dashboard__hint">
+            Status:{" "}
+            <strong>
+              {a.subscriber_status === "active"
+                ? "Subscribed"
+                : a.subscriber_status === "unsubscribed"
+                  ? "Unsubscribed"
+                  : "Not subscribed yet"}
+            </strong>
+          </p>
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={togglePref}
+            disabled={prefBusy}
+          >
+            {prefBusy
+              ? "..."
+              : a.subscriber_status === "active"
+                ? "Unsubscribe"
+                : "Subscribe to updates"}
+          </button>
+        </section>
+
+        <section className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Payments &amp; billing</h2>
+          {initial.hasStripeCustomer ? (
+            <>
+              <p className="account-dashboard__hint">
+                Manage saved payment methods, billing address, and view
+                invoices on Stripe&rsquo;s secure portal.
+              </p>
+              <button
+                type="button"
+                className="account-dashboard__btn"
+                onClick={openBillingPortal}
+                disabled={portalBusy}
+              >
+                {portalBusy ? "Opening..." : "Manage payment & billing"}
+              </button>
+            </>
+          ) : (
+            <p className="account-dashboard__hint">
+              Once you make your first purchase, payment methods and billing
+              details will show up here.
+            </p>
+          )}
+        </section>
+
+        <section className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Order history</h2>
+          {initial.orders.length === 0 ? (
+            <p className="account-dashboard__hint">No orders yet.</p>
+          ) : (
+            <>
+              <table className="account-dashboard__table">
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Placed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {initial.orders.map((o) => (
+                    <tr key={o.id}>
+                      <td>{o.order_number || o.id.slice(0, 8)}</td>
+                      <td>{o.status}</td>
+                      <td>{fmtMoney(o.total)}</td>
+                      <td>{fmtDate(o.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {downloads === null && (
+                <p className="account-dashboard__hint">Loading downloads...</p>
+              )}
+              {downloads !== null && downloads.length > 0 && (
+                <>
+                  <h3 className="account-dashboard__sub-title">Your downloads</h3>
+                  <ul className="account-dashboard__downloads">
+                    {downloads.map((d) => (
+                      <li key={d.purchase_id} className="account-dashboard__download">
+                        <span className="account-dashboard__download-title">
+                          {d.title}
+                          <span className="account-dashboard__download-type">
+                            {" "}· {d.item_type}
+                          </span>
+                        </span>
+                        <span className="account-dashboard__download-actions">
+                          {d.formatLinks.length === 0 ? (
+                            <span className="account-dashboard__hint" style={{ margin: 0 }}>
+                              Unavailable
+                            </span>
+                          ) : (
+                            d.formatLinks.map((f) => (
+                              <a
+                                key={f.format}
+                                href={f.url}
+                                className="account-dashboard__download-btn"
+                              >
+                                {f.format.toUpperCase()}
+                              </a>
+                            ))
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
+          <p className="account-dashboard__hint">
+            Lost a download? You can also{" "}
+            <Link href="/music/recover">recover by email</Link>.
+          </p>
+        </section>
+
+      </div>
+    </div>
+  );
+}

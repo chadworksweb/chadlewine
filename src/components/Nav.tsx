@@ -13,8 +13,24 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const lastScroll = useRef(0);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setSignedIn(!!d.user);
+      })
+      .catch(() => {
+        if (!cancelled) setSignedIn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   useEffect(() => {
     // Pages can opt to keep the nav visible past 200px by tagging an
@@ -117,6 +133,14 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
                 {item.label}
               </Link>
             )
+          )}
+          {signedIn !== null && (
+            <Link
+              href={signedIn ? "/account" : "/account/login"}
+              className={`nav-links__item nav-links__item--account${isActive("/account") ? " nav-links__item--active" : ""}`}
+            >
+              {signedIn ? "Account" : "Login"}
+            </Link>
           )}
         </div>
 

@@ -4,17 +4,32 @@ import { createClient } from "@supabase/supabase-js";
 import { getFeatureFlags, sectionForPath } from "@/lib/feature-flags";
 import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
 
-// Cookie presence ≠ auth. Validate the JWT against Supabase before letting
-// admin requests through; otherwise any string in `sb-access-token` would
-// reach the service-role-keyed admin routes.
-async function jwtIsValid(token: string): Promise<boolean> {
+// Cookie presence ≠ auth. Validate the JWT against Supabase AND confirm
+// the user is in the `admins` table. Customer accounts authenticate via
+// the same Supabase Auth but must NOT inherit admin access — the admins
+// table is the only gate.
+async function jwtIsAdmin(token: string): Promise<boolean> {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     );
     const { data, error } = await supabase.auth.getUser(token);
-    return !error && !!data?.user;
+    if (error || !data?.user) return false;
+
+    // Service-role client for the admins-table check (RLS would block the
+    // user from reading rows other than their own, and we need a definitive
+    // yes/no).
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const { data: row } = await adminClient
+      .from("admins")
+      .select("user_id")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+    return !!row;
   } catch {
     return false;
   }
@@ -28,7 +43,7 @@ export async function proxy(request: NextRequest) {
   // Direct hits to /cl-admin-6nnn are how admins log in.
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const accessToken = request.cookies.get("sb-access-token")?.value;
-    const authorized = accessToken ? await jwtIsValid(accessToken) : false;
+    const authorized = accessToken ? await jwtIsAdmin(accessToken) : false;
     if (!authorized) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Not Found" }, { status: 404 });

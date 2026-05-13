@@ -22,7 +22,8 @@ const adminNav: NavItem[] = [
       { href: "/admin/voice-profile", label: "Voice Profile" },
       { href: "/admin/seo", label: "SEO" },
       { href: "/admin/redirects", label: "Redirects" },
-      { href: "/admin/subscribers", label: "Subscribers" },
+      { href: "/admin/audience", label: "Audience" },
+      { href: "/admin/campaigns", label: "Campaigns" },
     ],
   },
   {
