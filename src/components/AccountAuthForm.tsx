@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { createBrowserClient } from "@/lib/supabase-browser";
 
 type Mode = "login" | "register" | "forgot" | "reset" | "claim";
 
 interface Props {
   mode: Mode;
-  /** Used for claim/reset flows — token from URL. */
   initialEmail?: string;
 }
 
@@ -24,11 +24,21 @@ const HEADINGS: Record<Mode, { title: string; sub: string }> = {
 export function AccountAuthForm({ mode, initialEmail }: Props) {
   const router = useRouter();
   const supabase = createBrowserClient();
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
+  const turnstileKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const useTurnstile = !!turnstileKey && (mode === "login" || mode === "register" || mode === "claim");
 
   const [email, setEmail] = useState(initialEmail || "");
   const [password, setPassword] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "err">("idle");
   const [message, setMessage] = useState("");
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    turnstileRef.current?.reset();
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,30 +46,16 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
     setMessage("");
     try {
       if (mode === "login") {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error || !data.session) {
-          setStatus("err");
-          setMessage(error?.message || "Login failed");
-          return;
-        }
-        await fetch("/api/auth/session", {
+        const res = await fetch("/api/account/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token,
-          }),
+          body: JSON.stringify({ email, password, turnstile_token: turnstileToken }),
         });
-        // Reject admin users on the public login path. Admins must use
-        // the secret /cl-admin-6nnn URL — separates customer auth UX from
-        // privileged access.
-        const meRes = await fetch("/api/auth/me");
-        const meData = await meRes.json();
-        if (meData?.user?.is_admin) {
-          await supabase.auth.signOut();
-          await fetch("/api/auth/session", { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok) {
           setStatus("err");
-          setMessage("This account isn't available here. Use your admin URL.");
+          setMessage(data.error || "Login failed");
+          resetTurnstile();
           return;
         }
         router.push("/account");
@@ -67,51 +63,44 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
       }
 
       if (mode === "register" || mode === "claim") {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/account`,
-          },
+        const res = await fetch("/api/account/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            password,
+            honeypot,
+            turnstile_token: turnstileToken,
+          }),
         });
-        if (error) {
+        const data = await res.json();
+        if (!res.ok) {
           setStatus("err");
-          setMessage(error.message);
-          return;
-        }
-        if (data.session) {
-          // Auto-confirm path: set cookies and redirect immediately.
-          await fetch("/api/auth/session", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              access_token: data.session.access_token,
-              refresh_token: data.session.refresh_token,
-            }),
-          });
-          router.push("/account");
+          setMessage(data.error || "Sign up failed");
+          resetTurnstile();
           return;
         }
         setStatus("ok");
-        setMessage("Check your email to confirm — then come back and sign in.");
+        setMessage(data.message || "Check your email to confirm.");
         return;
       }
 
       if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/account/reset-password`,
+        const res = await fetch("/api/account/forgot-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
         });
-        if (error) {
-          setStatus("err");
-          setMessage(error.message);
-          return;
-        }
+        const data = await res.json();
         setStatus("ok");
-        setMessage("Check your email for a reset link.");
+        setMessage(data.message || "Check your email.");
         return;
       }
 
       if (mode === "reset") {
+        // Reset still uses Supabase browser SDK — the magic link sets a
+        // session in the URL hash which only the SDK can finalize. Once
+        // we have a session we update the password.
         const { error } = await supabase.auth.updateUser({ password });
         if (error) {
           setStatus("err");
@@ -126,6 +115,7 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
     } catch (e) {
       setStatus("err");
       setMessage(e instanceof Error ? e.message : "Something went wrong");
+      resetTurnstile();
     }
   };
 
@@ -164,13 +154,48 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={mode === "register" || mode === "claim" || mode === "reset" ? 12 : 8}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
               />
               {(mode === "register" || mode === "claim" || mode === "reset") && (
-                <p className="account-auth__hint">8 characters minimum.</p>
+                <p className="account-auth__hint">
+                  12 characters minimum. Mix of upper, lower, number, symbol recommended.
+                </p>
               )}
             </>
+          )}
+
+          {/* Honeypot — invisible field that real users won't fill but bots will. */}
+          {(mode === "register" || mode === "claim") && (
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              style={{
+                position: "absolute",
+                left: "-9999px",
+                width: 1,
+                height: 1,
+                opacity: 0,
+              }}
+              aria-hidden="true"
+            />
+          )}
+
+          {useTurnstile && turnstileKey && (
+            <div style={{ marginTop: "var(--space-sm)" }}>
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={turnstileKey}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => setTurnstileToken(null)}
+                options={{ theme: "dark", size: "flexible" }}
+              />
+            </div>
           )}
 
           {status === "err" && message && (
@@ -183,7 +208,10 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
           <button
             type="submit"
             className="account-auth__submit"
-            disabled={status === "loading"}
+            disabled={
+              status === "loading" ||
+              (useTurnstile && (mode === "register" || mode === "claim") && !turnstileToken)
+            }
           >
             {status === "loading"
               ? "..."

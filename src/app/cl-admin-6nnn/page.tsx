@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createBrowserClient } from "@/lib/supabase-browser";
-
 export default function LoginPage() {
   useEffect(() => {
     const meta = document.createElement("meta");
@@ -22,35 +20,22 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const supabase = createBrowserClient();
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (authError || !data.session) {
-      setError(authError?.message || "Login failed");
-      setLoading(false);
-      return;
-    }
-
-    // Set cookies via API route so they're httpOnly
-    const res = await fetch("/api/auth/session", {
+    // Route admin login through the hardened server endpoint — rate limit,
+    // lockout, audit log all enforced before Supabase Auth is hit.
+    const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      }),
+      body: JSON.stringify({ email, password }),
     });
 
     if (!res.ok) {
-      setError("Failed to establish session");
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Login failed");
       setLoading(false);
       return;
     }
 
-    // Redirect to admin or the requested page
+    // Cookies are set server-side by /api/admin/login — just redirect.
     const params = new URLSearchParams(window.location.search);
     const redirect = params.get("redirect") || "/admin";
     window.location.href = redirect;
