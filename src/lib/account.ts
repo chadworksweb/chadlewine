@@ -10,6 +10,7 @@ export interface CurrentSession {
   userId: string;
   email: string;
   audienceId: string;
+  isAdmin: boolean;
 }
 
 export async function getCurrentSession(): Promise<CurrentSession | null> {
@@ -26,12 +27,13 @@ export async function getCurrentSession(): Promise<CurrentSession | null> {
     if (error || !data?.user?.email) return null;
 
     const admin = createAdminClient();
-    const { data: row } = await admin
-      .from("audience")
-      .select("id")
-      .eq("user_id", data.user.id)
-      .maybeSingle();
-    if (!row) {
+    const [audRes, adminRes] = await Promise.all([
+      admin.from("audience").select("id").eq("user_id", data.user.id).maybeSingle(),
+      admin.from("admins").select("user_id").eq("user_id", data.user.id).maybeSingle(),
+    ]);
+    const isAdmin = !!adminRes.data;
+
+    if (!audRes.data) {
       // Trigger should have created this row on signup. If it's missing
       // (e.g. seed user predates the trigger), fall back to creating it now.
       const { data: created } = await admin
@@ -48,12 +50,14 @@ export async function getCurrentSession(): Promise<CurrentSession | null> {
         userId: data.user.id,
         email: data.user.email,
         audienceId: created.id,
+        isAdmin,
       };
     }
     return {
       userId: data.user.id,
       email: data.user.email,
-      audienceId: row.id,
+      audienceId: audRes.data.id,
+      isAdmin,
     };
   } catch {
     return null;

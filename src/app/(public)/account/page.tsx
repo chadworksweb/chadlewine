@@ -14,6 +14,10 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage() {
   const session = await getCurrentSession();
   if (!session) redirect("/account/login");
+  // Admins shouldn't see the customer dashboard. Bounce them out — the
+  // public login already rejects them, but defense-in-depth in case
+  // they have a cookie from a prior session.
+  if (session.isAdmin) redirect("/admin");
 
   const supabase = createAdminClient();
   const [aRes, ordersRes] = await Promise.all([

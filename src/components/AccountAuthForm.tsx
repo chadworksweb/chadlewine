@@ -50,6 +50,18 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
             refresh_token: data.session.refresh_token,
           }),
         });
+        // Reject admin users on the public login path. Admins must use
+        // the secret /cl-admin-6nnn URL — separates customer auth UX from
+        // privileged access.
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+        if (meData?.user?.is_admin) {
+          await supabase.auth.signOut();
+          await fetch("/api/auth/session", { method: "DELETE" });
+          setStatus("err");
+          setMessage("This account isn't available here. Use your admin URL.");
+          return;
+        }
         router.push("/account");
         return;
       }
