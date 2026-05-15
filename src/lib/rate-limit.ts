@@ -29,9 +29,9 @@ const POLICY: Record<AuthAction, Window[]> = {
   register: [
     { minutes: 60, byIp: 5 },
   ],
-  // Password reset: 1 per email per 5 min (prevent reset-flood).
+  // Password reset: 1 per email per 2 min (prevent reset-flood).
   password_reset: [
-    { minutes: 5, byEmail: 1 },
+    { minutes: 2, byEmail: 1 },
   ],
 };
 
