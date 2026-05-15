@@ -337,6 +337,55 @@ export function buildRecoveryEmailHtml(params: { verifyUrl: string }): string {
   return shell(inner, "You received this because someone requested download recovery at chadlewine.com");
 }
 
+export function buildMemberCouponEmailHtml(params: {
+  code: string;
+  percentOff: number;
+  expiresAt: Date;
+}): string {
+  const expiresText = params.expiresAt.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+    timeZoneName: "short",
+  });
+  const shopUrl = `${SITE_URL}/music`;
+  const inner = `
+    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em; color: #8b9cf7; margin-bottom: 8px;">Coupon claimed</p>
+    <h1 style="font-size: 26px; font-weight: 600; margin: 0 0 12px; color: #e0e0e8;">${params.percentOff}% off your next order</h1>
+    <p style="font-size: 16px; color: #a0a0b0; line-height: 1.55; margin: 0 0 24px;">
+      Thanks for being a member. Use it on all music in your cart, or
+      one merch item &mdash; whichever saves more. One use, expires in
+      seven days.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px;">
+      <tr>
+        <td style="background: #13131c; border: 1px solid rgba(139,156,247,0.45); border-radius: 6px; padding: 18px 28px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 22px; letter-spacing: 0.22em; color: #e0e0e8;">
+          ${escapeHtml(params.code)}
+        </td>
+      </tr>
+    </table>
+    <p style="font-size: 14px; color: #8b9cf7; margin: 0 0 24px;">Expires ${escapeHtml(expiresText)}</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td bgcolor="#8b9cf7" style="border-radius: 4px; padding: 12px 28px;">
+          <a href="${shopUrl}" style="color: #0a0a14; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block;">
+            <span style="color: #0a0a14;">Shop now</span>
+          </a>
+        </td>
+      </tr>
+    </table>
+    <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.55;">
+      It's saved to your account. Add items to your cart, then toggle on
+      "Apply your member coupon" right above the checkout button.
+    </p>
+  `;
+  return shell(inner, "You received this because you claimed a member coupon at chadlewine<span style=\"color:inherit;\">.</span>com");
+}
+
 export function buildObservationEmailHtml(observation: {
   title: string;
   slug: string;

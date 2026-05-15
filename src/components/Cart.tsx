@@ -191,6 +191,22 @@ export function CartUI() {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [showAuthGate, setShowAuthGate] = useState(false);
 
+  // Member coupon detection. If the signed-in buyer has an unredeemed
+  // coupon on their account, surface an "Apply 20% off" toggle. The
+  // discount itself is computed server-side at cart-checkout.
+  const [availableCoupon, setAvailableCoupon] = useState<{
+    code: string;
+    percent_off: number;
+    expires_at: string;
+  } | null>(null);
+  const [applyCoupon, setApplyCoupon] = useState(false);
+  const [couponInfoOpen, setCouponInfoOpen] = useState(false);
+
+  // Terms of purchase live as fine print only. Clicking "terms of purchase"
+  // opens an in-drawer slide-over panel with the short disclaimer; no
+  // explicit consent gate.
+  const [termsOpen, setTermsOpen] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/auth/me")
@@ -205,6 +221,25 @@ export function CartUI() {
       cancelled = true;
     };
   }, []);
+
+  // Look up the buyer's eligible coupon whenever the cart opens and they
+  // appear to be signed in. Cheap (one row) and uncached so it reflects a
+  // claim that just happened in another tab.
+  useEffect(() => {
+    if (!isOpen || signedIn !== true) return;
+    let cancelled = false;
+    fetch("/api/member-coupons/available", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setAvailableCoupon(d.coupon || null);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableCoupon(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, signedIn]);
 
   function nextParam(): string {
     // After login/register, send them to /checkout — a thin client page that
@@ -239,6 +274,7 @@ export function CartUI() {
             product_config: i.product_config ?? null,
           })),
           marketing_opt_in: true,
+          apply_coupon: applyCoupon && !!availableCoupon,
         }),
       });
       const data = await res.json();
@@ -342,10 +378,73 @@ export function CartUI() {
 
         {items.length > 0 && (
           <div className="cl-cart-drawer__footer">
-            <div className="cl-cart-subtotal">
-              <span className="cl-cart-subtotal__label">Subtotal</span>
-              <span className="cl-cart-subtotal__amount">{fmtPrice(subtotal)}</span>
-            </div>
+            {(() => {
+              const musicTotal = items
+                .filter((i) => i.type === "song" || i.type === "album" || i.type === "ringtone")
+                .reduce((s, i) => s + i.price, 0);
+              const merchPrices = items
+                .filter((i) => i.type === "merch" || i.type === "art_original")
+                .map((i) => i.price);
+              const merchMax = merchPrices.length > 0 ? Math.max(...merchPrices) : 0;
+              const pct = (availableCoupon?.percent_off || 20) / 100;
+              const previewDiscount = applyCoupon
+                ? Math.max(musicTotal * pct, merchMax * pct)
+                : 0;
+              const total = Math.max(subtotal - previewDiscount, 0);
+              return (
+                <div className="cl-cart-totals-area">
+                  {availableCoupon && (
+                    <div
+                      className={`cl-cart-toast cl-cart-toast--coupon${couponInfoOpen ? " cl-cart-toast--open" : ""}${applyCoupon ? " cl-cart-toast--on" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        className="cl-cart-toast__expand"
+                        onClick={() => setCouponInfoOpen((v) => !v)}
+                        aria-expanded={couponInfoOpen}
+                      >
+                        <span className="cl-cart-toast__label">
+                          Apply your <strong>{availableCoupon.percent_off}% member coupon</strong>
+                        </span>
+                        <span className="cl-cart-toast__caret" aria-hidden="true">{couponInfoOpen ? "−" : "+"}</span>
+                      </button>
+                      <label className="cl-cart-toast__toggle" aria-label="Toggle member coupon">
+                        <input
+                          type="checkbox"
+                          checked={applyCoupon}
+                          onChange={(e) => setApplyCoupon(e.target.checked)}
+                        />
+                        <span className="cl-cart-coupon-toggle__switch" aria-hidden="true" />
+                      </label>
+                      {couponInfoOpen && (
+                        <div className="cl-cart-toast__info">
+                          Discounts all music in your cart, or your most expensive merch item &mdash; whichever saves more.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="cl-cart-totals">
+                    <div className="cl-cart-subtotal">
+                      <span className="cl-cart-subtotal__label">Subtotal</span>
+                      <span className="cl-cart-subtotal__amount">{fmtPrice(subtotal)}</span>
+                    </div>
+                    {previewDiscount > 0 && (
+                      <>
+                        <div className="cl-cart-subtotal cl-cart-subtotal--discount">
+                          <span className="cl-cart-subtotal__label">Member coupon</span>
+                          <span className="cl-cart-subtotal__amount">-{fmtPrice(previewDiscount)}</span>
+                        </div>
+                        <div className="cl-cart-subtotal cl-cart-subtotal--total">
+                          <span className="cl-cart-subtotal__label">Total</span>
+                          <span className="cl-cart-subtotal__amount">{fmtPrice(total)}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                </div>
+              );
+            })()}
             {error && <p className="cl-cart-error">{error}</p>}
             {showAuthGate ? (
               <div className="cl-cart-auth-gate">
@@ -385,11 +484,16 @@ export function CartUI() {
               </div>
             ) : (
               <>
-                <p className="cl-cart-disclaimer">
-                  By completing this purchase you&rsquo;ll receive transactional
-                  emails (receipt, downloads, shipping). I&rsquo;ll also send the
-                  occasional update about new music, art, and pop-ups.
-                  {" "}<strong>One-click unsubscribe in every email.</strong>
+                <p className="cl-cart-fineprint">
+                  By purchasing you agree to the{" "}
+                  <button
+                    type="button"
+                    className="cl-cart-fineprint__link"
+                    onClick={() => setTermsOpen(true)}
+                  >
+                    terms of purchase
+                  </button>
+                  .
                 </p>
                 <button
                   type="button"
@@ -409,6 +513,56 @@ export function CartUI() {
               </>
             )}
           </div>
+        )}
+
+        {termsOpen && (
+          <>
+            <div
+              className="cl-cart-terms__backdrop"
+              onClick={() => setTermsOpen(false)}
+              aria-hidden="true"
+            />
+            <div
+              className="cl-cart-terms"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="cl-cart-terms-title"
+            >
+              <div className="cl-cart-terms__header">
+                <h3 id="cl-cart-terms-title" className="cl-cart-terms__title">
+                  Terms of purchase
+                </h3>
+                <button
+                  type="button"
+                  className="cl-cart-terms__close"
+                  aria-label="Close"
+                  onClick={() => setTermsOpen(false)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="cl-cart-terms__body">
+                <p>
+                  By completing this purchase you&rsquo;ll receive
+                  transactional emails (receipt, downloads, shipping).
+                  I&rsquo;ll also send the occasional update about new
+                  music, art, and pop-ups.{" "}
+                  <strong>One-click unsubscribe in every email.</strong>
+                </p>
+                <p>
+                  Full{" "}
+                  <a href="/terms-of-service" target="_blank" rel="noreferrer">
+                    terms of service
+                  </a>
+                  {" "}and{" "}
+                  <a href="/privacy-policy" target="_blank" rel="noreferrer">
+                    privacy policy
+                  </a>
+                  .
+                </p>
+              </div>
+            </div>
+          </>
         )}
       </aside>
 
