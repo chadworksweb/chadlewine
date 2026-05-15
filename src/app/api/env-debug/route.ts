@@ -17,5 +17,11 @@ export async function GET() {
     VERCEL_ENV: process.env.VERCEL_ENV,
     VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8),
     VERCEL_GIT_COMMIT_REF: process.env.VERCEL_GIT_COMMIT_REF,
+    // All env keys visible to the runtime that mention "stripe" or "secret"
+    // — surfaces typos or duplicate definitions we might be missing.
+    allStripeRelated: Object.keys(process.env)
+      .filter((k) => /stripe/i.test(k))
+      .map((k) => ({ key: k, length: (process.env[k] || "").length })),
+    totalEnvKeys: Object.keys(process.env).length,
   });
 }
