@@ -23,5 +23,6 @@ export async function GET() {
       .filter((k) => /stripe/i.test(k))
       .map((k) => ({ key: k, length: (process.env[k] || "").length })),
     totalEnvKeys: Object.keys(process.env).length,
+    CHAD_RUNTIME_TEST: peek(process.env.CHAD_RUNTIME_TEST),
   });
 }
