@@ -309,6 +309,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     if (!initial) return { ...emptySong, album_id: presetAlbumId || "" };
     return {
       ...initial,
+      album_id: initial.album_id || "",
       focus_keyphrase: initial.focus_keyphrase || "",
       secondary_keyphrases: initial.secondary_keyphrases || [],
       search_intent: initial.search_intent || "informational",
@@ -786,6 +787,10 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 [...prev, item as TopicOption].sort((a, b) => a.label.localeCompare(b.label))
               );
               setForm((prev) => ({ ...prev, topic_ids: [...prev.topic_ids, item.id] }));
+            }}
+            onDelete={(id) => {
+              setAllTopics((prev) => prev.filter((t) => t.id !== id));
+              setForm((prev) => ({ ...prev, topic_ids: prev.topic_ids.filter((tid) => tid !== id) }));
             }}
             createEndpoint="/api/admin/topics"
             createPlaceholder="+ New topic"

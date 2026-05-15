@@ -10,6 +10,7 @@ import { useCart } from "@/components/Cart";
 import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
 import { ExploreGrid } from "@/components/ExploreGrid";
+import { FitText } from "@/components/FitText";
 
 interface SongProps {
   id: string;
@@ -200,13 +201,15 @@ export function SongDetail({
       key: "album",
       label: "Album",
       value: (
-        <Link
-          href={`/music/albums/${album.slug}`}
-          className="track-detail__glitch-link"
-          data-text={album.title}
-        >
-          {album.title}
-        </Link>
+        <FitText>
+          <Link
+            href={`/music/albums/${album.slug}`}
+            className="track-detail__glitch-link"
+            data-text={album.title}
+          >
+            {album.title}
+          </Link>
+        </FitText>
       ),
     });
   } else {

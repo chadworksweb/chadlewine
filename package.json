@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.5.2",
     "@supabase/supabase-js": "^2.100.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
@@ -20,7 +21,9 @@
     "react-dom": "19.2.4",
     "remark": "^15.0.1",
     "remark-html": "^16.0.1",
+    "resend": "^4.8.0",
     "stripe": "^21.0.1",
+    "svix": "^1.93.0",
     "tsx": "^4.21.0"
   },
   "devDependencies": {

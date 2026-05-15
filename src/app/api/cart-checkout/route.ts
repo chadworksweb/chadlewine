@@ -1,4 +1,6 @@
-import { createPublicClient } from "@/lib/supabase-server";
+import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
+import { createPublicClient, createAdminClient } from "@/lib/supabase-server";
 import { createCartCheckoutSession } from "@/lib/stripe";
 
 type Format = "mp3" | "flac" | "wav";
@@ -25,6 +27,11 @@ function isConfigurator(config: Record<string, unknown> | null | undefined): boo
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const items = body?.items as CartLineInput[] | undefined;
+  // Customer consent for marketing emails. Disclaimer above the
+  // checkout button is the visible consent record; this flag is the
+  // structured payload the Stripe webhook reads to set audience
+  // marketing_opt_in_at.
+  const marketingOptIn = body?.marketing_opt_in === true;
 
   if (!Array.isArray(items) || items.length === 0) {
     return Response.json({ error: "items required" }, { status: 400 });
@@ -335,6 +342,39 @@ export async function POST(request: Request) {
       ? "/merch/thank-you"
       : "/music/purchase/cart-thank-you";
 
+  // Prefill Stripe Checkout for signed-in buyers. Cookie verify is best-effort
+  // — if there's no session (or token expired), checkout still works with an
+  // empty email field, same as anonymous flow.
+  let prefillCustomerId: string | undefined;
+  let prefillEmail: string | undefined;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("sb-access-token")?.value;
+    if (token) {
+      const anon = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      );
+      const { data: userResp } = await anon.auth.getUser(token);
+      const user = userResp?.user;
+      if (user) {
+        const admin = createAdminClient();
+        const { data: audienceRow } = await admin
+          .from("audience")
+          .select("email, stripe_customer_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (audienceRow?.stripe_customer_id) {
+          prefillCustomerId = audienceRow.stripe_customer_id;
+        } else if (audienceRow?.email || user.email) {
+          prefillEmail = audienceRow?.email || user.email || undefined;
+        }
+      }
+    }
+  } catch {
+    // Non-fatal — proceed with anonymous checkout.
+  }
+
   const session = await createCartCheckoutSession({
     line_items: resolved.map((r) => ({
       title: r.title,
@@ -343,8 +383,10 @@ export async function POST(request: Request) {
       cover_art_url: r.cover_art_url,
     })),
     cart_items_metadata: metaJson,
-    extra_metadata: cfgKeys,
+    extra_metadata: { ...cfgKeys, marketing_opt_in: marketingOptIn ? "true" : "false" },
     collect_shipping: hasPhysical,
+    customer: prefillCustomerId,
+    customer_email: prefillCustomerId ? undefined : prefillEmail,
     success_url: `${origin}${successPath}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/music`,
   });

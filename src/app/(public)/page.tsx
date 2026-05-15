@@ -10,6 +10,28 @@ import { getCuratedHeroItems } from "@/lib/homepage-hero";
 
 export const revalidate = 60;
 
+// Album slugs whose songs are excluded from the homepage "Browse Songs"
+// coverflow (ExploreSongs) and the song-brief feed. Singles pages and the
+// full /music index still surface these — this is curation, not deletion.
+const BROWSE_EXCLUDED_ALBUM_SLUGS = ["demoesque"];
+
+async function getBrowseExcludedSongIds(
+  supabase: ReturnType<typeof createPublicClient>,
+): Promise<string[]> {
+  if (BROWSE_EXCLUDED_ALBUM_SLUGS.length === 0) return [];
+  const { data: albums } = await supabase
+    .from("albums")
+    .select("id")
+    .in("slug", BROWSE_EXCLUDED_ALBUM_SLUGS);
+  const albumIds = ((albums || []) as { id: string }[]).map((a) => a.id);
+  if (albumIds.length === 0) return [];
+  const { data: junctions } = await supabase
+    .from("album_songs")
+    .select("song_id")
+    .in("album_id", albumIds);
+  return ((junctions || []) as { song_id: string }[]).map((j) => j.song_id);
+}
+
 const DEFAULT_METADATA: Metadata = {};
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -127,10 +149,16 @@ async function getCLStreamSongs() {
 async function getSongBriefs(): Promise<SongBriefData[]> {
   const supabase = createPublicClient();
 
-  const { data: songs } = await supabase
+  const excludedIds = await getBrowseExcludedSongIds(supabase);
+
+  let query = supabase
     .from("songs")
     .select("id, slug, title, song_summary, chorus, chad_quote, art_image_path, art_alt")
-    .in("status", ["unreleased", "published"])
+    .in("status", ["unreleased", "published"]);
+  if (excludedIds.length > 0) {
+    query = query.not("id", "in", `(${excludedIds.join(",")})`);
+  }
+  const { data: songs } = await query
     .order("release_date", { ascending: false, nullsFirst: false })
     .limit(9);
 
@@ -251,10 +279,15 @@ async function getExploreSongs() {
     const byId = new Map((data || []).map((s) => [s.id, s]));
     songs = ids.map((id) => byId.get(id)).filter(Boolean) as typeof songs;
   } else {
-    const { data } = await supabase
+    const excludedIds = await getBrowseExcludedSongIds(supabase);
+    let query = supabase
       .from("songs")
       .select("id, title, slug, song_summary, art_image_path, art_alt")
       .eq("status", "published");
+    if (excludedIds.length > 0) {
+      query = query.not("id", "in", `(${excludedIds.join(",")})`);
+    }
+    const { data } = await query;
     const pool = data || [];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));

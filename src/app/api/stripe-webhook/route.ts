@@ -156,7 +156,54 @@ export async function POST(request: Request) {
         return Response.json({ error: "Order insert failed" }, { status: 500 });
       }
       orderId = orderRow.id;
+      const newOrderId: string = orderRow.id;
       const orderNumber: string = orderRow.order_number;
+
+      // Upsert into audience (master contact record) and link the order
+      // row by audience_id. The opt-in flag is set on the cart at
+      // /api/cart-checkout and forwarded in session metadata.
+      const marketingOptIn = session.metadata?.marketing_opt_in === "true";
+      let audienceId: string | null = null;
+      try {
+        const { upsertAudienceFromPurchase } = await import("@/lib/audience");
+        audienceId = await upsertAudienceFromPurchase({
+          email: buyerEmail,
+          display_name: shipName,
+          shipping: ship
+            ? {
+                line1: ship.line1 || null,
+                line2: ship.line2 || null,
+                city: ship.city || null,
+                state: ship.state || null,
+                postal_code: ship.postal_code || null,
+                country: ship.country || null,
+              }
+            : null,
+          marketing_opt_in: marketingOptIn,
+          order_id: newOrderId,
+          order_number: orderNumber,
+          total,
+        });
+        await supabase.from("orders").update({ audience_id: audienceId }).eq("id", newOrderId);
+
+        // Persist the Stripe Customer id (created by customer_creation:'always')
+        // so we can route this buyer through Billing Portal later. Only
+        // overwrite if the audience row doesn't already have one.
+        const stripeCustomerId =
+          typeof session.customer === "string"
+            ? session.customer
+            : session.customer?.id;
+        if (stripeCustomerId && audienceId) {
+          await supabase
+            .from("audience")
+            .update({ stripe_customer_id: stripeCustomerId })
+            .eq("id", audienceId)
+            .is("stripe_customer_id", null);
+        }
+      } catch (e) {
+        // Non-fatal — order still completes. Log for follow-up.
+        console.error("[stripe-webhook] audience upsert failed:", e);
+      }
 
       // Fetch per-line prices for the email — Stripe returns line_items in the
       // same order we created them, which matches cartLines.
@@ -308,6 +355,7 @@ export async function POST(request: Request) {
           .insert({
             order_id: orderId,
             buyer_email: buyerEmail,
+            audience_id: audienceId,
             item_type: lineType,
             item_id: line.i,
             format,

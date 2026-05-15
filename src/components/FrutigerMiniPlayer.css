@@ -1,0 +1,242 @@
+/* === Frutiger / RealMedia-style mini player ============================
+   Portable component. The wrapper is `position: absolute` by default;
+   pass top/right/bottom/left via the `style` prop on the component (or
+   wrap it in a positioned ancestor) to place it. Visual styling is
+   self-contained — drop this file + FrutigerMiniPlayer.tsx into any
+   project and import the CSS once. */
+.frutiger-mini {
+  position: absolute;
+  top: var(--frutiger-mini-top, 12%);
+  right: var(--frutiger-mini-right, 12%);
+  left: var(--frutiger-mini-left, auto);
+  bottom: var(--frutiger-mini-bottom, auto);
+  z-index: var(--frutiger-mini-z, 3);
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+.frutiger-mini__launcher {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 18%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(circle at 50% 55%, #6ea2ff 0%, #2a5edb 60%, #0e2a8a 100%);
+  -webkit-backdrop-filter: blur(8px) saturate(160%);
+  backdrop-filter: blur(8px) saturate(160%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow:
+    0 0 22px rgba(110, 160, 255, 0.55),
+    0 8px 18px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.frutiger-mini__launcher:hover {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow:
+    0 0 28px rgba(120, 170, 255, 0.85),
+    0 10px 22px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+.frutiger-mini__launcher:active { transform: scale(0.97); }
+.frutiger-mini__launcher-icon {
+  width: 0;
+  height: 0;
+  margin-left: 4px;
+  border-style: solid;
+  border-width: 8px 0 8px 12px;
+  border-color: transparent transparent transparent #fff;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+}
+.frutiger-mini__launcher--playing .frutiger-mini__launcher-icon {
+  width: 12px;
+  height: 14px;
+  margin-left: 0;
+  border: 0;
+  background:
+    linear-gradient(#fff, #fff) left / 4px 100% no-repeat,
+    linear-gradient(#fff, #fff) right / 4px 100% no-repeat;
+}
+
+/* Panel — slides out to the right of the launcher button. */
+.frutiger-mini__panel {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  margin-left: 12px;
+  width: clamp(240px, 22vw, 300px);
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg,
+      rgba(220, 235, 255, 0.85) 0%,
+      rgba(130, 175, 240, 0.65) 48%,
+      rgba(30, 70, 180, 0.85) 52%,
+      rgba(8, 20, 70, 0.95) 100%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 32px rgba(110, 160, 255, 0.55),
+    0 16px 36px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translate(-24px, -50%);
+  transform-origin: 0% 50%;
+  pointer-events: none;
+  clip-path: inset(0 100% 0 0 round 14px);
+  transition:
+    opacity 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    clip-path 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.frutiger-mini--open .frutiger-mini__panel {
+  opacity: 1;
+  transform: translate(0, -50%);
+  pointer-events: auto;
+  clip-path: inset(0 0 0 0 round 14px);
+}
+.frutiger-mini__panel-shine {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  height: 46%;
+  border-radius: 13px 13px 30% 30% / 13px 13px 60% 60%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05));
+  pointer-events: none;
+}
+.frutiger-mini__close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.frutiger-mini__close:hover { background: rgba(255, 255, 255, 0.32); }
+
+.frutiger-mini__panel-row {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.frutiger-mini__art {
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.frutiger-mini__art--placeholder {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(0, 0, 0, 0.3));
+}
+.frutiger-mini__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.frutiger-mini__eyebrow {
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.frutiger-mini__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.frutiger-mini__title-link {
+  color: inherit;
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.frutiger-mini__title-link:hover,
+.frutiger-mini__title-link:focus-visible { background-size: 100% 1px; }
+.frutiger-mini__time {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+.frutiger-mini__time-sep { opacity: 0.6; margin: 0 2px; }
+
+.frutiger-mini__bar {
+  position: relative;
+  height: 8px;
+  margin: 12px 0 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.frutiger-mini__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #cfe5ff, #4d8dff 50%, #1a4dd0);
+  box-shadow: 0 0 8px rgba(110, 170, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: width 120ms linear;
+}
+.frutiger-mini__bar-thumb {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #9fc8ff 55%, #1a4dd0);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  transform: translateY(-50%);
+  box-shadow: 0 0 6px rgba(110, 170, 255, 0.9);
+}
+
+/* Mobile: panel detaches and becomes a bottom-anchored sheet. */
+@media (max-width: 720px) {
+  .frutiger-mini__panel {
+    position: fixed;
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 90px;
+    width: auto;
+    margin-left: 0;
+    transform-origin: 100% 100%;
+    transform: translateY(20px);
+    clip-path: none;
+  }
+  .frutiger-mini--open .frutiger-mini__panel {
+    transform: translateY(0);
+    clip-path: none;
+  }
+}

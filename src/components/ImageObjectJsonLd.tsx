@@ -4,7 +4,6 @@ interface ImageObjectJsonLdProps {
   description?: string | null;
   width?: number;
   height?: number;
-  acquireLicensePage?: string | null;
 }
 
 export function ImageObjectJsonLd({
@@ -13,8 +12,10 @@ export function ImageObjectJsonLd({
   description,
   width = 1200,
   height = 630,
-  acquireLicensePage,
 }: ImageObjectJsonLdProps) {
+  // Attribution only — no `license` / `acquireLicensePage`, so the image is
+  // not opted into Google's Image License feature (no badge, no required-
+  // field warnings in Search Console).
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "ImageObject",
@@ -31,12 +32,7 @@ export function ImageObjectJsonLd({
       "@type": "Person",
       name: "Chad Lewine",
     },
-    license: "https://chadlewine.com/foundations",
   };
-
-  if (acquireLicensePage) {
-    schema.acquireLicensePage = acquireLicensePage;
-  }
 
   return (
     <script

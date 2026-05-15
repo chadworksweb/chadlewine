@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 
@@ -17,8 +19,14 @@ export interface SongBriefData {
 export function SongBriefCard({ song }: { song: SongBriefData }) {
   const href = `/music/songs/${song.slug}`;
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty("--tooltip-x", `${e.clientX - rect.left}px`);
+    e.currentTarget.style.setProperty("--tooltip-y", `${e.clientY - rect.top}px`);
+  };
+
   return (
-    <article className="song-brief-card">
+    <article className="song-brief-card" onMouseMove={handleMouseMove}>
       <Link href={href} className="song-brief-card__cover-link" aria-label={song.title} />
       <header className="song-brief-card__header">
         <div className="song-brief-card__heading-text">
@@ -42,19 +50,19 @@ export function SongBriefCard({ song }: { song: SongBriefData }) {
         )}
       </header>
 
+      {song.chad_quote && (
+        <blockquote className="song-brief-card__quote">
+          <p>{song.chad_quote}</p>
+          <cite>— Chad Lewine</cite>
+        </blockquote>
+      )}
+
       {song.song_summary && (
         <p className="song-brief-card__summary">{song.song_summary}</p>
       )}
 
       {song.chorus && (
         <div className="song-brief-card__chorus">{song.chorus}</div>
-      )}
-
-      {song.chad_quote && (
-        <blockquote className="song-brief-card__quote">
-          <p>{song.chad_quote}</p>
-          <cite>— Chad Lewine</cite>
-        </blockquote>
       )}
     </article>
   );

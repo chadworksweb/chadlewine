@@ -60,6 +60,12 @@ export async function createCartCheckoutSession(params: {
   // True when the cart has any physical line; flips on Stripe shipping address
   // collection so the webhook + Printify push have an address.
   collect_shipping?: boolean;
+  // Signed-in customer prefill. Pass `customer` when audience already has a
+  // stripe_customer_id (future purchases attach to the same Customer record);
+  // otherwise pass `customer_email` to prefill the field — Stripe still creates
+  // a new Customer via customer_creation:'always'. These are mutually exclusive.
+  customer?: string;
+  customer_email?: string;
   success_url: string;
   cancel_url: string;
 }) {
@@ -82,9 +88,27 @@ export async function createCartCheckoutSession(params: {
     };
   });
 
+  // Mutually exclusive: passing `customer` means we already have a Stripe
+  // Customer for this audience row — skip customer_creation in that case
+  // because Stripe rejects the combination. Email prefill + customer_creation
+  // is the path for first-time signed-in buyers.
+  const customerParams: Pick<
+    Stripe.Checkout.SessionCreateParams,
+    "customer" | "customer_email" | "customer_creation"
+  > = params.customer
+    ? { customer: params.customer }
+    : params.customer_email
+      ? { customer_email: params.customer_email, customer_creation: "always" }
+      : { customer_creation: "always" };
+
   return getStripe().checkout.sessions.create({
     mode: "payment",
     line_items: stripeLineItems,
+    // Create or attach a persistent Stripe Customer so the buyer can be
+    // routed through Billing Portal later (manage payment methods, view
+    // past invoices, update billing address). Webhook saves the resulting
+    // customer id onto the audience row.
+    ...customerParams,
     metadata: {
       type: "cart",
       cart_items: params.cart_items_metadata,

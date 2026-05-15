@@ -6,15 +6,37 @@ import { usePathname } from "next/navigation";
 
 import { DEFAULT_NAV_ITEMS, type NavItem } from "@/lib/nav-items";
 
-export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
+export function Nav({
+  items = DEFAULT_NAV_ITEMS,
+  initialSignedIn = null,
+}: { items?: NavItem[]; initialSignedIn?: boolean | null } = {}) {
   const navItems = items;
   const pathname = usePathname();
   const [hidden, setHidden] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+  // Seed from a server-side cookie check so the Account/Login link is in the
+  // initial HTML — otherwise the /api/auth/me fetch below adds it ~1s after
+  // first paint and pushes the rest of the menu around.
+  const [signedIn, setSignedIn] = useState<boolean | null>(initialSignedIn);
   const lastScroll = useRef(0);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setSignedIn(!!d.user);
+      })
+      .catch(() => {
+        if (!cancelled) setSignedIn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   useEffect(() => {
     // Pages can opt to keep the nav visible past 200px by tagging an
@@ -117,6 +139,29 @@ export function Nav({ items = DEFAULT_NAV_ITEMS }: { items?: NavItem[] } = {}) {
                 {item.label}
               </Link>
             )
+          )}
+          {signedIn !== null && (
+            <Link
+              href={signedIn ? "/account" : "/account/login"}
+              className={`nav-links__item nav-links__item--account${isActive("/account") ? " nav-links__item--active" : ""}`}
+              aria-label={signedIn ? "Account" : "Login"}
+              title={signedIn ? "Account" : "Login"}
+            >
+              <svg
+                className="nav-links__account-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <circle cx="12" cy="8" r="3.6" />
+                <path d="M4.5 19.5c1.4-3.4 4.3-5.2 7.5-5.2s6.1 1.8 7.5 5.2" />
+              </svg>
+            </Link>
           )}
         </div>
 

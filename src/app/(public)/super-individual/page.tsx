@@ -11,6 +11,7 @@ import { RCTop10Card } from "@/components/RCTop10Card";
 import { MiniLyricalCharger } from "@/components/MiniLyricalCharger";
 import { SuperIndividualPopupSection } from "@/components/SuperIndividualPopup";
 import { SuperIndividualFloatingTag } from "@/components/SuperIndividualFloatingTag";
+import { FrutigerMiniPlayer } from "@/components/FrutigerMiniPlayer";
 
 export const revalidate = 60;
 
@@ -327,10 +328,58 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
   return { heroItems, discoItems };
 }
 
+interface FindingFreedomSong {
+  title: string;
+  slug: string;
+  streamingUrl: string;
+  durationSeconds: number;
+  artUrl: string | null;
+  artAlt: string | null;
+}
+
+async function fetchFindingFreedom(): Promise<FindingFreedomSong | null> {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("songs")
+    .select("id, title, slug, streaming_path, duration_seconds, art_image_path, art_alt")
+    .eq("slug", "finding-freedom")
+    .eq("status", "published")
+    .maybeSingle();
+  if (!data || !data.streaming_path || !data.duration_seconds) return null;
+
+  let artUrl: string | null = data.art_image_path;
+  let artAlt: string | null = data.art_alt;
+  // Fallback: pull cover art from the song's album when the song itself
+  // has no art_image_path set.
+  if (!artUrl) {
+    const { data: junction } = await supabase
+      .from("album_songs")
+      .select("album:albums(cover_art_path, cover_art_alt)")
+      .eq("song_id", data.id)
+      .limit(1);
+    const first = (junction || [])[0] as { album: Joined<{ cover_art_path: string | null; cover_art_alt: string | null }> } | undefined;
+    const album = firstOrNull(first?.album);
+    if (album?.cover_art_path) {
+      artUrl = album.cover_art_path;
+      artAlt = artAlt || album.cover_art_alt || data.title;
+    }
+  }
+
+  return {
+    title: data.title,
+    slug: data.slug,
+    streamingUrl: data.streaming_path,
+    durationSeconds: data.duration_seconds,
+    artUrl,
+    artAlt,
+  };
+}
+
 export default async function SuperIndividualPage() {
-  const [merch, releases] = await Promise.all([
+  const [merch, releases, findingFreedom] = await Promise.all([
     fetchSuperIndividualMerch(),
     fetchReleases(),
+    fetchFindingFreedom(),
   ]);
   const { heroItems, discoItems } = releases;
 
@@ -401,10 +450,22 @@ export default async function SuperIndividualPage() {
             <p>
               The Super Individual is a person that has been fully deprogrammed from the at-birth programming of modernity.
             </p>
-            <p className="si-what__note">
-              Institutions are not only tangible and visible organizations (government, corporate, communal, spiritual) but also intangible and invisible ways of being, thinking and communicating.
-            </p>
           </div>
+        </div>
+
+        <div className="si-prose" style={{ marginTop: 'var(--space-lg)' }}>
+          <p>
+            <strong>Institutions are not only tangible and visible organizations (government, corporate, communal, spiritual) but also intangible and invisible ways of being, thinking and communicating, including interpersonal relationships.</strong>
+          </p>
+          <p>
+            It is important to note that this is not about denouncing culture and society. It&rsquo;s not about abandoning civilization and living off the grid. It&rsquo;s about seeing our modern culture, society and civilization for what they are. It&rsquo;s about recognizing the energy flows both in and out of our beingness and deciding where our energy deserves to flow and where it doesn&rsquo;t.
+          </p>
+          <p>
+            We still need to rely on the electric and utility companies. We still need to rely on our government to serve and protect us, however well or poorly they do so. We still need to engage in commerce so that infrastructure, housing and food supplies can be built and maintained. We still need to participate in our communities. But the point of inflection is, are we participating in all of those institutions mindlessly? Blindly? Or are we participating with clear intention and total cognition? That is the way of the Super Individual. We cannot make change by abandoning our humanity and our fellow man. We cannot bring change to the world by scoffing and hiding ourselves away. We make change by calling out those who do harm, withdrawing our energy from where it is being abused, and redirecting it to where it is useful, both for ourselves, and for all.
+          </p>
+          <p>
+            We still need to have relationships with people. We still need love. We still need companionship and partnership. We still need physical intimacy. We still need to procreate. But it&rsquo;s about looking at what terms have been agreed to on top of or beneath those interactions. What are you giving to and what are you asking of others along with those engagements and are those terms in favor of extraction and control or are they unconditional with no strings attached?
+          </p>
         </div>
       </section>
 
@@ -459,12 +520,12 @@ export default async function SuperIndividualPage() {
 
       {/* Door 1 — Merch */}
       <section id="door-merch" className="si-door si-door--merch" aria-labelledby="si-door-merch-heading">
-        <p className="si-door__eyebrow">Merchandise</p>
+        <p className="si-door__eyebrow">Reclaim your light emanation</p>
         <div className="si-banner-bar">
           <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-merch-heading">
-            Reclaim your light emanation
+            Super Individual Merchandise
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
@@ -504,19 +565,19 @@ export default async function SuperIndividualPage() {
 
       {/* Door 2 — Music (HeroLens + Discography 4-up) */}
       <section id="door-music" className="si-door si-door--music" aria-labelledby="si-door-music-heading">
-        <p className="si-door__eyebrow">Original Music</p>
+        <p className="si-door__eyebrow">Follow my personal reclamation journey</p>
         <div className="si-banner-bar">
           <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-music-heading">
-            Follow my personal reclamation journey
+            Super Individual Music
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
         </div>
 
         <p className="si-excerpt">
-          Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, growing archive of my deprogramming personal journey, <em>and</em> a new trail to follow, should you choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
+          Some people that want to make change in the world write books, some hold retreats, and some make speeches or hold sermons. I write songs. My songs are both a living, growing archive of my own, personal deprogramming journey, <em>and</em> a new trail to follow, should one choose to venture off the beaten path of modern institutional ways of thinking, living, and being.
         </p>
 
         <div className="si-prose" style={{ marginBottom: 'var(--space-xl)' }}>
@@ -579,12 +640,12 @@ export default async function SuperIndividualPage() {
 
       {/* Door 3 — Rising Compass */}
       <section className="si-door si-door--rc" aria-labelledby="si-door-rc-heading">
-        <p className="si-door__eyebrow">Rising Compass</p>
+        <p className="si-door__eyebrow">Scan what you&rsquo;re listening to right now</p>
         <div className="si-banner-bar">
           <div className="glyph-title-bar glyph-title-bar--top">
           <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
           <h2 className="glyph-title-bar__heading" id="si-door-rc-heading">
-            Scan what you&rsquo;re listening to right now
+            Super Individual Soundtrack
           </h2>
           <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
           </div>
@@ -643,24 +704,59 @@ export default async function SuperIndividualPage() {
               src="/images/super-individual/chad-lewine_the-deprogrammer_blue-glow.webp"
               alt="Chad Lewine, the Deprogrammer"
             />
+            {findingFreedom && (
+              <FrutigerMiniPlayer
+                songTitle={findingFreedom.title}
+                songSlug={findingFreedom.slug}
+                streamingUrl={findingFreedom.streamingUrl}
+                durationSeconds={findingFreedom.durationSeconds}
+                artUrl={findingFreedom.artUrl}
+                artAlt={findingFreedom.artAlt}
+                style={{ "--frutiger-mini-top": "12%", "--frutiger-mini-right": "32%" } as React.CSSProperties}
+              />
+            )}
           </div>
 
           <div className="si-prose si-who__copy">
             <p>
-              I thought that I was fully autonomous and sovereign my whole life, but the reality is I was programmed by my parents, (mostly my mother) to live by their rules and to be constrained by their perceptions, their reality, their expectations, their limits, their dreams and their goals.
+              I thought that I was fully autonomous and sovereign my whole life, but the reality is I was running plenty of programs by the time I was an adult. I had avoided the big, obvious programs like organized religion, 9-5 corporate or retail employment, and familial culthood disguised as the modern USAmerican family (the flipside of that being that I never had a family at all,) but boy, in the years leading up to writing this, I realized just how programmed I really was.
             </p>
+
+            <h3>The Parental Program</h3>
             <p>
-              Due to this total lack of unconditional love from both parents, I ended up being programmed by the media and specifically sex. I was programmed to perceive sex as love and sex as success; one of the biggest programming initiatives in our current society. This programming eventually led me into a deeply toxic and abusive relationship driven by substance abuse and aggressive co-dependency.
+              As we all are, I was programmed by my parents, (mostly my mother) to live by their rules and to be constrained by their perceptions, their reality, their expectations, their limits, their dreams and their goals. My mother was a narcissistic tyrant and my father was emotionally absent and defaulted to my mother. There was no sovereignty under her rule. Her love (and by her approval, my father&rsquo;s) was earned or withdrawn day by day based on my perceived successes and failures.
             </p>
+
+            <h3>The Sex-as-Love Program</h3>
             <p>
-              It was in this relationship that I hit real rock bottom, which for me was dangerous substance use and interactions with the criminal justice system. This forced me to examine how I got there and how to get out. I did that un-learning (deprogramming) through my ongoing metaphysical and spiritual study and practice, bolstered by 1.5 years straight of weekly talk therapy that book-ended my being arrested in April 2022 and the successful leaving of the abusive relationship.
+              Due to this total lack of unconditional love from both parents, I was starved for love and ended up being programmed to perceive sex as love and success; one of the biggest media-based programming initiatives in our current society. This programming eventually led me into a deeply toxic and abusive relationship driven by substance abuse and aggressive co-dependency.
             </p>
+
+            <h3>The Political Program</h3>
             <p>
-              I was also programmed to follow the mainstream route of chasing a music dream; to get a record deal, to have millions of fans and stadium tours. I was guided by Michael Jackson but I also was programmed (maybe even programmed myself) to believe that if I wasn&rsquo;t reaching that, I wasn&rsquo;t successful.
+              I was raised in a non-political household, but my father was a registered independent and for most of my cognitive life, my mother was a Democrat. Once I realized I was gay and came out, I was scooped up by the Democratic party program and became part of their &ldquo;side.&rdquo; It doesn&rsquo;t matter which side, a side is a side, and I was on one.
             </p>
+
+            <h3>The Substance Use Program</h3>
             <p>
-              I was also programmed by the social media platforms to try to mold myself into something that could go viral. I wasn&rsquo;t changing my message or my appearance to be something I&rsquo;m not, but I did believe that I needed to be on these platforms to find success.
+              I was regularly smoking cigarettes, drinking alcohol and using weed by the time I was 18. I thought this was the way of the artist, the rebel, the renegade. These were not just factions of my identity but also subconscious middle fingers to my mother.
             </p>
+
+            <h3>The Starving Artist Program</h3>
+            <p>
+              Tagging along with substance use was my donning the narrative and label of the starving artist. I believed, though not to the deepest extent that some do, that as an artist, I was inherently going to be broke and poor before I became rich and famous&mdash;there was no in between. This was due to cultural and socio-economic programming, but also partly due to ignorance (or rejection) of the possibility of being a working class artist, which was disappearing anyway.
+            </p>
+
+            <h3>The Music Industry Program</h3>
+            <p>
+              I was also programmed to follow the mainstream &ldquo;big dream&rdquo; route of signing a major label record deal, having millions of fans and stadium tours. I was guided by Michael Jackson&rsquo;s blueprint, but I also was programmed (maybe even programmed myself) to believe that if I wasn&rsquo;t reaching that, I wasn&rsquo;t successful.
+            </p>
+
+            <h3>The Social Media Program</h3>
+            <p>
+              I began my artist journey when social media was in its infancy. It was only for a short time between 2020 and 2025 that I participated, but I participated fully in the social media programming. I tried to mold myself into something that could go viral. I wasn&rsquo;t changing my message, but I did alter my priorities to feed the platforms before myself. I was convinced that I needed these platforms to find success.
+            </p>
+
             <p>
               All of this is to say, I had my own type of programming installed and I&rsquo;ve faced and overcome myriad challenges, those challenges being the precise origins of my music and art, all culminating now, in 2026, as a movement that I&rsquo;m calling the Super Individual.
             </p>
