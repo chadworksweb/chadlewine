@@ -114,5 +114,80 @@ export async function GET(request: Request) {
     });
   }
 
+  if (view === "plays") {
+    const now = Date.now();
+    const since7 = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const since30 = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: events, error } = await supabase
+      .from("song_play_events")
+      .select("song_id, played_at, seconds_played")
+      .order("played_at", { ascending: false });
+
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+
+    type Agg = {
+      total: number;
+      plays_7d: number;
+      plays_30d: number;
+      seconds_sum: number;
+      last_played_at: string | null;
+    };
+    const bySong: Record<string, Agg> = {};
+    for (const e of (events || []) as { song_id: string; played_at: string; seconds_played: number }[]) {
+      const a = (bySong[e.song_id] ||= {
+        total: 0,
+        plays_7d: 0,
+        plays_30d: 0,
+        seconds_sum: 0,
+        last_played_at: null,
+      });
+      a.total++;
+      a.seconds_sum += e.seconds_played || 0;
+      if (e.played_at >= since7) a.plays_7d++;
+      if (e.played_at >= since30) a.plays_30d++;
+      if (!a.last_played_at || e.played_at > a.last_played_at) {
+        a.last_played_at = e.played_at;
+      }
+    }
+
+    const songIds = Object.keys(bySong);
+    let songs: { id: string; title: string; slug: string }[] = [];
+    if (songIds.length > 0) {
+      const { data } = await supabase
+        .from("songs")
+        .select("id, title, slug")
+        .in("id", songIds);
+      songs = (data || []) as typeof songs;
+    }
+    const titleMap = new Map(songs.map((s) => [s.id, s]));
+
+    const rows = Object.entries(bySong)
+      .map(([sid, a]) => ({
+        song_id: sid,
+        title: titleMap.get(sid)?.title || "(deleted song)",
+        slug: titleMap.get(sid)?.slug || null,
+        total_plays: a.total,
+        plays_7d: a.plays_7d,
+        plays_30d: a.plays_30d,
+        avg_seconds: a.total > 0 ? Math.round(a.seconds_sum / a.total) : 0,
+        last_played_at: a.last_played_at,
+      }))
+      .sort(
+        (a, b) =>
+          b.plays_30d - a.plays_30d ||
+          b.total_plays - a.total_plays ||
+          a.title.localeCompare(b.title),
+      );
+
+    const totals = {
+      total_plays: rows.reduce((s, r) => s + r.total_plays, 0),
+      plays_7d: rows.reduce((s, r) => s + r.plays_7d, 0),
+      plays_30d: rows.reduce((s, r) => s + r.plays_30d, 0),
+    };
+
+    return Response.json({ rows, totals });
+  }
+
   return Response.json({ error: "Unknown view" }, { status: 400 });
 }

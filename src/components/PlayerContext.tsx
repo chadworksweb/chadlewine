@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import posthog from "posthog-js";
 
 export type PlaybackMode = "preview" | "full";
 
@@ -53,12 +54,22 @@ export function usePlayer(): PlayerContextValue {
 const PREVIEW_START = 13;
 const PREVIEW_DURATION = 30;
 const FADE_DURATION = 2;
+const PLAY_MIN_SECONDS = 5;
+
+type PlaySession = {
+  songId: string;
+  songSlug: string;
+  songTitle: string;
+  secondsPlayed: number;
+  completed: boolean;
+};
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number>(0);
   const fadeInRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentRef = useRef<PlayerSong | null>(null);
+  const sessionRef = useRef<PlaySession | null>(null);
 
   const [current, setCurrent] = useState<PlayerSong | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -84,6 +95,76 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Anonymous play-count recording. One row per session (>= PLAY_MIN_SECONDS).
+  // Fans out to (a) /api/play -> song_play_events table (fast admin view) and
+  // (b) PostHog (funnels: plays -> purchases). PostHog no-ops when uninitialized
+  // or when opt_out_capturing is set. Admin browsers (cl_skip_analytics=1) are
+  // blocked from both writes.
+  const flushSession = useCallback(() => {
+    const s = sessionRef.current;
+    sessionRef.current = null;
+    if (!s || s.secondsPlayed < PLAY_MIN_SECONDS) return;
+
+    if (typeof window !== "undefined") {
+      try {
+        if (localStorage.getItem("cl_skip_analytics") === "1") return;
+      } catch {}
+    }
+
+    const secondsPlayed = Math.floor(s.secondsPlayed);
+
+    const body = JSON.stringify({
+      song_id: s.songId,
+      seconds_played: secondsPlayed,
+      completed: s.completed,
+    });
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      try {
+        navigator.sendBeacon(
+          "/api/play",
+          new Blob([body], { type: "application/json" }),
+        );
+      } catch {
+        fetch("/api/play", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true,
+        }).catch(() => {});
+      }
+    } else {
+      fetch("/api/play", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+    try {
+      posthog.capture("song_played", {
+        song_id: s.songId,
+        song_slug: s.songSlug,
+        song_title: s.songTitle,
+        seconds_played: secondsPlayed,
+        completed: s.completed,
+      });
+    } catch {
+      // PostHog not initialized (dev / consent declined) — silently skip.
+    }
+  }, []);
+
+  // Flush any in-flight session on tab close / navigation.
+  useEffect(() => {
+    const onUnload = () => flushSession();
+    window.addEventListener("beforeunload", onUnload);
+    window.addEventListener("pagehide", onUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onUnload);
+      window.removeEventListener("pagehide", onUnload);
+    };
+  }, [flushSession]);
+
   const clearFadeIn = () => {
     if (fadeInRef.current) {
       clearInterval(fadeInRef.current);
@@ -92,6 +173,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const stop = useCallback(() => {
+    flushSession();
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
@@ -106,7 +188,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setLoading(false);
     setAudioTime(0);
     setResolvedDuration(0);
-  }, []);
+  }, [flushSession]);
 
   const tick = useCallback(() => {
     const audio = audioRef.current;
@@ -114,6 +196,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!audio || audio.paused || !song) return;
 
     setAudioTime(audio.currentTime);
+
+    // Update the active session's max seconds heard (mode-normalized so
+    // preview mode measures time inside the preview window, not raw currentTime).
+    const session = sessionRef.current;
+    if (session && session.songId === song.id) {
+      const heard =
+        song.playbackMode === "preview"
+          ? Math.max(0, audio.currentTime - PREVIEW_START)
+          : audio.currentTime;
+      if (heard > session.secondsPlayed) session.secondsPlayed = heard;
+    }
 
     if (song.playbackMode === "preview") {
       const elapsed = audio.currentTime - PREVIEW_START;
@@ -147,10 +240,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
 
       // Different song: tear down + start fresh
+      flushSession();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       clearFadeIn();
       audio.pause();
 
+      sessionRef.current = {
+        songId: song.id,
+        songSlug: song.slug,
+        songTitle: song.title,
+        secondsPlayed: 0,
+        completed: false,
+      };
       currentRef.current = song;
       setCurrent(song);
       setPlaying(false);
@@ -200,7 +301,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           stop();
         });
       };
-      const onEnded = () => stop();
+      const onEnded = () => {
+        if (sessionRef.current && sessionRef.current.songId === song.id) {
+          sessionRef.current.completed = true;
+        }
+        stop();
+      };
       const onError = () => stop();
 
       audio.addEventListener("loadedmetadata", onLoadedMeta, { once: true });
@@ -210,7 +316,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       audio.load();
     },
-    [stop, tick],
+    [stop, tick, flushSession],
   );
 
   const pause = useCallback(() => {

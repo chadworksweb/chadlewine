@@ -472,6 +472,19 @@ h2, h3, h4, h5, h6 {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.nav-links__item--account {
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-links__account-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
 .nav-links__parent {
   position: relative;
   display: flex;
@@ -502,8 +515,16 @@ h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
-/* Sub items — Nokia expand/collapse physics */
+/* Sub items — Nokia expand/collapse physics.
+   Default state is hidden (opacity:0 + translateY) so first paint matches
+   SSR's collapsed dropdown without flashing visible. Transitions replace the
+   old keyframes so initial render doesn't trigger an animation. */
 .nav-links__sub-item {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 550ms cubic-bezier(0.22, 0.68, 0.35, 1),
+              transform 550ms cubic-bezier(0.22, 0.68, 0.35, 1);
+  transition-delay: calc(var(--nav-index-rev, 0) * 120ms);
   font-family: var(--font-ui);
   font-size: var(--text-xs);
   color: rgba(232, 235, 240, 1);
@@ -533,38 +554,12 @@ h2, h3, h4, h5, h6 {
   border-color: rgba(255, 255, 255, 0.35);
 }
 
-/* Expand — top-down staggered */
+/* Expand — top-down staggered. Transitions replace keyframe animations so
+   the closed state is the default (no animation fires on initial paint). */
 .nav-links__dropdown--open .nav-links__sub-item {
-  animation: nav-expand 550ms cubic-bezier(0.22, 0.68, 0.35, 1) both;
-  animation-delay: calc(var(--nav-index, 0) * 120ms);
-}
-
-@keyframes nav-expand {
-  0% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Collapse — bottom-up staggered */
-.nav-links__dropdown--closed .nav-links__sub-item {
-  animation: nav-collapse 550ms cubic-bezier(0.22, 0.68, 0.35, 1) both;
-  animation-delay: calc(var(--nav-index-rev, 0) * 120ms);
-}
-
-@keyframes nav-collapse {
-  0% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: calc(var(--nav-index, 0) * 120ms);
 }
 
 .nav-links__item--active {
@@ -1062,7 +1057,13 @@ h2, h3, h4, h5, h6 {
   box-sizing: border-box;
 }
 
+/* Current slide is in normal flow so the viewport's height is correct on the
+   first paint — otherwise the absolute-positioned slides leave the viewport
+   at 0px until JS hydrates and the callback ref measures, which pushes the
+   rest of the page down ~1-2s after load. JS measurement still runs and
+   drives the smooth height transition when slides swap. */
 .hero-lens__slide--current {
+  position: relative;
   z-index: 1;
 }
 
@@ -5561,15 +5562,26 @@ html {
 .account-auth__input {
   width: 100%;
   padding: 10px 14px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-medium);
+  /* Lift the field above the card (#13131c) rather than sinking into it.
+     The token bg-surface (#0d0d14) is darker than the card and the default
+     border alpha (0.1) is invisible against the elevated panel, so the
+     field reads as a hole instead of an input. Hard values here keep the
+     fix local — global tokens are used elsewhere on darker backgrounds. */
+  background: #1f1f2c;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 6px;
   color: var(--text-primary);
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out);
 }
-.account-auth__input:focus { border-color: var(--text-accent); }
+.account-auth__input:hover { border-color: rgba(255, 255, 255, 0.32); }
+.account-auth__input:focus {
+  border-color: var(--text-accent);
+  background: #232333;
+}
 .account-auth__hint {
   font-family: var(--font-ui);
   font-size: var(--text-xs);
@@ -5755,7 +5767,9 @@ html {
 .account-dashboard__email {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
-  color: var(--text-tertiary);
+  /* Tokens were too dim against the page surface — read-out values are
+     hardcoded here so the rest of the site keeps its global token bands. */
+  color: rgba(228, 228, 236, 0.75);
   margin: 4px 0 0 0;
 }
 .account-dashboard__signout {
@@ -5771,9 +5785,14 @@ html {
 .account-dashboard__signout:hover { color: var(--text-primary); }
 .account-dashboard__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-md);
   align-items: start;
+}
+.account-dashboard__column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 @media (max-width: 860px) {
   .account-dashboard__grid { grid-template-columns: 1fr; }
@@ -5786,15 +5805,15 @@ html {
 }
 .account-dashboard__card-title {
   font-family: var(--font-ui);
-  font-size: var(--text-sm);
-  font-weight: 500;
+  font-size: 1.275rem;
+  font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 var(--space-sm) 0;
 }
 .account-dashboard__label {
   font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  color: rgba(228, 228, 236, 0.82);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: block;
@@ -5803,44 +5822,53 @@ html {
 }
 .account-dashboard__input {
   width: 100%;
-  padding: 8px 12px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-medium);
+  padding: 10px 14px;
+  /* Match the contrast bump used on the login form so fields read clearly
+     against the elevated card background (#13131c). */
+  background: #1f1f2c;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 6px;
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: var(--text-sm);
+  font-size: 0.9375rem;
   outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out);
 }
-.account-dashboard__input:focus { border-color: var(--text-accent); }
+.account-dashboard__input:hover { border-color: rgba(255, 255, 255, 0.32); }
+.account-dashboard__input:focus {
+  border-color: var(--text-accent);
+  background: #232333;
+}
 .account-dashboard__row {
   display: flex;
   gap: 6px;
 }
 .account-dashboard__btn {
   margin-top: var(--space-sm);
-  padding: 8px 16px;
+  padding: 10px 18px;
   background: var(--text-accent);
   color: var(--bg-deep);
   border: 0;
   border-radius: 6px;
   font-family: var(--font-ui);
-  font-size: var(--text-sm);
-  font-weight: 500;
+  font-size: 0.9375rem;
+  font-weight: 600;
   cursor: pointer;
 }
 .account-dashboard__btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .account-dashboard__hint {
   font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  color: rgba(228, 228, 236, 0.72);
   margin: 0 0 var(--space-sm) 0;
   line-height: 1.6;
 }
+.account-dashboard__hint strong { color: var(--text-primary); }
 .account-dashboard__hint a { color: var(--text-accent); }
 .account-dashboard__msg {
   font-family: var(--font-ui);
-  font-size: var(--text-xs);
+  font-size: 0.875rem;
   color: var(--text-accent);
   margin: 6px 0 0 0;
 }
@@ -5866,20 +5894,21 @@ html {
 }
 .account-dashboard__table {
   width: 100%;
+  font-size: 0.9375rem;
   border-collapse: collapse;
   font-family: var(--font-ui);
   font-size: var(--text-sm);
 }
 .account-dashboard__table th,
 .account-dashboard__table td {
-  padding: 8px 4px;
+  padding: 10px 6px;
   text-align: left;
   border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
+  color: rgba(228, 228, 236, 0.85);
 }
 .account-dashboard__table th {
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
+  color: rgba(228, 228, 236, 0.7);
+  font-size: 0.8125rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -5887,8 +5916,8 @@ html {
 .account-dashboard__sub-title {
   margin: var(--space-md) 0 var(--space-xs) 0;
   font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  font-weight: 500;
+  font-size: 0.875rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-accent);
@@ -5906,12 +5935,12 @@ html {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-sm);
-  padding: 8px 10px;
+  padding: 10px 12px;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   font-family: var(--font-ui);
-  font-size: var(--text-sm);
+  font-size: 0.9375rem;
 }
 .account-dashboard__download-title {
   color: var(--text-primary);
@@ -5921,8 +5950,8 @@ html {
   white-space: nowrap;
 }
 .account-dashboard__download-type {
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
+  color: rgba(228, 228, 236, 0.7);
+  font-size: 0.8125rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -6139,6 +6168,56 @@ html {
   background: rgba(58, 78, 208, 0.1);
   border-color: var(--text-accent);
   color: var(--text-accent);
+}
+
+.obsv-editor__chip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.obsv-editor__chip-delete {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: #c53030;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.obsv-editor__chip-delete > svg {
+  display: block;
+}
+
+.obsv-editor__chip-wrap:hover .obsv-editor__chip-delete,
+.obsv-editor__chip-wrap--armed .obsv-editor__chip-delete,
+.obsv-editor__chip-delete:focus-visible {
+  display: inline-flex;
+}
+
+.obsv-editor__chip-delete:hover {
+  background: #9b1c1c;
+}
+
+/* Armed (second-click-to-confirm) state. Green = "ready to confirm".
+   Stays visible while armed, pulses to draw the eye. */
+.obsv-editor__chip-delete--armed,
+.obsv-editor__chip-delete--armed:hover {
+  background: #16a34a;
+  animation: chip-delete-arm-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes chip-delete-arm-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55), 0 1px 3px rgba(0, 0, 0, 0.25); }
+  50% { box-shadow: 0 0 0 4px rgba(22, 163, 74, 0), 0 1px 3px rgba(0, 0, 0, 0.25); }
 }
 
 /* --- Meditation Composer --- */
@@ -6485,6 +6564,33 @@ html {
     0 28px 60px rgba(0, 0, 0, 0.32),
     0 10px 24px rgba(0, 212, 255, 0.16),
     0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.song-brief-card::after {
+  content: "Explore song";
+  position: absolute;
+  top: var(--tooltip-y, 0);
+  left: var(--tooltip-x, 0);
+  z-index: 3;
+  /* Offset down-right of the cursor so the tooltip sits next to it, not under. */
+  margin-top: 14px;
+  margin-left: 14px;
+  padding: 0.32rem 0.65rem;
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0d0d1a;
+  background: rgba(0, 212, 255, 0.94);
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.song-brief-card:hover::after {
+  opacity: 1;
 }
 
 .song-brief-card__cover-link {
@@ -13813,6 +13919,13 @@ html {
 
 .song-landing {
   margin-top: 0;
+  /* Transparent to layout — its __section children become grid items of
+     <main> so their own full-bleed shell can reach viewport edges. */
+  display: contents;
+}
+
+.song-landing > .song-landing__section {
+  grid-column: full;
 }
 
 .song-landing__section {
@@ -19731,7 +19844,7 @@ body.cart-open {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   gap: var(--space-2xl);
-  align-items: center;
+  align-items: start;
 }
 @media (max-width: 880px) {
   .si-who__grid {
@@ -19740,8 +19853,16 @@ body.cart-open {
   }
 }
 .si-who__image {
-  position: relative;
+  position: sticky;
+  top: var(--sticky-top);
+  align-self: start;
   border-radius: 6px;
+}
+@media (max-width: 880px) {
+  .si-who__image {
+    position: relative;
+    top: auto;
+  }
 }
 .si-who__image > img {
   width: 100%;
@@ -19752,6 +19873,14 @@ body.cart-open {
 /* Frutiger mini player — styles co-located in components/FrutigerMiniPlayer.css. */
 .si-who__copy {
   line-height: 1.6;
+}
+.si-who__copy h3 {
+  color: #7eaaff;
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-xs);
+}
+.si-who__copy h3:first-of-type {
+  margin-top: var(--space-md);
 }
 .si-who__cta {
   margin-top: var(--space-md);

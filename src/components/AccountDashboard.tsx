@@ -81,6 +81,34 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
   const [addressMsg, setAddressMsg] = useState("");
   const [prefBusy, setPrefBusy] = useState(false);
 
+  const [newEmail, setNewEmail] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const requestEmailChange = async () => {
+    const target = newEmail.trim().toLowerCase();
+    if (!target) return;
+    if (target === a.email.toLowerCase()) {
+      setEmailMsg({ kind: "err", text: "That's already your email." });
+      return;
+    }
+    setEmailBusy(true);
+    setEmailMsg(null);
+    const res = await fetch("/api/account/change-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ new_email: target }),
+    });
+    setEmailBusy(false);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setEmailMsg({ kind: "ok", text: data.message || "Check your new inbox for a confirmation link." });
+      setNewEmail("");
+    } else {
+      setEmailMsg({ kind: "err", text: data.error || "Could not request email change." });
+    }
+  };
+
   const saveName = async () => {
     setSavingName(true);
     setNameMsg("");
@@ -193,6 +221,7 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
       </header>
 
       <div className="account-dashboard__grid">
+        <div className="account-dashboard__column">
         <section className="account-dashboard__card">
           <h2 className="account-dashboard__card-title">Your name</h2>
           <p className="account-dashboard__hint">
@@ -229,6 +258,39 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
             {savingName ? "Saving..." : "Save name"}
           </button>
           {nameMsg && <p className="account-dashboard__msg">{nameMsg}</p>}
+        </section>
+
+        <section className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Email address</h2>
+          <p className="account-dashboard__hint">
+            Current: <strong>{a.email}</strong>. Changing it will send a confirmation link to the new address; the change only takes effect after you click that link.
+          </p>
+          <label className="account-dashboard__label">New email</label>
+          <input
+            type="email"
+            className="account-dashboard__input"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="new@example.com"
+            autoComplete="email"
+            inputMode="email"
+          />
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={requestEmailChange}
+            disabled={emailBusy || !newEmail.trim()}
+          >
+            {emailBusy ? "Sending..." : "Send confirmation"}
+          </button>
+          {emailMsg && (
+            <p
+              className="account-dashboard__msg"
+              style={emailMsg.kind === "err" ? { color: "#f87171" } : undefined}
+            >
+              {emailMsg.text}
+            </p>
+          )}
         </section>
 
         <section className="account-dashboard__card">
@@ -323,7 +385,9 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
                 : "Subscribe to updates"}
           </button>
         </section>
+        </div>
 
+        <div className="account-dashboard__column">
         <section className="account-dashboard__card">
           <h2 className="account-dashboard__card-title">Payments &amp; billing</h2>
           {initial.hasStripeCustomer ? (
@@ -420,6 +484,7 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
             <Link href="/music/recover">recover by email</Link>.
           </p>
         </section>
+        </div>
 
       </div>
     </div>

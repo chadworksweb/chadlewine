@@ -719,20 +719,44 @@ export default async function SuperIndividualPage() {
 
           <div className="si-prose si-who__copy">
             <p>
-              I thought that I was fully autonomous and sovereign my whole life, but the reality is I was programmed by my parents, (mostly my mother) to live by their rules and to be constrained by their perceptions, their reality, their expectations, their limits, their dreams and their goals.
+              I thought that I was fully autonomous and sovereign my whole life, but the reality is I was running plenty of programs by the time I was an adult. I had avoided the big, obvious programs like organized religion, 9-5 corporate or retail employment, and familial culthood disguised as the modern USAmerican family (the flipside of that being that I never had a family at all,) but boy, in the years leading up to writing this, I realized just how programmed I really was.
             </p>
+
+            <h3>The Parental Program</h3>
             <p>
-              Due to this total lack of unconditional love from both parents, I ended up being programmed by the media and specifically sex. I was programmed to perceive sex as love and sex as success; one of the biggest programming initiatives in our current society. This programming eventually led me into a deeply toxic and abusive relationship driven by substance abuse and aggressive co-dependency.
+              As we all are, I was programmed by my parents, (mostly my mother) to live by their rules and to be constrained by their perceptions, their reality, their expectations, their limits, their dreams and their goals. My mother was a narcissistic tyrant and my father was emotionally absent and defaulted to my mother. There was no sovereignty under her rule. Her love (and by her approval, my father&rsquo;s) was earned or withdrawn day by day based on my perceived successes and failures.
             </p>
+
+            <h3>The Sex-as-Love Program</h3>
             <p>
-              It was in this relationship that I hit real rock bottom, which for me was dangerous substance use and interactions with the criminal justice system. This forced me to examine how I got there and how to get out. I did that un-learning (deprogramming) through my ongoing metaphysical and spiritual study and practice, bolstered by 1.5 years straight of weekly talk therapy that book-ended my being arrested in April 2022 and the successful leaving of the abusive relationship.
+              Due to this total lack of unconditional love from both parents, I was starved for love and ended up being programmed to perceive sex as love and success; one of the biggest media-based programming initiatives in our current society. This programming eventually led me into a deeply toxic and abusive relationship driven by substance abuse and aggressive co-dependency.
             </p>
+
+            <h3>The Political Program</h3>
             <p>
-              I was also programmed to follow the mainstream route of chasing a music dream; to get a record deal, to have millions of fans and stadium tours. I was guided by Michael Jackson but I also was programmed (maybe even programmed myself) to believe that if I wasn&rsquo;t reaching that, I wasn&rsquo;t successful.
+              I was raised in a non-political household, but my father was a registered independent and for most of my cognitive life, my mother was a Democrat. Once I realized I was gay and came out, I was scooped up by the Democratic party program and became part of their &ldquo;side.&rdquo; It doesn&rsquo;t matter which side, a side is a side, and I was on one.
             </p>
+
+            <h3>The Substance Use Program</h3>
             <p>
-              I was also programmed by the social media platforms to try to mold myself into something that could go viral. I wasn&rsquo;t changing my message or my appearance to be something I&rsquo;m not, but I did believe that I needed to be on these platforms to find success.
+              I was regularly smoking cigarettes, drinking alcohol and using weed by the time I was 18. I thought this was the way of the artist, the rebel, the renegade. These were not just factions of my identity but also subconscious middle fingers to my mother.
             </p>
+
+            <h3>The Starving Artist Program</h3>
+            <p>
+              Tagging along with substance use was my donning the narrative and label of the starving artist. I believed, though not to the deepest extent that some do, that as an artist, I was inherently going to be broke and poor before I became rich and famous&mdash;there was no in between. This was due to cultural and socio-economic programming, but also partly due to ignorance (or rejection) of the possibility of being a working class artist, which was disappearing anyway.
+            </p>
+
+            <h3>The Music Industry Program</h3>
+            <p>
+              I was also programmed to follow the mainstream &ldquo;big dream&rdquo; route of signing a major label record deal, having millions of fans and stadium tours. I was guided by Michael Jackson&rsquo;s blueprint, but I also was programmed (maybe even programmed myself) to believe that if I wasn&rsquo;t reaching that, I wasn&rsquo;t successful.
+            </p>
+
+            <h3>The Social Media Program</h3>
+            <p>
+              I began my artist journey when social media was in its infancy. It was only for a short time between 2020 and 2025 that I participated, but I participated fully in the social media programming. I tried to mold myself into something that could go viral. I wasn&rsquo;t changing my message, but I did alter my priorities to feed the platforms before myself. I was convinced that I needed these platforms to find success.
+            </p>
+
             <p>
               All of this is to say, I had my own type of programming installed and I&rsquo;ve faced and overcome myriad challenges, those challenges being the precise origins of my music and art, all culminating now, in 2026, as a movement that I&rsquo;m calling the Super Individual.
             </p>
