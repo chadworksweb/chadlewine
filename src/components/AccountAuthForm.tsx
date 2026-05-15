@@ -124,6 +124,11 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
           body: JSON.stringify({ email }),
         });
         const data = await res.json();
+        if (!res.ok) {
+          setStatus("err");
+          setMessage(data.error || "Could not send reset link.");
+          return;
+        }
         setStatus("ok");
         setMessage(data.message || "Check your email.");
         return;
@@ -313,7 +318,14 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
           )}
 
           {useTurnstile && turnstileKey && (
-            <div style={{ marginTop: "var(--space-sm)" }}>
+            <div
+              style={{
+                marginTop: "var(--space-sm)",
+                maxWidth: "100%",
+                overflow: "hidden",
+                borderRadius: 4,
+              }}
+            >
               <Turnstile
                 ref={turnstileRef}
                 siteKey={turnstileKey}

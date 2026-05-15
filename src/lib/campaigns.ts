@@ -29,6 +29,11 @@ export const SYNC_SEND_AUDIENCE_LIMIT = 500;
 /** Resend's batch endpoint accepts up to 100 emails per call. */
 export const RESEND_BATCH_SIZE = 100;
 
+/** Sender postal address rendered in the campaign-email footer (CAN-SPAM
+   requires a valid physical address in every commercial email). Swap to
+   a real street or PO Box once one is provisioned. */
+const POSTAL_ADDRESS = "Chad Lewine, Coatesville, PA 19320";
+
 /** Returns IDs of audience rows that have ALL of the given tags. */
 async function audienceIdsWithAllTags(
   supabase: ReturnType<typeof createAdminClient>,
@@ -147,6 +152,7 @@ async function sendChunk(
           bodyHtml: campaign.body_html,
           unsubscribeUrl: unsub,
           fromName: campaign.from_name,
+          postalAddress: POSTAL_ADDRESS,
         });
 
         const { data, error } = await resend.emails.send({
@@ -301,6 +307,7 @@ export async function sendTest(
     bodyHtml: campaign.body_html,
     unsubscribeUrl: unsub,
     fromName: campaign.from_name,
+    postalAddress: POSTAL_ADDRESS,
   });
 
   const { data, error: sendErr } = await resend.emails.send({

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import Stripe from "stripe";
 import { createPublicClient, createAdminClient } from "@/lib/supabase-server";
 import { createCartCheckoutSession } from "@/lib/stripe";
 
@@ -32,6 +33,12 @@ export async function POST(request: Request) {
   // structured payload the Stripe webhook reads to set audience
   // marketing_opt_in_at.
   const marketingOptIn = body?.marketing_opt_in === true;
+  // Buyer toggled "Apply my 20% member coupon" in the cart drawer. The
+  // discount rule ("20% off all music in cart OR 20% off the most expensive
+  // merch line, whichever is larger") is computed below; we then create an
+  // ad-hoc Stripe Coupon for that exact dollar amount and attach it to the
+  // Checkout Session.
+  const applyCoupon = body?.apply_coupon === true;
 
   if (!Array.isArray(items) || items.length === 0) {
     return Response.json({ error: "items required" }, { status: 400 });
@@ -335,18 +342,19 @@ export async function POST(request: Request) {
     (r) => r.type === "song" || r.type === "album" || r.type === "ringtone",
   );
 
-  // Physical-only carts get a merch-flavored thank-you (production lead time copy).
-  // Digital-only or mixed carts go to the music thank-you that talks about downloads.
+  // Physical-only carts still get the merch-flavored thank-you (production
+   // lead-time copy). Everything else lands on the universal root /thank-you,
+   // which carries the member coupon offer + explore grid embellishment.
   const successPath =
     hasPhysical && !hasDigital
       ? "/merch/thank-you"
-      : "/music/purchase/cart-thank-you";
+      : "/thank-you";
 
-  // Prefill Stripe Checkout for signed-in buyers. Cookie verify is best-effort
-  // — if there's no session (or token expired), checkout still works with an
-  // empty email field, same as anonymous flow.
+  // Resolve the signed-in buyer once. We use this for Stripe Customer
+  // prefill AND for the member-coupon apply path.
   let prefillCustomerId: string | undefined;
   let prefillEmail: string | undefined;
+  let audienceId: string | null = null;
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("sb-access-token")?.value;
@@ -361,13 +369,16 @@ export async function POST(request: Request) {
         const admin = createAdminClient();
         const { data: audienceRow } = await admin
           .from("audience")
-          .select("email, stripe_customer_id")
+          .select("id, email, stripe_customer_id")
           .eq("user_id", user.id)
           .maybeSingle();
-        if (audienceRow?.stripe_customer_id) {
-          prefillCustomerId = audienceRow.stripe_customer_id;
-        } else if (audienceRow?.email || user.email) {
-          prefillEmail = audienceRow?.email || user.email || undefined;
+        if (audienceRow) {
+          audienceId = audienceRow.id;
+          if (audienceRow.stripe_customer_id) {
+            prefillCustomerId = audienceRow.stripe_customer_id;
+          } else if (audienceRow.email || user.email) {
+            prefillEmail = audienceRow.email || user.email || undefined;
+          }
         }
       }
     }
@@ -375,7 +386,78 @@ export async function POST(request: Request) {
     // Non-fatal — proceed with anonymous checkout.
   }
 
-  const session = await createCartCheckoutSession({
+  // Member-coupon apply path. Rule: 20% off all music in cart OR 20% off
+  // the most expensive merch line, whichever is larger. We create an
+  // ad-hoc Stripe Coupon for that exact amount_off and attach it to the
+  // session; the webhook marks redemption by session.metadata.member_coupon_id.
+  let discountCouponId: string | undefined;
+  const couponMetadata: Record<string, string> = {};
+  if (applyCoupon) {
+    if (!audienceId) {
+      return Response.json(
+        { error: "Sign in to apply your member coupon." },
+        { status: 401 },
+      );
+    }
+    const admin = createAdminClient();
+    const { data: member_coupon } = await admin
+      .from("member_coupons")
+      .select("id, percent_off, code, expires_at")
+      .eq("audience_id", audienceId)
+      .is("redeemed_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("granted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!member_coupon) {
+      return Response.json(
+        { error: "No eligible coupon on your account." },
+        { status: 400 },
+      );
+    }
+
+    const pct = (member_coupon.percent_off || 20) / 100;
+    const musicTotal = resolved
+      .filter((r) => r.type === "song" || r.type === "album" || r.type === "ringtone")
+      .reduce((s, r) => s + r.price, 0);
+    const merchPrices = resolved
+      .filter((r) => r.type === "merch" || r.type === "art_original")
+      .map((r) => r.price);
+    const merchMax = merchPrices.length > 0 ? Math.max(...merchPrices) : 0;
+
+    const musicDiscountCents = Math.round(musicTotal * pct * 100);
+    const merchDiscountCents = Math.round(merchMax * pct * 100);
+    const discountCents = Math.max(musicDiscountCents, merchDiscountCents);
+
+    if (discountCents <= 0) {
+      return Response.json(
+        { error: "Nothing in this cart qualifies for the member coupon." },
+        { status: 400 },
+      );
+    }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+    const adHocCoupon = await stripe.coupons.create({
+      amount_off: discountCents,
+      currency: "usd",
+      duration: "once",
+      max_redemptions: 1,
+      name: `${member_coupon.percent_off}% member coupon (${member_coupon.code})`,
+      metadata: {
+        member_coupon_id: member_coupon.id,
+        audience_id: audienceId,
+        scope: musicDiscountCents >= merchDiscountCents ? "music_all" : "merch_max",
+        member_code: member_coupon.code,
+      },
+    });
+    discountCouponId = adHocCoupon.id;
+    couponMetadata.member_coupon_id = member_coupon.id;
+    couponMetadata.member_coupon_code = member_coupon.code;
+    couponMetadata.coupon_scope = musicDiscountCents >= merchDiscountCents ? "music_all" : "merch_max";
+  }
+
+  const sessionParams = {
     line_items: resolved.map((r) => ({
       title: r.title,
       description: r.description,
@@ -383,13 +465,44 @@ export async function POST(request: Request) {
       cover_art_url: r.cover_art_url,
     })),
     cart_items_metadata: metaJson,
-    extra_metadata: { ...cfgKeys, marketing_opt_in: marketingOptIn ? "true" : "false" },
+    extra_metadata: {
+      ...cfgKeys,
+      marketing_opt_in: marketingOptIn ? "true" : "false",
+      ...couponMetadata,
+    },
     collect_shipping: hasPhysical,
     customer: prefillCustomerId,
     customer_email: prefillCustomerId ? undefined : prefillEmail,
+    discount_coupon_id: discountCouponId,
     success_url: `${origin}${successPath}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/music`,
-  });
+  };
+
+  let session;
+  try {
+    session = await createCartCheckoutSession(sessionParams);
+  } catch (e) {
+    // Live-mode customer ids don't exist in test-mode Stripe (and vice
+    // versa). If Stripe rejects the prefilled customer as missing, fall
+    // back to email prefill and let Stripe create a fresh Customer.
+    const err = e as { code?: string; param?: string };
+    if (
+      sessionParams.customer &&
+      err?.code === "resource_missing" &&
+      err?.param === "customer"
+    ) {
+      console.warn(
+        "[cart-checkout] Prefilled customer not found in current Stripe mode; retrying with email prefill.",
+      );
+      session = await createCartCheckoutSession({
+        ...sessionParams,
+        customer: undefined,
+        customer_email: prefillEmail,
+      });
+    } else {
+      throw e;
+    }
+  }
 
   if (!session.url) return Response.json({ error: "No checkout URL" }, { status: 500 });
   return Response.json({ url: session.url });

@@ -186,6 +186,69 @@ export async function POST(request: Request) {
         });
         await supabase.from("orders").update({ audience_id: audienceId }).eq("id", newOrderId);
 
+        // Mark any member coupon applied at checkout as redeemed. New flow:
+        // cart-checkout stamps session.metadata.member_coupon_id when the
+        // buyer applies the coupon from our cart toggle. Legacy flow (if a
+        // buyer ever typed an older stripe promotion code at Stripe's UI)
+        // still matches via stripe_promotion_code_id as a fallback.
+        const amountDiscount = session.total_details?.amount_discount || 0;
+        if (amountDiscount > 0 && audienceId) {
+          const memberCouponId = session.metadata?.member_coupon_id;
+          const nowIso = new Date().toISOString();
+          let redeemed: Array<{ id: string; code: string; percent_off: number }> | null = null;
+
+          if (memberCouponId) {
+            const { data } = await supabase
+              .from("member_coupons")
+              .update({
+                redeemed_at: nowIso,
+                redeemed_order_id: newOrderId,
+                updated_at: nowIso,
+              })
+              .eq("id", memberCouponId)
+              .eq("audience_id", audienceId)
+              .is("redeemed_at", null)
+              .select("id, code, percent_off");
+            redeemed = data;
+          }
+
+          if (!redeemed || redeemed.length === 0) {
+            const promotionCodeIds: string[] = [];
+            for (const d of session.discounts || []) {
+              const pc = (d as { promotion_code?: string | { id?: string } }).promotion_code;
+              if (typeof pc === "string") promotionCodeIds.push(pc);
+              else if (pc && typeof pc === "object" && pc.id) promotionCodeIds.push(pc.id);
+            }
+            if (promotionCodeIds.length > 0) {
+              const { data } = await supabase
+                .from("member_coupons")
+                .update({
+                  redeemed_at: nowIso,
+                  redeemed_order_id: newOrderId,
+                  updated_at: nowIso,
+                })
+                .in("stripe_promotion_code_id", promotionCodeIds)
+                .eq("audience_id", audienceId)
+                .is("redeemed_at", null)
+                .select("id, code, percent_off");
+              redeemed = data;
+            }
+          }
+
+          if (redeemed && redeemed.length > 0) {
+            await supabase.from("audience_events").insert({
+              audience_id: audienceId,
+              event_type: "coupon_redeemed",
+              metadata: {
+                order_id: newOrderId,
+                amount_discount_cents: amountDiscount,
+                codes: redeemed.map((r) => r.code),
+                scope: session.metadata?.coupon_scope || null,
+              },
+            });
+          }
+        }
+
         // Persist the Stripe Customer id (created by customer_creation:'always')
         // so we can route this buyer through Billing Portal later. Only
         // overwrite if the audience row doesn't already have one.

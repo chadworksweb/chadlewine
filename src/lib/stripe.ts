@@ -66,6 +66,10 @@ export async function createCartCheckoutSession(params: {
   // a new Customer via customer_creation:'always'. These are mutually exclusive.
   customer?: string;
   customer_email?: string;
+  /** When set, attaches this Stripe Coupon id as a session-level discount.
+     Stripe disallows `discounts` + `allow_promotion_codes:true` together —
+     when present, the checkout's promo-code entry field is hidden. */
+  discount_coupon_id?: string;
   success_url: string;
   cancel_url: string;
 }) {
@@ -101,9 +105,20 @@ export async function createCartCheckoutSession(params: {
       ? { customer_email: params.customer_email, customer_creation: "always" }
       : { customer_creation: "always" };
 
+  // Either let buyers type a promo code at Stripe, OR attach an ad-hoc
+  // coupon for member-discount apply — never both (Stripe rejects the
+  // combination).
+  const discountParams: Pick<
+    Stripe.Checkout.SessionCreateParams,
+    "discounts" | "allow_promotion_codes"
+  > = params.discount_coupon_id
+    ? { discounts: [{ coupon: params.discount_coupon_id }] }
+    : { allow_promotion_codes: true };
+
   return getStripe().checkout.sessions.create({
     mode: "payment",
     line_items: stripeLineItems,
+    ...discountParams,
     // Create or attach a persistent Stripe Customer so the buyer can be
     // routed through Billing Portal later (manage payment methods, view
     // past invoices, update billing address). Webhook saves the resulting
@@ -137,4 +152,45 @@ export function verifyWebhookSignature(payload: string, signature: string) {
 
 export async function listSessionLineItems(sessionId: string) {
   return getStripe().checkout.sessions.listLineItems(sessionId, { limit: 25 });
+}
+
+/** Create a single-use 20%-off Stripe Coupon + Promotion Code that expires
+   `daysValid` days from now. Returns the promotion code (the human-typed
+   string) plus both Stripe identifiers for our member_coupons row. */
+export async function createMemberPromoCode(params: {
+  audienceId: string;
+  percentOff: number;
+  daysValid: number;
+}): Promise<{
+  code: string;
+  stripeCouponId: string;
+  stripePromotionCodeId: string;
+  expiresAt: Date;
+}> {
+  const expiresAt = new Date(Date.now() + params.daysValid * 24 * 60 * 60 * 1000);
+  const redeemBy = Math.floor(expiresAt.getTime() / 1000);
+
+  const stripe = getStripe();
+
+  const coupon = await stripe.coupons.create({
+    percent_off: params.percentOff,
+    duration: "once",
+    redeem_by: redeemBy,
+    max_redemptions: 1,
+    metadata: { audience_id: params.audienceId, source: "cart_thankyou_offer" },
+  });
+
+  const promotionCode = await stripe.promotionCodes.create({
+    promotion: { type: "coupon", coupon: coupon.id },
+    expires_at: redeemBy,
+    max_redemptions: 1,
+    metadata: { audience_id: params.audienceId, source: "cart_thankyou_offer" },
+  });
+
+  return {
+    code: promotionCode.code,
+    stripeCouponId: coupon.id,
+    stripePromotionCodeId: promotionCode.id,
+    expiresAt,
+  };
 }

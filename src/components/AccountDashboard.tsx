@@ -46,6 +46,14 @@ export interface AccountData {
     created_at: string;
   }[];
   hasStripeCustomer: boolean;
+  coupons: {
+    code: string;
+    percent_off: number;
+    source: string;
+    granted_at: string;
+    expires_at: string;
+    redeemed_at: string | null;
+  }[];
 }
 
 function fmtMoney(n: number | null): string {
@@ -388,6 +396,38 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
         </div>
 
         <div className="account-dashboard__column">
+        {initial.coupons.length > 0 && (
+          <section className="account-dashboard__card">
+            <h2 className="account-dashboard__card-title">Your coupons</h2>
+            <ul className="account-dashboard__coupons">
+              {initial.coupons.map((c) => {
+                const isUsed = !!c.redeemed_at;
+                const isExpired = !isUsed && new Date(c.expires_at).getTime() < Date.now();
+                const state = isUsed ? "used" : isExpired ? "expired" : "active";
+                return (
+                  <li key={c.code} className={`account-dashboard__coupon account-dashboard__coupon--${state}`}>
+                    <div className="account-dashboard__coupon-code">{c.code}</div>
+                    <div className="account-dashboard__coupon-meta">
+                      <span className="account-dashboard__coupon-pct">{c.percent_off}% off</span>
+                      <span className="account-dashboard__coupon-status">
+                        {isUsed
+                          ? `Used ${fmtDate(c.redeemed_at!)}`
+                          : isExpired
+                            ? `Expired ${fmtDate(c.expires_at)}`
+                            : `Expires ${fmtDate(c.expires_at)}`}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="account-dashboard__hint">
+              Toggle on at checkout from your cart. Applies to all music
+              in your cart, or one merch item &mdash; whichever saves more.
+            </p>
+          </section>
+        )}
+
         <section className="account-dashboard__card">
           <h2 className="account-dashboard__card-title">Payments &amp; billing</h2>
           {initial.hasStripeCustomer ? (
