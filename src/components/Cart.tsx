@@ -207,10 +207,10 @@ export function CartUI() {
   }, []);
 
   function nextParam(): string {
-    if (typeof window === "undefined") return "/";
-    // Land them back where they were; the cart drawer auto-mounts on every
-    // page so the items will still be there.
-    return window.location.pathname + window.location.search;
+    // After login/register, send them to /checkout — a thin client page that
+    // reads the cart and redirects straight to Stripe. Otherwise they'd land
+    // on the album page and have to re-open the cart and click again.
+    return "/checkout";
   }
 
   async function handleCheckoutClick() {
