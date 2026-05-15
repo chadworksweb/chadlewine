@@ -185,6 +185,43 @@ export function CartUI() {
   const { items, subtotal, count, isOpen, open, close, remove } = useCart();
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Auth-aware checkout: signed-out users see a 3-option gate (sign in /
+  // create account / guest) before we redirect to Stripe. Avoids creating
+  // duplicate audience rows when the user already has an account.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [showAuthGate, setShowAuthGate] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setSignedIn(!!d.user);
+      })
+      .catch(() => {
+        if (!cancelled) setSignedIn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function nextParam(): string {
+    if (typeof window === "undefined") return "/";
+    // Land them back where they were; the cart drawer auto-mounts on every
+    // page so the items will still be there.
+    return window.location.pathname + window.location.search;
+  }
+
+  async function handleCheckoutClick() {
+    if (items.length === 0 || checkingOut) return;
+    if (signedIn === false) {
+      setShowAuthGate(true);
+      return;
+    }
+    // signedIn === true OR null (best-effort) → straight to Stripe.
+    await handleCheckout();
+  }
 
   async function handleCheckout() {
     if (items.length === 0 || checkingOut) return;
@@ -310,27 +347,67 @@ export function CartUI() {
               <span className="cl-cart-subtotal__amount">{fmtPrice(subtotal)}</span>
             </div>
             {error && <p className="cl-cart-error">{error}</p>}
-            <p className="cl-cart-disclaimer">
-              By completing this purchase you&rsquo;ll receive transactional
-              emails (receipt, downloads, shipping). I&rsquo;ll also send the
-              occasional update about new music, art, and pop-ups.
-              {" "}<strong>One-click unsubscribe in every email.</strong>
-            </p>
-            <button
-              type="button"
-              className="cl-cart-btn cl-cart-btn--primary"
-              disabled={checkingOut}
-              onClick={handleCheckout}
-            >
-              {checkingOut ? "..." : "Proceed to Checkout"}
-            </button>
-            <button
-              type="button"
-              className="cl-cart-btn cl-cart-btn--ghost"
-              onClick={close}
-            >
-              Continue Browsing
-            </button>
+            {showAuthGate ? (
+              <div className="cl-cart-auth-gate">
+                <p className="cl-cart-auth-gate__heading">Do you have an account?</p>
+                <p className="cl-cart-auth-gate__hint">
+                  Signing in attaches this order to your account so downloads
+                  and order history stay in one place. Guest checkout still
+                  works — you&rsquo;ll just get your downloads by email.
+                </p>
+                <a
+                  href={`/account/login?next=${encodeURIComponent(nextParam())}`}
+                  className="cl-cart-btn cl-cart-btn--primary"
+                >
+                  Sign in to your account
+                </a>
+                <a
+                  href={`/account/register?next=${encodeURIComponent(nextParam())}`}
+                  className="cl-cart-btn cl-cart-btn--ghost"
+                >
+                  Create an account
+                </a>
+                <button
+                  type="button"
+                  className="cl-cart-btn cl-cart-btn--ghost"
+                  disabled={checkingOut}
+                  onClick={handleCheckout}
+                >
+                  {checkingOut ? "..." : "Continue as guest"}
+                </button>
+                <button
+                  type="button"
+                  className="cl-cart-auth-gate__back"
+                  onClick={() => setShowAuthGate(false)}
+                >
+                  ← Back to cart
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="cl-cart-disclaimer">
+                  By completing this purchase you&rsquo;ll receive transactional
+                  emails (receipt, downloads, shipping). I&rsquo;ll also send the
+                  occasional update about new music, art, and pop-ups.
+                  {" "}<strong>One-click unsubscribe in every email.</strong>
+                </p>
+                <button
+                  type="button"
+                  className="cl-cart-btn cl-cart-btn--primary"
+                  disabled={checkingOut}
+                  onClick={handleCheckoutClick}
+                >
+                  {checkingOut ? "..." : "Proceed to Checkout"}
+                </button>
+                <button
+                  type="button"
+                  className="cl-cart-btn cl-cart-btn--ghost"
+                  onClick={close}
+                >
+                  Continue Browsing
+                </button>
+              </>
+            )}
           </div>
         )}
       </aside>

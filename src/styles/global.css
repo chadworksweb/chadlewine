@@ -16130,6 +16130,42 @@ body.cart-open {
   background: rgba(0, 212, 255, 0.05);
 }
 
+.cl-cart-auth-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.cl-cart-auth-gate__heading {
+  margin: 0 0 6px;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cl-cart-auth-gate__hint {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 2px solid rgba(255, 149, 0, 0.6);
+  border-radius: 0 6px 6px 0;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: rgba(228, 228, 236, 0.75);
+}
+.cl-cart-auth-gate__back {
+  margin-top: 10px;
+  background: transparent;
+  border: 0;
+  color: rgba(228, 228, 236, 0.6);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-align: center;
+  padding: 6px;
+}
+.cl-cart-auth-gate__back:hover { color: var(--text-primary); }
+
 /* --- Sticky toggle (bottom-right) --- */
 .cl-cart-toggle {
   position: fixed;

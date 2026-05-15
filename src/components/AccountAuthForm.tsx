@@ -85,7 +85,11 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
           resetTurnstile();
           return;
         }
-        router.push("/account");
+        // Honor ?next= so login from cart returns to the cart (and similar
+        // deep-links). Same-origin only to avoid open-redirect.
+        const next = searchParams.get("next");
+        const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/account";
+        router.push(safeNext);
         return;
       }
 
