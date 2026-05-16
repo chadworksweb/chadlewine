@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
+import { useAutosave } from "@/hooks/useAutosave";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { RelatedMusicPanel } from "@/components/RelatedMusicPanel";
 import { TaxonomyPicker } from "@/components/TaxonomyPicker";

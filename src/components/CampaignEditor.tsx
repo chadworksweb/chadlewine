@@ -145,10 +145,6 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
     setSends(data);
   }, [form.id]);
 
-  useEffect(() => {
-    if (sendsOpen && sends === null) loadSends();
-  }, [sendsOpen, sends, loadSends]);
-
   const isLocked = form.status !== "draft";
   const hasBody =
     (form.body_blocks && form.body_blocks.length > 0) ||
@@ -264,7 +260,6 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
             {isLocked ? (
               <div
                 className="campaign-editor__readonly-body"
-                // eslint-disable-next-line react/no-danger
                 dangerouslySetInnerHTML={{ __html: form.body_html }}
               />
             ) : (

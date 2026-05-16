@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { TitleReveal } from "@/components/TitleReveal";
-import { CursorTooltip } from "@/components/CursorTooltip";
 import { CoverArtPlayground } from "@/components/CoverArtPlayground";
 
 interface CoverHeroProps {

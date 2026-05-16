@@ -296,7 +296,6 @@ function BlockPreview({ block }: { block: EmailBlock }) {
       return (
         <div
           className={`block-editor__preview-paragraph block-editor__preview-paragraph--${block.size || "normal"}`}
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: block.html || "(empty paragraph)" }}
         />
       );

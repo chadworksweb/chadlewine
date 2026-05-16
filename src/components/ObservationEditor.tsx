@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { slugify, thumbnailUrl } from "@/lib/utils";
+import { slugify } from "@/lib/utils";
 import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
 
 interface CategoryOption {

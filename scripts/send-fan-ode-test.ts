@@ -4,9 +4,9 @@
 //   npx tsx scripts/send-fan-ode-test.ts chad@chadworks.co
 //   npx tsx scripts/send-fan-ode-test.ts chad@chadworks.co Chad
 //
-// Generates a fake token and sends through Resend using the same
-// buildFanOdeEmailHtml() the cron uses. Does NOT write the token to any
-// audience row — purely an email preview in your real inbox.
+// Generates a fake token and sends through Resend using the same block
+// renderer the cron uses. Does NOT write the token to any audience row
+// -- purely an email preview in your real inbox.
 
 import { randomBytes } from "crypto";
 import * as fs from "fs";

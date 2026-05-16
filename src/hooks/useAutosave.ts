@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -31,7 +30,6 @@ export function useAutosave<T>({
   delay = 800,
   enabled = true,
 }: UseAutosaveOptions<T>) {
-  const router = useRouter();
   const [status, setStatus] = useState<AutosaveStatus>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idRef = useRef(id);

@@ -386,38 +386,6 @@ export function buildMemberCouponEmailHtml(params: {
   return shell(inner, "You received this because you claimed a member coupon at chadlewine<span style=\"color:inherit;\">.</span>com");
 }
 
-export function buildFanOdeEmailHtml(params: {
-  firstName?: string | null;
-  token: string;
-}): string {
-  const greeting = params.firstName && params.firstName.trim()
-    ? `${escapeHtml(params.firstName.trim())}, `
-    : "";
-  const url = `${SITE_URL}/fan-song?token=${encodeURIComponent(params.token)}`;
-  const inner = `
-    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em; color: #8b9cf7; margin-bottom: 8px;">A gift for you</p>
-    <h1 style="font-size: 26px; font-weight: 500; letter-spacing: -0.01em; margin: 0 0 16px; color: #e0e0e8; line-height: 1.2;">An ode to the fan</h1>
-    <p style="font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif; font-size: 18px; color: #a0a0b0; line-height: 1.65; margin: 0 0 28px;">
-      ${greeting}you bought something yesterday &mdash; a real thing from a real
-      person. I made you a song. It&rsquo;s yours.
-    </p>
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 32px;">
-      <tr>
-        <td bgcolor="#8b9cf7" style="background:#8b9cf7;border-radius:4px;padding:14px 32px;">
-          <a href="${url}" style="text-decoration:none;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;font-weight:600;font-size:14px;">
-            <span style="color:#ffffff;text-decoration:none;">Listen now</span>
-          </a>
-        </td>
-      </tr>
-    </table>
-    <p style="font-size: 13px; color: #808090; margin: 0 0 8px; line-height: 1.55;">
-      This link is yours alone. Save it. The song lives at the link as long as
-      it's the current ode.
-    </p>
-  `;
-  return shell(inner, "You received this because you bought something at chadlewine<span style=\"color:inherit;\">.</span>com.");
-}
-
 export function buildObservationEmailHtml(observation: {
   title: string;
   slug: string;
