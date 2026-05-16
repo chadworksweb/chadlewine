@@ -18,6 +18,7 @@ interface Props {
   price: number | null;
   variants: ProductVariant[];
   linkedPrintSlug?: string | null;
+  isSuperIndividual?: boolean;
 }
 
 export function MerchProductDetail({
@@ -28,6 +29,7 @@ export function MerchProductDetail({
   price,
   variants,
   linkedPrintSlug,
+  isSuperIndividual = false,
 }: Props) {
   const { add, open, hasItem } = useCart();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -210,15 +212,41 @@ export function MerchProductDetail({
             All sales final — no returns, exchanges, or refunds.
           </p>
 
-          {galleryThumbs && (
-            <div className="product-detail__gallery product-detail__gallery--inline" role="list" aria-label="Product images">
-              {galleryThumbs}
-            </div>
-          )}
-
-          <p className="merch-detail__back">
-            <Link href="/merch">← All merch</Link>
-          </p>
+          <div
+            className={`merch-detail__footer-nav${isSuperIndividual ? "" : " merch-detail__footer-nav--solo"}`}
+          >
+            <Link
+              href="/merch"
+              className="merch-detail__nav-btn merch-detail__nav-btn--back"
+            >
+              ← Back to all merch
+            </Link>
+            {isSuperIndividual && (
+              <Link
+                href="/super-individual"
+                className="merch-detail__nav-btn merch-detail__nav-btn--si"
+              >
+                <span>What is Super Individual?</span>
+                <svg
+                  className="merch-detail__nav-arrow"
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path
+                    d="M5 12h13M13 6l6 6-6 6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>
