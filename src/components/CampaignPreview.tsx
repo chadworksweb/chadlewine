@@ -8,6 +8,8 @@ interface CampaignPreviewProps {
   bodyHtml: string;
   fromName: string;
   fromEmail: string;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
 }
 
 /** Calls the same renderer used at send time so the preview reflects the
@@ -20,12 +22,19 @@ function renderPreviewHtml(input: {
   preheader: string | null;
   bodyHtml: string;
   fromName: string;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
 }): string {
   const escape = (s: string) =>
     s
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
+
+  const ctaHtml =
+    input.ctaLabel && input.ctaUrl && input.ctaLabel.trim() && input.ctaUrl.trim()
+      ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 8px;"><tr><td bgcolor="#4060ff" style="background:#4060ff;border-radius:4px;padding:14px 32px;"><a href="${escape(input.ctaUrl)}" style="text-decoration:none;color:#ffffff;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:600;font-size:14px;"><span style="color:#ffffff;text-decoration:none;">${escape(input.ctaLabel)}</span></a></td></tr></table>`
+      : "";
 
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escape(input.subject)}</title>
@@ -48,7 +57,7 @@ function renderPreviewHtml(input: {
           </div>
         </td></tr>
         <tr><td class="cl-body" style="padding:18px 32px 28px 32px;background:#ffffff;color:#1a1a26;font-size:17px;line-height:1.65;">
-          ${input.bodyHtml}
+          ${input.bodyHtml}${ctaHtml}
         </td></tr>
         <tr><td style="padding:20px 32px 28px 32px;background:#f4f4f8;border-top:1px solid #e6e6ee;color:#6c6c80;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.55;">
           <p style="margin:0 0 8px 0;">You're getting this because you subscribed at <a href="https://chadlewine.com" style="color:#4060ff;">chadlewine.com</a>.</p>
@@ -66,11 +75,14 @@ export function CampaignPreview({
   bodyHtml,
   fromName,
   fromEmail,
+  ctaLabel,
+  ctaUrl,
 }: CampaignPreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const html = useMemo(
-    () => renderPreviewHtml({ subject, preheader, bodyHtml, fromName }),
-    [subject, preheader, bodyHtml, fromName]
+    () =>
+      renderPreviewHtml({ subject, preheader, bodyHtml, fromName, ctaLabel, ctaUrl }),
+    [subject, preheader, bodyHtml, fromName, ctaLabel, ctaUrl]
   );
 
   useEffect(() => {

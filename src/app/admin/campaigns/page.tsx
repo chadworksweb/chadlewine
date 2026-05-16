@@ -3,6 +3,11 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { formatDate } from "@/lib/utils";
 import { NewCampaignButton } from "@/components/NewCampaignButton";
 
+const TEMPLATE_PREVIEWS = [
+  { href: "/admin/email-templates", label: "Email templates" },
+  { href: "/admin/email-templates/globals", label: "Header / footer" },
+];
+
 export const dynamic = "force-dynamic";
 
 interface CampaignListRow {
@@ -11,7 +16,6 @@ interface CampaignListRow {
   status: string;
   sent_count: number;
   failed_count: number;
-  open_count: number;
   click_count: number;
   bounce_count: number;
   sent_at: string | null;
@@ -24,7 +28,7 @@ async function getCampaigns(): Promise<CampaignListRow[]> {
   const { data } = await supabase
     .from("campaigns")
     .select(
-      "id, subject, status, sent_count, failed_count, open_count, click_count, bounce_count, sent_at, created_at, updated_at"
+      "id, subject, status, sent_count, failed_count, click_count, bounce_count, sent_at, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
   return (data || []) as CampaignListRow[];
@@ -45,6 +49,15 @@ export default async function AdminCampaignsPage() {
       <div className="admin-page__header">
         <h1 className="admin-page__title">Campaigns</h1>
         <div className="admin-page__header-actions">
+          {TEMPLATE_PREVIEWS.map((t) => (
+            <Link
+              key={t.href}
+              href={t.href}
+              className="admin-btn admin-btn--secondary"
+            >
+              {t.label}
+            </Link>
+          ))}
           <NewCampaignButton />
         </div>
       </div>
@@ -67,7 +80,6 @@ export default async function AdminCampaignsPage() {
               <th className="admin-table__th">Subject</th>
               <th className="admin-table__th">Status</th>
               <th className="admin-table__th">Sent / Failed</th>
-              <th className="admin-table__th">Opens</th>
               <th className="admin-table__th">Clicks</th>
               <th className="admin-table__th">Bounces</th>
               <th className="admin-table__th">Sent at</th>
@@ -96,18 +108,6 @@ export default async function AdminCampaignsPage() {
                   {c.status === "sent" || c.status === "failed" ? (
                     <span className="campaign-list-row__meta">
                       {c.sent_count} / {c.failed_count}
-                    </span>
-                  ) : (
-                    <span className="admin-dash">—</span>
-                  )}
-                </td>
-                <td className="admin-table__td">
-                  {c.sent_count > 0 ? (
-                    <span className="campaign-list-row__meta">
-                      {c.open_count}
-                      <span className="campaign-list-row__pct">
-                        {" "}({Math.round((c.open_count / c.sent_count) * 100)}%)
-                      </span>
                     </span>
                   ) : (
                     <span className="admin-dash">—</span>

@@ -44,11 +44,16 @@ export async function PUT(
   if (typeof body.subject === "string") update.subject = body.subject;
   if (body.preheader !== undefined) update.preheader = body.preheader;
   if (typeof body.body_html === "string") update.body_html = body.body_html;
+  if (Array.isArray(body.body_blocks) || body.body_blocks === null) {
+    update.body_blocks = body.body_blocks;
+  }
   if (typeof body.from_name === "string") update.from_name = body.from_name;
   if (typeof body.from_email === "string") update.from_email = body.from_email;
   if (body.reply_to !== undefined) update.reply_to = body.reply_to;
   if (body.audience_filter !== undefined)
     update.audience_filter = body.audience_filter;
+  if (body.cta_label !== undefined) update.cta_label = body.cta_label;
+  if (body.cta_url !== undefined) update.cta_url = body.cta_url;
 
   const { data, error } = await supabase
     .from("campaigns")

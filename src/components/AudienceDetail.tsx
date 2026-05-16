@@ -395,9 +395,7 @@ export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {
               </div>
               <div className="campaign-editor__rate">
                 <span className="campaign-editor__rate-num">{a.emails_received}</span>
-                <span className="campaign-editor__rate-label">
-                  Emails · {a.emails_opened} opens
-                </span>
+                <span className="campaign-editor__rate-label">Emails</span>
               </div>
               <div className="campaign-editor__rate">
                 <span className="campaign-editor__rate-num">{a.emails_clicked}</span>

@@ -32,6 +32,7 @@ const adminNav: NavItem[] = [
     children: [
       { href: "/admin/audience", label: "Members" },
       { href: "/admin/campaigns", label: "Campaigns" },
+      { href: "/admin/email-templates", label: "Email templates" },
       { href: "/admin/analytics", label: "Analytics" },
     ],
   },

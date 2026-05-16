@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAutosave } from "@/hooks/useAutosave";
-import { RichTextEditor } from "@/components/RichTextEditor";
+import { BlockEditor } from "@/components/BlockEditor";
 import { CampaignPreview } from "@/components/CampaignPreview";
+import { newBlock, type EmailBlock } from "@/lib/email-blocks";
 
 export interface CampaignData {
   id: string;
@@ -15,6 +16,9 @@ export interface CampaignData {
   from_email: string;
   reply_to: string | null;
   audience_filter: AudienceFilterShape;
+  cta_label: string | null;
+  cta_url: string | null;
+  body_blocks: EmailBlock[] | null;
   status: "draft" | "sending" | "sent" | "failed";
   sent_count: number;
   failed_count: number;
@@ -67,7 +71,20 @@ function formatDateTime(iso: string | null): string {
 
 export function CampaignEditor({ initial }: CampaignEditorProps) {
   const router = useRouter();
-  const [form, setForm] = useState<CampaignData>(initial);
+  const [form, setForm] = useState<CampaignData>(() => {
+    // Legacy: if a draft was created before the block editor and has
+    // body_html but no body_blocks yet, lift the HTML into one paragraph
+    // block so the user has something editable to start with.
+    if (
+      (!initial.body_blocks || initial.body_blocks.length === 0) &&
+      initial.body_html?.trim()
+    ) {
+      const seed = newBlock("paragraph");
+      if (seed.type === "paragraph") seed.html = initial.body_html;
+      return { ...initial, body_blocks: [seed] };
+    }
+    return initial;
+  });
   const [audienceCount, setAudienceCount] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sends, setSends] = useState<SendRow[] | null>(null);
@@ -81,10 +98,13 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
       subject: data.subject,
       preheader: data.preheader,
       body_html: data.body_html,
+      body_blocks: data.body_blocks,
       from_name: data.from_name,
       from_email: data.from_email,
       reply_to: data.reply_to,
       audience_filter: data.audience_filter,
+      cta_label: data.cta_label,
+      cta_url: data.cta_url,
     }),
     []
   );
@@ -130,10 +150,13 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
   }, [sendsOpen, sends, loadSends]);
 
   const isLocked = form.status !== "draft";
+  const hasBody =
+    (form.body_blocks && form.body_blocks.length > 0) ||
+    form.body_html.trim().length > 0;
   const canSend =
     form.status === "draft" &&
     form.subject.trim().length > 0 &&
-    form.body_html.trim().length > 0 &&
+    hasBody &&
     (audienceCount ?? 0) > 0;
 
   const sendTest = async () => {
@@ -162,7 +185,20 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
     const d = await res.json().catch(() => ({}));
     if (res.ok) {
       setSendStatus({ kind: "ok", msg: `Sent to ${d.sent}, failed ${d.failed}` });
-      // Refresh the page to flip into read-only "sent" view.
+      // Optimistically flip local state into the sent-view so the editor
+      // re-renders without a manual reload. router.refresh() in the
+      // background reconciles any server-side numbers (sent_at precision).
+      setForm((prev) => ({
+        ...prev,
+        status: "sent",
+        sent_count: d.sent ?? 0,
+        failed_count: d.failed ?? 0,
+        sent_at: new Date().toISOString(),
+        open_count: 0,
+        click_count: 0,
+        bounce_count: 0,
+        complaint_count: 0,
+      }));
       router.refresh();
     } else {
       setSendStatus({ kind: "err", msg: d.error || "Send failed" });
@@ -232,11 +268,35 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
                 dangerouslySetInnerHTML={{ __html: form.body_html }}
               />
             ) : (
-              <RichTextEditor
-                value={form.body_html}
-                onChange={(html) => setForm({ ...form, body_html: html })}
+              <BlockEditor
+                blocks={form.body_blocks || []}
+                onChange={(next) => setForm({ ...form, body_blocks: next })}
               />
             )}
+          </div>
+
+          <div className="campaign-editor__field">
+            <label className="campaign-editor__label">Call-to-action button label (optional)</label>
+            <input
+              type="text"
+              className="campaign-editor__input"
+              value={form.cta_label || ""}
+              onChange={(e) => setForm({ ...form, cta_label: e.target.value })}
+              disabled={isLocked}
+              placeholder="e.g. Listen now"
+            />
+            <label className="campaign-editor__label">Call-to-action button URL</label>
+            <input
+              type="url"
+              className="campaign-editor__input"
+              value={form.cta_url || ""}
+              onChange={(e) => setForm({ ...form, cta_url: e.target.value })}
+              disabled={isLocked}
+              placeholder="https://chadlewine.com/..."
+            />
+            <p className="campaign-editor__hint">
+              Rendered as a bulletproof table-button after the body. Leave both blank to omit.
+            </p>
           </div>
 
           <div className="campaign-editor__field campaign-editor__preview-toggle">
@@ -257,6 +317,8 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
                 bodyHtml={form.body_html}
                 fromName={form.from_name}
                 fromEmail={form.from_email}
+                ctaLabel={form.cta_label}
+                ctaUrl={form.cta_url}
               />
             </div>
           )}
@@ -281,19 +343,6 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
                 )}
               </p>
               <div className="campaign-editor__rates">
-                <div className="campaign-editor__rate">
-                  <span className="campaign-editor__rate-num">
-                    {form.open_count ?? 0}
-                  </span>
-                  <span className="campaign-editor__rate-label">
-                    Opens
-                    {form.sent_count > 0 && (
-                      <span className="campaign-editor__rate-pct">
-                        {" "}{Math.round(((form.open_count ?? 0) / form.sent_count) * 100)}%
-                      </span>
-                    )}
-                  </span>
-                </div>
                 <div className="campaign-editor__rate">
                   <span className="campaign-editor__rate-num">
                     {form.click_count ?? 0}
@@ -418,40 +467,43 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
 
               <section className="campaign-editor__panel campaign-editor__panel--cta">
                 <h3 className="campaign-editor__panel-title">Send to audience</h3>
-                {sendStatus.kind !== "confirm" ? (
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--primary campaign-editor__action campaign-editor__action--send"
-                    onClick={confirmSend}
-                    disabled={!canSend || sendStatus.kind === "sending"}
-                  >
-                    {sendStatus.kind === "sending"
-                      ? "Sending..."
-                      : `Send to ${audienceCount ?? "—"}`}
-                  </button>
-                ) : (
+                {sendStatus.kind === "confirm" || sendStatus.kind === "sending" ? (
                   <div className="campaign-editor__confirm">
                     <p className="campaign-editor__hint">
-                      Send to <strong>{audienceCount}</strong> subscribers?
-                      This cannot be undone.
+                      {sendStatus.kind === "sending" ? (
+                        <>Sending to <strong>{audienceCount}</strong> subscribers...</>
+                      ) : (
+                        <>Send to <strong>{audienceCount}</strong> subscribers? This cannot be undone.</>
+                      )}
                     </p>
                     <div className="campaign-editor__confirm-actions">
                       <button
                         type="button"
                         className="admin-btn admin-btn--primary"
                         onClick={reallySend}
+                        disabled={sendStatus.kind === "sending"}
                       >
-                        Yes, send
+                        {sendStatus.kind === "sending" ? "Sending..." : "Yes, send"}
                       </button>
                       <button
                         type="button"
                         className="admin-btn admin-btn--secondary"
                         onClick={cancelSend}
+                        disabled={sendStatus.kind === "sending"}
                       >
                         Cancel
                       </button>
                     </div>
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--primary campaign-editor__action campaign-editor__action--send"
+                    onClick={confirmSend}
+                    disabled={!canSend}
+                  >
+                    {`Send to ${audienceCount ?? "—"}`}
+                  </button>
                 )}
                 {sendStatus.kind === "err" && (
                   <p className="campaign-editor__hint campaign-editor__hint--err">
@@ -461,7 +513,7 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
                 {!canSend && form.status === "draft" && (
                   <p className="campaign-editor__hint">
                     {form.subject.trim().length === 0 && "Subject required. "}
-                    {form.body_html.trim().length === 0 && "Body required. "}
+                    {!hasBody && "Body required. "}
                     {(audienceCount ?? 0) === 0 && "Audience is empty."}
                   </p>
                 )}
@@ -518,9 +570,7 @@ function SendsTable({ rows }: { rows: SendRow[] | null }) {
             <th className="admin-table__th">Recipient</th>
             <th className="admin-table__th">Status</th>
             <th className="admin-table__th">Sent</th>
-            <th className="admin-table__th">Opens</th>
             <th className="admin-table__th">Clicks</th>
-            <th className="admin-table__th">Last open</th>
             <th className="admin-table__th">Last click</th>
           </tr>
         </thead>
@@ -544,21 +594,11 @@ function SendsTable({ rows }: { rows: SendRow[] | null }) {
                 {fmtShort(r.sent_at)}
               </td>
               <td className="admin-table__td">
-                {r.open_count > 0 ? (
-                  <strong>{r.open_count}</strong>
-                ) : (
-                  <span className="admin-dash">—</span>
-                )}
-              </td>
-              <td className="admin-table__td">
                 {r.click_count > 0 ? (
                   <strong>{r.click_count}</strong>
                 ) : (
                   <span className="admin-dash">—</span>
                 )}
-              </td>
-              <td className="admin-table__td admin-table__td--date">
-                {fmtShort(r.opened_at)}
               </td>
               <td className="admin-table__td admin-table__td--date">
                 {fmtShort(r.clicked_at)}
@@ -569,7 +609,7 @@ function SendsTable({ rows }: { rows: SendRow[] | null }) {
             <>
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={5}
                   style={{
                     padding: "var(--space-md) var(--space-md) 4px",
                     fontFamily: "var(--font-ui)",
@@ -598,13 +638,7 @@ function SendsTable({ rows }: { rows: SendRow[] | null }) {
                     {fmtShort(r.sent_at)}
                   </td>
                   <td className="admin-table__td">
-                    {r.open_count > 0 ? r.open_count : "—"}
-                  </td>
-                  <td className="admin-table__td">
                     {r.click_count > 0 ? r.click_count : "—"}
-                  </td>
-                  <td className="admin-table__td admin-table__td--date">
-                    {fmtShort(r.opened_at)}
                   </td>
                   <td className="admin-table__td admin-table__td--date">
                     {fmtShort(r.clicked_at)}
