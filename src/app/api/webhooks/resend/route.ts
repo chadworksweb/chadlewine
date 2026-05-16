@@ -112,10 +112,23 @@ export async function POST(request: Request) {
     const updates: Record<string, unknown> = {};
 
     switch (eventType) {
-      case "delivered":
+      case "delivered": {
+        // Only bump the aggregate on first delivered event for this send row
+        // — Resend can re-emit deliveries on retry, and we don't want the
+        // counter to drift above actual recipients.
+        const { data: prior } = await supabase
+          .from("campaign_sends")
+          .select("delivered_at")
+          .eq("id", sendRow.id)
+          .single();
+        const isFirstDelivery = !prior?.delivered_at;
         updates.delivered_at = now;
         updates.status = "delivered";
+        if (isFirstDelivery && sendRow.campaign_id) {
+          await bumpCampaign(sendRow.campaign_id, "delivered_count");
+        }
         break;
+      }
       case "opened": {
         // First open: record opened_at and bump campaign unique opens.
         const { data: prior } = await supabase
@@ -204,9 +217,13 @@ export async function POST(request: Request) {
         const { recordEmailEvent, setSubscriberStatus } = await import("@/lib/audience");
         const isFirstOpen = !!updates.opened_at;
         const isFirstClick = !!updates.clicked_at;
+        // Open tracking is unreliable (Gmail/Apple Mail proxies) and the
+        // UI no longer surfaces opens. Skip emitting audience-side open
+        // events so the timeline + emails_opened counter don't accumulate
+        // noise. Internal campaign_sends.opened_at still bumps so
+        // click-implies-open backfill keeps working.
         const audienceEventType =
           eventType === "delivered" ? "email_delivered"
-            : eventType === "opened" ? "email_opened"
             : eventType === "clicked" ? "email_clicked"
             : eventType === "bounced" ? "email_bounced"
             : eventType === "complained" ? "email_complained"

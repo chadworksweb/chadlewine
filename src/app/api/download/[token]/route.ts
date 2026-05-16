@@ -29,6 +29,61 @@ async function resolveRingtonePath(
   return data?.[col] || null;
 }
 
+async function resolveTitle(
+  supabase: ReturnType<typeof createAdminClient>,
+  itemType: string,
+  itemId: string,
+): Promise<string | null> {
+  if (itemType === "song" || itemType === "ringtone") {
+    const { data } = await supabase
+      .from("songs")
+      .select("title")
+      .eq("id", itemId)
+      .single<{ title: string | null }>();
+    return data?.title ?? null;
+  }
+  if (itemType === "album") {
+    const { data } = await supabase
+      .from("albums")
+      .select("title")
+      .eq("id", itemId)
+      .single<{ title: string | null }>();
+    return data?.title ?? null;
+  }
+  return null;
+}
+
+function sanitizeFilename(name: string): string {
+  return (
+    name
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "download"
+  );
+}
+
+// MP3 plays inline in browsers — proxy-stream upstream with Content-Disposition
+// so the link in the order email saves as a file instead of opening a tab.
+// WAV/FLAC don't have this problem and stay on the 302 redirect path.
+async function streamAsAttachment(
+  url: string,
+  filename: string,
+  contentType: string,
+): Promise<Response> {
+  const upstream = await fetch(url);
+  if (!upstream.ok || !upstream.body) {
+    return new Response("Upstream error", { status: 502 });
+  }
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Cache-Control": "private, max-age=0, no-store",
+  };
+  const len = upstream.headers.get("content-length");
+  if (len) headers["Content-Length"] = len;
+  return new Response(upstream.body, { status: 200, headers });
+}
+
 async function resolveDownloadPath(
   supabase: ReturnType<typeof createAdminClient>,
   itemType: string,
@@ -114,9 +169,13 @@ export async function GET(
     if (!ringtonePath) {
       return new Response("Ringtone not yet available", { status: 202 });
     }
-    if (isFullUrl(ringtonePath)) return Response.redirect(ringtonePath, 302);
-    const signed = signBunnyUrl(getMediaConfig("music-download"), ringtonePath);
-    return Response.redirect(signed, 302);
+    const finalUrl = isFullUrl(ringtonePath)
+      ? ringtonePath
+      : signBunnyUrl(getMediaConfig("music-download"), ringtonePath);
+    const title = await resolveTitle(supabase, purchase.item_type, purchase.item_id);
+    const filename = `${sanitizeFilename(title ?? "ringtone")}.${ringtoneFormat}`;
+    const contentType = ringtoneFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
+    return streamAsAttachment(finalUrl, filename, contentType);
   }
 
   // Resolve format: query param > purchase.format > default mp3.
@@ -143,10 +202,15 @@ export async function GET(
     return new Response("Download not yet available", { status: 202 });
   }
 
-  if (isFullUrl(pathOrUrl)) {
-    return Response.redirect(pathOrUrl, 302);
+  const finalUrl = isFullUrl(pathOrUrl)
+    ? pathOrUrl
+    : signBunnyUrl(getMediaConfig("music-download"), pathOrUrl);
+
+  if (format === "mp3") {
+    const title = await resolveTitle(supabase, purchase.item_type, purchase.item_id);
+    const filename = `${sanitizeFilename(title ?? "download")}.mp3`;
+    return streamAsAttachment(finalUrl, filename, "audio/mpeg");
   }
 
-  const signed = signBunnyUrl(getMediaConfig("music-download"), pathOrUrl);
-  return Response.redirect(signed, 302);
+  return Response.redirect(finalUrl, 302);
 }
