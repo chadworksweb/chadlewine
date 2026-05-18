@@ -6,7 +6,7 @@ import { SongEditor } from "@/components/SongEditor";
 
 function NewSongInner() {
   const searchParams = useSearchParams();
-  const presetAlbumId = searchParams.get("album_id") || undefined;
+  const presetAlbumId = searchParams.get("release_id") || undefined;
   return <SongEditor presetAlbumId={presetAlbumId} />;
 }
 

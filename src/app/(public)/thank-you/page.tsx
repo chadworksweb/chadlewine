@@ -361,7 +361,7 @@ function CartThankYouContent() {
               item_count: items.length,
               subtotal,
               song_ids: items.filter((it: { type?: string }) => it.type === "song").map((it: { id: string }) => it.id),
-              album_ids: items.filter((it: { type?: string }) => it.type === "album").map((it: { id: string }) => it.id),
+              release_ids: items.filter((it: { type?: string }) => it.type === "release").map((it: { id: string }) => it.id),
               ringtone_ids: items.filter((it: { type?: string }) => it.type === "ringtone").map((it: { id: string }) => it.id),
               items: items.map((it: { type?: string; id?: string; slug?: string; title?: string; price?: number; format?: string | null }) => ({
                 type: it.type,

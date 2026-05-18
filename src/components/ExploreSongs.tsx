@@ -110,7 +110,7 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
             from{" "}
             {current.album ? (
               <Link
-                href={`/music/albums/${current.album.slug}`}
+                href={`/music/releases/${current.album.slug}`}
                 className="explore-songs__album-link"
               >
                 <em>{current.album.title}</em>

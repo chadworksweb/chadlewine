@@ -10,7 +10,7 @@ import { TitleReveal } from "@/components/TitleReveal";
 // (albums.concept_statement), and observations have hooks (observations.hook_line).
 // Don't reintroduce a generic "hook" field here — pick the entity-specific
 // name when this slider is reused in a different context.
-export type HeroKind = "song" | "album" | "merch" | "observation" | "art";
+export type HeroKind = "song" | "release" | "merch" | "observation" | "art";
 
 export interface HeroLensItem {
   slug: string;

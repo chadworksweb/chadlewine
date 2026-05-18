@@ -33,7 +33,7 @@ const ZONE_ORDER: Zone[] = ["site-image", "cover-art", "art-fullres"];
 const PILLAR_LABELS: Record<Pillar | "unattached", string> = {
   observations: "Observations",
   songs: "Songs",
-  albums: "Albums",
+  albums: "Releases",
   art: "Art",
   pages: "Pages",
   merch: "Merch",

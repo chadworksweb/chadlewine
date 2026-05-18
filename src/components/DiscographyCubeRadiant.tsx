@@ -310,7 +310,7 @@ export function DiscographyCubeRadiant({
     setActive(false);
   }, []);
 
-  // Tap-outside dismiss for touch/pen, mirroring AlbumCubeRadiant.
+  // Tap-outside dismiss for touch/pen, mirroring ReleaseCubeRadiant.
   useEffect(() => {
     if (!active) return;
     if (lastPointerTypeRef.current === "mouse") return;

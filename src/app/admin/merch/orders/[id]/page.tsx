@@ -50,7 +50,7 @@ interface Order {
 
 interface Line {
   id: string;
-  item_type: "song" | "album" | "ringtone" | "merch" | "art_original";
+  item_type: "song" | "release" | "ringtone" | "merch" | "art_original";
   item_id: string | null;
   format: string | null;
   title_snapshot: string | null;

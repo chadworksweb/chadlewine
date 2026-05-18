@@ -42,9 +42,9 @@ async function resolveTitle(
       .single<{ title: string | null }>();
     return data?.title ?? null;
   }
-  if (itemType === "album") {
+  if (itemType === "release") {
     const { data } = await supabase
-      .from("albums")
+      .from("releases")
       .select("title")
       .eq("id", itemId)
       .single<{ title: string | null }>();
@@ -87,12 +87,33 @@ async function streamAsAttachment(
 async function resolveDownloadPath(
   supabase: ReturnType<typeof createAdminClient>,
   itemType: string,
-  itemId: string,
+  itemId: string | null,
+  releaseSkuId: string | null,
+  songSkuId: string | null,
   format: Format,
 ): Promise<string | null> {
   const col = `download_path_${format}` as const;
 
-  if (itemType === "song") {
+  // SKU-first lookup. Post-migration commerce writes release_sku_id /
+  // song_sku_id on every purchase; SKU rows own the download paths.
+  if (releaseSkuId) {
+    const { data } = await supabase
+      .from("release_skus")
+      .select(col)
+      .eq("id", releaseSkuId)
+      .single<Record<string, string | null>>();
+    if (data?.[col]) return data[col];
+  }
+  if (songSkuId) {
+    const { data } = await supabase
+      .from("song_skus")
+      .select(col)
+      .eq("id", songSkuId)
+      .single<Record<string, string | null>>();
+    if (data?.[col]) return data[col];
+  }
+
+  if (itemType === "song" && itemId) {
     const { data } = await supabase
       .from("songs")
       .select(`${col}, download_path`)
@@ -101,19 +122,14 @@ async function resolveDownloadPath(
     return data?.[col] || data?.download_path || null;
   }
 
-  if (itemType === "album") {
-    const { data } = await supabase
-      .from("albums")
-      .select(col)
-      .eq("id", itemId)
-      .single<Record<string, string | null>>();
-    if (data?.[col]) return data[col];
-
+  if (itemType === "release" && itemId) {
+    // releases.download_path_* is GONE. Last-ditch: pick any track's
+    // download_path (mp3 only — releases never had per-format track paths).
     if (format === "mp3") {
       const { data: albumSongs } = await supabase
-        .from("album_songs")
+        .from("release_songs")
         .select("track_number, songs(download_path)")
-        .eq("album_id", itemId)
+        .eq("release_id", itemId)
         .order("track_number");
       for (const as of albumSongs ?? []) {
         const songs = (as as unknown as { songs: unknown }).songs;
@@ -137,7 +153,9 @@ export async function GET(
 
   const { data: purchase } = await supabase
     .from("purchases")
-    .select("id, item_type, item_id, format, download_url, download_expires_at")
+    .select(
+      "id, item_type, item_id, format, download_url, download_expires_at, release_sku_id, song_sku_id",
+    )
     .eq("id", token)
     .single();
 
@@ -154,7 +172,7 @@ export async function GET(
     return Response.redirect(purchase.download_url, 302);
   }
 
-  if (!["song", "album", "ringtone"].includes(purchase.item_type) || !purchase.item_id) {
+  if (!["song", "release", "ringtone"].includes(purchase.item_type) || !purchase.item_id) {
     return new Response("Download not available for this purchase", { status: 400 });
   }
 
@@ -178,9 +196,6 @@ export async function GET(
     return streamAsAttachment(finalUrl, filename, contentType);
   }
 
-  // Resolve format: query param > purchase.format > default mp3.
-  // Query param lets buyers pick at download time — required for album
-  // purchases (format=null on the row).
   const requested: Format | null =
     qs === "mp3" || qs === "flac" || qs === "wav" ? qs : null;
   const format: Format =
@@ -195,6 +210,8 @@ export async function GET(
     supabase,
     purchase.item_type,
     purchase.item_id,
+    purchase.release_sku_id || null,
+    purchase.song_sku_id || null,
     format,
   );
 

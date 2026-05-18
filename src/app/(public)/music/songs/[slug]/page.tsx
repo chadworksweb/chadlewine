@@ -8,6 +8,8 @@ import { ExploreStrip } from "@/components/ExploreStrip";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge } from "@/lib/rising-compass";
 import { renderSection, extractSongSlugs } from "@/lib/visibility-sections";
+import { getSingleSongIds } from "@/lib/song-singles";
+import { fetchReleaseSkusForIds, fetchSongSkusForIds } from "@/lib/release-skus";
 
 export const revalidate = 60;
 
@@ -34,32 +36,40 @@ async function getSongData(songSlug: string) {
     .single();
   if (!song) return null;
 
-  // Get album via junction (optional — singles have no album)
-  const { data: junction } = await supabase
-    .from("album_songs")
-    .select("track_number, album:albums(id, title, slug, cover_art_path, cover_art_alt, price, status, release_date, download_path_mp3, download_path_flac, download_path_wav)")
-    .eq("song_id", song.id)
-    .maybeSingle();
+  // Get album via junction (optional — singles have no album). Filter out
+  // the song's own single-type release so we only surface a true album.
+  const { data: junctionRows } = await supabase
+    .from("release_songs")
+    .select("track_number, release:releases(id, title, slug, cover_art_path, cover_art_alt, status, release_date, release_type)")
+    .eq("song_id", song.id);
+  const junction = (junctionRows || [])
+    .map((row: any) => ({
+      track_number: row.track_number,
+      album: Array.isArray(row.release) ? row.release[0] : row.release,
+    }))
+    .find((row) => row.album && row.album.release_type !== "single") || null;
 
-  const rawAlbum = (junction as any)?.album;
+  const rawAlbum = junction?.album;
   // Include the album if it's releasable (unreleased or published). Draft albums become null.
   const album =
     rawAlbum && (rawAlbum.status === "published" || rawAlbum.status === "unreleased")
       ? rawAlbum
       : null;
-  const trackNumber = album ? (junction as any).track_number : null;
+  const trackNumber = album ? junction?.track_number ?? null : null;
 
   // Block the detail page for unreleased album tracks. Unreleased singles still resolve.
-  if (song.status === "unreleased" && album && !song.is_single) {
+  const singleIds = await getSingleSongIds(supabase);
+  const isSingle = singleIds.has(song.id);
+  if (song.status === "unreleased" && album && !isSingle) {
     return null;
   }
 
   // Total tracks on this album (0 if standalone)
   const { count } = album
     ? await supabase
-        .from("album_songs")
+        .from("release_songs")
         .select("id", { count: "exact", head: true })
-        .eq("album_id", album.id)
+        .eq("release_id", album.id)
     : { count: 0 };
 
   // Published expansions for this song
@@ -111,7 +121,7 @@ async function getSongData(songSlug: string) {
     // never got their own art still surface a visual (the album cover).
     const { data: connSongs } = await supabase
       .from("songs")
-      .select("id, slug, title, art_image_path, art_alt, album_songs(album:albums(cover_art_path, cover_art_alt))")
+      .select("id, slug, title, art_image_path, art_alt, album_songs(release:releases(cover_art_path, cover_art_alt))")
       .in("slug", mentionedSlugs)
       .in("status", ["unreleased", "published"]);
     // Preserve the mention order so the grid mirrors the prose flow.
@@ -194,10 +204,37 @@ export default async function SongDetailPage({
 
   const { album, song, totalTracks, expansions, visibilitySections, pairedArt, connectionsSongs } = result;
 
-  const [badge, playbackMode] = await Promise.all([
+  const supabase = createPublicClient();
+  const [badge, playbackMode, songSkusMap, releaseSkusMap] = await Promise.all([
     fetchBadge(song.title, "Chad Lewine"),
     getPlaybackMode(song.playback_mode),
+    fetchSongSkusForIds(supabase, [song.id]),
+    album ? fetchReleaseSkusForIds(supabase, [album.id]) : fetchReleaseSkusForIds(supabase, []),
   ]);
+
+  // Prefer song_skus rows. If empty, fall back to a synthetic SKU built from
+  // the legacy song.price + download_path_* columns so existing data still
+  // sells while the schema migration is in flight.
+  let songSkus = songSkusMap.get(song.id) || [];
+  if (songSkus.length === 0) {
+    const legacyHasDownload =
+      !!(song.download_path_mp3 || song.download_path_flac || song.download_path_wav || song.download_path);
+    if (song.price && legacyHasDownload) {
+      songSkus = [
+        {
+          id: `legacy-song:${song.id}`,
+          song_id: song.id,
+          format: "digital" as const,
+          price: Number(song.price),
+          status: "available" as const,
+          stock: null,
+          display_order: 0,
+          variants: [],
+        },
+      ];
+    }
+  }
+  const releaseSkus = album ? releaseSkusMap.get(album.id) || [] : [];
 
   // Build section-level Q&A pairs for JSON-LD FAQPage (format stack headings + direct answers)
   const sectionHeadingMap: Record<string, string> = {
@@ -261,7 +298,6 @@ export default async function SongDetailPage({
                 slug: album.slug,
                 cover_art_path: album.cover_art_path,
                 cover_art_alt: album.cover_art_alt,
-                price: album.price,
                 release_date: album.release_date,
               }
             : null
@@ -272,16 +308,22 @@ export default async function SongDetailPage({
         pairedArt={pairedArt}
         connectionsSongs={connectionsSongs}
         playbackMode={playbackMode}
-        songFormats={(() => {
-          const explicit = (["mp3", "flac", "wav"] as const).filter((f) => song[`download_path_${f}`]);
-          if (explicit.length > 0) return explicit;
-          return song.download_path ? ["mp3" as const] : [];
-        })()}
-        albumFormats={album ? (() => {
-          const a = album as Record<string, unknown>;
-          const explicit = (["mp3", "flac", "wav"] as const).filter((f) => a[`download_path_${f}`]);
-          return explicit.length > 0 ? explicit : [];
-        })() : []}
+        songSkus={songSkus.map((s) => ({
+          id: s.id,
+          format: s.format,
+          price: s.price,
+          status: s.status === "discontinued" ? "available" : s.status,
+          stock: s.stock,
+          variants: s.variants,
+        }))}
+        releaseSkus={releaseSkus.map((s) => ({
+          id: s.id,
+          format: s.format,
+          price: s.price,
+          status: s.status === "discontinued" ? "available" : s.status,
+          stock: s.stock,
+          variants: s.variants,
+        }))}
         geoFields={{
           citation_summary: song.citation_summary,
           focus_keyphrase: song.focus_keyphrase,
@@ -313,7 +355,7 @@ export default async function SongDetailPage({
           songTitle={song.title}
           songUrl={`https://chadlewine.com/music/songs/${song.slug}`}
           albumTitle={album.title}
-          albumUrl={`https://chadlewine.com/music/albums/${album.slug}`}
+          albumUrl={`https://chadlewine.com/music/releases/${album.slug}`}
           badge={badge}
           citationSummary={song.citation_summary}
           focusKeyphrase={song.focus_keyphrase}

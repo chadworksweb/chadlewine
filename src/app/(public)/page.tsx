@@ -20,15 +20,15 @@ async function getBrowseExcludedSongIds(
 ): Promise<string[]> {
   if (BROWSE_EXCLUDED_ALBUM_SLUGS.length === 0) return [];
   const { data: albums } = await supabase
-    .from("albums")
+    .from("releases")
     .select("id")
     .in("slug", BROWSE_EXCLUDED_ALBUM_SLUGS);
   const albumIds = ((albums || []) as { id: string }[]).map((a) => a.id);
   if (albumIds.length === 0) return [];
   const { data: junctions } = await supabase
-    .from("album_songs")
+    .from("release_songs")
     .select("song_id")
-    .in("album_id", albumIds);
+    .in("release_id", albumIds);
   return ((junctions || []) as { song_id: string }[]).map((j) => j.song_id);
 }
 
@@ -60,8 +60,8 @@ async function getHomepageSongs() {
   // hero/card focal columns are used when its cover is the chosen image —
   // the song's focal points would be wrong for a different image.
   const { data: junctions } = await supabase
-    .from("album_songs")
-    .select("song_id, album:albums(cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom)")
+    .from("release_songs")
+    .select("song_id, release:releases(cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom)")
     .in("song_id", songs.map((s) => s.id));
 
   type AlbumFallback = {
@@ -75,8 +75,8 @@ async function getHomepageSongs() {
     card_zoom: number | null;
   };
   const albumBySong: Record<string, AlbumFallback> = {};
-  for (const j of (junctions || []) as Array<{ song_id: string; album: unknown }>) {
-    const alb = Array.isArray(j.album) ? j.album[0] : j.album;
+  for (const j of (junctions || []) as Array<{ song_id: string; release: unknown }>) {
+    const alb = Array.isArray(j.release) ? j.release[0] : j.release;
     if (alb && !albumBySong[j.song_id]) {
       albumBySong[j.song_id] = alb as AlbumFallback;
     }
@@ -111,15 +111,15 @@ async function getFeaturedTrack() {
   if (!song) return null;
 
   const { data: junction } = await supabase
-    .from("album_songs")
-    .select("track_number, album:albums(title, slug, cover_art_path, cover_art_alt)")
+    .from("release_songs")
+    .select("track_number, release:releases(title, slug, cover_art_path, cover_art_alt)")
     .eq("song_id", song.id)
     .limit(1)
     .maybeSingle();
 
-  if (!junction?.album) return null;
+  if (!junction?.release) return null;
 
-  const album = Array.isArray(junction.album) ? junction.album[0] : junction.album;
+  const album = Array.isArray(junction.release) ? junction.release[0] : junction.release;
 
   return {
     song: { ...song, track_number: junction.track_number },
@@ -168,8 +168,8 @@ async function getSongBriefs(): Promise<SongBriefData[]> {
 
   const [{ data: junctions }, { data: sections }] = await Promise.all([
     supabase
-      .from("album_songs")
-      .select("song_id, album:albums(title, slug)")
+      .from("release_songs")
+      .select("song_id, release:releases(title, slug)")
       .in("song_id", ids),
     supabase
       .from("song_visibility_sections")
@@ -181,7 +181,7 @@ async function getSongBriefs(): Promise<SongBriefData[]> {
 
   const albumBySong: Record<string, { title: string; slug: string } | null> = {};
   for (const j of junctions || []) {
-    const alb = Array.isArray((j as any).album) ? (j as any).album[0] : (j as any).album;
+    const alb = Array.isArray((j as any).release) ? (j as any).release[0] : (j as any).release;
     if (alb && !albumBySong[j.song_id]) albumBySong[j.song_id] = alb;
   }
 
@@ -300,13 +300,13 @@ async function getExploreSongs() {
 
   const songIds = songs.map((s) => s.id);
   const { data: junctions } = await supabase
-    .from("album_songs")
-    .select("song_id, album:albums(title, slug, cover_art_path, cover_art_alt)")
+    .from("release_songs")
+    .select("song_id, release:releases(title, slug, cover_art_path, cover_art_alt)")
     .in("song_id", songIds);
 
   const albumBySong: Record<string, { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null } | null> = {};
   for (const j of junctions || []) {
-    const alb = Array.isArray((j as any).album) ? (j as any).album[0] : (j as any).album;
+    const alb = Array.isArray((j as any).release) ? (j as any).release[0] : (j as any).release;
     if (alb && !albumBySong[j.song_id]) albumBySong[j.song_id] = alb;
   }
 

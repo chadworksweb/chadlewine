@@ -13,7 +13,7 @@ import { createPublicClient } from "@/lib/supabase-server";
 const PER_PAGE_DEFAULT = 6;
 const PER_KIND_OVERSHOOT = 30;
 
-type Kind = "song" | "album" | "merch" | "art";
+type Kind = "song" | "release" | "merch" | "art";
 
 interface ExploreItem {
   key: string;
@@ -67,19 +67,29 @@ export async function GET(request: Request) {
     }
   }
 
-  // Albums.
+  // Albums. Price now lives on release_skus, so pre-filter to releases
+  // with at least one sellable priced SKU.
   {
-    let q = supabase
-      .from("albums")
-      .select("id, title, slug, price, cover_art_path, cover_art_alt, created_at")
-      .not("cover_art_path", "is", null)
+    const { data: skuRows } = await supabase
+      .from("release_skus")
+      .select("release_id")
       .gt("price", 0)
+      .in("status", ["available", "preorder"]);
+    const sellableReleaseIds = Array.from(
+      new Set((skuRows || []).map((r: { release_id: string }) => r.release_id)),
+    );
+
+    let q = supabase
+      .from("releases")
+      .select("id, title, slug, cover_art_path, cover_art_alt, created_at")
+      .not("cover_art_path", "is", null)
+      .in("id", sellableReleaseIds.length > 0 ? sellableReleaseIds : [""])
       .order("created_at", { ascending: false })
       .limit(PER_KIND_OVERSHOOT);
     if (cursor) q = q.lt("created_at", cursor);
     const { data } = await q;
     for (const a of (data || []) as Array<{
-      id: string; title: string; slug: string; price: number;
+      id: string; title: string; slug: string;
       cover_art_path: string | null; cover_art_alt: string | null; created_at: string;
     }>) {
       items.push({
@@ -89,8 +99,8 @@ export async function GET(request: Request) {
         title: a.title,
         image_url: a.cover_art_path,
         image_alt: a.cover_art_alt || a.title,
-        href: `/music/albums/${a.slug}`,
-        kind: "album",
+        href: `/music/releases/${a.slug}`,
+        kind: "release",
         sort_at: a.created_at,
       });
     }

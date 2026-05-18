@@ -5,6 +5,7 @@ export type RedirectContentType =
   | "art"
   | "song"
   | "album"
+  | "release"
   | "door_page"
   | "curation"
   | "foundation"

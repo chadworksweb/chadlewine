@@ -20,15 +20,15 @@ export default async function LyricsPage() {
 
   // Albums — reverse chronological
   const { data: albumRows } = await supabase
-    .from("albums")
+    .from("releases")
     .select("id, title, slug, release_date")
     .eq("status", "published")
     .order("release_date", { ascending: false });
 
   // Album-song junctions
   const { data: junctions } = await supabase
-    .from("album_songs")
-    .select("album_id, track_number, song:songs(id, title, slug, lyrics, instrumental, status)")
+    .from("release_songs")
+    .select("release_id, track_number, song:songs(id, title, slug, lyrics, instrumental, status)")
     .order("track_number");
 
   // IDs of songs that belong to an album
@@ -47,7 +47,7 @@ export default async function LyricsPage() {
     .filter((s: any) => (s.lyrics || s.instrumental) && !albumSongIds.has(s.id))
     .map((s: any, i: number) => ({
       id: s.id,
-      album_id: "__singles__",
+      release_id: "__singles__",
       title: s.title,
       slug: s.slug,
       track_number: i + 1,
@@ -68,7 +68,7 @@ export default async function LyricsPage() {
     .filter((j: any) => j.song?.status === "published" && (j.song?.lyrics || j.song?.instrumental))
     .map((j: any) => ({
       id: j.song.id,
-      album_id: j.album_id,
+      release_id: j.release_id,
       title: j.song.title,
       slug: j.song.slug,
       track_number: j.track_number,

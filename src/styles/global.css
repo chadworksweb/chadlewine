@@ -15164,7 +15164,7 @@ html {
 
 .songs-explorer__topic-chip {
   padding: 6px 12px;
-  border: 1px solid var(--border-medium);
+  border: 1px solid currentColor;
   background: transparent;
   color: var(--text-secondary);
   font-family: var(--font-ui);

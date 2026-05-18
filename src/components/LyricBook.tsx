@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 
 interface Song {
   id: string;
-  album_id: string;
+  release_id: string;
   title: string;
   slug: string;
   track_number: number;
@@ -38,7 +38,7 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
     if (!hash) return;
     const song = allSongs.find((s) => s.slug === hash);
     if (song) {
-      setExpandedGroups(new Set([song.album_id]));
+      setExpandedGroups(new Set([song.release_id]));
       setActiveTrackSlug(song.slug);
     }
   }, []);
@@ -71,9 +71,9 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
     : null;
 
   const activeAlbum = activeSong
-    ? activeSong.album_id === "__singles__"
+    ? activeSong.release_id === "__singles__"
       ? { id: "__singles__", title: "Singles", slug: "singles" }
-      : albums.find((a) => a.id === activeSong.album_id)
+      : albums.find((a) => a.id === activeSong.release_id)
     : null;
 
   const activeAlbumYear =
@@ -147,7 +147,7 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
 
           {/* Albums in reverse chronological order (already sorted by page) */}
           {albums.map((album) => {
-            const albumSongs = songs.filter((s) => s.album_id === album.id);
+            const albumSongs = songs.filter((s) => s.release_id === album.id);
             return renderGroup(album.id, album.title, album.release_year, albumSongs);
           })}
         </div>
@@ -163,7 +163,7 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
                 <p className="lb__lyrics-meta">
                   {activeAlbum.title}
                   {activeAlbumYear && ` · ${activeAlbumYear}`}
-                  {activeSong.album_id !== "__singles__" &&
+                  {activeSong.release_id !== "__singles__" &&
                     ` · Track ${activeSong.track_number}`}
                 </p>
               </header>

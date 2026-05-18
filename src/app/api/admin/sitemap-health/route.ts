@@ -1,82 +1,84 @@
-import { createAdminClient } from "@/lib/supabase-server";
+import { SUB_SITEMAPS } from "@/lib/sitemap-config";
 
-export async function GET() {
-  const supabase = createAdminClient();
-  const siteUrl = "https://chadlewine.com";
+export const dynamic = "force-dynamic";
 
-  // Count published content
-  const [
-    { count: obsCount },
-    { count: medCount },
-    { count: foundCount },
-    { count: doorCount },
-    { count: albumCount },
-    { count: songCount },
-    { count: curationCount },
-  ] = await Promise.all([
-    supabase.from("observations").select("*", { count: "exact", head: true }).eq("status", "published"),
-    supabase.from("meditations").select("*", { count: "exact", head: true }).eq("status", "published"),
-    supabase.from("foundations").select("*", { count: "exact", head: true }),
-    supabase.from("door_pages").select("*", { count: "exact", head: true }).eq("status", "published"),
-    supabase.from("albums").select("*", { count: "exact", head: true }).eq("status", "published"),
-    supabase.from("songs").select("*", { count: "exact", head: true }).eq("status", "published"),
-    supabase.from("curated_entries").select("*", { count: "exact", head: true }).eq("status", "published"),
-  ]);
+interface SubSitemapHealth {
+  id: string;
+  label: string;
+  filename: string;
+  url: string;
+  status: "ok" | "error" | "missing";
+  url_count: number;
+  expected_count: number;
+  mismatch: boolean;
+  error: string | null;
+  last_built: string;
+}
 
-  // Static pages count (from sitemap: home, chad-lewine, foundations, meditations, music, lyrics, video, art, curation, archive/xanga, discography, merch, merch/art, merch/line, merch/fusion, merch/pick)
-  const staticPages = 16;
-
-  const expectedTotal =
-    staticPages +
-    (obsCount || 0) +
-    (medCount || 0) +
-    (foundCount || 0) +
-    (doorCount || 0) +
-    (albumCount || 0) +
-    (songCount || 0) +
-    (curationCount || 0);
-
-  // Fetch actual sitemap
-  let sitemapStatus: "ok" | "error" | "missing" = "missing";
-  let sitemapUrlCount = 0;
-  let sitemapError = "";
-
+async function fetchXml(url: string): Promise<{ status: "ok" | "error"; xml: string; error: string | null }> {
   try {
-    const res = await fetch(`${siteUrl}/sitemap.xml`, {
+    const res = await fetch(url, {
       headers: { "User-Agent": "chadlewine-health-check" },
+      cache: "no-store",
     });
-    if (res.ok) {
-      const xml = await res.text();
-      // Count <url> entries
-      const matches = xml.match(/<url>/g);
-      sitemapUrlCount = matches ? matches.length : 0;
-      sitemapStatus = "ok";
-    } else {
-      sitemapStatus = "error";
-      sitemapError = `HTTP ${res.status}`;
+    if (!res.ok) {
+      return { status: "error", xml: "", error: `HTTP ${res.status}` };
     }
+    return { status: "ok", xml: await res.text(), error: null };
   } catch (err) {
-    sitemapStatus = "error";
-    sitemapError = (err as Error).message;
+    return { status: "error", xml: "", error: (err as Error).message };
   }
+}
 
-  const mismatch = sitemapUrlCount !== expectedTotal;
+export async function GET(req: Request) {
+  const origin = new URL(req.url).origin;
+  const now = new Date().toISOString();
+
+  const subs: SubSitemapHealth[] = await Promise.all(
+    SUB_SITEMAPS.map(async (s) => {
+      const entries = await s.fetch();
+      const expected = entries.length;
+      const url = `${origin}/${s.filename}`;
+      const check = await fetchXml(url);
+      const urlCount = check.status === "ok" ? (check.xml.match(/<url>/g)?.length ?? 0) : 0;
+      return {
+        id: s.id,
+        label: s.label,
+        filename: s.filename,
+        url,
+        status: check.status,
+        url_count: urlCount,
+        expected_count: expected,
+        mismatch: urlCount !== expected,
+        error: check.error,
+        last_built: now,
+      };
+    }),
+  );
+
+  const indexUrl = `${origin}/sitemap.xml`;
+  const indexCheck = await fetchXml(indexUrl);
+  const indexEntries =
+    indexCheck.status === "ok" ? (indexCheck.xml.match(/<sitemap>/g)?.length ?? 0) : 0;
+
+  const totalUrls = subs.reduce((acc, s) => acc + s.url_count, 0);
+  const totalExpected = subs.reduce((acc, s) => acc + s.expected_count, 0);
+  const anyMismatch = subs.some((s) => s.mismatch);
 
   return Response.json({
-    sitemap_status: sitemapStatus,
-    sitemap_url_count: sitemapUrlCount,
-    expected_url_count: expectedTotal,
-    mismatch,
-    sitemap_error: sitemapError || null,
-    breakdown: {
-      static_pages: staticPages,
-      observations: obsCount || 0,
-      meditations: medCount || 0,
-      foundations: foundCount || 0,
-      door_pages: doorCount || 0,
-      albums: albumCount || 0,
-      songs: songCount || 0,
-      curation_entries: curationCount || 0,
+    index: {
+      url: indexUrl,
+      status: indexCheck.status,
+      sub_sitemap_count: indexEntries,
+      expected_sub_sitemap_count: SUB_SITEMAPS.length,
+      error: indexCheck.error,
+      last_built: now,
+    },
+    sub_sitemaps: subs,
+    totals: {
+      url_count: totalUrls,
+      expected_count: totalExpected,
+      any_mismatch: anyMismatch,
     },
   });
 }

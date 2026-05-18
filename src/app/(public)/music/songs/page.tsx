@@ -1,5 +1,6 @@
 import { createPublicClient } from "@/lib/supabase-server";
 import { SongsExplorer } from "@/components/SongsExplorer";
+import { getSingleSongIds } from "@/lib/song-singles";
 
 export const revalidate = 60;
 
@@ -50,7 +51,7 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
 
   const { data: songs } = await supabase
     .from("songs")
-    .select("id, title, slug, status, is_single, release_date, created_at, art_image_path, art_alt, card_focal_x, card_focal_y, card_zoom, song_summary, citation_summary, focus_keyphrase, secondary_keyphrases, paa_pairs, entity_tags")
+    .select("id, title, slug, status, release_date, created_at, art_image_path, art_alt, card_focal_x, card_focal_y, card_zoom, song_summary, citation_summary, focus_keyphrase, secondary_keyphrases, paa_pairs, entity_tags")
     .in("status", ["unreleased", "published"]);
 
   if (!songs || songs.length === 0) {
@@ -59,22 +60,27 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
 
   const songIds = songs.map((s) => s.id);
 
-  const [junctionsRes, topicLinksRes, allTopicsRes] = await Promise.all([
+  const [junctionsRes, topicLinksRes, allTopicsRes, singleIdsSet] = await Promise.all([
     supabase
-      .from("album_songs")
-      .select("song_id, album:albums(title, slug, status, cover_art_path, cover_art_alt)")
+      .from("release_songs")
+      .select("song_id, release:releases(title, slug, status, cover_art_path, cover_art_alt, release_type)")
       .in("song_id", songIds),
     supabase
       .from("song_topics")
       .select("song_id, topic:topics(id, label, slug)")
       .in("song_id", songIds),
     supabase.from("topics").select("id, label, slug").order("label"),
+    getSingleSongIds(supabase),
   ]);
 
+  // Prefer album-type releases over single-type when assigning the "album"
+  // reference shown in the explorer. A song's own single release shouldn't
+  // be surfaced as its album.
   const albumBySong: Record<string, AlbumRef | null> = {};
   for (const j of junctionsRes.data || []) {
-    const alb = Array.isArray((j as any).album) ? (j as any).album[0] : (j as any).album;
-    if (alb && !albumBySong[(j as any).song_id]) {
+    const alb = Array.isArray((j as any).release) ? (j as any).release[0] : (j as any).release;
+    if (!alb || alb.release_type === "single") continue;
+    if (!albumBySong[(j as any).song_id]) {
       albumBySong[(j as any).song_id] = {
         title: alb.title,
         slug: alb.slug,
@@ -101,7 +107,7 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
     title: s.title,
     slug: s.slug,
     status: s.status,
-    is_single: !!s.is_single,
+    is_single: singleIdsSet.has(s.id),
     release_date: s.release_date,
     created_at: s.created_at,
     art_image_path: s.art_image_path,

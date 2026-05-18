@@ -8,7 +8,7 @@ import { createBrowserClient } from "@/lib/supabase-browser";
 interface DownloadItem {
   purchase_id: string;
   order_id: string | null;
-  item_type: "song" | "album" | "ringtone";
+  item_type: "song" | "release" | "ringtone";
   title: string;
   slug: string | null;
   cover_art_path: string | null;

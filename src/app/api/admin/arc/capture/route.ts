@@ -130,7 +130,7 @@ async function captureEra(supabase: Sb, p: Record<string, unknown>) {
     kind,
     date_start,
     date_end: optDate(p, "date_end"),
-    album_id: optStr(p, "album_id"),
+    release_id: optStr(p, "release_id"),
     body_md,
     body_html: body_md ? await markdownToHtml(body_md) : "",
     display_order: typeof p.display_order === "number" ? p.display_order : 0,

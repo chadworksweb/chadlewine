@@ -19,6 +19,25 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.printify.com" },
     ],
   },
+  async redirects() {
+    // Pattern-based 301s for the albums -> releases entity rename. The
+    // DB-backed redirects table handles per-row slug changes; these handle
+    // the URL shape change itself for every album/release that ever existed.
+    // Lyrics URLs (/lyrics/:slug/:track) are unchanged — only the route param
+    // name was renamed (albumSlug -> releaseSlug), the on-disk URL is identical.
+    return [
+      {
+        source: "/music/albums/:slug",
+        destination: "/music/releases/:slug",
+        permanent: true,
+      },
+      {
+        source: "/admin/music/albums/:path*",
+        destination: "/admin/music/releases/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

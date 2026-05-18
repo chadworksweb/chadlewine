@@ -73,15 +73,15 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
   const heroRows = (rows || []) as HeroRow[];
   if (heroRows.length === 0) return [];
 
-  const idsByType: Record<HeroKind, string[]> = { song: [], album: [], merch: [], observation: [], art: [] };
+  const idsByType: Record<HeroKind, string[]> = { song: [], release: [], merch: [], observation: [], art: [] };
   for (const r of heroRows) idsByType[r.entity_type].push(r.entity_id);
 
   const [songsRes, albumsRes, productsRes, observationsRes, artRes] = await Promise.all([
     idsByType.song.length
       ? supabase.from("songs").select("id, slug, title, art_image_path, art_alt, hero_focal_x, hero_focal_y, hero_zoom, release_date").in("id", idsByType.song)
       : Promise.resolve({ data: [] }),
-    idsByType.album.length
-      ? supabase.from("albums").select("id, slug, title, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom").in("id", idsByType.album)
+    idsByType.release.length
+      ? supabase.from("releases").select("id, slug, title, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom").in("id", idsByType.release)
       : Promise.resolve({ data: [] }),
     idsByType.merch.length
       ? supabase.from("products").select("id, slug, title, image_url, image_alt").in("id", idsByType.merch)
@@ -108,11 +108,11 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
   const albumBySong: Record<string, AlbumFallback> = {};
   if (songsNeedingFallback.length > 0) {
     const { data: junctions } = await supabase
-      .from("album_songs")
-      .select("song_id, album:albums(cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom)")
+      .from("release_songs")
+      .select("song_id, release:releases(cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom)")
       .in("song_id", songsNeedingFallback);
-    for (const j of (junctions || []) as Array<{ song_id: string; album: AlbumFallback | AlbumFallback[] | null }>) {
-      const alb = Array.isArray(j.album) ? j.album[0] : j.album;
+    for (const j of (junctions || []) as Array<{ song_id: string; release: AlbumFallback | AlbumFallback[] | null }>) {
+      const alb = Array.isArray(j.release) ? j.release[0] : j.release;
       if (alb && !albumBySong[j.song_id]) albumBySong[j.song_id] = alb;
     }
   }
@@ -140,7 +140,7 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
         zoom: fz != null && fz >= 1 ? fz : 1,
         kind: "song",
       });
-    } else if (r.entity_type === "album") {
+    } else if (r.entity_type === "release") {
       const a = albumMap.get(r.entity_id);
       if (!a) continue;
       items.push({
@@ -149,12 +149,12 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
         date: null,
         artImagePath: a.cover_art_path || "",
         artAlt: a.cover_art_alt || a.title,
-        href: `/music/albums/${a.slug}`,
+        href: `/music/releases/${a.slug}`,
         ctaLabel: "Open Album →",
         focalX: a.hero_focal_x != null ? a.hero_focal_x / 100 : 0.5,
         focalY: a.hero_focal_y != null ? a.hero_focal_y / 100 : 0.5,
         zoom: a.hero_zoom != null && a.hero_zoom >= 1 ? a.hero_zoom : 1,
-        kind: "album",
+        kind: "release",
       });
     } else if (r.entity_type === "merch") {
       const p = productMap.get(r.entity_id);

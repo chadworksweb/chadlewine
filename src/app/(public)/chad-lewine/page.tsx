@@ -27,7 +27,7 @@ async function getArcData(): Promise<ArcInitialData> {
       .select("id, slug, title, release_date, write_date, song_state, status, instrumental, rc_charge, rc_tier")
       .in("status", ["published", "unreleased"]),
     supabase
-      .from("albums")
+      .from("releases")
       .select("id, slug, title, release_date")
       .in("status", ["published", "draft"]),
     supabase

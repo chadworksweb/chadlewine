@@ -41,7 +41,7 @@ const adminNav: NavItem[] = [
     label: "Music",
     children: [
       { href: "/admin/music", label: "Overview" },
-      { href: "/admin/music/albums", label: "Albums" },
+      { href: "/admin/music/releases", label: "Releases" },
       { href: "/admin/music/songs", label: "Songs" },
       { href: "/admin/music/analytics/plays", label: "Song Plays" },
       { href: "/admin/curation", label: "Curation — Entries" },

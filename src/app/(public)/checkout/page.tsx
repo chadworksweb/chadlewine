@@ -6,10 +6,12 @@ import Link from "next/link";
 const CART_KEY = "chadlewine_cart";
 
 type CartItem = {
-  type: "song" | "album" | "ringtone" | "merch" | "art_original";
+  type: "song" | "release" | "ringtone" | "merch" | "art_original";
   id: string;
   format?: "mp3" | "flac" | "wav" | null;
   product_config?: Record<string, unknown> | null;
+  sku_id?: string | null;
+  sku_variant_id?: string | null;
 };
 
 // Lightweight resume-checkout page. Used as the `next=` target after a
@@ -48,6 +50,8 @@ export default function CheckoutResumePage() {
               id: i.id,
               format: i.format,
               product_config: i.product_config ?? null,
+              sku_id: i.sku_id ?? null,
+              sku_variant_id: i.sku_variant_id ?? null,
             })),
             marketing_opt_in: true,
           }),

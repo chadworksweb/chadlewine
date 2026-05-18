@@ -8,10 +8,15 @@ type Format = "mp3" | "flac" | "wav";
 const FORMATS: Format[] = ["mp3", "flac", "wav"];
 
 type CartLineInput = {
-  type: "song" | "album" | "ringtone" | "merch" | "art_original";
+  type: "song" | "release" | "ringtone" | "merch" | "art_original";
   id: string;
   format?: string | null;
   product_config?: Record<string, unknown> | null;
+  // SKU layer: when set, server resolves price + downloads from release_skus
+  // / song_skus rather than the legacy songs.price / songs.download_path_*
+  // fallback (legacy releases columns are GONE).
+  sku_id?: string | null;
+  sku_variant_id?: string | null;
 };
 
 // Curated blueprints — server-authoritative price/title for configurator-style
@@ -25,25 +30,25 @@ function isConfigurator(config: Record<string, unknown> | null | undefined): boo
   return !!config && typeof config.blueprint_id === "number" && typeof config.tier === "string";
 }
 
+const FORMAT_LABEL: Record<string, string> = {
+  digital: "Digital",
+  vinyl: "Vinyl",
+  cd: "CD",
+  cassette: "Cassette",
+};
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const items = body?.items as CartLineInput[] | undefined;
-  // Customer consent for marketing emails. Disclaimer above the
-  // checkout button is the visible consent record; this flag is the
-  // structured payload the Stripe webhook reads to set audience
-  // marketing_opt_in_at.
   const marketingOptIn = body?.marketing_opt_in === true;
-  // Buyer toggled "Apply my 20% member coupon" in the cart drawer. The
-  // discount rule ("20% off all music in cart OR 20% off the most expensive
-  // merch line, whichever is larger") is computed below; we then create an
-  // ad-hoc Stripe Coupon for that exact dollar amount and attach it to the
-  // Checkout Session.
   const applyCoupon = body?.apply_coupon === true;
 
   if (!Array.isArray(items) || items.length === 0) {
     return Response.json({ error: "items required" }, { status: 400 });
   }
-  if (items.length > 25) {
+  // Tighter cap than before: SKU UUIDs nearly double the per-line metadata
+  // payload, and Stripe metadata is capped at 500 chars per key.
+  if (items.length > 15) {
     return Response.json({ error: "Cart too large" }, { status: 400 });
   }
 
@@ -51,8 +56,10 @@ export async function POST(request: Request) {
   const origin = request.headers.get("origin") || "https://chadlewine.com";
 
   type ResolvedLine = {
-    type: "song" | "album" | "ringtone" | "merch" | "art_original";
+    type: "song" | "release" | "ringtone" | "merch" | "art_original";
     item_id: string | null;
+    sku_id: string | null;
+    sku_variant_id: string | null;
     format: Format | null;
     title: string;
     description?: string;
@@ -67,14 +74,14 @@ export async function POST(request: Request) {
   for (const raw of items) {
     if (
       !raw ||
-      !["song", "album", "ringtone", "merch", "art_original"].includes(raw.type)
+      !["song", "release", "ringtone", "merch", "art_original"].includes(raw.type)
     ) {
       return Response.json({ error: "Invalid cart item" }, { status: 400 });
     }
     if (raw.type !== "merch" && !raw.id) {
       return Response.json({ error: "Invalid cart item" }, { status: 400 });
     }
-    const dedupeKey = `${raw.type}:${raw.id}:${raw.format ?? "na"}:${
+    const dedupeKey = `${raw.type}:${raw.id}:${raw.format ?? "na"}:${raw.sku_id ?? "na"}:${raw.sku_variant_id ?? "na"}:${
       raw.product_config ? JSON.stringify(raw.product_config) : "na"
     }`;
     if (seen.has(dedupeKey)) continue;
@@ -95,8 +102,8 @@ export async function POST(request: Request) {
       }
 
       const { data: assoc } = await supabase
-        .from("album_songs")
-        .select("album:albums(cover_art_path)")
+        .from("release_songs")
+        .select("release:releases(cover_art_path)")
         .eq("song_id", raw.id)
         .single();
       const album = (assoc as { album?: { cover_art_path?: string | null } } | null)?.album;
@@ -104,6 +111,8 @@ export async function POST(request: Request) {
       resolved.push({
         type: "ringtone",
         item_id: song.id,
+        sku_id: null,
+        sku_variant_id: null,
         format: null,
         title: `${song.title} — Ringtone`,
         description: "Ringtone · iPhone (M4R) + Android (MP3)",
@@ -111,9 +120,90 @@ export async function POST(request: Request) {
         cover_art_url: album?.cover_art_path || undefined,
       });
     } else if (raw.type === "song") {
+      // SKU-priced path: look up song_skus + optional sku_variants and use
+      // their price as the server-authoritative line price.
+      if (raw.sku_id) {
+        const { data: sku } = await supabase
+          .from("song_skus")
+          .select("id, song_id, format, price, status, stock, download_path_mp3, download_path_flac, download_path_wav")
+          .eq("id", raw.sku_id)
+          .maybeSingle();
+        if (!sku || sku.song_id !== raw.id) {
+          return Response.json({ error: "SKU not found" }, { status: 404 });
+        }
+        if (!["available", "preorder"].includes(sku.status)) {
+          return Response.json({ error: "Sold out" }, { status: 400 });
+        }
+
+        let variant: { id: string; label: string; price_delta: number; status: string; stock: number | null } | null = null;
+        if (raw.sku_variant_id) {
+          const { data: v } = await supabase
+            .from("sku_variants")
+            .select("id, song_sku_id, label, price_delta, status, stock")
+            .eq("id", raw.sku_variant_id)
+            .maybeSingle();
+          if (!v || v.song_sku_id !== sku.id) {
+            return Response.json({ error: "Variant not found" }, { status: 404 });
+          }
+          if (!["available", "preorder"].includes(v.status)) {
+            return Response.json({ error: "Sold out" }, { status: 400 });
+          }
+          variant = { id: v.id, label: v.label, price_delta: Number(v.price_delta), status: v.status, stock: v.stock };
+        }
+
+        // Physical SKUs (or variants) — check stock now. Authoritative
+        // decrement happens in the webhook after Stripe confirms payment.
+        if (sku.format !== "digital") {
+          const effStock = variant ? variant.stock : sku.stock;
+          if (effStock !== null && effStock <= 0) {
+            return Response.json({ error: "Sold out" }, { status: 400 });
+          }
+        }
+
+        const linePrice = sku.price === null ? null : Number(sku.price) + (variant?.price_delta ?? 0);
+        if (linePrice === null) {
+          return Response.json({ error: "Pricing unavailable" }, { status: 400 });
+        }
+
+        const { data: songRow } = await supabase
+          .from("songs")
+          .select("title, art_image_path")
+          .eq("id", raw.id)
+          .single();
+        const songTitle = songRow?.title || "Song";
+
+        const { data: assoc } = await supabase
+          .from("release_songs")
+          .select("release:releases(title, cover_art_path)")
+          .eq("song_id", raw.id)
+          .single();
+        const album = (assoc as { album?: { title?: string; cover_art_path?: string | null } } | null)?.album;
+
+        const labelParts = [FORMAT_LABEL[sku.format] || sku.format];
+        if (variant?.label) labelParts.push(variant.label);
+        const desc = album?.title
+          ? `${labelParts.join(" · ")} · from ${album.title}`
+          : labelParts.join(" · ");
+
+        resolved.push({
+          type: "song",
+          item_id: raw.id,
+          sku_id: sku.id,
+          sku_variant_id: variant?.id ?? null,
+          format: null,
+          title: songTitle,
+          description: desc,
+          price: linePrice,
+          cover_art_url: songRow?.art_image_path || album?.cover_art_path || undefined,
+        });
+        continue;
+      }
+
+      // Legacy fallback: songs.price + songs.download_path_* are still
+      // present for backward compatibility.
       const { data: song } = await supabase
         .from("songs")
-        .select("id, title, slug, price, download_path_mp3, download_path_flac, download_path_wav, download_path")
+        .select("id, title, slug, price, download_path_mp3, download_path_flac, download_path_wav, download_path, art_image_path")
         .eq("id", raw.id)
         .single();
       if (!song) return Response.json({ error: "Song not found" }, { status: 404 });
@@ -131,8 +221,8 @@ export async function POST(request: Request) {
       }
 
       const { data: assoc } = await supabase
-        .from("album_songs")
-        .select("album:albums(title, cover_art_path)")
+        .from("release_songs")
+        .select("release:releases(title, cover_art_path)")
         .eq("song_id", raw.id)
         .single();
       const album = (assoc as { album?: { title?: string; cover_art_path?: string | null } } | null)?.album;
@@ -147,41 +237,82 @@ export async function POST(request: Request) {
       resolved.push({
         type: "song",
         item_id: song.id,
+        sku_id: null,
+        sku_variant_id: null,
         format: null,
         title: song.title,
         description: desc,
         price: song.price,
-        cover_art_url: album?.cover_art_path || undefined,
+        cover_art_url: song.art_image_path || album?.cover_art_path || undefined,
       });
-    } else if (raw.type === "album") {
-      const { data: album } = await supabase
-        .from("albums")
-        .select("id, title, slug, cover_art_path, price, download_path_mp3, download_path_flac, download_path_wav")
-        .eq("id", raw.id)
-        .single();
-      if (!album) return Response.json({ error: "Album not found" }, { status: 404 });
-      if (!album.price) return Response.json({ error: `Album "${album.title}" has no price set` }, { status: 400 });
+    } else if (raw.type === "release") {
+      // Releases no longer carry price/download columns. SKU is required.
+      if (!raw.sku_id) {
+        return Response.json(
+          { error: "Release pricing has changed — please re-add this item to your cart." },
+          { status: 400 },
+        );
+      }
 
-      const hasAny =
-        album.download_path_mp3 || album.download_path_flac || album.download_path_wav;
-      if (!hasAny) {
-        const { count } = await supabase
-          .from("album_songs")
-          .select("songs!inner(download_path)", { count: "exact", head: true })
-          .eq("album_id", album.id)
-          .not("songs.download_path", "is", null);
-        if (!count) {
-          return Response.json({ error: `Album "${album.title}" has no download available` }, { status: 400 });
+      const { data: sku } = await supabase
+        .from("release_skus")
+        .select("id, release_id, format, price, status, stock, download_path_mp3, download_path_flac, download_path_wav")
+        .eq("id", raw.sku_id)
+        .maybeSingle();
+      if (!sku || sku.release_id !== raw.id) {
+        return Response.json({ error: "SKU not found" }, { status: 404 });
+      }
+      if (!["available", "preorder"].includes(sku.status)) {
+        return Response.json({ error: "Sold out" }, { status: 400 });
+      }
+
+      let variant: { id: string; label: string; price_delta: number; status: string; stock: number | null } | null = null;
+      if (raw.sku_variant_id) {
+        const { data: v } = await supabase
+          .from("sku_variants")
+          .select("id, release_sku_id, label, price_delta, status, stock")
+          .eq("id", raw.sku_variant_id)
+          .maybeSingle();
+        if (!v || v.release_sku_id !== sku.id) {
+          return Response.json({ error: "Variant not found" }, { status: 404 });
+        }
+        if (!["available", "preorder"].includes(v.status)) {
+          return Response.json({ error: "Sold out" }, { status: 400 });
+        }
+        variant = { id: v.id, label: v.label, price_delta: Number(v.price_delta), status: v.status, stock: v.stock };
+      }
+
+      if (sku.format !== "digital") {
+        const effStock = variant ? variant.stock : sku.stock;
+        if (effStock !== null && effStock <= 0) {
+          return Response.json({ error: "Sold out" }, { status: 400 });
         }
       }
 
+      const linePrice = sku.price === null ? null : Number(sku.price) + (variant?.price_delta ?? 0);
+      if (linePrice === null) {
+        return Response.json({ error: "Pricing unavailable" }, { status: 400 });
+      }
+
+      const { data: album } = await supabase
+        .from("releases")
+        .select("id, title, slug, cover_art_path")
+        .eq("id", raw.id)
+        .single();
+      if (!album) return Response.json({ error: "Album not found" }, { status: 404 });
+
+      const labelParts = [FORMAT_LABEL[sku.format] || sku.format];
+      if (variant?.label) labelParts.push(variant.label);
+
       resolved.push({
-        type: "album",
+        type: "release",
         item_id: album.id,
+        sku_id: sku.id,
+        sku_variant_id: variant?.id ?? null,
         format: null,
         title: album.title,
-        description: "Album download · MP3 / FLAC / WAV",
-        price: album.price,
+        description: labelParts.join(" · "),
+        price: linePrice,
         cover_art_url: album.cover_art_path || undefined,
       });
     } else if (raw.type === "merch" && isConfigurator(raw.product_config)) {
@@ -195,7 +326,6 @@ export async function POST(request: Request) {
       const tierLabel =
         cfg.tier === "art" ? "The Art" : cfg.tier === "line" ? "The Line" : "The Fusion";
 
-      // Resolve source title server-side so the cart can't lie about it.
       let sourceTitle: string | null = null;
       let coverArt: string | null = null;
       if (cfg.source_type === "song" && cfg.source_id) {
@@ -222,6 +352,8 @@ export async function POST(request: Request) {
       resolved.push({
         type: "merch",
         item_id: null,
+        sku_id: null,
+        sku_variant_id: null,
         format: null,
         title,
         description: desc,
@@ -230,7 +362,6 @@ export async function POST(request: Request) {
         product_config: cfg,
       });
     } else if (raw.type === "merch" || raw.type === "art_original") {
-      // Existing product row (print, mural, original, or Printify-curated).
       if (!raw.id) {
         return Response.json({ error: "Invalid cart item" }, { status: 400 });
       }
@@ -248,9 +379,6 @@ export async function POST(request: Request) {
 
       const isOriginal = product.variant_type === "original";
 
-      // Curated merch with sized variants — caller must pass variant_id;
-      // we look up that variant on the product row and use its price as the
-      // server-authoritative line price.
       const productVariants = Array.isArray(product.variants) ? product.variants : [];
       let chosenVariant: { id: number; size: string | null; color: string | null; price_cents: number; title: string } | null = null;
       if (raw.type === "merch" && product.fulfillment === "printify_curated" && productVariants.length > 0) {
@@ -280,6 +408,8 @@ export async function POST(request: Request) {
       resolved.push({
         type: isOriginal ? "art_original" : "merch",
         item_id: product.id,
+        sku_id: null,
+        sku_variant_id: null,
         format: null,
         title: product.title,
         description: desc,
@@ -297,6 +427,8 @@ export async function POST(request: Request) {
   }
 
   // Compact metadata payload — Stripe metadata caps at 500 chars per key.
+  // When a SKU is resolved (sk present), the webhook uses sk to look up the
+  // release_id / song_id (parent), so i is dropped from those lines.
   // Configurator merch lines reference an external cfg_<idx> key for their
   // full product_config; everything else fits inline.
   const cfgKeys: Record<string, string> = {};
@@ -304,23 +436,31 @@ export async function POST(request: Request) {
     const t =
       r.type === "song"
         ? "s"
-        : r.type === "album"
+        : r.type === "release"
           ? "a"
           : r.type === "ringtone"
             ? "r"
             : r.type === "art_original"
               ? "o"
               : "m";
-    const line: { t: string; i: string | null; f?: Format | null; c?: number } = {
-      t,
-      i: r.item_id,
-    };
+    const line: {
+      t: string;
+      i?: string | null;
+      sk?: string;
+      v?: string;
+      f?: Format | null;
+      c?: number;
+    } = { t };
+    if (r.sku_id) {
+      line.sk = r.sku_id;
+      if (r.sku_variant_id) line.v = r.sku_variant_id;
+    } else {
+      line.i = r.item_id;
+    }
     if (r.format) line.f = r.format;
     if (r.product_config) {
       cfgKeys[`cfg_${idx}`] = JSON.stringify(r.product_config);
       if (cfgKeys[`cfg_${idx}`].length > 480) {
-        // Stripe metadata limit; should never happen for our curated configs.
-        // Fail loudly so we catch it in dev rather than silently dropping data.
         throw new Error(`Configurator product config exceeds Stripe metadata limit (line ${idx})`);
       }
       line.c = idx;
@@ -330,7 +470,10 @@ export async function POST(request: Request) {
   const metaJson = JSON.stringify(metaItems);
   if (metaJson.length > 500) {
     return Response.json(
-      { error: "Cart too large to checkout — please remove a few items" },
+      {
+        error:
+          "Cart too large to checkout — please remove a few items and try again.",
+      },
       { status: 400 },
     );
   }
@@ -339,19 +482,14 @@ export async function POST(request: Request) {
     (r) => r.type === "merch" || r.type === "art_original",
   );
   const hasDigital = resolved.some(
-    (r) => r.type === "song" || r.type === "album" || r.type === "ringtone",
+    (r) => r.type === "song" || r.type === "release" || r.type === "ringtone",
   );
 
-  // Physical-only carts still get the merch-flavored thank-you (production
-   // lead-time copy). Everything else lands on the universal root /thank-you,
-   // which carries the member coupon offer + explore grid embellishment.
   const successPath =
     hasPhysical && !hasDigital
       ? "/merch/thank-you"
       : "/thank-you";
 
-  // Resolve the signed-in buyer once. We use this for Stripe Customer
-  // prefill AND for the member-coupon apply path.
   let prefillCustomerId: string | undefined;
   let prefillEmail: string | undefined;
   let audienceId: string | null = null;
@@ -386,10 +524,6 @@ export async function POST(request: Request) {
     // Non-fatal — proceed with anonymous checkout.
   }
 
-  // Member-coupon apply path. Rule: 20% off all music in cart OR 20% off
-  // the most expensive merch line, whichever is larger. We create an
-  // ad-hoc Stripe Coupon for that exact amount_off and attach it to the
-  // session; the webhook marks redemption by session.metadata.member_coupon_id.
   let discountCouponId: string | undefined;
   const couponMetadata: Record<string, string> = {};
   if (applyCoupon) {
@@ -419,7 +553,7 @@ export async function POST(request: Request) {
 
     const pct = (member_coupon.percent_off || 20) / 100;
     const musicTotal = resolved
-      .filter((r) => r.type === "song" || r.type === "album" || r.type === "ringtone")
+      .filter((r) => r.type === "song" || r.type === "release" || r.type === "ringtone")
       .reduce((s, r) => s + r.price, 0);
     const merchPrices = resolved
       .filter((r) => r.type === "merch" || r.type === "art_original")
@@ -482,9 +616,6 @@ export async function POST(request: Request) {
   try {
     session = await createCartCheckoutSession(sessionParams);
   } catch (e) {
-    // Live-mode customer ids don't exist in test-mode Stripe (and vice
-    // versa). If Stripe rejects the prefilled customer as missing, fall
-    // back to email prefill and let Stripe create a fresh Customer.
     const err = e as { code?: string; param?: string };
     if (
       sessionParams.customer &&

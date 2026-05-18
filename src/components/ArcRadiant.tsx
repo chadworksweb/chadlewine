@@ -18,7 +18,7 @@ export type ArcSong = {
   rc_tier: string | null;
 };
 
-export type ArcAlbum = {
+export type ArcRelease = {
   id: string;
   slug: string;
   title: string;
@@ -45,7 +45,7 @@ export type ArcLifeEvent = {
 
 export type ArcInitialData = {
   songs: ArcSong[];
-  albums: ArcAlbum[];
+  albums: ArcRelease[];
   eras: ArcEra[];
   lifeEvents: ArcLifeEvent[];
   yearRange: [number, number];
@@ -53,7 +53,7 @@ export type ArcInitialData = {
 
 type SelectedItem =
   | { type: "song"; data: ArcSong }
-  | { type: "album"; data: ArcAlbum }
+  | { type: "release"; data: ArcRelease }
   | { type: "event"; data: ArcLifeEvent }
   | null;
 
@@ -441,7 +441,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
             {layers.music && (() => {
               const items = data.albums
                 .map((a, i) => ({ a, i, x: dateToX(a.release_date) }))
-                .filter((e): e is { a: ArcAlbum; i: number; x: number } => e.x != null)
+                .filter((e): e is { a: ArcRelease; i: number; x: number } => e.x != null)
                 .sort((a, b) => a.x - b.x);
               const visibleLabels = pickVisibleLabels(items.map(({ a, x }) => ({
                 id: a.id, date: a.release_date, x,
@@ -449,14 +449,14 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               return items.map(({ a, i, x }) => {
                 const branchHeight = clamp(ALBUM_HEIGHT_PATTERN[i % ALBUM_HEIGHT_PATTERN.length]);
                 const showLabel = zoomLevel >= 2 && visibleLabels.has(a.id);
-                const isSelected = selectedItem?.type === "album" && selectedItem.data.id === a.id;
+                const isSelected = selectedItem?.type === "release" && selectedItem.data.id === a.id;
                 return (
                   <button
                     key={a.id}
                     type="button"
                     className={`arc-radiant__branch arc-radiant__branch--album${isSelected ? " is-selected" : ""}`}
                     style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
-                    onClick={() => setSelectedItem({ type: "album", data: a })}
+                    onClick={() => setSelectedItem({ type: "release", data: a })}
                     onPointerEnter={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
                     onPointerMove={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
                     onPointerLeave={() => setHover(null)}
@@ -518,8 +518,8 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
         {selectedItem ? (
           selectedItem.type === "song" ? (
             <SongDetail song={selectedItem.data} onClose={() => setSelectedItem(null)} />
-          ) : selectedItem.type === "album" ? (
-            <AlbumDetail album={selectedItem.data} onClose={() => setSelectedItem(null)} />
+          ) : selectedItem.type === "release" ? (
+            <ReleaseDetail album={selectedItem.data} onClose={() => setSelectedItem(null)} />
           ) : (
             <EventDetail event={selectedItem.data} onClose={() => setSelectedItem(null)} />
           )
@@ -554,7 +554,7 @@ function SongDetail({ song, onClose }: { song: ArcSong; onClose: () => void }) {
   );
 }
 
-function AlbumDetail({ album, onClose }: { album: ArcAlbum; onClose: () => void }) {
+function ReleaseDetail({ album, onClose }: { album: ArcRelease; onClose: () => void }) {
   return (
     <div className="arc-radiant__detail">
       <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
@@ -563,7 +563,7 @@ function AlbumDetail({ album, onClose }: { album: ArcAlbum; onClose: () => void 
         {album.release_date && <span>{album.release_date}</span>}
       </div>
       <h3 className="arc-radiant__detail-title">{album.title}</h3>
-      <Link href={`/music/albums/${album.slug}`} className="arc-radiant__detail-cta">
+      <Link href={`/music/releases/${album.slug}`} className="arc-radiant__detail-cta">
         Open album page →
       </Link>
     </div>

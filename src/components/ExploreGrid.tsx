@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MerchRippleCanvas, type MerchRippleCanvasHandle } from "./MerchRippleCanvas";
 
-export type ExploreKind = "song" | "album" | "merch" | "art" | "observation";
+export type ExploreKind = "song" | "release" | "merch" | "art" | "observation";
 
 export interface ExploreGridItem {
   key: string;

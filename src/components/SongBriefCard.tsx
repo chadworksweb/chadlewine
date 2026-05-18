@@ -32,7 +32,7 @@ export function SongBriefCard({ song }: { song: SongBriefData }) {
         <div className="song-brief-card__heading-text">
           <h3 className="song-brief-card__title">{song.title}</h3>
           {song.album && (
-            <Link href={`/music/albums/${song.album.slug}`} className="song-brief-card__album">
+            <Link href={`/music/releases/${song.album.slug}`} className="song-brief-card__album">
               {song.album.title}
             </Link>
           )}

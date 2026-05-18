@@ -22,12 +22,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // the Nodes manager can't drift from album data.
   const { data: existing } = await supabase
     .from("eras")
-    .select("id, kind, slug, album_id")
+    .select("id, kind, slug, release_id")
     .eq("id", id)
     .single();
   if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
   if (existing.kind === "release") {
-    return Response.json({ error: "Release eras are owned by the album record. Edit at /admin/music/albums." }, { status: 403 });
+    return Response.json({ error: "Release eras are owned by the album record. Edit at /admin/music/releases." }, { status: 403 });
   }
 
   const update: Record<string, unknown> = {};

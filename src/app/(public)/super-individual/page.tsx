@@ -4,7 +4,7 @@ import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { SuperIndividualMerchCarousel, type CarouselProduct } from "@/components/SuperIndividualMerchCarousel";
 import { MerchProductCard } from "@/components/MerchProductCard";
-import { AlbumHero, type AlbumHeroItem } from "@/components/AlbumHero";
+import { ReleaseHero, type ReleaseHeroItem } from "@/components/ReleaseHero";
 import { DiscographyCubeRadiant, type DiscographyCubeFace } from "@/components/DiscographyCubeRadiant";
 import { CompassCard } from "@/components/CompassCard";
 import { RCTop10Card } from "@/components/RCTop10Card";
@@ -12,6 +12,9 @@ import { MiniLyricalCharger } from "@/components/MiniLyricalCharger";
 import { SuperIndividualPopupSection } from "@/components/SuperIndividualPopup";
 import { SuperIndividualFloatingTag } from "@/components/SuperIndividualFloatingTag";
 import { FrutigerMiniPlayer } from "@/components/FrutigerMiniPlayer";
+import { releaseTypeLabel, releaseFormatLabel } from "@/lib/release-labels";
+import { getSingleSongIds } from "@/lib/song-singles";
+import { fetchReleaseSkusForIds } from "@/lib/release-skus";
 
 export const revalidate = 60;
 
@@ -73,20 +76,16 @@ interface AlbumRow {
   card_focal_x: number | null;
   card_focal_y: number | null;
   card_zoom: number | null;
-  release_formats: { label: string } | null;
+  release_type: string | null;
 }
 
 // Raw shape as Supabase returns it: foreign-key joins come back as arrays
 // (or a single object) depending on cardinality. We normalize before use.
 type Joined<T> = T | T[] | null;
 
-interface AlbumRowRaw extends Omit<AlbumRow, "release_formats"> {
-  release_formats: Joined<{ label: string }>;
-}
-
 interface AlbumJunctionRaw {
   song_id: string;
-  album: Joined<{ cover_art_path: string | null; cover_art_alt: string | null }>;
+  release: Joined<{ cover_art_path: string | null; cover_art_alt: string | null; release_type?: string | null }>;
 }
 
 function firstOrNull<T>(value: Joined<T> | undefined): T | null {
@@ -101,7 +100,6 @@ interface SongRow {
   release_date: string | null;
   art_image_path: string | null;
   art_alt: string | null;
-  is_single: boolean | null;
   card_focal_x: number | null;
   card_focal_y: number | null;
   card_zoom: number | null;
@@ -166,33 +164,53 @@ async function fetchSuperIndividualMerch(): Promise<CarouselProduct[]> {
   return ordered;
 }
 
-async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems: DiscoItem[] }> {
+async function fetchReleases(): Promise<{ heroItems: ReleaseHeroItem[]; discoItems: DiscoItem[] }> {
   const supabase = createPublicClient();
+
+  const singleIdsSet = await getSingleSongIds(supabase);
+  const singleIdsList = [...singleIdsSet];
 
   const [albumsRes, singlesRes] = await Promise.all([
     supabase
-      .from("albums")
+      .from("releases")
       .select(
-        "id, title, slug, release_date, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, release_formats(label)"
+        "id, title, slug, release_date, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, release_type"
       )
       .eq("status", "published")
       .order("release_date", { ascending: false }),
-    supabase
-      .from("songs")
-      .select(
-        "id, title, slug, release_date, art_image_path, art_alt, is_single, card_focal_x, card_focal_y, card_zoom, streaming_path, duration_seconds"
-      )
-      .eq("status", "published")
-      .eq("is_single", true)
-      .order("release_date", { ascending: false }),
+    singleIdsList.length === 0
+      ? Promise.resolve({ data: [] as SongRow[] })
+      : supabase
+          .from("songs")
+          .select(
+            "id, title, slug, release_date, art_image_path, art_alt, card_focal_x, card_focal_y, card_zoom, streaming_path, duration_seconds"
+          )
+          .eq("status", "published")
+          .in("id", singleIdsList)
+          .order("release_date", { ascending: false }),
   ]);
 
-  const albumsRaw = (albumsRes.data || []) as AlbumRowRaw[];
-  const albums: AlbumRow[] = albumsRaw.map(({ release_formats, ...rest }) => ({
-    ...rest,
-    release_formats: firstOrNull(release_formats),
-  }));
+  const albums = (albumsRes.data || []) as AlbumRow[];
   const singles = (singlesRes.data || []) as SongRow[];
+
+  // SKU formats per album for the listing card chip. "Multiple formats" when
+  // more than one SKU format exists; otherwise the single format name.
+  const skusByRelease = await fetchReleaseSkusForIds(
+    supabase,
+    albums.map((a) => a.id),
+  );
+  const skuLabelByRelease = new Map<string, string | null>();
+  for (const a of albums) {
+    const skus = skusByRelease.get(a.id) || [];
+    if (skus.length === 0) {
+      skuLabelByRelease.set(a.id, null);
+      continue;
+    }
+    const labels = Array.from(
+      new Set(skus.map((s) => releaseFormatLabel(s.format)).filter(Boolean)),
+    );
+    skuLabelByRelease.set(a.id, labels.length > 1 ? "Multiple formats" : labels[0] || null);
+  }
 
   const singleIds = singles.map((s) => s.id);
   const albumArtBySong: Record<
@@ -201,11 +219,12 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
   > = {};
   if (singleIds.length > 0) {
     const { data: junctions } = await supabase
-      .from("album_songs")
-      .select("song_id, album:albums(cover_art_path, cover_art_alt)")
+      .from("release_songs")
+      .select("song_id, release:releases(cover_art_path, cover_art_alt, release_type)")
       .in("song_id", singleIds);
     for (const j of (junctions || []) as AlbumJunctionRaw[]) {
-      const alb = firstOrNull(j.album);
+      const alb = firstOrNull(j.release);
+      if (alb?.release_type === "single") continue;
       if (alb?.cover_art_path && !albumArtBySong[j.song_id]) {
         albumArtBySong[j.song_id] = alb;
       }
@@ -239,8 +258,8 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
     }
   }
 
-  // Build AlbumHero coverflow items — albums first, then singles, all in date order.
-  const heroFromAlbums: AlbumHeroItem[] = albums
+  // Build ReleaseHero coverflow items — albums first, then singles, all in date order.
+  const heroFromAlbums: ReleaseHeroItem[] = albums
     .filter((a) => a.cover_art_path)
     .map((a) => ({
       slug: a.slug,
@@ -248,7 +267,7 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
       releaseDate: a.release_date,
       artImagePath: a.cover_art_path || "",
       artAlt: a.cover_art_alt || a.title,
-      href: `/music/albums/${a.slug}`,
+      href: `/music/releases/${a.slug}`,
       ctaLabel: "Open Album →",
       kind: "album" as const,
       focalX: a.card_focal_x != null ? a.card_focal_x / 100 : 0.5,
@@ -256,7 +275,7 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
       zoom: a.card_zoom != null && a.card_zoom >= 1 ? a.card_zoom : 1,
     }));
 
-  const heroFromSingles: AlbumHeroItem[] = singles
+  const heroFromSingles: ReleaseHeroItem[] = singles
     .map((s) => {
       const cover = s.art_image_path || albumArtBySong[s.id]?.cover_art_path || null;
       const alt = s.art_alt || albumArtBySong[s.id]?.cover_art_alt || s.title;
@@ -278,9 +297,9 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
         focalY: s.card_focal_y != null ? s.card_focal_y / 100 : 0.5,
         zoom: s.card_zoom != null && s.card_zoom >= 1 ? s.card_zoom : 1,
         audio,
-      } as AlbumHeroItem;
+      } as ReleaseHeroItem;
     })
-    .filter((x): x is AlbumHeroItem => x !== null);
+    .filter((x): x is ReleaseHeroItem => x !== null);
 
   const heroItems = [...heroFromAlbums, ...heroFromSingles].sort((a, b) => {
     const da = a.releaseDate ? new Date(a.releaseDate).getTime() : 0;
@@ -289,19 +308,23 @@ async function fetchReleases(): Promise<{ heroItems: AlbumHeroItem[]; discoItems
   });
 
   // Build discography items for the cube grid.
-  const discoFromAlbums: DiscoItem[] = albums.map((a) => ({
-    id: a.id,
-    type: "album" as const,
-    title: a.title,
-    href: `/music/albums/${a.slug}`,
-    release_date: a.release_date,
-    format_label: a.release_formats?.label || "Album",
-    cover_art_path: a.cover_art_path,
-    card_focal_x: a.card_focal_x,
-    card_focal_y: a.card_focal_y,
-    card_zoom: a.card_zoom,
-    faces: facesByKey.get(`album:${a.id}`) || [],
-  }));
+  const discoFromAlbums: DiscoItem[] = albums.map((a) => {
+    const skuLabel = skuLabelByRelease.get(a.id) ?? null;
+    const typeLabel = releaseTypeLabel(a.release_type) || "Album";
+    return {
+      id: a.id,
+      type: "album" as const,
+      title: a.title,
+      href: `/music/releases/${a.slug}`,
+      release_date: a.release_date,
+      format_label: [skuLabel, typeLabel].filter(Boolean).join(" ") || typeLabel,
+      cover_art_path: a.cover_art_path,
+      card_focal_x: a.card_focal_x,
+      card_focal_y: a.card_focal_y,
+      card_zoom: a.card_zoom,
+      faces: facesByKey.get(`album:${a.id}`) || [],
+    };
+  });
 
   const discoFromSingles: DiscoItem[] = singles.map((s) => ({
     id: s.id,
@@ -353,15 +376,15 @@ async function fetchFindingFreedom(): Promise<FindingFreedomSong | null> {
   // has no art_image_path set.
   if (!artUrl) {
     const { data: junction } = await supabase
-      .from("album_songs")
-      .select("album:albums(cover_art_path, cover_art_alt)")
-      .eq("song_id", data.id)
-      .limit(1);
-    const first = (junction || [])[0] as { album: Joined<{ cover_art_path: string | null; cover_art_alt: string | null }> } | undefined;
-    const album = firstOrNull(first?.album);
-    if (album?.cover_art_path) {
-      artUrl = album.cover_art_path;
-      artAlt = artAlt || album.cover_art_alt || data.title;
+      .from("release_songs")
+      .select("release:releases(cover_art_path, cover_art_alt, release_type)")
+      .eq("song_id", data.id);
+    const albumRow = (junction || [])
+      .map((row) => firstOrNull((row as { release: Joined<{ cover_art_path: string | null; cover_art_alt: string | null; release_type?: string | null }> }).release))
+      .find((alb) => alb && alb.release_type !== "single" && alb.cover_art_path);
+    if (albumRow?.cover_art_path) {
+      artUrl = albumRow.cover_art_path;
+      artAlt = artAlt || albumRow.cover_art_alt || data.title;
     }
   }
 
@@ -591,7 +614,7 @@ export default async function SuperIndividualPage() {
 
         {heroItems.length > 0 && (
           <div className="si-album-hero">
-            <AlbumHero items={heroItems} />
+            <ReleaseHero items={heroItems} />
           </div>
         )}
 

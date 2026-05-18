@@ -54,7 +54,7 @@ function fmtDollars(n: number): string {
 
 export interface OrderEmailLine {
   title: string;
-  type: "song" | "album" | "ringtone" | "merch" | "art_original";
+  type: "song" | "release" | "ringtone" | "merch" | "art_original";
   quantity: number;
   lineTotal: number;
   variantNote?: string;

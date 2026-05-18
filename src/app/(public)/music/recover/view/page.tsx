@@ -6,7 +6,7 @@ import Link from "next/link";
 
 interface RecoveryItem {
   purchase_id: string;
-  item_type: "song" | "album";
+  item_type: "song" | "release";
   format: "mp3" | "flac" | "wav" | null;
   title: string;
   slug: string | null;
@@ -97,7 +97,7 @@ function RecoverViewContent() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>{it.title}</div>
                 <div style={{ color: "var(--text-tertiary)", fontSize: "var(--text-sm)" }}>
-                  {it.item_type === "album" ? "Album" : "Single"}
+                  {it.item_type === "release" ? "Release" : "Single"}
                   {it.format ? ` · ${it.format.toUpperCase()}` : ""}
                   {" · "}{new Date(it.created_at).toLocaleDateString()}
                 </div>

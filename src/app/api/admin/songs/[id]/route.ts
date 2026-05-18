@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { captureSlugChange } from "@/lib/redirects";
+import { getSingleSongIds } from "@/lib/song-singles";
 
 // Resolve param as UUID or slug
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,22 +19,31 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (error || !song) return Response.json({ error: error?.message || "not found" }, { status: 404 });
   const songId = song.id as string;
 
-  const { data: assoc } = await supabase
-    .from("album_songs")
-    .select("album_id, track_number")
-    .eq("song_id", songId)
-    .maybeSingle();
+  // A song may now appear in two release_songs rows: its album AND its
+  // single-type release. The Song Editor cares about the album link, so
+  // prefer the non-single junction.
+  const { data: assocRows } = await supabase
+    .from("release_songs")
+    .select("release_id, track_number, release:releases(release_type)")
+    .eq("song_id", songId);
+  const assoc = (assocRows || []).find((row: any) => {
+    const rel = Array.isArray(row.release) ? row.release[0] : row.release;
+    return rel?.release_type !== "single";
+  }) || null;
 
   const { data: topicLinks } = await supabase
     .from("song_topics")
     .select("topic_id")
     .eq("song_id", songId);
 
+  const singleIds = await getSingleSongIds(supabase);
+
   return Response.json({
     ...song,
-    album_id: assoc?.album_id || null,
+    release_id: assoc?.release_id || null,
     track_number: assoc?.track_number || null,
     topic_ids: (topicLinks || []).map((t) => t.topic_id),
+    is_single: singleIds.has(songId),
   });
 }
 
@@ -47,7 +57,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!resolved) return Response.json({ error: "Song not found" }, { status: 404 });
   const id = resolved.id;
 
-  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "download_path_mp3", "download_path_flac", "download_path_wav", "ringtone_path_m4r", "ringtone_path_mp3", "ringtone_price", "lyrics", "instrumental", "price", "is_single", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote", "hook_line", "merch_lines", "merch_enabled"];
+  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "download_path_mp3", "download_path_flac", "download_path_wav", "ringtone_path_m4r", "ringtone_path_mp3", "ringtone_price", "lyrics", "instrumental", "price", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote", "hook_line", "merch_lines", "merch_enabled"];
   const updates: Record<string, unknown> = {};
   for (const f of songFields) { if (f in body) updates[f] = body[f]; }
 
@@ -62,13 +72,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const newSlug = updates.slug;
     await captureSlugChange(`/music/songs/${prevSlug}`, `/music/songs/${newSlug}`, "song", id);
 
-    // Mirror on lyrics URL (/lyrics/{albumSlug}/{songSlug})
-    const { data: albumLink } = await supabase
-      .from("album_songs")
-      .select("album:albums(slug)")
-      .eq("song_id", id)
-      .single();
-    const albumSlug = (albumLink as unknown as { album?: { slug?: string } })?.album?.slug;
+    // Mirror on lyrics URL (/lyrics/{albumSlug}/{songSlug}). Use the
+    // album-type junction since the single-type release is the song itself.
+    const { data: albumLinkRows } = await supabase
+      .from("release_songs")
+      .select("release:releases(slug, release_type)")
+      .eq("song_id", id);
+    const albumLink = (albumLinkRows || [])
+      .map((row: any) => (Array.isArray(row.release) ? row.release[0] : row.release))
+      .find((rel: { slug?: string; release_type?: string } | null) => rel && rel.release_type !== "single");
+    const albumSlug = (albumLink as { slug?: string } | undefined)?.slug;
     if (albumSlug) {
       await captureSlugChange(
         `/lyrics/${albumSlug}/${prevSlug}`,
@@ -79,26 +92,30 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
   }
 
-  // Junction updates
-  if ("album_id" in body || "track_number" in body) {
-    const { data: existing } = await supabase
-      .from("album_songs")
-      .select("id, album_id, track_number")
-      .eq("song_id", id)
-      .maybeSingle();
+  // Junction updates. The song may now have a single-type release row too;
+  // operate only on the album-type junction to avoid clobbering the single.
+  if ("release_id" in body || "track_number" in body) {
+    const { data: existingRows } = await supabase
+      .from("release_songs")
+      .select("id, release_id, track_number, release:releases(release_type)")
+      .eq("song_id", id);
+    const existing = (existingRows || []).find((row: any) => {
+      const rel = Array.isArray(row.release) ? row.release[0] : row.release;
+      return rel?.release_type !== "single";
+    }) || null;
 
-    const albumId = body.album_id ?? existing?.album_id;
+    const albumId = body.release_id ?? existing?.release_id;
     const trackNumber = body.track_number ?? existing?.track_number ?? 1;
 
     if (albumId) {
       const result = existing
         ? await supabase
-            .from("album_songs")
-            .update({ album_id: albumId, track_number: trackNumber })
+            .from("release_songs")
+            .update({ release_id: albumId, track_number: trackNumber })
             .eq("id", existing.id)
         : await supabase
-            .from("album_songs")
-            .insert({ album_id: albumId, song_id: id, track_number: trackNumber });
+            .from("release_songs")
+            .insert({ release_id: albumId, song_id: id, track_number: trackNumber });
       if (result.error) {
         return Response.json(
           { error: `album/track save failed: ${result.error.message}` },
@@ -118,14 +135,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const { data: song } = await supabase.from("songs").select("*").eq("id", id).single();
-  const { data: assoc } = await supabase.from("album_songs").select("album_id, track_number").eq("song_id", id).maybeSingle();
+  const { data: assocRows } = await supabase
+    .from("release_songs")
+    .select("release_id, track_number, release:releases(release_type)")
+    .eq("song_id", id);
+  const assoc = (assocRows || []).find((row: any) => {
+    const rel = Array.isArray(row.release) ? row.release[0] : row.release;
+    return rel?.release_type !== "single";
+  }) || null;
   const { data: topicLinks } = await supabase.from("song_topics").select("topic_id").eq("song_id", id);
+  const singleIds = await getSingleSongIds(supabase);
 
   return Response.json({
     ...song,
-    album_id: assoc?.album_id || null,
+    release_id: assoc?.release_id || null,
     track_number: assoc?.track_number || null,
     topic_ids: (topicLinks || []).map((t) => t.topic_id),
+    is_single: singleIds.has(id as string),
   });
 }
 

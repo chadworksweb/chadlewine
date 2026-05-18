@@ -21,8 +21,8 @@ export async function POST(request: Request) {
     { data: history },
   ] = await Promise.all([
     supabase.from("songs").select("*").eq("id", song_id).single(),
-    supabase.from("album_songs")
-      .select("track_number, album:albums(id, title, slug)")
+    supabase.from("release_songs")
+      .select("track_number, release:releases(id, title, slug)")
       .eq("song_id", song_id)
       .single(),
     supabase.from("voice_profile").select("content").limit(1).single(),

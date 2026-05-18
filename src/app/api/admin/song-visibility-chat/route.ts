@@ -68,8 +68,8 @@ export async function POST(request: Request) {
     { data: existingSections },
   ] = await Promise.all([
     supabase.from("songs").select("*").eq("id", song_id).single(),
-    supabase.from("album_songs")
-      .select("track_number, album:albums(id, title, slug)")
+    supabase.from("release_songs")
+      .select("track_number, release:releases(id, title, slug)")
       .eq("song_id", song_id)
       .single(),
     supabase.from("voice_profile").select("content").limit(1).single(),
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       .select("id, title, slug, song_summary")
       .neq("id", song_id)
       .eq("status", "published"),
-    supabase.from("albums").select("id, title, slug").eq("status", "published"),
+    supabase.from("releases").select("id, title, slug").eq("status", "published"),
     supabase
       .from("art_pieces")
       .select("id, title, slug")
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
     .map((s) => `- "${s.title}" → /music/songs/${s.slug}${s.song_summary ? ` — ${s.song_summary}` : ""}`)
     .join("\n");
   const catalogAlbumLines = ((catalogAlbums || []) as Array<{ title: string; slug: string }>)
-    .map((a) => `- "${a.title}" → /music/albums/${a.slug}`)
+    .map((a) => `- "${a.title}" → /music/releases/${a.slug}`)
     .join("\n");
   const catalogArtLines = ((catalogArt || []) as Array<{ title: string; slug: string }>)
     .map((a) => `- "${a.title}" → /art/${a.slug}`)

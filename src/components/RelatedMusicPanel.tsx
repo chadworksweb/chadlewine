@@ -21,7 +21,7 @@ export function RelatedMusicPanel({
 
   useEffect(() => {
     fetch("/api/admin/songs").then(r => r.json()).then(setSongs);
-    fetch("/api/admin/albums").then(r => r.json()).then(setAlbums);
+    fetch("/api/admin/releases").then(r => r.json()).then(setAlbums);
   }, []);
 
   function add() {
