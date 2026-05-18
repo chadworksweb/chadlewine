@@ -177,6 +177,7 @@ main {
   /* page-level wrappers (DOM-full-bleed in main; content re-anchors) */
   .page-super-individual,
   .page-home,
+  .page-observation,
   .page-merch,
   .page-curation,
   .page-music-hub__banner,
@@ -207,6 +208,7 @@ main {
   .page-shell,
   .page-super-individual,
   .page-home,
+  .page-observation,
   .page-merch,
   .page-curation,
   .page-music-hub__banner,
@@ -232,6 +234,7 @@ main {
   .page-shell,
   .page-super-individual,
   .page-home,
+  .page-observation,
   .page-merch,
   .page-curation,
   .page-music-hub__banner,
@@ -255,7 +258,7 @@ main {
    shell, it spans the parent's full track so its own background bleeds
    edge-to-edge while its content re-anchors to --site-width via its own
    content track. Without this, .si-door's colored band stops at site-width. */
-:where(.page-super-individual, .page-home, .page-merch, .page-curation, .page-shell)
+:where(.page-super-individual, .page-home, .page-observation, .page-merch, .page-curation, .page-shell)
   > :where(.si-hero, .si-section, .si-door, .si-popup, .si-schedule,
            .album-section, .home-merch, .subscribe-section,
            .page-music-hub__banner, .observation-body) {
@@ -272,6 +275,8 @@ main > .subscribe-section,
 main > .album-rc-classifications,
 main > .page-home,
 main > #page-home,
+main > .page-observation,
+main > #page-observation,
 main > .page-merch,
 main > #page-merch,
 main > .page-curation,
@@ -736,26 +741,36 @@ h2, h3, h4, h5, h6 {
    ============================================================ */
 
 .subscribe-section {
-  background: var(--bg-deep);
+  /* Corner-glow gradients live on the section's own background as layered
+     images so ::after is free to be the top-edge divider (mirror of
+     ::before). var(--bg-deep) is the final layer underneath them. */
+  background:
+    linear-gradient(135deg, rgba(139, 156, 247, 0.25) 0%, transparent 22%),
+    linear-gradient(-135deg, rgba(139, 156, 247, 0.18) 0%, transparent 17%),
+    linear-gradient(45deg, rgba(139, 156, 247, 0.18) 0%, transparent 17%),
+    linear-gradient(-45deg, rgba(139, 156, 247, 0.25) 0%, transparent 22%),
+    var(--bg-deep);
   border: none;
   position: relative;
   overflow: hidden;
   padding-block: calc(var(--space-4xl) * 0.85);
 }
 
-.subscribe-section::before {
-  /* Bottom-edge gradient divider, matching .explore-songs::before/after.
-     Spans the full section width via grid-column: full (same reason as
-     the glow — direct children default into the centered content column). */
+/* Top + bottom dividers — each a solid blue strip whose ends are faded out
+   by a horizontal mask. Thickness lives in `height` alone; the mask handles
+   the edge fade; the box-shadow handles the soft halo. */
+.subscribe-section::before,
+.subscribe-section::after {
   content: '';
   position: absolute;
   grid-column: full;
   left: 0;
   right: 0;
-  bottom: 0;
-  top: auto;
   width: auto;
-  height: 1px;
+  /* Line uses a horizontal gradient as its background (faded at the ends)
+     rather than a solid color + mask, because mask-image clips the element's
+     entire painted output — including box-shadow — to the mask shape, which
+     made the halo invisible. */
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -764,24 +779,20 @@ h2, h3, h4, h5, h6 {
     rgba(64, 96, 255, 0.0) 95%,
     transparent 100%
   );
-  box-shadow: 0 0 24px rgba(64, 96, 255, 0.5), 0 0 48px rgba(64, 96, 255, 0.2);
   pointer-events: none;
   z-index: 2;
 }
 
-.subscribe-section::after {
-  content: "";
-  position: absolute;
+.subscribe-section::before {
   top: 0;
-  left: 0;
-  right: 0;
+  bottom: auto;
+  height: 1px;
+}
+
+.subscribe-section::after {
   bottom: 0;
-  background:
-    linear-gradient(135deg, rgba(139, 156, 247, 0.25) 0%, transparent 22%),
-    linear-gradient(-135deg, rgba(139, 156, 247, 0.18) 0%, transparent 17%),
-    linear-gradient(45deg, rgba(139, 156, 247, 0.18) 0%, transparent 17%),
-    linear-gradient(-45deg, rgba(139, 156, 247, 0.25) 0%, transparent 22%);
-  pointer-events: none;
+  top: auto;
+  height: 1px;
 }
 
 /* Interactive mouse-following glow — exact AES spec */
@@ -935,9 +946,19 @@ h2, h3, h4, h5, h6 {
   gap: var(--space-lg);
 }
 
+.site-footer__copyright-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
 .site-footer__link {
   color: var(--text-tertiary);
   font-size: var(--text-xs);
+}
+
+.site-footer__link:hover {
+  color: var(--text-accent);
 }
 
 /* ============================================================
@@ -7286,7 +7307,8 @@ html {
    ============================================================ */
 
 .related-observations {
-  padding-block: var(--space-2xl) var(--space-3xl);
+  padding-block: 0 var(--space-3xl);
+  margin-top: 0;
 }
 
 .related-observations__heading {
