@@ -49,7 +49,7 @@ export default function ArcAdminIndex() {
     <div className="admin-page">
       <div className="admin-page__header">
         <h1 className="admin-page__title">Arc Radiant</h1>
-        <Link href="/chad-lewine" target="_blank" className="arc-admin-link">
+        <Link href="/radiant-arc" target="_blank" className="arc-admin-link">
           View public arc →
         </Link>
       </div>

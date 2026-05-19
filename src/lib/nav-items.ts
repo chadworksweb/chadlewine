@@ -24,6 +24,7 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
     href: "/chad-lewine",
     label: "About",
     children: [
+      { href: "/radiant-arc", label: "Radiant Arc" },
       { href: "/super-individual", label: "Super Individual" },
     ],
   },

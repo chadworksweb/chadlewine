@@ -16330,6 +16330,131 @@ body.cart-open {
   padding-bottom: var(--space-2xl, 4rem);
 }
 
+/* Radiant Arc page — site-width box (matches the rest of the site). */
+.page-radiant-arc {
+  padding-bottom: var(--space-2xl, 4rem);
+}
+.page-radiant-arc__header {
+  padding: var(--space-lg) 0 var(--space-md);
+}
+.page-radiant-arc__title {
+  font-family: var(--font-display, var(--font-ui));
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.page-radiant-arc__subtitle {
+  font-family: var(--font-ui);
+  font-weight: 400;
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin: 0.4em 0 0;
+}
+
+/* About page — 2/3 prose column + 1/3 portrait column. Collapses to one
+   column under 880px so the bio reads top-down on phones. */
+.page-about {
+  padding: var(--space-xl) 0 var(--space-2xl);
+}
+.page-about__header {
+  margin: 0 0 var(--space-lg);
+}
+.page-about__title {
+  font-family: var(--font-display, var(--font-ui));
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+.page-about__grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-xl);
+  align-items: stretch;
+}
+@media (max-width: 880px) {
+  .page-about__grid {
+    grid-template-columns: 1fr;
+  }
+}
+.page-about__bio {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+.page-about__bio p {
+  margin: 0 0 1.1em;
+}
+.page-about__bio p:last-child {
+  margin-bottom: 0;
+}
+.page-about__bio a {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.page-about__bio a:hover {
+  text-decoration-thickness: 2px;
+}
+.page-about__cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+.page-about__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.7rem 1.2rem;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  background: var(--text-accent);
+  color: var(--bg-deep);
+  border-radius: 4px;
+  transition: filter 200ms ease, transform 200ms ease;
+}
+.page-about__cta:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+.page-about__cta--ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium, rgba(255, 255, 255, 0.18));
+}
+.page-about__cta--ghost:hover {
+  border-color: var(--text-accent);
+  color: var(--text-accent);
+}
+.page-about__image {
+  position: relative;
+  height: 100%;
+  min-height: 100%;
+}
+.page-about__image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 6px;
+}
+@media (max-width: 880px) {
+  .page-about__image {
+    height: auto;
+    min-height: 0;
+  }
+  .page-about__image img {
+    height: auto;
+    object-fit: contain;
+  }
+}
+
 .arc-radiant {
   --arc-gold: #d4a13a;
   --arc-gold-bright: #f7c84a;
@@ -16355,38 +16480,14 @@ body.cart-open {
 
 .arc-radiant__toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid rgba(212, 161, 58, 0.14);
+  border-top: 1px solid rgba(212, 161, 58, 0.14);
   font-family: var(--font-ui);
   font-size: 0.85rem;
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  background: rgba(5, 4, 2, 0.92);
-  backdrop-filter: blur(10px);
-  z-index: 20;
-}
-
-.arc-radiant__zoom {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.arc-radiant__zoom-hint {
-  font-family: var(--font-ui);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  color: rgba(247, 231, 167, 0.45);
-  text-transform: uppercase;
-}
-
-@media (max-width: 640px) {
-  .arc-radiant__zoom-hint {
-    display: none;
-  }
+  background: rgba(5, 4, 2, 0.6);
 }
 
 .arc-radiant__zoom-label {
@@ -16394,26 +16495,102 @@ body.cart-open {
   text-transform: uppercase;
   font-size: 0.72rem;
   letter-spacing: 0.12em;
-  margin-right: 8px;
   text-shadow: 0 0 12px rgba(247, 200, 74, 0.4);
+  flex-shrink: 0;
+  min-width: 4.5em;
 }
 
-.arc-radiant__zoom button {
-  width: 28px;
+/* Ableton-style year-range locator. Ported from the Rising Compass
+   traj-overview pattern: SVG mini-charge line + draggable viewport box
+   with left/right zoom handles, a center grip, and click-to-jump on
+   empty track. Coordinate space: 0..100% of the full year range. */
+.arc-radiant__overview {
+  position: relative;
+  flex: 1;
   height: 28px;
-  border-radius: 50%;
-  border: 1px solid rgba(212, 161, 58, 0.35);
-  background: transparent;
-  color: var(--arc-gold-pale);
-  cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
-  transition: box-shadow 200ms ease, border-color 200ms ease;
+  background: rgba(247, 231, 167, 0.04);
+  border: 1px solid rgba(212, 161, 58, 0.18);
+  border-radius: 4px;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
 }
-
-.arc-radiant__zoom button:hover {
-  border-color: var(--arc-gold-bright);
-  box-shadow: 0 0 12px rgba(247, 200, 74, 0.5);
+.arc-radiant__overview-viewport {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(247, 200, 74, 0.14);
+  border-left: 2px solid var(--arc-gold-bright);
+  border-right: 2px solid var(--arc-gold-bright);
+  cursor: grab;
+  transition: background 120ms ease;
+  touch-action: none;
+}
+.arc-radiant__overview-year {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: rgba(247, 231, 167, 0.95);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+.arc-radiant__overview-year--left {
+  left: 4px;
+}
+.arc-radiant__overview-year--right {
+  right: 4px;
+}
+.arc-radiant__overview-viewport:active {
+  cursor: grabbing;
+}
+.arc-radiant__overview.is-active .arc-radiant__overview-viewport {
+  background: rgba(247, 200, 74, 0.22);
+}
+.arc-radiant__overview-handle {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 12px;
+  cursor: ew-resize;
+}
+.arc-radiant__overview-handle--left {
+  left: -7px;
+}
+.arc-radiant__overview-handle--right {
+  right: -7px;
+}
+@media (pointer: coarse) {
+  .arc-radiant__overview-handle {
+    width: 28px;
+  }
+  .arc-radiant__overview-handle--left {
+    left: -15px;
+  }
+  .arc-radiant__overview-handle--right {
+    right: -15px;
+  }
+}
+.arc-radiant__overview-grip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--arc-gold-bright) 0 1px,
+    transparent 1px 3px
+  );
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .arc-radiant__layers-summary {
@@ -16456,8 +16633,19 @@ body.cart-open {
   align-items: stretch;
 }
 
-/* Key panel — pinned to the left, mirrors each layer's on-canvas appearance,
-   doubles as on/off control for that layer. */
+/* Right column of the upper row — wraps the toolbar + canvas so the
+   overview only spans the timeline width and doesn't bleed under the
+   key column. */
+.arc-radiant__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Key panel — pinned to the left column, anchored at the bottom of the
+   column so the timeline area visually leads the eye and the layer
+   toggles sit near the overview controls below. */
 .arc-radiant__key {
   flex-shrink: 0;
   width: 188px;
@@ -16465,6 +16653,9 @@ body.cart-open {
   border-right: 1px solid rgba(212, 161, 58, 0.18);
   background: rgba(5, 4, 2, 0.6);
   font-family: var(--font-ui);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .arc-radiant__key-title {
@@ -16838,20 +17029,10 @@ body.cart-open {
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-width: none;
 }
-
 .arc-radiant__canvas::-webkit-scrollbar {
-  height: 16px;
-}
-.arc-radiant__canvas::-webkit-scrollbar-track {
-  background: rgba(5, 4, 2, 0.5);
-}
-.arc-radiant__canvas::-webkit-scrollbar-thumb {
-  background: rgba(212, 161, 58, 0.25);
-  border-radius: 4px;
-}
-.arc-radiant__canvas::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 161, 58, 0.5);
+  display: none;
 }
 
 .arc-radiant__inner {
@@ -16903,7 +17084,7 @@ body.cart-open {
   bottom: 4px;
   left: 4px;
   font-family: var(--font-ui);
-  font-size: 0.68rem;
+  font-size: 1.02rem;
   letter-spacing: 0.08em;
   color: rgba(247, 231, 167, 0.65);
   background: transparent;
@@ -17001,7 +17182,7 @@ body.cart-open {
   padding: 0 10px;
   font-family: var(--font-ui);
   pointer-events: none;
-  border-radius: 3px;
+  border-radius: 0;
   display: flex;
   align-items: center;
 }
@@ -17083,6 +17264,11 @@ body.cart-open {
   flex-shrink: 0;
   display: block;
   width: 1px;
+  /* Fade out where the stalks pass behind the era pills (era zone height
+     above the spine), then ease back to opaque well above the era band so
+     the transition reads as a soft fade rather than a hard line. */
+  mask-image: linear-gradient(to top, transparent 0, transparent 76px, black 160px, black 100%);
+  -webkit-mask-image: linear-gradient(to top, transparent 0, transparent 76px, black 160px, black 100%);
 }
 
 .arc-radiant__branch--song .arc-radiant__branch-line {
@@ -17252,24 +17438,41 @@ body.cart-open {
 }
 .arc-radiant__layer-toggle--disabled:hover { color: rgba(247, 231, 167, 0.7); }
 
-.arc-radiant__bottom {
-  border-top: 1px solid rgba(212, 161, 58, 0.22);
-  background: linear-gradient(180deg, #0c0907 0%, #050402 100%);
-  min-height: 160px;
-  padding: var(--space-md) var(--space-xl);
-  font-family: var(--font-ui);
-  position: relative;
-  max-height: 320px;
-  overflow-y: auto;
+/* Node-click modal: dims the entire arc-radiant area except a small hole
+   around the clicked node, and floats the detail panel over the timeline.
+   The radial-gradient background is set inline so it can center its hole
+   on the node. Click the backdrop or the × inside the panel to dismiss. */
+.arc-radiant__modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  animation: arc-radiant-fade-in 160ms ease;
 }
-
-.arc-radiant__bottom-empty {
-  color: rgba(247, 231, 167, 0.45);
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
-  text-align: center;
-  padding: var(--space-lg) 0;
-  font-style: italic;
+@keyframes arc-radiant-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.arc-radiant__modal-line {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.arc-radiant__modal {
+  position: relative;
+  z-index: 1;
+  width: min(680px, 100%);
+  max-height: 80%;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #110b06 0%, #060402 100%);
+  border: 1px solid rgba(212, 161, 58, 0.32);
+  border-radius: 8px;
+  padding: var(--space-lg) var(--space-xl);
+  font-family: var(--font-ui);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.65), 0 0 24px rgba(247, 200, 74, 0.08);
 }
 
 .arc-radiant__detail {
