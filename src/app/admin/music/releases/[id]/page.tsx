@@ -226,6 +226,7 @@ export default function EditAlbumPage() {
             <h3 className="obsv-editor__panel-title">Cover Art</h3>
             {form.cover_art_path ? (
               <div className="cover-art-preview">
+                {/* eslint-disable-next-line @next/next/no-img-element -- admin-only cover preview */}
                 <img
                   src={form.cover_art_path}
                   alt={form.cover_art_alt || "Album cover art preview"}

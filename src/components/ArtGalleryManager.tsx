@@ -42,6 +42,7 @@ export function ArtGalleryManager({
       <div className="art-gallery-manager__grid">
         {paths.map((url, i) => (
           <div key={`${url}-${i}`} className="art-gallery-manager__item">
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-only gallery thumbnail */}
             <img src={url} alt="" className="art-gallery-manager__thumb" />
             <div className="art-gallery-manager__index">{i + 1}</div>
             <div className="art-gallery-manager__controls">

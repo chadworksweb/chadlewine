@@ -247,6 +247,7 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
         <label className="obsv-editor__label">Image</label>
         {val("image_path") ? (
           <div className="cover-art-preview">
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-only piece preview */}
             <img src={val("image_path")} alt={val("image_alt") || "Art preview"} className="cover-art-preview__img" />
             <div className="cover-art-preview__actions">
               <button type="button" className="admin-btn admin-btn--primary" onClick={() => setMediaOpen(true)} style={{ fontSize: "0.6875rem", padding: "4px 12px" }}>Replace</button>

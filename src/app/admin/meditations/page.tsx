@@ -181,6 +181,7 @@ function MeditationsContent() {
         <div style={{ width: 160, flexShrink: 0 }}>
           <span className="obsv-editor__chip-label" style={{ marginBottom: 4, display: "block" }}>Cover Hero</span>
           {heroUrl ? (
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-only thumbnail */}
             <img
               src={heroUrl}
               alt="Meditations hero"

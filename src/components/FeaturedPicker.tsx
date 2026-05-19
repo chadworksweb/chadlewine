@@ -149,6 +149,7 @@ export function FeaturedPicker({ kind, parentRef, parentKind, excludeSlug }: { k
           {featured.map((item, i) => (
             <li key={item.id} className="featured-picker__item">
               {item.image ? (
+                {/* eslint-disable-next-line @next/next/no-img-element -- admin-only picker thumbnail */}
                 <img src={item.image} alt={item.alt || item.title} className="featured-picker__thumb" style={styleFor(item)} />
               ) : (
                 <div className="featured-picker__thumb featured-picker__thumb--empty" />
@@ -190,6 +191,7 @@ export function FeaturedPicker({ kind, parentRef, parentKind, excludeSlug }: { k
                 onMouseDown={(e) => { e.preventDefault(); add(c); }}
               >
                 {c.image ? (
+                  {/* eslint-disable-next-line @next/next/no-img-element -- admin-only picker thumbnail */}
                   <img src={c.image} alt={c.alt || c.title} className="featured-picker__thumb featured-picker__thumb--sm" style={styleFor(c)} />
                 ) : (
                   <div className="featured-picker__thumb featured-picker__thumb--sm featured-picker__thumb--empty" />

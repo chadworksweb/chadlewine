@@ -167,6 +167,7 @@ function SongCoverArtPanel({
 
       {imagePath ? (
         <div className="cover-art-preview">
+          {/* eslint-disable-next-line @next/next/no-img-element -- admin-only cover preview */}
           <img
             src={imagePath}
             alt={altText || "Song cover art preview"}

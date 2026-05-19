@@ -194,6 +194,7 @@ export function KaleidoscopeEffect({ src, alt, className, focalX = 0.5, focalY =
       onMouseMove={handleMouseMove}
       style={{ position: "relative", overflow: "hidden", cursor: "grab" }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- invisible sizer for canvas overlay; Image optimization N/A */}
       <img src={src} alt={alt} style={{ width: "100%", display: "block", visibility: "hidden" }} />
       <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
     </div>

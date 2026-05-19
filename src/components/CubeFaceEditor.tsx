@@ -232,6 +232,7 @@ function FaceSlotRow({ face, onUpdate, onClear, onOpenPicker }: FaceSlotRowProps
         >
           {isEmpty && <span className="cube-face-editor__preview-empty">empty</span>}
           {!isEmpty && !isVideo && (
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-only face preview */}
             <img
               src={face.media_path}
               alt=""

@@ -83,6 +83,7 @@ export function FocalPointPicker({ src, alt, crops, onChange }: FocalPointPicker
         onTouchStart={handleTouch}
         onTouchMove={handleTouch}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element -- admin-only interactive picker; full image needed for click coords */}
         <img src={src} alt={alt} className="focal-picker__source-img" draggable={false} />
         <div className="focal-picker__dot" style={{ left: `${fx}%`, top: `${fy}%` }} />
       </div>
@@ -122,6 +123,7 @@ export function FocalPointPicker({ src, alt, crops, onChange }: FocalPointPicker
               onClick={() => setActive(r)}
               aria-label={`Edit ${RATIO_META[r].label}`}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element -- admin-only crop preview */}
               <img
                 src={src}
                 alt={alt}

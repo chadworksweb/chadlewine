@@ -476,6 +476,7 @@ export default function AdminMediaPage() {
                 onClick={() => selectImage(img)}
                 style={{ position: "relative" }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- admin-only thumbnail; dynamic source from blob/Bunny */}
                 <img src={img.url} alt={img.alt_text || img.name} className="media-page__thumb" />
                 <span
                   style={{
@@ -503,6 +504,7 @@ export default function AdminMediaPage() {
 
         {selected && (
           <div className="media-page__detail">
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview */}
             <img src={selected.url} alt={editAlt || selected.name} className="media-page__detail-img" />
 
             <label className="media-page__label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
