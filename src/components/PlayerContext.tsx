@@ -326,11 +326,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPlaying(false);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     clearFadeIn();
-  }, []);
+    // Commit the listening burst now — pagehide is unreliable on mobile and
+    // never fires on Next client navigations, so a paused-then-walked-away
+    // session would otherwise be silently dropped. /api/play has a 30s soft
+    // dedupe on IP+UA to absorb any accidental re-fires.
+    flushSession();
+  }, [flushSession]);
 
   const resume = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio || !currentRef.current) return;
+    const song = currentRef.current;
+    if (!audio || !song) return;
+    // pause() cleared sessionRef via flushSession — rebuild it so the resumed
+    // burst is tracked as its own event.
+    if (!sessionRef.current) {
+      sessionRef.current = {
+        songId: song.id,
+        songSlug: song.slug,
+        songTitle: song.title,
+        secondsPlayed: 0,
+        completed: false,
+      };
+    }
     audio.play().then(() => {
       setPlaying(true);
       rafRef.current = requestAnimationFrame(tick);
