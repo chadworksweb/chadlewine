@@ -94,9 +94,9 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
       return;
     }
 
-    const cw = canvas.width;
+    const cw = canvas.width;   // device pixels (DPR-scaled)
     const ch = canvas.height;
-    const w = widthRef.current;
+    const w = widthRef.current;  // sim grid dims (CSS-scale derived)
     const h = heightRef.current;
     const buf = buf1Ref.current;
 
@@ -104,6 +104,11 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
       rafRef.current = requestAnimationFrame(tick);
       return;
     }
+
+    // DPR factor for mapping device pixels back to sim/CSS coordinates and
+    // for scaling the displacement amount (which is in CSS px).
+    const dpr = window.devicePixelRatio || 1;
+    const stride = resolution * dpr;
 
     for (let s = 0; s < stepsPerFrame; s++) {
       stepSimulation();
@@ -124,7 +129,8 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
     const imageData = ctx.getImageData(0, 0, cw, ch);
     const pixels = imageData.data;
 
-    // Source pixels for sampling
+    // Source pixels for sampling — sized to the device-resolution canvas so
+    // base pixels stay sharp; ctx.drawImage handles the high-quality resample.
     const srcCanvas = document.createElement("canvas");
     srcCanvas.width = cw;
     srcCanvas.height = ch;
@@ -134,14 +140,15 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
 
     for (let py = 0; py < ch; py++) {
       for (let px = 0; px < cw; px++) {
-        const sx = Math.floor(px / resolution);
-        const sy = Math.floor(py / resolution);
+        const sx = Math.floor(px / stride);
+        const sy = Math.floor(py / stride);
 
         if (sx <= 0 || sx >= w - 1 || sy <= 0 || sy >= h - 1) continue;
 
         const i = sy * w + sx;
-        const dx = (buf[i - 1] - buf[i + 1]) * 6;
-        const dy = (buf[i - w] - buf[i + w]) * 6;
+        // Displacement is in CSS px (sim is at CSS scale); scale to device px.
+        const dx = (buf[i - 1] - buf[i + 1]) * 6 * dpr;
+        const dy = (buf[i - w] - buf[i + w]) * 6 * dpr;
 
         let sampX = Math.round(px + dx);
         let sampY = Math.round(py + dy);
@@ -171,9 +178,17 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
       const container = containerRef.current;
       const canvas = canvasRef.current;
       if (!container || !canvas) return;
-      canvas.width = container.offsetWidth;
-      canvas.height = container.offsetHeight;
-      initBuffers(canvas.width, canvas.height);
+      // Set canvas backing to device pixels (sharp on Retina), keep CSS
+      // display size at the layout size. Simulation grid stays at CSS scale
+      // so wave physics + drop radius/strength feel the same across DPRs.
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = container.offsetWidth;
+      const cssH = container.offsetHeight;
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
+      initBuffers(cssW, cssH);
     };
 
     img.onload = resize;
