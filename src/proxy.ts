@@ -4,35 +4,70 @@ import { createClient } from "@supabase/supabase-js";
 import { getFeatureFlags, sectionForPath } from "@/lib/feature-flags";
 import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
 
-// Cookie presence ≠ auth. Validate the JWT against Supabase AND confirm
-// the user is in the `admins` table. Customer accounts authenticate via
-// the same Supabase Auth but must NOT inherit admin access — the admins
-// table is the only gate.
-async function jwtIsAdmin(token: string): Promise<boolean> {
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) return false;
+type AuthResult = {
+  ok: boolean;
+  newAccess?: string;
+  newRefresh?: string;
+};
 
-    // Service-role client for the admins-table check (RLS would block the
-    // user from reading rows other than their own, and we need a definitive
-    // yes/no).
-    const adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-    const { data: row } = await adminClient
-      .from("admins")
-      .select("user_id")
-      .eq("user_id", data.user.id)
-      .maybeSingle();
-    return !!row;
-  } catch {
-    return false;
+async function checkAdmin(userId: string): Promise<boolean> {
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  const { data: row } = await adminClient
+    .from("admins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return !!row;
+}
+
+// Cookie presence != auth. Validate the JWT against Supabase AND confirm
+// the user is in the `admins` table.
+//
+// When the access token is stale, attempt a refresh-token exchange (only
+// when running off-Vercel, i.e. on local). Refreshed tokens are returned
+// so the proxy can write them back as cookies on the response.
+async function authAdmin(
+  accessToken: string | undefined,
+  refreshToken: string | undefined,
+  allowRefresh: boolean,
+): Promise<AuthResult> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
+  if (accessToken) {
+    try {
+      const { data, error } = await supabase.auth.getUser(accessToken);
+      if (!error && data?.user && (await checkAdmin(data.user.id))) {
+        return { ok: true };
+      }
+    } catch {
+      // fall through to refresh attempt
+    }
   }
+
+  if (allowRefresh && refreshToken) {
+    try {
+      const { data, error } = await supabase.auth.refreshSession({
+        refresh_token: refreshToken,
+      });
+      if (!error && data.session && data.user && (await checkAdmin(data.user.id))) {
+        return {
+          ok: true,
+          newAccess: data.session.access_token,
+          newRefresh: data.session.refresh_token,
+        };
+      }
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  return { ok: false };
 }
 
 export async function proxy(request: NextRequest) {
@@ -50,8 +85,12 @@ export async function proxy(request: NextRequest) {
   }
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const accessToken = request.cookies.get("sb-access-token")?.value;
-    const authorized = accessToken ? await jwtIsAdmin(accessToken) : false;
-    if (!authorized) {
+    const refreshToken = request.cookies.get("sb-refresh-token")?.value;
+    // Refresh-on-stale only when running off-Vercel (local machine). On
+    // Vercel deployments the 1h access cookie expiry is enforced as before.
+    const allowRefresh = !process.env.VERCEL;
+    const auth = await authAdmin(accessToken, refreshToken, allowRefresh);
+    if (!auth.ok) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Not Found" }, { status: 404 });
       }
@@ -59,7 +98,25 @@ export async function proxy(request: NextRequest) {
       // 404 page. URL bar still shows whatever the user typed.
       return NextResponse.rewrite(new URL("/__404_admin_mask__", request.url));
     }
-    return NextResponse.next();
+    const response = NextResponse.next();
+    if (auth.newAccess && auth.newRefresh) {
+      const isProduction = process.env.NODE_ENV === "production";
+      response.cookies.set("sb-access-token", auth.newAccess, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60,
+      });
+      response.cookies.set("sb-refresh-token", auth.newRefresh, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
+    return response;
   }
 
   // Redirect table: check before any route resolution, so renamed content

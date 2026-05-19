@@ -23,7 +23,7 @@
  *           (staged in _repack_output so nothing clobbers existing ZIPs until user approves swap)
  */
 import { spawn } from "child_process";
-import { copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "fs";
+import { copyFileSync, createWriteStream, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "fs";
 import { basename, extname, join } from "path";
 import archiver from "archiver";
 import yauzl from "yauzl";

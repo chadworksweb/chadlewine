@@ -13,6 +13,7 @@ import { SongVisibilitySections, type SongVisibilitySectionsHandle } from "@/com
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { CubeFaceEditor } from "@/components/CubeFaceEditor";
 import { FeaturedPicker } from "@/components/FeaturedPicker";
+import { SkuPanel } from "@/components/SkuPanel";
 
 interface ExpansionSummary {
   id: string;
@@ -23,7 +24,7 @@ interface ExpansionSummary {
 
 interface SongData {
   id?: string;
-  album_id: string;
+  release_id: string;
   title: string;
   slug: string;
   track_number: number;
@@ -39,7 +40,6 @@ interface SongData {
   lyrics: string | null;
   instrumental: boolean;
   price: number | null;
-  is_single: boolean;
   status: string;
   release_date: string | null;
   song_summary: string | null;
@@ -80,7 +80,7 @@ interface TopicOption {
 }
 
 const emptySong: SongData = {
-  album_id: "",
+  release_id: "",
   title: "",
   slug: "",
   track_number: 1,
@@ -96,7 +96,6 @@ const emptySong: SongData = {
   lyrics: null,
   instrumental: false,
   price: null,
-  is_single: false,
   status: "draft",
   release_date: null,
   song_summary: null,
@@ -168,6 +167,7 @@ function SongCoverArtPanel({
 
       {imagePath ? (
         <div className="cover-art-preview">
+          {/* eslint-disable-next-line @next/next/no-img-element -- admin-only cover preview */}
           <img
             src={imagePath}
             alt={altText || "Song cover art preview"}
@@ -306,10 +306,10 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
   const router = useRouter();
   const sectionsRef = useRef<SongVisibilitySectionsHandle>(null);
   const [form, setForm] = useState<SongData>(() => {
-    if (!initial) return { ...emptySong, album_id: presetAlbumId || "" };
+    if (!initial) return { ...emptySong, release_id: presetAlbumId || "" };
     return {
       ...initial,
-      album_id: initial.album_id || "",
+      release_id: initial.release_id || "",
       focus_keyphrase: initial.focus_keyphrase || "",
       secondary_keyphrases: initial.secondary_keyphrases || [],
       search_intent: initial.search_intent || "informational",
@@ -327,9 +327,13 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
   const [linkedDoors, setLinkedDoors] = useState<
     { id: string; title: string; slug: string; status: string }[]
   >([]);
+  // is_single is computed server-side (presence of a single-type release).
+  // The editor reads it from the initial payload to gate the cube-face
+  // editor, but never toggles it from this UI.
+  const isSingle = (initial as unknown as { is_single?: boolean } | undefined)?.is_single === true;
 
   useEffect(() => {
-    fetch("/api/admin/albums")
+    fetch("/api/admin/releases")
       .then((r) => r.json())
       .then((data: AlbumOption[]) => setAlbums(data));
     fetch("/api/admin/topics")
@@ -361,7 +365,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
 
   const buildPayload = useCallback(
     (d: SongData) => ({
-      album_id: d.album_id,
+      release_id: d.release_id,
       title: d.title,
       slug: d.slug,
       track_number: d.track_number,
@@ -377,7 +381,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       lyrics: d.lyrics,
       instrumental: d.instrumental,
       price: d.price,
-      is_single: d.is_single,
       status: d.status,
       release_date: d.release_date,
       song_summary: d.song_summary,
@@ -688,6 +691,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
 
           {/* Content Freshness */}
           {form.updated_at && (() => {
+            // eslint-disable-next-line react-hooks/purity -- freshness indicator: snapshot of Date.now at render time is the desired behavior
             const months = (Date.now() - new Date(form.updated_at).getTime()) / (1000 * 60 * 60 * 24 * 30);
             const color = months > 12 ? "#ff3333" : months > 6 ? "#ffbb33" : "#33cc55";
             const label = months > 12 ? "Stale" : months > 6 ? "Aging" : "Fresh";
@@ -708,12 +712,12 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             <h3 className="obsv-editor__panel-title">Song Details</h3>
 
             <div className="obsv-editor__field">
-              <label className="obsv-editor__label" htmlFor="album_id">Parent Album</label>
+              <label className="obsv-editor__label" htmlFor="release_id">Parent Album</label>
               <select
-                id="album_id"
+                id="release_id"
                 className="obsv-editor__input"
-                value={form.album_id}
-                onChange={(e) => set("album_id", e.target.value)}
+                value={form.release_id}
+                onChange={(e) => set("release_id", e.target.value)}
               >
                 <option value="">Select album...</option>
                 {albums.map((a) => (
@@ -921,9 +925,9 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             </div>
           </div>
 
-          {/* Commerce */}
+          {/* Commerce (legacy single price -- new commerce lives in Formats below) */}
           <div className="obsv-editor__panel">
-            <h3 className="obsv-editor__panel-title">Commerce</h3>
+            <h3 className="obsv-editor__panel-title">Commerce (legacy)</h3>
 
             <div className="obsv-editor__field">
               <label className="obsv-editor__label" htmlFor="price">Price ($)</label>
@@ -939,16 +943,11 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               />
             </div>
 
-            <div className="obsv-editor__field" style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
-              <input
-                id="is_single"
-                type="checkbox"
-                checked={form.is_single}
-                onChange={(e) => set("is_single", e.target.checked)}
-              />
-              <label className="obsv-editor__label" htmlFor="is_single" style={{ margin: 0 }}>Is Single</label>
-            </div>
           </div>
+
+          {form.id && (
+            <SkuPanel kind="song" parentId={form.id} parentSlug={form.slug} />
+          )}
 
           {/* The Pick */}
           <div className="obsv-editor__panel">
@@ -1083,7 +1082,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
         </div>
       </div>
 
-      {form.id && form.is_single && (
+      {form.id && isSingle && (
         <CubeFaceEditor releaseType="song" releaseId={form.id} />
       )}
 

@@ -32,7 +32,7 @@ export function ProseReader({ sections, initialSection }: { sections: ProseSecti
     return (
       <div className="prose-reader prose-reader--empty">
         <p>No published prose sections yet.</p>
-        <Link href="/chad-lewine">← Back to arc</Link>
+        <Link href="/radiant-arc">← Back to arc</Link>
       </div>
     );
   }
@@ -41,7 +41,7 @@ export function ProseReader({ sections, initialSection }: { sections: ProseSecti
     <div className="prose-reader" ref={containerRef}>
       <div className="prose-reader__toolbar">
         <span className="prose-reader__toolbar-label">Prose Backbone</span>
-        <Link href="/chad-lewine" className="arc-radiant__view-switch">← Switch to Arc Radiant</Link>
+        <Link href="/radiant-arc" className="arc-radiant__view-switch">← Switch to Arc Radiant</Link>
       </div>
       <header className="prose-reader__header">
         <h1>Chad Lewine — Prose Backbone</h1>
@@ -49,7 +49,7 @@ export function ProseReader({ sections, initialSection }: { sections: ProseSecti
 
       <nav className="prose-reader__toc">
         {sections.map((s) => (
-          <Link key={s.id} href={`/chad-lewine?view=prose&section=${s.slug}`} className="prose-reader__toc-item">
+          <Link key={s.id} href={`/radiant-arc?view=prose&section=${s.slug}`} className="prose-reader__toc-item">
             <span className="prose-reader__toc-num">{String(s.order_index + 1).padStart(2, "0")}</span>
             <span className="prose-reader__toc-title">{s.title}</span>
             {s.date_start && (

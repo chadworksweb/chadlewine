@@ -23,14 +23,14 @@ export default function BusinessPage() {
         <div className="business-page__section">
           <h2 className="business-page__heading">Sync &amp; Licensing</h2>
           <p className="business-page__text">
-            Chad Lewine's catalog is available for sync licensing in film,
+            Chad Lewine&rsquo;s catalog is available for sync licensing in film,
             television, advertising, podcasts, and digital media. All tracks are
             pre-cleared for placement consideration.
           </p>
         </div>
 
         <div className="business-page__section">
-          <h2 className="business-page__heading">What's Available</h2>
+          <h2 className="business-page__heading">What&rsquo;s Available</h2>
           <ul className="business-page__list">
             <li>Sync licensing for existing catalog</li>
             <li>Custom compositions and scoring</li>

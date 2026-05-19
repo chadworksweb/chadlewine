@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
+import { useAutosave } from "@/hooks/useAutosave";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { RelatedMusicPanel } from "@/components/RelatedMusicPanel";
 import { TaxonomyPicker } from "@/components/TaxonomyPicker";
@@ -53,6 +53,7 @@ const emptyMeditation: MeditationData = {
 export function MeditationComposer({ meditationId }: { meditationId?: string }) {
   const router = useRouter();
   const [form, setForm] = useState<MeditationData>(emptyMeditation);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- setter reserved for upcoming server-error surfacing
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(!meditationId);
   const [currentId, setCurrentId] = useState(meditationId);

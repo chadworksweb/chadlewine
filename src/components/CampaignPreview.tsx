@@ -70,7 +70,7 @@ export function CampaignPreview({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const html = useMemo(
     () => renderPreviewHtml({ subject, preheader, bodyHtml, fromName }),
-    [subject, preheader, bodyHtml, fromName]
+    [subject, preheader, bodyHtml, fromName],
   );
 
   useEffect(() => {

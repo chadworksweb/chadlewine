@@ -1,0 +1,247 @@
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
+import { ReleaseDetail } from "@/components/ReleaseDetail";
+import { ReleaseSections } from "@/components/ReleaseSections";
+import { AdminEditButton } from "@/components/AdminEditButton";
+import { fetchBadge, fetchAlbumBadge, rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
+import { releaseTypeLabel, releaseFormatLabel } from "@/lib/release-labels";
+import { fetchReleaseSkusForIds } from "@/lib/release-skus";
+
+export const revalidate = 60;
+
+async function getAlbumData(releaseSlug: string) {
+  const supabase = createPublicClient();
+
+  const { data: album } = await supabase
+    .from("releases")
+    .select("*")
+    .eq("slug", releaseSlug)
+    .in("status", ["unreleased", "published"])
+    .single();
+  if (!album) return null;
+
+  // Get songs via junction
+  const { data: junctions } = await supabase
+    .from("release_songs")
+    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path, download_path_mp3, download_path_flac, download_path_wav, ringtone_path_m4r, ringtone_path_mp3, ringtone_price, playback_mode)")
+    .eq("release_id", album.id)
+    .order("track_number");
+
+  type SongPayload = {
+    id: string;
+    title: string;
+    slug: string;
+    duration_seconds: number | null;
+    streaming_path: string | null;
+    price: number | null;
+    status: string;
+    download_path: string | null;
+    download_path_mp3: string | null;
+    download_path_flac: string | null;
+    download_path_wav: string | null;
+    ringtone_path_m4r: string | null;
+    ringtone_path_mp3: string | null;
+    ringtone_price: number | null;
+    playback_mode: string | null;
+  };
+  type ReleaseSongRow = { track_number: number; song: SongPayload };
+
+  const filtered = ((junctions || []) as unknown as ReleaseSongRow[]).filter(
+    (j) => j.song?.status === "published" || j.song?.status === "unreleased",
+  );
+
+  // Release SKUs for the format picker.
+  const skusByRelease = await fetchReleaseSkusForIds(supabase, [album.id]);
+  const releaseSkus = skusByRelease.get(album.id) || [];
+
+  const playbackModes = await Promise.all(
+    filtered.map((j) => getPlaybackMode(j.song.playback_mode ?? null)),
+  );
+
+  const songs = filtered.map((j, i) => {
+    const explicit = (["mp3", "flac", "wav"] as const).filter(
+      (f) => j.song[`download_path_${f}`],
+    );
+    const formats: Array<"mp3" | "flac" | "wav"> =
+      explicit.length > 0 ? explicit : j.song.download_path ? ["mp3"] : [];
+    const ringtoneAvailable =
+      !!j.song.ringtone_price &&
+      !!(j.song.ringtone_path_m4r || j.song.ringtone_path_mp3);
+    return {
+      id: j.song.id,
+      title: j.song.title,
+      slug: j.song.slug,
+      track_number: j.track_number,
+      duration_seconds: j.song.duration_seconds,
+      streaming_path: j.song.streaming_path,
+      price: j.song.price,
+      playback_mode: playbackModes[i],
+      download_formats: formats,
+      ringtone_available: ringtoneAvailable,
+      ringtone_price: ringtoneAvailable ? j.song.ringtone_price : null,
+    };
+  });
+
+  return { album, songs, releaseSkus };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ releaseSlug: string }>;
+}): Promise<Metadata> {
+  const { releaseSlug } = await params;
+  const result = await getAlbumData(releaseSlug);
+  if (!result) return {};
+
+  const { album } = result;
+  // citation_summary is the AI-tuned canonical answer; fall back to concept,
+  // then to a generic line. All capped at 280 for OG/twitter.
+  const meta = (album.citation_summary || album.concept_statement || `${album.title} by Chad Lewine.`).slice(0, 280);
+  return {
+    title: `${album.title} — Chad Lewine`,
+    description: meta,
+    alternates: {
+      canonical: `https://chadlewine.com/music/releases/${releaseSlug}`,
+    },
+  };
+}
+
+export default async function AlbumDetailPage({
+  params,
+}: {
+  params: Promise<{ releaseSlug: string }>;
+}) {
+  const { releaseSlug } = await params;
+  const result = await getAlbumData(releaseSlug);
+  if (!result) notFound();
+
+  const { album, songs, releaseSkus } = result;
+
+  // Header chip: "Multiple formats" when more than one SKU format sellable,
+  // else the single format name. Combined with the release type ("Album").
+  const skuFormats = Array.from(
+    new Set(releaseSkus.map((s) => releaseFormatLabel(s.format)).filter(Boolean)),
+  );
+  const skuLabel =
+    skuFormats.length === 0
+      ? null
+      : skuFormats.length === 1
+        ? skuFormats[0]
+        : "Multiple formats";
+  const typeLabel = releaseTypeLabel((album as Record<string, unknown>).release_type as string | null);
+  const headerFormatLabel = [skuLabel, typeLabel].filter(Boolean).join(" ") || null;
+
+  // Fetch album badge from Rising Compass API + per-song badges in parallel
+  const [albumBadgeData, ...badgeResults] = await Promise.all([
+    fetchAlbumBadge(album.title, "Chad Lewine"),
+    ...songs.map((s) => fetchBadge(s.title, "Chad Lewine")),
+  ]);
+
+  const songBadges: Record<string, RisingCompassBadgeData> = {};
+  songs.forEach((s, i) => {
+    if (badgeResults[i]) songBadges[s.id] = badgeResults[i]!;
+  });
+
+  const albumBadge = albumBadgeData
+    ? {
+        tier: albumBadgeData.tier,
+        tierLabel: albumBadgeData.tier_label,
+        tierHex: albumBadgeData.tier_hex,
+        charge: albumBadgeData.charge,
+        chargeSummary: albumBadgeData.charge_summary,
+        contaminated: albumBadgeData.contaminated,
+        contaminationNote: albumBadgeData.contamination_note,
+        artistSlug: albumBadgeData.artist_slug ?? null,
+      }
+    : null;
+
+  return (
+    <>
+      <AdminEditButton href={`/admin/music/releases/${album.slug || album.id}`} />
+      <ReleaseDetail
+        album={{
+          id: album.id,
+          title: album.title,
+          slug: album.slug,
+          cover_art_path: album.cover_art_path,
+          cover_art_alt: album.cover_art_alt,
+          release_date: album.release_date,
+          concept_statement: album.concept_statement || null,
+          format_label: headerFormatLabel,
+        }}
+        songs={songs.map((s) => ({
+          id: s.id,
+          title: s.title,
+          slug: s.slug,
+          track_number: s.track_number,
+          duration_seconds: s.duration_seconds,
+          streaming_path: s.streaming_path,
+          price: s.price,
+          playback_mode: s.playback_mode,
+          download_formats: s.download_formats,
+          ringtone_available: s.ringtone_available,
+          ringtone_price: s.ringtone_price,
+        }))}
+        badge={albumBadge}
+        skus={releaseSkus.map((s) => ({
+          id: s.id,
+          format: s.format,
+          price: s.price,
+          status: s.status === "discontinued" ? "available" : s.status,
+          stock: s.stock,
+          variants: s.variants,
+        }))}
+      />
+      <ReleaseSections
+        albumId={album.id}
+        album={{
+          id: album.id,
+          title: album.title,
+          slug: album.slug,
+          cover_art_path: album.cover_art_path,
+          cover_art_alt: album.cover_art_alt,
+          release_date: album.release_date,
+          concept_statement: album.concept_statement || null,
+          citation_summary: album.citation_summary || null,
+          entity_tags: Array.isArray(album.entity_tags) ? (album.entity_tags as string[]) : [],
+        }}
+      />
+      {Object.keys(songBadges).length > 0 && (
+        <section className="album-rc-classifications" aria-label="Rising Compass Classifications">
+          <h3 className="album-rc-classifications__title">Rising Compass Classifications</h3>
+          <div className="album-rc-classifications__list">
+            {songs.map((s) => {
+              const b = songBadges[s.id];
+              if (!b) return null;
+              return (
+                <a
+                  key={s.id}
+                  href={rcBadgeHref(b)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="album-rc-classifications__row"
+                >
+                  <span className="album-rc-classifications__track-num">{s.track_number}</span>
+                  <span className="album-rc-classifications__track-title">{s.title}</span>
+                  <span className="album-rc-classifications__tier">
+                    <span
+                      className="album-rc-classifications__tier-label"
+                      style={{ backgroundColor: b.tier_hex }}
+                    >
+                      {b.tier_label}
+                    </span>
+                    <span className="album-rc-classifications__charge">
+                      {b.charge > 0 ? "+" : ""}{b.charge}
+                    </span>
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}

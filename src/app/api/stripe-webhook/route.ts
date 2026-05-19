@@ -40,12 +40,15 @@ export async function POST(request: Request) {
       // Multi-item cart — one orders row + one purchase row per line.
       // Pure-digital orders auto-complete; orders with any physical line land
       // in pending_review so admin can approve before pushing to Printify.
-      // Cart payload is in session.metadata.cart_items as compact JSON. Any
-      // configurator merch line stores its full product_config in cfg_<idx>.
       const rawCart = session.metadata?.cart_items;
+      // New compact shape: sk = sku_id, v = sku_variant_id. When sk is set,
+      // the SKU encodes the parent (release/song) — i is omitted on those
+      // lines. Legacy lines (no sk) still carry i.
       type CartLine = {
         t: "s" | "a" | "r" | "m" | "o";
-        i: string | null;
+        i?: string | null;
+        sk?: string;
+        v?: string;
         f?: "mp3" | "flac" | "wav" | null;
         c?: number;
       };
@@ -63,8 +66,8 @@ export async function POST(request: Request) {
 
       const buyerEmail = session.customer_details?.email || "unknown";
 
-      // Idempotency: if we already have an order for this Stripe session, skip.
-      // Stripe retries webhooks, and we don't want duplicate purchase rows.
+      // Idempotency: if we already have an order for this Stripe session,
+      // skip the entire path (no duplicate purchases, no stock double-decrement).
       const sessionId = session.id;
       let orderId: string | null = null;
       if (sessionId) {
@@ -87,8 +90,6 @@ export async function POST(request: Request) {
 
       const orderStatus = hasPhysicalLines ? "pending_review" : "completed";
 
-      // Stripe's TS types renamed/moved shipping_details across API versions;
-      // the field is still on the wire so we read it via a narrowed cast.
       const sessionWithShipping = session as typeof session & {
         shipping_details?: {
           name?: string | null;
@@ -159,9 +160,6 @@ export async function POST(request: Request) {
       const newOrderId: string = orderRow.id;
       const orderNumber: string = orderRow.order_number;
 
-      // Upsert into audience (master contact record) and link the order
-      // row by audience_id. The opt-in flag is set on the cart at
-      // /api/cart-checkout and forwarded in session metadata.
       const marketingOptIn = session.metadata?.marketing_opt_in === "true";
       let audienceId: string | null = null;
       try {
@@ -186,11 +184,6 @@ export async function POST(request: Request) {
         });
         await supabase.from("orders").update({ audience_id: audienceId }).eq("id", newOrderId);
 
-        // Mark any member coupon applied at checkout as redeemed. New flow:
-        // cart-checkout stamps session.metadata.member_coupon_id when the
-        // buyer applies the coupon from our cart toggle. Legacy flow (if a
-        // buyer ever typed an older stripe promotion code at Stripe's UI)
-        // still matches via stripe_promotion_code_id as a fallback.
         const amountDiscount = session.total_details?.amount_discount || 0;
         if (amountDiscount > 0 && audienceId) {
           const memberCouponId = session.metadata?.member_coupon_id;
@@ -249,9 +242,6 @@ export async function POST(request: Request) {
           }
         }
 
-        // Persist the Stripe Customer id (created by customer_creation:'always')
-        // so we can route this buyer through Billing Portal later. Only
-        // overwrite if the audience row doesn't already have one.
         const stripeCustomerId =
           typeof session.customer === "string"
             ? session.customer
@@ -264,12 +254,9 @@ export async function POST(request: Request) {
             .is("stripe_customer_id", null);
         }
       } catch (e) {
-        // Non-fatal — order still completes. Log for follow-up.
         console.error("[stripe-webhook] audience upsert failed:", e);
       }
 
-      // Fetch per-line prices for the email — Stripe returns line_items in the
-      // same order we created them, which matches cartLines.
       let stripeLineAmounts: number[] = [];
       try {
         if (sessionId) {
@@ -281,7 +268,7 @@ export async function POST(request: Request) {
       }
       type FormatKey = "mp3" | "flac" | "wav";
       type RingtoneFormat = "m4r" | "mp3";
-      type EmailItemType = "song" | "album" | "ringtone" | "merch" | "art_original";
+      type EmailItemType = "song" | "release" | "ringtone" | "merch" | "art_original";
       const emailItems: OrderEmailLine[] = [];
 
       for (let idx = 0; idx < cartLines.length; idx++) {
@@ -290,7 +277,7 @@ export async function POST(request: Request) {
           line.t === "s"
             ? "song"
             : line.t === "a"
-              ? "album"
+              ? "release"
               : line.t === "r"
                 ? "ringtone"
                 : line.t === "o"
@@ -305,28 +292,77 @@ export async function POST(request: Request) {
         let availableFormats: FormatKey[] = [];
         let ringtonePlatforms: RingtoneFormat[] = [];
 
-        if (lineType === "song") {
-          const { data: song } = await supabase
-            .from("songs")
-            .select("title, art_image_path, download_path_mp3, download_path_flac, download_path_wav, download_path")
-            .eq("id", line.i!)
-            .single();
-          itemTitle = song?.title || "Your song";
-          imageUrl = song?.art_image_path || undefined;
-          availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-            (f) => (song as Record<string, unknown> | null)?.[`download_path_${f}`],
-          );
-          if (!availableFormats.length && song?.download_path) availableFormats = ["mp3"];
+        // SKU resolution. When the cart line carries `sk`, prefer the SKU
+        // row's data (price, format, download paths, stock) over the parent
+        // row. Legacy lines (no sk) keep the old item_id-based lookups.
+        let resolvedReleaseSkuId: string | null = null;
+        let resolvedSongSkuId: string | null = null;
+        const resolvedVariantId: string | null = line.v || null;
+        let resolvedItemId: string | null = line.i || null;
 
-          if (!imageUrl) {
-            const { data: assoc } = await supabase
-              .from("album_songs")
-              .select("album:albums(cover_art_path)")
-              .eq("song_id", line.i!)
+        if (lineType === "song") {
+          if (line.sk) {
+            const { data: sku } = await supabase
+              .from("song_skus")
+              .select("id, song_id, format, download_path_mp3, download_path_flac, download_path_wav, stock")
+              .eq("id", line.sk)
               .single();
-            imageUrl =
-              (assoc as { album?: { cover_art_path?: string | null } } | null)?.album
-                ?.cover_art_path || undefined;
+            if (sku) {
+              resolvedSongSkuId = sku.id;
+              resolvedItemId = sku.song_id;
+              availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
+                (f) => (sku as Record<string, unknown>)[`download_path_${f}`],
+              );
+              const { data: songRow } = await supabase
+                .from("songs")
+                .select("title, art_image_path, download_path_mp3, download_path_flac, download_path_wav, download_path")
+                .eq("id", sku.song_id)
+                .single();
+              itemTitle = songRow?.title || "Your song";
+              imageUrl = songRow?.art_image_path || undefined;
+              if (availableFormats.length === 0) {
+                // SKU has no download paths set yet — fall back to song-level
+                // legacy paths so the buyer still gets a download link.
+                availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
+                  (f) => (songRow as Record<string, unknown> | null)?.[`download_path_${f}`],
+                );
+                if (!availableFormats.length && songRow?.download_path) availableFormats = ["mp3"];
+              }
+              if (!imageUrl && sku.song_id) {
+                const { data: assoc } = await supabase
+                  .from("release_songs")
+                  .select("release:releases(cover_art_path)")
+                  .eq("song_id", sku.song_id)
+                  .single();
+                imageUrl =
+                  (assoc as { release?: { cover_art_path?: string | null } } | null)?.release
+                    ?.cover_art_path || undefined;
+              }
+            }
+          } else {
+            // Legacy: songs.download_path_* still present.
+            const { data: song } = await supabase
+              .from("songs")
+              .select("title, art_image_path, download_path_mp3, download_path_flac, download_path_wav, download_path")
+              .eq("id", line.i!)
+              .single();
+            itemTitle = song?.title || "Your song";
+            imageUrl = song?.art_image_path || undefined;
+            availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
+              (f) => (song as Record<string, unknown> | null)?.[`download_path_${f}`],
+            );
+            if (!availableFormats.length && song?.download_path) availableFormats = ["mp3"];
+
+            if (!imageUrl) {
+              const { data: assoc } = await supabase
+                .from("release_songs")
+                .select("release:releases(cover_art_path)")
+                .eq("song_id", line.i!)
+                .single();
+              imageUrl =
+                (assoc as { release?: { cover_art_path?: string | null } } | null)?.release
+                  ?.cover_art_path || undefined;
+            }
           }
         } else if (lineType === "ringtone") {
           const { data: song } = await supabase
@@ -341,28 +377,54 @@ export async function POST(request: Request) {
           );
           if (!imageUrl) {
             const { data: assoc } = await supabase
-              .from("album_songs")
-              .select("album:albums(cover_art_path)")
+              .from("release_songs")
+              .select("release:releases(cover_art_path)")
               .eq("song_id", line.i!)
               .single();
             imageUrl =
-              (assoc as { album?: { cover_art_path?: string | null } } | null)?.album
+              (assoc as { release?: { cover_art_path?: string | null } } | null)?.release
                 ?.cover_art_path || undefined;
           }
-        } else if (lineType === "album") {
-          const { data: album } = await supabase
-            .from("albums")
-            .select("title, cover_art_path, download_path_mp3, download_path_flac, download_path_wav")
-            .eq("id", line.i!)
-            .single();
-          itemTitle = album?.title || "Your album";
-          imageUrl = album?.cover_art_path || undefined;
-          availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-            (f) => (album as Record<string, unknown> | null)?.[`download_path_${f}`],
-          );
+        } else if (lineType === "release") {
+          if (line.sk) {
+            const { data: sku } = await supabase
+              .from("release_skus")
+              .select("id, release_id, format, download_path_mp3, download_path_flac, download_path_wav, stock")
+              .eq("id", line.sk)
+              .single();
+            if (sku) {
+              resolvedReleaseSkuId = sku.id;
+              resolvedItemId = sku.release_id;
+              availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
+                (f) => (sku as Record<string, unknown>)[`download_path_${f}`],
+              );
+              const { data: album } = await supabase
+                .from("releases")
+                .select("title, cover_art_path")
+                .eq("id", sku.release_id)
+                .single();
+              itemTitle = album?.title || "Your album";
+              imageUrl = album?.cover_art_path || undefined;
+            }
+          } else {
+            // releases.download_path_* is GONE — legacy release lines can't
+            // resolve download paths. Email will surface as-is with no links;
+            // the buyer can use /music/recover for the order admin to manually
+            // reissue. Flag loudly so we catch unexpected legacy lines.
+            console.warn(
+              "[stripe-webhook] Legacy release line with no sku_id; cannot resolve download paths (id=" +
+                line.i +
+                ")",
+            );
+            const { data: album } = await supabase
+              .from("releases")
+              .select("title, cover_art_path")
+              .eq("id", line.i!)
+              .single();
+            itemTitle = album?.title || "Your album";
+            imageUrl = album?.cover_art_path || undefined;
+          }
         } else {
-          // Resolve any cfg payload first — it may carry a configurator config
-          // (tier + blueprint_id) or a curated size pick (variant_id).
           let cfg: Record<string, unknown> | null = null;
           if (lineType === "merch" && typeof line.c === "number") {
             const cfgRaw = session.metadata?.[`cfg_${line.c}`];
@@ -374,7 +436,6 @@ export async function POST(request: Request) {
             const tierLabel =
               cfg!.tier === "art" ? "The Art" : cfg!.tier === "line" ? "The Line" : "The Fusion";
             itemTitle = `${tierLabel} — Custom merch`;
-            // Source art comes from the song or observation chosen in the configurator.
             const sourceType = cfg!.source_type as string | undefined;
             const sourceId = cfg!.source_id as string | undefined;
             if (sourceType && sourceId) {
@@ -402,8 +463,6 @@ export async function POST(request: Request) {
           }
         }
 
-        // Snapshot any cfg attached to this line — configurator config or
-        // curated sized variant.
         let configSnapshot: Record<string, unknown> | null = null;
         if (lineType === "merch" && typeof line.c === "number") {
           const cfgRaw = session.metadata?.[`cfg_${line.c}`];
@@ -412,7 +471,6 @@ export async function POST(request: Request) {
 
         const lineTotal = stripeLineAmounts[idx] ?? 0;
 
-        // Insert purchase row, linked to the parent order
         const { data: purchase, error: purchaseError } = await supabase
           .from("purchases")
           .insert({
@@ -420,7 +478,10 @@ export async function POST(request: Request) {
             buyer_email: buyerEmail,
             audience_id: audienceId,
             item_type: lineType,
-            item_id: line.i,
+            item_id: resolvedItemId,
+            release_sku_id: resolvedReleaseSkuId,
+            song_sku_id: resolvedSongSkuId,
+            sku_variant_id: resolvedVariantId,
             format,
             stripe_payment_intent_id: session.payment_intent || null,
             amount: lineTotal,
@@ -440,7 +501,77 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // Side-effects for physical lines: edition counter, art_piece sold flag.
+        // Stock decrement for physical SKUs. Idempotency: the entire path
+        // is gated by the order-already-exists check at the top, so a Stripe
+        // re-delivery short-circuits before we reach this line.
+        if (
+          (lineType === "release" || lineType === "song") &&
+          (resolvedReleaseSkuId || resolvedSongSkuId)
+        ) {
+          try {
+            if (resolvedVariantId) {
+              const { data: v } = await supabase
+                .from("sku_variants")
+                .select("stock")
+                .eq("id", resolvedVariantId)
+                .single();
+              if (v && v.stock !== null && v.stock !== undefined) {
+                const next = v.stock - 1;
+                await supabase
+                  .from("sku_variants")
+                  .update({ stock: next })
+                  .eq("id", resolvedVariantId);
+                if (next < 0) {
+                  console.warn(
+                    "[stripe-webhook] sku_variants.stock went negative for variant " +
+                      resolvedVariantId,
+                  );
+                }
+              }
+            } else if (resolvedReleaseSkuId) {
+              const { data: s } = await supabase
+                .from("release_skus")
+                .select("format, stock")
+                .eq("id", resolvedReleaseSkuId)
+                .single();
+              if (s && s.format !== "digital" && s.stock !== null && s.stock !== undefined) {
+                const next = s.stock - 1;
+                await supabase
+                  .from("release_skus")
+                  .update({ stock: next })
+                  .eq("id", resolvedReleaseSkuId);
+                if (next < 0) {
+                  console.warn(
+                    "[stripe-webhook] release_skus.stock went negative for sku " +
+                      resolvedReleaseSkuId,
+                  );
+                }
+              }
+            } else if (resolvedSongSkuId) {
+              const { data: s } = await supabase
+                .from("song_skus")
+                .select("format, stock")
+                .eq("id", resolvedSongSkuId)
+                .single();
+              if (s && s.format !== "digital" && s.stock !== null && s.stock !== undefined) {
+                const next = s.stock - 1;
+                await supabase
+                  .from("song_skus")
+                  .update({ stock: next })
+                  .eq("id", resolvedSongSkuId);
+                if (next < 0) {
+                  console.warn(
+                    "[stripe-webhook] song_skus.stock went negative for sku " +
+                      resolvedSongSkuId,
+                  );
+                }
+              }
+            }
+          } catch (e) {
+            console.error("[stripe-webhook] stock decrement failed:", (e as Error).message);
+          }
+        }
+
         if ((lineType === "merch" || lineType === "art_original") && line.i) {
           const { error: rpcErr } = await supabase.rpc("increment_editions_sold", { p_product_id: line.i });
           if (rpcErr) console.error("[stripe-webhook] increment_editions_sold failed:", rpcErr.message);
@@ -457,8 +588,6 @@ export async function POST(request: Request) {
           }
         }
 
-        // Build email entry — every line lands in the same shape so customer +
-        // admin emails can render the same data.
         let formatLinks: Array<{ format: FormatKey | RingtoneFormat; url: string }> | undefined;
         let fulfillmentNote: string | undefined;
         if (lineType === "merch" || lineType === "art_original") {
@@ -494,8 +623,6 @@ export async function POST(request: Request) {
         });
       }
 
-      // Send customer + admin emails. Customer email is skipped if the buyer
-      // checked out as guest with no email captured.
       if (emailItems.length > 0) {
         const recoverUrl = `${SITE_URL}/music/recover`;
         const orderData = {
@@ -551,7 +678,7 @@ export async function POST(request: Request) {
         }
       }
     } else {
-      // Patronage — only path that doesn't go through the cart (donation flow).
+      // Patronage — donation flow.
       const observationId = session.metadata?.observation_id || null;
 
       const { error: insertError } = await supabase.from("patrons").insert({

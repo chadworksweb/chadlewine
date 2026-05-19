@@ -4,9 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MiniPlayer } from "@/components/MiniPlayer";
-import { VISIBILITY_CATEGORIES } from "@/lib/song-visibility";
 import { CompassIcon } from "@/components/RCBadge";
 import { useCart } from "@/components/Cart";
+import { SkuPicker, type SkuPickerSku } from "@/components/SkuPicker";
 import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
 import { ExploreGrid } from "@/components/ExploreGrid";
@@ -21,6 +21,8 @@ interface SongProps {
   streaming_path: string | null;
   lyrics: string | null;
   instrumental: boolean;
+  /** Legacy display field only — actual purchase price flows through SKU
+   *  data. Kept null-tolerant during the SKU migration. */
   price: number | null;
   release_date: string | null;
   song_summary: string | null;
@@ -40,7 +42,6 @@ interface AlbumProps {
   slug: string;
   cover_art_path: string | null;
   cover_art_alt: string | null;
-  price: number | null;
   release_date: string | null;
 }
 
@@ -132,8 +133,8 @@ export function SongDetail({
   ifYouLike = null,
   pairedArt = [],
   connectionsSongs = [],
-  songFormats = [],
-  albumFormats = [],
+  songSkus = [],
+  releaseSkus = [],
   merchSlot = null,
 }: {
   song: SongProps;
@@ -143,8 +144,8 @@ export function SongDetail({
   visibilitySections?: VisibilitySectionProps[];
   badge?: BadgeProps | null;
   playbackMode?: "preview" | "full";
-  songFormats?: Array<"mp3" | "flac" | "wav">;
-  albumFormats?: Array<"mp3" | "flac" | "wav">;
+  songSkus?: SkuPickerSku[];
+  releaseSkus?: SkuPickerSku[];
   geoFields?: GeoFieldsProps | null;
   ifYouLike?: IfYouLikeProps | null;
   pairedArt?: PairedArtProps[];
@@ -155,11 +156,6 @@ export function SongDetail({
   const [openExpansions, setOpenExpansions] = useState<Set<string>>(new Set());
   const [summaryOpen, setSummaryOpen] = useState(false);
   const cart = useCart();
-  const songInCart = cart.hasItem({ type: "song", id: song.id, format: null });
-  const albumInCart = album
-    ? cart.hasItem({ type: "album", id: album.id, format: null })
-    : false;
-  const albumPurchasable = !!(album && album.price && albumFormats.length > 0);
   const ringtoneInCart = cart.hasItem({ type: "ringtone", id: song.id, format: null });
   const ringtoneAvailable = !!song.ringtone_available && !!song.ringtone_price;
 
@@ -203,7 +199,7 @@ export function SongDetail({
       value: (
         <FitText>
           <Link
-            href={`/music/albums/${album.slug}`}
+            href={`/music/releases/${album.slug}`}
             className="track-detail__glitch-link"
             data-text={album.title}
           >
@@ -226,11 +222,14 @@ export function SongDetail({
         {/* Left column — Cover art (song art overrides album art) */}
         <div className="track-detail__art-col">
           {coverArtPath && (
-            <img
+            <Image
               src={coverArtPath}
               alt={coverArtAlt}
+              width={1200}
+              height={1200}
               className="track-detail__cover"
-              loading="eager"
+              priority
+              sizes="(max-width: 640px) 100vw, 600px"
               style={focalCropStyle(song.card_focal_x ?? null, song.card_focal_y ?? null, song.card_zoom ?? null)}
             />
           )}
@@ -271,49 +270,25 @@ export function SongDetail({
           {/* Action row: buttons + badge */}
           <div className="track-detail__action-row">
             <div className="track-detail__actions">
-              {album && albumPurchasable && album.price && (
-                <button
-                  type="button"
-                  className={`track-detail__btn track-detail__btn--buy-album${albumInCart ? " track-detail__btn--in-cart" : ""}`}
-                  disabled={albumInCart}
-                  aria-disabled={albumInCart}
-                  onClick={() => {
-                    if (albumInCart || !album.price) return;
-                    cart.add({
-                      type: "album",
-                      id: album.id,
-                      title: album.title,
-                      slug: album.slug,
-                      price: album.price,
-                      format: null,
-                      cover_art_path: album.cover_art_path,
-                    });
-                  }}
-                >
-                  {albumInCart ? "Album Already in Cart" : "Add Album to Cart"}
-                </button>
+              {songSkus.length > 0 && (
+                <SkuPicker
+                  kind="song"
+                  parentId={song.id}
+                  title={song.title}
+                  slug={song.slug}
+                  coverArtPath={song.art_image_path || album?.cover_art_path || null}
+                  skus={songSkus}
+                />
               )}
-              {song.price && songFormats.length > 0 && (
-                <button
-                  type="button"
-                  className={`track-detail__btn track-detail__btn--buy${songInCart ? " track-detail__btn--in-cart" : ""}`}
-                  disabled={songInCart}
-                  aria-disabled={songInCart}
-                  onClick={() => {
-                    if (songInCart || !song.price) return;
-                    cart.add({
-                      type: "song",
-                      id: song.id,
-                      title: song.title,
-                      slug: song.slug,
-                      price: song.price,
-                      format: null,
-                      cover_art_path: song.art_image_path || album?.cover_art_path || null,
-                    });
-                  }}
-                >
-                  {songInCart ? "Already in Cart" : "Add Song to Cart"}
-                </button>
+              {album && releaseSkus.length > 0 && (
+                <SkuPicker
+                  kind="release"
+                  parentId={album.id}
+                  title={album.title}
+                  slug={album.slug}
+                  coverArtPath={album.cover_art_path}
+                  skus={releaseSkus}
+                />
               )}
               {ringtoneAvailable && song.ringtone_price && (
                 <button

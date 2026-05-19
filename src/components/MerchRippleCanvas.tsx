@@ -208,7 +208,7 @@ export const MerchRippleCanvas = forwardRef<MerchRippleCanvasHandle, Props>(
       let cancelled = false;
       const optimizedSrc = src.startsWith("/")
         ? src
-        : `/_next/image?url=${encodeURIComponent(src)}&w=1080&q=75`;
+        : `/_next/image?url=${encodeURIComponent(src)}&w=1080&q=100`;
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {

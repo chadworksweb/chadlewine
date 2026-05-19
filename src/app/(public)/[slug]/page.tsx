@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { createPublicClient } from "@/lib/supabase-server";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AdminEditButton } from "@/components/AdminEditButton";
@@ -106,11 +107,13 @@ export default async function DoorPage({
                   }}
                 >
                   {s.art_image_path && (
-                    <img
+                    <Image
                       src={s.art_image_path}
                       alt={s.art_alt || s.title}
-                      style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }}
-                      loading="lazy"
+                      width={400}
+                      height={400}
+                      sizes="(max-width: 640px) 50vw, 200px"
+                      style={{ width: "100%", height: "auto", aspectRatio: "1/1", objectFit: "cover", display: "block" }}
                     />
                   )}
                   <span style={{ display: "block", padding: "var(--space-sm)", fontFamily: "var(--font-ui)", fontSize: "0.9rem", color: "var(--text-primary)" }}>

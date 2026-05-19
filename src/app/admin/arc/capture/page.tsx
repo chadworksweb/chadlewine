@@ -220,7 +220,7 @@ function EraForm({ p, set }: FormProps) {
         <Field label="Date start"><input type="date" className="obsv-editor__input" value={(p.date_start as string) ?? ""} onChange={(e) => set("date_start", e.target.value)} /></Field>
         <Field label="Date end (optional)"><input type="date" className="obsv-editor__input" value={(p.date_end as string) ?? ""} onChange={(e) => set("date_end", e.target.value)} /></Field>
       </div>
-      <Field label="Album ID (release kind only)"><input className="obsv-editor__input" value={(p.album_id as string) ?? ""} onChange={(e) => set("album_id", e.target.value || null)} /></Field>
+      <Field label="Album ID (release kind only)"><input className="obsv-editor__input" value={(p.release_id as string) ?? ""} onChange={(e) => set("release_id", e.target.value || null)} /></Field>
       <Field label="Body (markdown)"><textarea className="obsv-editor__input" rows={4} value={(p.body_md as string) ?? ""} onChange={(e) => set("body_md", e.target.value)} /></Field>
       <StatusField p={p} set={set} />
     </>

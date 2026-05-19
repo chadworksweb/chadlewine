@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { WaterRipple } from "@/components/WaterRipple";
 import { TitleReveal } from "@/components/TitleReveal";
 
@@ -10,7 +11,7 @@ import { TitleReveal } from "@/components/TitleReveal";
 // (albums.concept_statement), and observations have hooks (observations.hook_line).
 // Don't reintroduce a generic "hook" field here — pick the entity-specific
 // name when this slider is reused in a different context.
-export type HeroKind = "song" | "album" | "merch" | "observation" | "art";
+export type HeroKind = "song" | "release" | "merch" | "observation" | "art";
 
 export interface HeroLensItem {
   slug: string;
@@ -60,9 +61,13 @@ function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boo
             />
           ) : (
             <div className="cover-hero__art-wrap">
-              <img
+              <Image
                 src={item.artImagePath}
                 alt={item.artAlt || item.title}
+                width={2400}
+                height={1600}
+                priority
+                sizes="100vw"
                 style={staticStyle}
               />
             </div>
@@ -167,7 +172,9 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   }, []);
 
   const onIndexChangeRef = useRef(onIndexChange);
-  onIndexChangeRef.current = onIndexChange;
+  useEffect(() => {
+    onIndexChangeRef.current = onIndexChange;
+  }, [onIndexChange]);
 
   const advance = useCallback(
     (direction: "up" | "down") => {
@@ -190,7 +197,9 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   );
 
   const advanceRef = useRef(advance);
-  advanceRef.current = advance;
+  useEffect(() => {
+    advanceRef.current = advance;
+  }, [advance]);
 
   const touchStart = useRef({ x: 0, y: 0 });
   const gestureAxis = useRef<null | "horizontal" | "vertical">(null);

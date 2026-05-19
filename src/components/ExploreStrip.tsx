@@ -66,7 +66,7 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
       .order("created_at", { ascending: false })
       .limit(40),
     supabase
-      .from("albums")
+      .from("releases")
       .select("id, slug, title, cover_art_path")
       .eq("status", "published")
       .not("cover_art_path", "is", null)
@@ -123,8 +123,8 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
     title: a.title,
     image_url: a.cover_art_path,
     image_alt: a.title,
-    href: `/music/albums/${a.slug}`,
-    kind: "album",
+    href: `/music/releases/${a.slug}`,
+    kind: "release",
   }));
 
   const artPool: ExploreItem[] = ((artRes.data || []) as Array<{ id: string; slug: string; title: string; image_path: string | null }>).map((a) => ({

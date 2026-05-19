@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { CSSProperties } from "react";
 
-// Trimmed ripple canvas for the AlbumHero paddles. Same ring math as
+// Trimmed ripple canvas for the ReleaseHero paddles. Same ring math as
 // MerchRippleCanvas but no source texture — output is transparent + cyan
 // tint scaled by ring amplitude, so the paddle's CSS gradient stays visible
 // underneath and only the ripple itself paints over it.

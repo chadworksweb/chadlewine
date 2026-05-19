@@ -177,6 +177,7 @@ export default function AdminPageMetaEditor({
         </div>
         {form.og_image_path && (
           <div style={{ marginTop: 8 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin-only preview */}
             <img src={form.og_image_path} alt="OG preview" style={{ maxWidth: 320, border: "1px solid #d8d8dc" }} />
           </div>
         )}

@@ -3,12 +3,16 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { DiscographyCubeRadiant, type DiscographyCubeFace } from "./DiscographyCubeRadiant";
+import { releaseTypeLabel } from "@/lib/release-labels";
+
+type ReleaseType = "album" | "ep" | "single" | "compilation";
 
 interface DiscographyItem {
   id: string;
   title: string;
   slug: string;
   type: "album" | "single";
+  release_type: ReleaseType;
   release_date: string | null;
   cover_art_path: string | null;
   format_label: string | null;
@@ -26,26 +30,26 @@ type SortMode = "newest" | "oldest" | "az" | "za";
 
 interface DiscographyExplorerProps {
   items: DiscographyItem[];
-  allFormats: string[];
+  allTypes: ReleaseType[];
 }
 
 function itemDate(item: DiscographyItem): number {
   return item.release_date ? new Date(item.release_date).getTime() : 0;
 }
 
-export function DiscographyExplorer({ items, allFormats }: DiscographyExplorerProps) {
-  const [selectedFormat, setSelectedFormat] = useState<string>("");
+export function DiscographyExplorer({ items, allTypes }: DiscographyExplorerProps) {
+  const [selectedType, setSelectedType] = useState<ReleaseType | "">("");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
 
   function clearFilters() {
-    setSelectedFormat("");
+    setSelectedType("");
   }
 
   const visible = useMemo(() => {
     let filtered = items;
 
-    if (selectedFormat) {
-      filtered = filtered.filter((item) => item.format_label === selectedFormat);
+    if (selectedType) {
+      filtered = filtered.filter((item) => item.release_type === selectedType);
     }
 
     const sorted = [...filtered];
@@ -64,28 +68,28 @@ export function DiscographyExplorer({ items, allFormats }: DiscographyExplorerPr
         break;
     }
     return sorted;
-  }, [items, selectedFormat, sortMode]);
+  }, [items, selectedType, sortMode]);
 
   return (
     <>
       <div className="songs-explorer__controls">
-        <div className="songs-explorer__topics" role="group" aria-label="Filter by format">
+        <div className="songs-explorer__topics" role="group" aria-label="Filter by release type">
           <button
             type="button"
-            className={`songs-explorer__topic-chip${!selectedFormat ? " is-selected" : ""}`}
+            className={`songs-explorer__topic-chip${!selectedType ? " is-selected" : ""}`}
             onClick={clearFilters}
           >
             All
           </button>
-          {allFormats.map((f) => (
+          {allTypes.map((t) => (
             <button
               type="button"
-              key={f}
-              className={`songs-explorer__topic-chip${selectedFormat === f ? " is-selected" : ""}`}
-              onClick={() => setSelectedFormat((prev) => (prev === f ? "" : f))}
-              aria-pressed={selectedFormat === f}
+              key={t}
+              className={`songs-explorer__topic-chip${selectedType === t ? " is-selected" : ""}`}
+              onClick={() => setSelectedType((prev) => (prev === t ? "" : t))}
+              aria-pressed={selectedType === t}
             >
-              {f}
+              {releaseTypeLabel(t)}
             </button>
           ))}
         </div>

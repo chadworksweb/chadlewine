@@ -84,7 +84,10 @@ export function LightningEffect({ src, alt, className, focalX = 0.5, focalY = 0.
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [striking, setStriking] = useState(false);
   const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
-  focalRef.current = { x: focalX, y: focalY, z: zoom };
+
+  useEffect(() => {
+    focalRef.current = { x: focalX, y: focalY, z: zoom };
+  }, [focalX, focalY, zoom]);
 
   useEffect(() => {
     const img = new Image();
@@ -230,6 +233,7 @@ export function LightningEffect({ src, alt, className, focalX = 0.5, focalY = 0.
       onClick={handleClick}
       style={{ position: "relative", overflow: "hidden", cursor: "pointer" }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- invisible sizer for canvas overlay; Image optimization N/A */}
       <img src={src} alt={alt} style={{ width: "100%", display: "block", visibility: "hidden" }} />
       <canvas
         ref={canvasRef}

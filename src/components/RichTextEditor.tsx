@@ -175,6 +175,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     }
   }
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React Compiler can't model the ref read; manual memo keeps a stable identity for child handlers
   const handleInput = useCallback(() => {
     if (editorRef.current) {
       isInternalUpdate.current = true;

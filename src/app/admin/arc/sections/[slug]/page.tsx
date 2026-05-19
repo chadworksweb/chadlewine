@@ -41,8 +41,6 @@ export default function SectionDetailPage(props: { params: Promise<{ slug: strin
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
 
-  useEffect(() => { load(); }, [slug]);
-
   async function load() {
     const res = await fetch(`/api/admin/arc/sections/${slug}`);
     if (!res.ok) return;
@@ -52,6 +50,9 @@ export default function SectionDetailPage(props: { params: Promise<{ slug: strin
     setRevisions(d.revisions);
     setContentMd(d.section.content_md ?? "");
   }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- load is declared above and reads slug; safe to omit from deps
+  useEffect(() => { load(); }, [slug]);
 
   async function saveDraft() {
     setSaving(true);
@@ -174,7 +175,7 @@ export default function SectionDetailPage(props: { params: Promise<{ slug: strin
                   <li key={i} style={{ fontSize: "0.8rem", fontFamily: "var(--font-ui)", lineHeight: 1.4 }}>
                     <span style={{ color: "#ffbb33" }}>{r.action}</span>{" "}
                     <span style={{ color: "var(--text-secondary)" }}>{r.kind}</span>{" "}
-                    {r.entity_title && <span style={{ color: "var(--text-primary)" }}>"{r.entity_title}"</span>}{" "}
+                    {r.entity_title && <span style={{ color: "var(--text-primary)" }}>&ldquo;{r.entity_title}&rdquo;</span>}{" "}
                     <span style={{ color: "var(--text-tertiary)", fontSize: "0.75rem" }}>{new Date(r.at).toLocaleDateString()}</span>
                   </li>
                 ))}
@@ -184,7 +185,7 @@ export default function SectionDetailPage(props: { params: Promise<{ slug: strin
 
           <SidePanel title={`Dependencies (${deps.length})`}>
             {deps.length === 0 ? (
-              <p style={{ color: "var(--text-tertiary)", fontSize: "0.85rem" }}>No nodes captured in this section's scope yet.</p>
+              <p style={{ color: "var(--text-tertiary)", fontSize: "0.85rem" }}>No nodes captured in this section&rsquo;s scope yet.</p>
             ) : (
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 4 }}>
                 {deps.slice(0, 30).map((d) => (
@@ -250,7 +251,7 @@ function PublishConfirm({ slug, onCancel, onConfirm }: { slug: string; onCancel:
       display: "grid", placeItems: "center", zIndex: 1000,
     }}>
       <div style={{ background: "var(--bg-primary)", padding: "var(--space-xl)", borderRadius: 8, maxWidth: 480, border: "1px solid var(--border-subtle)" }}>
-        <h2 style={{ margin: "0 0 var(--space-md) 0", fontSize: "1.1rem" }}>Publish "{slug}"?</h2>
+        <h2 style={{ margin: "0 0 var(--space-md) 0", fontSize: "1.1rem" }}>Publish &ldquo;{slug}&rdquo;?</h2>
         <p style={{ color: "var(--text-secondary)", marginBottom: "var(--space-lg)", fontSize: "0.9rem" }}>
           This will mark the section published, append a revision, clear stale flags, and stamp the last-published time.
           The public site picks up the new content on the next revalidate (within 60s) or build.

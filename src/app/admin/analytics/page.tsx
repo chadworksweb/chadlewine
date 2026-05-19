@@ -64,7 +64,7 @@ export default function AnalyticsPage() {
       if (summaryRes.ok) {
         const d = await summaryRes.json();
         setDaily(d.daily || []);
-        setTotals(d.totals || totals);
+        setTotals((prev) => d.totals || prev);
       }
       if (countsRes.ok) setCounts(await countsRes.json());
     }
@@ -82,6 +82,7 @@ export default function AnalyticsPage() {
     setLoading(false);
   }, [tab, days]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { fetchData(); }, [fetchData]);
 
   return (

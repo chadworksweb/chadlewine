@@ -266,8 +266,8 @@ export const DiscoFaceWater = forwardRef<DiscoFaceWaterHandle, Props>(
       );
 
       // Ping-pong sim textures + framebuffers.
-      let texA = makeFloatTex(gl, SIM_RES, SIM_RES);
-      let texB = makeFloatTex(gl, SIM_RES, SIM_RES);
+      const texA = makeFloatTex(gl, SIM_RES, SIM_RES);
+      const texB = makeFloatTex(gl, SIM_RES, SIM_RES);
       const fboA = gl.createFramebuffer();
       const fboB = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fboA);
@@ -311,7 +311,7 @@ export const DiscoFaceWater = forwardRef<DiscoFaceWaterHandle, Props>(
       let cancelled = false;
       const optimizedSrc = src.startsWith("/")
         ? src
-        : `/_next/image?url=${encodeURIComponent(src)}&w=1080&q=75`;
+        : `/_next/image?url=${encodeURIComponent(src)}&w=1080&q=100`;
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {

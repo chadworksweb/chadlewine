@@ -1,5 +1,3 @@
-import { fetchBadge } from "@/lib/rising-compass";
-
 const RC_API_URL = process.env.RISING_COMPASS_API_URL || "https://api.risingcompass.net";
 const RC_API_KEY = process.env.RISING_COMPASS_API_KEY || "";
 const RC_SERVICE_KEY = process.env.RISING_COMPASS_SERVICE_KEY || "";

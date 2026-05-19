@@ -7,7 +7,7 @@ export const maxDuration = 300;
 
 const SOFT_DELETE_GRACE_DAYS = 30;
 
-interface AdminClient extends ReturnType<typeof createAdminClient> {}
+type AdminClient = ReturnType<typeof createAdminClient>;
 
 interface SoftDeletedRow {
   id: string;

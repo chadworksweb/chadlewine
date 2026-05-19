@@ -15,7 +15,7 @@ const CART_KEY = "chadlewine_cart";
 const AUTO_CLOSE_MS = 5000;
 
 export type CartItem = {
-  type: "song" | "album" | "ringtone" | "merch" | "art_original";
+  type: "song" | "release" | "ringtone" | "merch" | "art_original";
   id: string;
   title: string;
   slug: string;
@@ -29,6 +29,11 @@ export type CartItem = {
   // so the same blueprint with different sources is a distinct cart line.
   variant_label?: string | null;
   product_config?: Record<string, unknown> | null;
+  // SKU layer. sku_id selects a release_skus / song_skus row; sku_variant_id
+  // selects a sku_variants child. Both optional during the transition — old
+  // cart lines that predate the SKU layer remain valid.
+  sku_id?: string | null;
+  sku_variant_id?: string | null;
 };
 
 function configHash(config: Record<string, unknown> | null | undefined): string {
@@ -40,15 +45,19 @@ function configHash(config: Record<string, unknown> | null | undefined): string 
   );
 }
 
-function lineKey(item: Pick<CartItem, "type" | "id" | "format" | "product_config">): string {
-  return `${item.type}:${item.id}:${item.format ?? "na"}:${configHash(item.product_config)}`;
+function lineKey(
+  item: Pick<CartItem, "type" | "id" | "format" | "product_config" | "sku_id" | "sku_variant_id">,
+): string {
+  return `${item.type}:${item.id}:${item.format ?? "na"}:${item.sku_id ?? "na"}:${item.sku_variant_id ?? "na"}:${configHash(item.product_config)}`;
 }
 
 type CartContextValue = {
   items: CartItem[];
   count: number;
   subtotal: number;
-  hasItem: (item: Pick<CartItem, "type" | "id" | "format" | "product_config">) => boolean;
+  hasItem: (
+    item: Pick<CartItem, "type" | "id" | "format" | "product_config" | "sku_id" | "sku_variant_id">,
+  ) => boolean;
   add: (item: CartItem) => void;
   remove: (key: string) => void;
   clear: () => void;
@@ -124,8 +133,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const hasItem = useCallback(
-    (probe: Pick<CartItem, "type" | "id" | "format" | "product_config">) =>
-      items.some((i) => lineKey(i) === lineKey(probe)),
+    (
+      probe: Pick<
+        CartItem,
+        "type" | "id" | "format" | "product_config" | "sku_id" | "sku_variant_id"
+      >,
+    ) => items.some((i) => lineKey(i) === lineKey(probe)),
     [items],
   );
 
@@ -272,6 +285,10 @@ export function CartUI() {
             id: i.id,
             format: i.format,
             product_config: i.product_config ?? null,
+            // SKU IDs pass through transparently. cart-checkout will start
+            // using them in task 5; until then they're ignored server-side.
+            sku_id: i.sku_id ?? null,
+            sku_variant_id: i.sku_variant_id ?? null,
           })),
           marketing_opt_in: true,
           apply_coupon: applyCoupon && !!availableCoupon,
@@ -344,15 +361,17 @@ export function CartUI() {
                     <div className="cl-cart-item__info">
                       <span className="cl-cart-item__name">{item.title}</span>
                       <span className="cl-cart-item__variant">
-                        {item.type === "album"
-                          ? "Album download"
-                          : item.type === "ringtone"
-                            ? "Ringtone (M4R + MP3)"
-                            : item.type === "song"
-                              ? "Song download"
-                              : item.type === "art_original"
-                                ? "Original artwork"
-                                : item.variant_label || "Merch"}
+                        {item.variant_label
+                          ? item.variant_label
+                          : item.type === "release"
+                            ? "Release"
+                            : item.type === "ringtone"
+                              ? "Ringtone (M4R + MP3)"
+                              : item.type === "song"
+                                ? "Song"
+                                : item.type === "art_original"
+                                  ? "Original artwork"
+                                  : "Merch"}
                         {item.format ? ` · ${item.format.toUpperCase()}` : ""}
                       </span>
                     </div>
@@ -380,7 +399,7 @@ export function CartUI() {
           <div className="cl-cart-drawer__footer">
             {(() => {
               const musicTotal = items
-                .filter((i) => i.type === "song" || i.type === "album" || i.type === "ringtone")
+                .filter((i) => i.type === "song" || i.type === "release" || i.type === "ringtone")
                 .reduce((s, i) => s + i.price, 0);
               const merchPrices = items
                 .filter((i) => i.type === "merch" || i.type === "art_original")

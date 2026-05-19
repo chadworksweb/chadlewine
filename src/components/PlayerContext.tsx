@@ -190,7 +190,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setResolvedDuration(0);
   }, [flushSession]);
 
-  const tick = useCallback(() => {
+  const tick = useCallback(function tickInner() {
     const audio = audioRef.current;
     const song = currentRef.current;
     if (!audio || audio.paused || !song) return;
@@ -220,7 +220,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    rafRef.current = requestAnimationFrame(tick);
+    rafRef.current = requestAnimationFrame(tickInner);
   }, [stop]);
 
   const play = useCallback(

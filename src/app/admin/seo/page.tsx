@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface ObservationSeoRow {
   id: string;
@@ -183,55 +184,63 @@ export default function SeoAdminPage() {
   );
 }
 
+interface HealthSummary {
+  index: { status: string };
+  sub_sitemaps: { id: string; label: string; url_count: number; expected_count: number; mismatch: boolean }[];
+  totals: { url_count: number; expected_count: number; any_mismatch: boolean };
+}
+
 function SitemapHealthWidget() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [data, setData] = useState<HealthSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/admin/sitemap-health")
       .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
+      .then((d) => { setData(d as HealthSummary); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
   if (loading) return <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", marginTop: "var(--space-xl)" }}>Checking sitemap...</p>;
   if (!data) return null;
 
-  const status = data.sitemap_status as string;
-  const urlCount = data.sitemap_url_count as number;
-  const expected = data.expected_url_count as number;
-  const mismatch = data.mismatch as boolean;
-  const breakdown = data.breakdown as Record<string, number>;
+  const indexOk = data.index.status === "ok";
+  const totals = data.totals;
 
   return (
     <section style={{ marginTop: "var(--space-2xl)" }}>
       <h2 className="obsv-editor__panel-title">Sitemap Health</h2>
       <div className="admin-stats" style={{ marginBottom: "var(--space-md)" }}>
-        <div className={`admin-stats__card${status !== "ok" ? " admin-stats__card--warn" : ""}`}>
-          <span className="admin-stats__value" style={{ color: status === "ok" ? "#22c55e" : "#ef4444" }}>
-            {status === "ok" ? "OK" : status.toUpperCase()}
+        <div className={`admin-stats__card${!indexOk ? " admin-stats__card--warn" : ""}`}>
+          <span className="admin-stats__value" style={{ color: indexOk ? "#22c55e" : "#ef4444" }}>
+            {indexOk ? "OK" : data.index.status.toUpperCase()}
           </span>
-          <span className="admin-stats__label">Status</span>
+          <span className="admin-stats__label">Index Status</span>
         </div>
-        <div className={`admin-stats__card${mismatch ? " admin-stats__card--warn" : ""}`}>
-          <span className="admin-stats__value">{urlCount}</span>
-          <span className="admin-stats__label">URLs in Sitemap</span>
+        <div className={`admin-stats__card${totals.any_mismatch ? " admin-stats__card--warn" : ""}`}>
+          <span className="admin-stats__value">{totals.url_count}</span>
+          <span className="admin-stats__label">URLs Total</span>
         </div>
         <div className="admin-stats__card">
-          <span className="admin-stats__value">{expected}</span>
+          <span className="admin-stats__value">{totals.expected_count}</span>
           <span className="admin-stats__label">Expected</span>
         </div>
+        <div className="admin-stats__card">
+          <span className="admin-stats__value">{data.sub_sitemaps.length}</span>
+          <span className="admin-stats__label">Sub-sitemaps</span>
+        </div>
       </div>
-      {mismatch && (
-        <p style={{ color: "#eab308", fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", marginBottom: "var(--space-md)" }}>
-          Mismatch: sitemap has {urlCount} URLs but {expected} expected from published content.
-        </p>
-      )}
-      <div style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", color: "var(--text-tertiary)", display: "flex", flexWrap: "wrap", gap: "var(--space-md)" }}>
-        {Object.entries(breakdown || {}).map(([key, val]) => (
-          <span key={key}>{key.replace(/_/g, " ")}: <strong style={{ color: "var(--text-secondary)" }}>{val}</strong></span>
+      <div style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", color: "var(--text-tertiary)", display: "flex", flexWrap: "wrap", gap: "var(--space-md)", marginBottom: "var(--space-md)" }}>
+        {data.sub_sitemaps.map((s) => (
+          <span key={s.id}>
+            {s.label}:{" "}
+            <strong style={{ color: s.mismatch ? "#eab308" : "var(--text-secondary)" }}>{s.url_count}</strong>
+          </span>
         ))}
       </div>
+      <p style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>
+        Full breakdown at <Link href="/admin/settings/sitemaps" style={{ color: "var(--text-secondary)" }}>Settings &rarr; Sitemaps</Link>.
+      </p>
     </section>
   );
 }

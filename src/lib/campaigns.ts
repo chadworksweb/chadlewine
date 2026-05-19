@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { getResend, siteOrigin } from "@/lib/resend";
 import { renderCampaignEmail } from "@/lib/email-template";
+import { renderEmail as renderBlockEmail, type EmailBlock, type GlobalsRow } from "@/lib/email-blocks";
 
 /** Audience filter shape. Empty filter = all active subscribers.
    - tags_all: must have every listed tag (intersection)
@@ -20,6 +21,7 @@ export interface AudienceRow {
   id: string;            // audience.id
   email: string;
   unsubscribe_token: string | null;
+  first_name: string | null;
 }
 
 /** Max audience size for a synchronous send. Above this, the send route
@@ -76,7 +78,7 @@ export async function fetchAudience(
   // Base set: active, non-unsubscribed audience rows.
   let query = supabase
     .from("audience")
-    .select("id, email, unsubscribe_token, engagement_score")
+    .select("id, email, unsubscribe_token, engagement_score, first_name")
     .eq("subscriber_status", "active")
     .is("unsubscribed_at", null);
 
@@ -119,11 +121,27 @@ interface CampaignRow {
   subject: string;
   preheader: string | null;
   body_html: string;
+  body_blocks: EmailBlock[] | null;
   from_name: string;
   from_email: string;
   reply_to: string | null;
   audience_filter: AudienceFilter;
   status: string;
+}
+
+// Load the singleton globals row once per send batch.
+async function loadGlobals(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<GlobalsRow> {
+  const { data } = await supabase
+    .from("email_globals")
+    .select("header_blocks, footer_blocks")
+    .eq("id", 1)
+    .maybeSingle();
+  return {
+    header_blocks: (data?.header_blocks as EmailBlock[]) || [],
+    footer_blocks: (data?.footer_blocks as EmailBlock[]) || [],
+  };
 }
 
 /** Build the unsubscribe URL for a given subscriber token. */
@@ -137,23 +155,42 @@ export function unsubscribeUrl(token: string): string {
    limits at our scale (chunks of 100 in parallel, no chunking pressure). */
 async function sendChunk(
   campaign: CampaignRow,
+  globals: GlobalsRow,
   chunk: AudienceRow[]
 ): Promise<Array<{ row: AudienceRow; resendId?: string; error?: string }>> {
   const resend = getResend();
   const from = `${campaign.from_name} <${campaign.from_email}>`;
+  const useBlocks = Array.isArray(campaign.body_blocks) && campaign.body_blocks.length > 0;
 
   return Promise.all(
     chunk.map(async (row) => {
       try {
         const unsub = unsubscribeUrl(row.unsubscribe_token || "");
-        const { html, text } = renderCampaignEmail({
-          subject: campaign.subject,
-          preheader: campaign.preheader,
-          bodyHtml: campaign.body_html,
-          unsubscribeUrl: unsub,
-          fromName: campaign.from_name,
-          postalAddress: POSTAL_ADDRESS,
-        });
+        const { html, text } = useBlocks
+          ? renderBlockEmail(
+              {
+                slug: `campaign-${campaign.id}`,
+                name: campaign.subject,
+                kind: "campaign",
+                subject_template: campaign.subject,
+                preheader_template: campaign.preheader,
+                body_blocks: campaign.body_blocks as EmailBlock[],
+              },
+              globals,
+              {
+                first_name: row.first_name ?? null,
+                unsubscribe_url: unsub,
+                postal_address: POSTAL_ADDRESS,
+              },
+            )
+          : renderCampaignEmail({
+              subject: campaign.subject,
+              preheader: campaign.preheader,
+              bodyHtml: campaign.body_html,
+              unsubscribeUrl: unsub,
+              fromName: campaign.from_name,
+              postalAddress: POSTAL_ADDRESS,
+            });
 
         const { data, error } = await resend.emails.send({
           from,
@@ -193,7 +230,7 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
     .eq("id", campaignId)
     .eq("status", "draft")
     .select(
-      "id, subject, preheader, body_html, from_name, from_email, reply_to, audience_filter, status"
+      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, status"
     )
     .single();
 
@@ -204,8 +241,9 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
   }
   const campaign = locked as CampaignRow;
 
-  // 2. Pull the audience.
+  // 2. Pull the audience + load shared header/footer globals once.
   const audience = await fetchAudience(supabase, campaign.audience_filter);
+  const globals = await loadGlobals(supabase);
   if (audience.length === 0) {
     await supabase
       .from("campaigns")
@@ -239,7 +277,7 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
   let failed = 0;
   for (let i = 0; i < audience.length; i += RESEND_BATCH_SIZE) {
     const chunk = audience.slice(i, i + RESEND_BATCH_SIZE);
-    const results = await sendChunk(campaign, chunk);
+    const results = await sendChunk(campaign, globals, chunk);
 
     for (const r of results) {
       if (r.error) {
@@ -290,7 +328,7 @@ export async function sendTest(
   const { data: campaign, error } = await supabase
     .from("campaigns")
     .select(
-      "id, subject, preheader, body_html, from_name, from_email, reply_to"
+      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to"
     )
     .eq("id", campaignId)
     .single();
@@ -301,14 +339,35 @@ export async function sendTest(
   const from = `${campaign.from_name} <${campaign.from_email}>`;
   const unsub = `${siteOrigin()}/unsubscribe?token=preview-test`;
 
-  const { html, text } = renderCampaignEmail({
-    subject: `[TEST] ${campaign.subject}`,
-    preheader: campaign.preheader,
-    bodyHtml: campaign.body_html,
-    unsubscribeUrl: unsub,
-    fromName: campaign.from_name,
-    postalAddress: POSTAL_ADDRESS,
-  });
+  const useBlocks =
+    Array.isArray(campaign.body_blocks) && (campaign.body_blocks as EmailBlock[]).length > 0;
+  const globals = useBlocks ? await loadGlobals(supabase) : null;
+
+  const { html, text } = useBlocks && globals
+    ? renderBlockEmail(
+        {
+          slug: `campaign-${campaign.id}-test`,
+          name: `[TEST] ${campaign.subject}`,
+          kind: "campaign",
+          subject_template: `[TEST] ${campaign.subject}`,
+          preheader_template: campaign.preheader,
+          body_blocks: campaign.body_blocks as EmailBlock[],
+        },
+        globals,
+        {
+          first_name: null,
+          unsubscribe_url: unsub,
+          postal_address: POSTAL_ADDRESS,
+        },
+      )
+    : renderCampaignEmail({
+        subject: `[TEST] ${campaign.subject}`,
+        preheader: campaign.preheader,
+        bodyHtml: campaign.body_html,
+        unsubscribeUrl: unsub,
+        fromName: campaign.from_name,
+        postalAddress: POSTAL_ADDRESS,
+      });
 
   const { data, error: sendErr } = await resend.emails.send({
     from,

@@ -14,7 +14,6 @@ interface Props {
 
 export function GlitchEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 }: Props) {
   const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
-  focalRef.current = { x: focalX, y: focalY, z: zoom };
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -25,17 +24,21 @@ export function GlitchEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, 
   const prevFrameRef = useRef<ImageData | null>(null);
   const seedRef = useRef(0);
 
+  useEffect(() => {
+    focalRef.current = { x: focalX, y: focalY, z: zoom };
+  }, [focalX, focalY, zoom]);
+
   function hash(x: number): number {
-    let h = (x * 127.1 + 311.7) * 43758.5453;
+    const h = (x * 127.1 + 311.7) * 43758.5453;
     return h - Math.floor(h);
   }
 
-  const draw = useCallback(() => {
+  const draw = useCallback(function tick() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
     if (!canvas || !ctx || !img || !img.complete) {
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -57,7 +60,7 @@ export function GlitchEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, 
 
     if (intensity < 0.01) {
       prevFrameRef.current = null;
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -261,7 +264,7 @@ export function GlitchEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, 
 
     ctx.putImageData(imageData, 0, 0);
 
-    rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(tick);
   }, []);
 
   useEffect(() => {
@@ -308,6 +311,7 @@ export function GlitchEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, 
       onMouseMove={handleMouseMove}
       style={{ position: "relative", overflow: "hidden", cursor: "pointer" }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- invisible sizer for canvas overlay; Image optimization N/A */}
       <img src={src} alt={alt} style={{ width: "100%", display: "block", visibility: "hidden" }} />
       <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
     </div>

@@ -309,7 +309,7 @@ export class CubeWaterRenderer {
     if (!f.src) return;
     const optimizedSrc = f.src.startsWith("/")
       ? f.src
-      : `/_next/image?url=${encodeURIComponent(f.src)}&w=1080&q=75`;
+      : `/_next/image?url=${encodeURIComponent(f.src)}&w=1080&q=100`;
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {

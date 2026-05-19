@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -31,7 +30,6 @@ export function useAutosave<T>({
   delay = 800,
   enabled = true,
 }: UseAutosaveOptions<T>) {
-  const router = useRouter();
   const [status, setStatus] = useState<AutosaveStatus>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idRef = useRef(id);
@@ -125,7 +123,10 @@ export function useAutosave<T>({
     };
   }, [data, delay, enabled, buildPayload, saveNow]);
 
-  // Flush on unmount / page leave
+  // Flush on unmount / page leave. Closing over the first-render data/endpoint
+  // is intentional — adding them to deps would re-arm the cleanup on every
+  // change and clobber the pending timer. Pre-unmount changes go through the
+  // primary autosave effect above.
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -141,6 +142,7 @@ export function useAutosave<T>({
         }
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only cleanup; see comment above
   }, []);
 
   /** Force an immediate save (e.g. before publish) */

@@ -23,6 +23,7 @@ export function LinkedPrintPicker({ value, onChange }: Props) {
 
   useEffect(() => {
     if (!value) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load when value changes
       setLinked(null);
       return;
     }

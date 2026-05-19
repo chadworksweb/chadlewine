@@ -45,7 +45,7 @@ function getPixels(img: HTMLImageElement, w: number, h: number): Uint8ClampedArr
 }
 
 function hash(x: number): number {
-  let h = (x * 127.1 + 311.7) * 43758.5453;
+  const h = (x * 127.1 + 311.7) * 43758.5453;
   return h - Math.floor(h);
 }
 
@@ -371,7 +371,6 @@ export function PreviewSlideshow() {
     }
 
     // --- Block corruption: blocks pull from different source images ---
-    const src3 = new Uint8ClampedArray(pixels);
     const blockSize = 10 + Math.floor(hash(seed * 11.3) * 28);
     for (let by = 0; by < h; by += blockSize) {
       for (let bx = 0; bx < w; bx += blockSize) {
@@ -554,6 +553,7 @@ export function PreviewSlideshow() {
     }
 
     rafRef.current = requestAnimationFrame(draw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- drawRippleTransition is stable for the canvas lifetime
   }, []);
 
   // --- Auto-advance: first hold starts on mount, subsequent ones after transitions ---

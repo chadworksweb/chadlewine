@@ -138,7 +138,6 @@ export function renderCampaignEmail(input: RenderCampaignEmailInput): RenderedEm
 
   const text = [
     htmlToText(bodyHtml),
-    "",
     "—",
     `Unsubscribe: ${unsubscribeUrl}`,
     postalAddress ? `\n${postalAddress}` : "",

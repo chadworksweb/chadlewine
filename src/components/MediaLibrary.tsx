@@ -66,10 +66,15 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // Reset paging window when the search changes or the modal reopens.
-  useEffect(() => {
+  // Reset paging window when the search changes or the modal reopens —
+  // adjusts during render only when the trigger values actually change.
+  const [lastSearchTerm, setLastSearchTerm] = useState(searchTerm);
+  const [lastOpen, setLastOpen] = useState(open);
+  if (searchTerm !== lastSearchTerm || open !== lastOpen) {
+    setLastSearchTerm(searchTerm);
+    setLastOpen(open);
     setVisibleCount(PAGE_SIZE);
-  }, [searchTerm, open]);
+  }
 
   const matchingImages = searchTerm
     ? images.filter((img) => {
@@ -97,6 +102,7 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- load images when modal opens
       fetchImages();
       setSelected(null);
     }
@@ -273,6 +279,7 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
                   className={`media-modal__item${selected?.name === img.name ? " media-modal__item--selected" : ""}`}
                   onClick={() => selectImage(img)}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- admin-only library tile */}
                   <img src={img.url} alt={img.alt_text || img.name} className="media-modal__thumb" loading="lazy" />
                 </div>
               ))}
@@ -295,6 +302,7 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
           {/* Right: detail panel */}
           {selected && (
             <div className="media-modal__detail">
+              {/* eslint-disable-next-line @next/next/no-img-element -- admin-only detail preview */}
               <img
                 src={selected.url}
                 alt={editAlt || selected.name}

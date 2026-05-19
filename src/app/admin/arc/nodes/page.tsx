@@ -10,7 +10,7 @@ type Era = {
   kind: "life" | "release";
   date_start: string | null;
   date_end: string | null;
-  album_id: string | null;
+  release_id: string | null;
   status: "draft" | "published";
 };
 
@@ -48,6 +48,7 @@ export default function ArcNodesPage() {
     setLifeEvents(Array.isArray(lR) ? lR : []);
     setLoading(false);
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { loadAll(); }, []);
 
   function flash(kind: Toast extends infer T ? (T extends { kind: infer K } ? K : never) : never, message: string) {
@@ -156,7 +157,7 @@ export default function ArcNodesPage() {
             Songs and albums each have full admin pages with art, sections, lyrics, etc. Edit them there:
           </p>
           <Link href="/admin/music/songs" className="admin-btn admin-btn--primary">Songs admin →</Link>
-          <Link href="/admin/music/albums" className="admin-btn admin-btn--primary">Albums admin →</Link>
+          <Link href="/admin/music/releases" className="admin-btn admin-btn--primary">Releases admin →</Link>
         </div>
       )}
     </div>
@@ -265,8 +266,8 @@ function EraRow({
           </Field>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
             {isRelease ? (
-              era.album_id ? (
-                <Link href={`/admin/music/albums/${era.album_id}`} className="admin-btn admin-btn--primary">
+              era.release_id ? (
+                <Link href={`/admin/music/releases/${era.release_id}`} className="admin-btn admin-btn--primary">
                   Open album →
                 </Link>
               ) : (

@@ -1,26 +1,41 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { slugify } from "@/lib/utils";
+import { getSingleSongIds } from "@/lib/song-singles";
+
+function attachIsSingle<T extends { id?: string | null } | Record<string, unknown>>(
+  rows: T[],
+  singleIds: Set<string>
+): Array<T & { is_single: boolean }> {
+  return rows.map((row) => ({
+    ...row,
+    is_single: typeof (row as { id?: unknown }).id === "string"
+      ? singleIds.has((row as { id: string }).id)
+      : false,
+  }));
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const albumId = searchParams.get("album_id");
+  const albumId = searchParams.get("release_id");
   const supabase = createAdminClient();
+  const singleIds = await getSingleSongIds(supabase);
 
   if (albumId) {
     // Get songs for a specific album via junction
     const { data, error } = await supabase
-      .from("album_songs")
+      .from("release_songs")
       .select("track_number, song:songs(*)")
-      .eq("album_id", albumId)
+      .eq("release_id", albumId)
       .order("track_number");
     if (error) return Response.json({ error: error.message }, { status: 500 });
-    const flat = (data || []).map((row: any) => ({ ...row.song, track_number: row.track_number }));
-    return Response.json(flat);
+    type RsRow = { track_number: number; song: Record<string, unknown> };
+    const flat = ((data || []) as unknown as RsRow[]).map((row) => ({ ...row.song, track_number: row.track_number }));
+    return Response.json(attachIsSingle(flat, singleIds));
   }
 
   const { data, error } = await supabase.from("songs").select("*").order("title");
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json(data);
+  return Response.json(attachIsSingle(data || [], singleIds));
 }
 
 export async function POST(request: Request) {
@@ -37,7 +52,6 @@ export async function POST(request: Request) {
     lyrics: body.lyrics || null,
     instrumental: body.instrumental === true,
     price: body.price || null,
-    is_single: body.is_single || false,
     status: body.status || "draft",
     release_date: body.release_date || null,
     song_summary: body.song_summary || null,
@@ -72,9 +86,9 @@ export async function POST(request: Request) {
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   // Create junction row if album provided
-  if (body.album_id && song) {
-    const { error: jErr } = await supabase.from("album_songs").insert({
-      album_id: body.album_id,
+  if (body.release_id && song) {
+    const { error: jErr } = await supabase.from("release_songs").insert({
+      release_id: body.release_id,
       song_id: song.id,
       track_number: body.track_number || 1,
     });
@@ -89,8 +103,9 @@ export async function POST(request: Request) {
 
   return Response.json({
     ...song,
-    album_id: body.album_id,
+    release_id: body.release_id,
     track_number: body.track_number || 1,
     topic_ids: Array.isArray(body.topic_ids) ? body.topic_ids : [],
+    is_single: false,
   }, { status: 201 });
 }

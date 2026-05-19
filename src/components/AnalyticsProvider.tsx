@@ -58,7 +58,9 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const queueRef = useRef<AnalyticsEvent[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number>(Date.now());
+  // Initialized to 0 and overwritten on mount by the page-view effect below.
+  // Avoids calling Date.now() during render (react-hooks/purity).
+  const startTimeRef = useRef<number>(0);
   const maxScrollRef = useRef<number>(0);
 
   const flush = useCallback(async () => {

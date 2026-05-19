@@ -3,10 +3,11 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 interface RecoveryItem {
   purchase_id: string;
-  item_type: "song" | "album";
+  item_type: "song" | "release";
   format: "mp3" | "flac" | "wav" | null;
   title: string;
   slug: string | null;
@@ -24,6 +25,7 @@ function RecoverViewContent() {
   const [items, setItems] = useState<RecoveryItem[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- must run on mount: verify token and load song
     if (!token) { setState("invalid"); return; }
     let cancelled = false;
     (async () => {
@@ -88,16 +90,18 @@ function RecoverViewContent() {
               }}
             >
               {it.cover_art_path && (
-                <img
+                <Image
                   src={it.cover_art_path}
                   alt=""
-                  style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 3, flexShrink: 0 }}
+                  width={56}
+                  height={56}
+                  style={{ objectFit: "cover", borderRadius: 3, flexShrink: 0 }}
                 />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>{it.title}</div>
                 <div style={{ color: "var(--text-tertiary)", fontSize: "var(--text-sm)" }}>
-                  {it.item_type === "album" ? "Album" : "Single"}
+                  {it.item_type === "release" ? "Release" : "Single"}
                   {it.format ? ` · ${it.format.toUpperCase()}` : ""}
                   {" · "}{new Date(it.created_at).toLocaleDateString()}
                 </div>

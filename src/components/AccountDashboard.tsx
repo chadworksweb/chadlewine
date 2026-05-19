@@ -8,7 +8,7 @@ import { createBrowserClient } from "@/lib/supabase-browser";
 interface DownloadItem {
   purchase_id: string;
   order_id: string | null;
-  item_type: "song" | "album" | "ringtone";
+  item_type: "song" | "release" | "ringtone";
   title: string;
   slug: string | null;
   cover_art_path: string | null;
@@ -138,6 +138,17 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
   };
   const [portalBusy, setPortalBusy] = useState(false);
   const [downloads, setDownloads] = useState<DownloadItem[] | null>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const copyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode((c) => (c === code ? null : c)), 1500);
+    } catch {
+      // Clipboard may be unavailable (insecure context, browser denial) — silent
+    }
+  };
 
   const openBillingPortal = async () => {
     setPortalBusy(true);
@@ -402,11 +413,28 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
             <ul className="account-dashboard__coupons">
               {initial.coupons.map((c) => {
                 const isUsed = !!c.redeemed_at;
+                // eslint-disable-next-line react-hooks/purity -- "expired now" is a UI-time read; one snapshot per render is correct
                 const isExpired = !isUsed && new Date(c.expires_at).getTime() < Date.now();
                 const state = isUsed ? "used" : isExpired ? "expired" : "active";
+                const isCopyable = !isUsed && !isExpired;
+                const wasCopied = copiedCode === c.code;
                 return (
                   <li key={c.code} className={`account-dashboard__coupon account-dashboard__coupon--${state}`}>
-                    <div className="account-dashboard__coupon-code">{c.code}</div>
+                    {isCopyable ? (
+                      <button
+                        type="button"
+                        className="account-dashboard__coupon-code account-dashboard__coupon-code--copyable"
+                        onClick={() => copyCode(c.code)}
+                        aria-label={`Copy coupon code ${c.code}`}
+                      >
+                        <span>{c.code}</span>
+                        <span className="account-dashboard__coupon-copy" aria-hidden="true">
+                          {wasCopied ? "Copied" : "Copy"}
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="account-dashboard__coupon-code">{c.code}</div>
+                    )}
                     <div className="account-dashboard__coupon-meta">
                       <span className="account-dashboard__coupon-pct">{c.percent_off}% off</span>
                       <span className="account-dashboard__coupon-status">

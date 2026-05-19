@@ -32,6 +32,7 @@ const adminNav: NavItem[] = [
     children: [
       { href: "/admin/audience", label: "Members" },
       { href: "/admin/campaigns", label: "Campaigns" },
+      { href: "/admin/email-templates", label: "Email templates" },
       { href: "/admin/analytics", label: "Analytics" },
     ],
   },
@@ -40,7 +41,7 @@ const adminNav: NavItem[] = [
     label: "Music",
     children: [
       { href: "/admin/music", label: "Overview" },
-      { href: "/admin/music/albums", label: "Albums" },
+      { href: "/admin/music/releases", label: "Releases" },
       { href: "/admin/music/songs", label: "Songs" },
       { href: "/admin/music/analytics/plays", label: "Song Plays" },
       { href: "/admin/curation", label: "Curation — Entries" },

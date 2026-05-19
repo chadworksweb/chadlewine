@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { mergeMetadata } from "@/lib/page-meta";
-import { createPublicClient } from "@/lib/supabase-server";
-import { ArcRadiant, type ArcInitialData } from "@/components/ArcRadiant";
 
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
   title: "Who Is Chad Lewine",
   description:
-    "The canonical biographical page for Chad Lewine — architect of Libra Engine, cross-domain observer, super individual.",
+    "The canonical biographical page for Chad Lewine — songwriter, recording artist, and architect of the Rising Compass.",
   alternates: {
     canonical: "https://chadlewine.com/chad-lewine",
   },
@@ -18,62 +17,50 @@ export async function generateMetadata(): Promise<Metadata> {
   return mergeMetadata("/chad-lewine", DEFAULT_METADATA);
 }
 
-async function getArcData(): Promise<ArcInitialData> {
-  const supabase = createPublicClient();
-
-  const [songsRes, albumsRes, erasRes, lifeEventsRes] = await Promise.all([
-    supabase
-      .from("songs")
-      .select("id, slug, title, release_date, write_date, song_state, status, instrumental, rc_charge, rc_tier")
-      .in("status", ["published", "unreleased"]),
-    supabase
-      .from("albums")
-      .select("id, slug, title, release_date")
-      .in("status", ["published", "draft"]),
-    supabase
-      .from("eras")
-      .select("id, slug, title, kind, date_start, date_end")
-      .eq("status", "published"),
-    supabase
-      .from("life_events")
-      .select("id, slug, title, date_start, date_end, body_html")
-      .eq("status", "published"),
-  ]);
-
-  const songs = (songsRes.data ?? []) as ArcInitialData["songs"];
-  const albums = (albumsRes.data ?? []) as ArcInitialData["albums"];
-  const eras = (erasRes.data ?? []) as ArcInitialData["eras"];
-  const lifeEvents = (lifeEventsRes.data ?? []) as ArcInitialData["lifeEvents"];
-
-  const dateYears: number[] = [];
-  for (const s of songs) {
-    const d = s.release_date ?? s.write_date;
-    if (d) dateYears.push(parseInt(d.slice(0, 4), 10));
-  }
-  for (const a of albums) {
-    if (a.release_date) dateYears.push(parseInt(a.release_date.slice(0, 4), 10));
-  }
-  for (const e of eras) {
-    if (e.date_start) dateYears.push(parseInt(e.date_start.slice(0, 4), 10));
-    if (e.date_end) dateYears.push(parseInt(e.date_end.slice(0, 4), 10));
-  }
-  for (const ev of lifeEvents) {
-    if (ev.date_start) dateYears.push(parseInt(ev.date_start.slice(0, 4), 10));
-  }
-
-  const currentYear = new Date().getFullYear();
-  const yearStart = dateYears.length ? Math.min(...dateYears) : 1989;
-  const yearEnd = Math.max(currentYear, dateYears.length ? Math.max(...dateYears) : currentYear);
-
-  return { songs, albums, eras, lifeEvents, yearRange: [yearStart, yearEnd] };
-}
-
-export default async function WhoPage() {
-  const data = await getArcData();
-
+export default function AboutPage() {
   return (
-    <article id="page-who" className="page-who">
-      <ArcRadiant data={data} />
+    <article id="page-about" className="page-about">
+      <div className="page-about__grid">
+        <div className="page-about__bio">
+          <header className="page-about__header">
+            <h1 className="page-about__title">About Chad Lewine</h1>
+          </header>
+          <p>
+            For nearly two decades, Chad Lewine has been writing songs to validate and empower anyone who has been called crazy for suggesting that our world is not as it may seem. His songs examine life as a human being growing up and living by the programmatic constraints of the institutionalized rules of modernity, realizing the programming, and attempting to escape and survive while doing so. His lyrics identify and indict extractive institutions while simultaneously offering camaraderie and alternative ways of living, thinking and being for the listener to consider.
+          </p>
+          <p>
+            Chad recently built <Link href="https://risingcompass.net">The Rising Compass</Link>, the first and only tool that analyzes and visualizes the positive or negative charge of the messages behind the lyrics of the world&rsquo;s most popular songs, starting in 1960: the first year of the Billboard Hot 100.
+          </p>
+          <p>
+            Chad operates as a <Link href="/super-individual">Super Individual</Link>: a sovereign human being who has fully reclaimed their power from and operates outside of the extractive institutions of modernity. He executive produces everything he puts his name on, supports himself and funds his work with freelance web design, and has done all of it without real familial or institutional support; emotional, financial or otherwise.
+          </p>
+          <p>
+            Every day, Chad continues to produce work with a relentless, fire-breathing passion. Not to amass personal fortune or attain fame, but to live as a beacon for all who are exploring and embodying new ways of living, thinking and being that empower everyone, not a select few.
+          </p>
+          <p>
+            Chad has nothing to lose, and Chad never gives up.
+          </p>
+
+          <div className="page-about__cta-row">
+            <Link href="/radiant-arc" className="page-about__cta">
+              See the Radiant Arc &rarr;
+            </Link>
+            <Link href="/super-individual" className="page-about__cta page-about__cta--ghost">
+              The Super Individual &rarr;
+            </Link>
+          </div>
+        </div>
+
+        <aside className="page-about__image">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/chad-lewine-about-page.webp"
+            alt="Chad Lewine — portrait"
+            width={696}
+            height={1399}
+          />
+        </aside>
+      </div>
     </article>
   );
 }

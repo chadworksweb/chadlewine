@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { createPublicClient } from "@/lib/supabase-server";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
@@ -237,9 +238,13 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
       <AdminEditButton href={`/admin/art/${art.slug}`} />
       <article className="art-detail">
         <div className="art-detail__hero">
-          <img
+          <Image
             src={art.image_path}
             alt={art.image_alt || art.title}
+            width={2000}
+            height={2000}
+            priority
+            sizes="(max-width: 1024px) 100vw, 1200px"
             className="art-detail__hero-img"
             style={focalCropStyle(art.hero_focal_x, art.hero_focal_y, art.hero_zoom)}
           />

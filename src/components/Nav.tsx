@@ -55,11 +55,16 @@ export function Nav({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
+  // Reset overlay state on route change — adjusts during render only when
+  // pathname changes (React docs' "adjusting state on prop change" pattern,
+  // avoids an extra commit + dropdown flicker that the useEffect form had).
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
     setMenuOpen(false);
     setExpanded(null);
     setMobileExpanded(null);
-  }, [pathname]);
+  }
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";

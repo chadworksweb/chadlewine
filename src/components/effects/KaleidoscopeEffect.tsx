@@ -12,9 +12,11 @@ interface Props {
   zoom?: number;
 }
 
+const SEGMENTS = 8;
+const STEP = (Math.PI * 2) / SEGMENTS;
+
 export function KaleidoscopeEffect({ src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 }: Props) {
   const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
-  focalRef.current = { x: focalX, y: focalY, z: zoom };
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -25,16 +27,17 @@ export function KaleidoscopeEffect({ src, alt, className, focalX = 0.5, focalY =
   const activeRef = useRef(false);
   const blendRef = useRef(0);
 
-  const segments = 8;
-  const step = (Math.PI * 2) / segments;
+  useEffect(() => {
+    focalRef.current = { x: focalX, y: focalY, z: zoom };
+  }, [focalX, focalY, zoom]);
 
-  const draw = useCallback(() => {
+  const draw = useCallback(function tick() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
     const pattern = patternRef.current;
     if (!canvas || !ctx || !img || !img.complete) {
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -54,7 +57,7 @@ export function KaleidoscopeEffect({ src, alt, className, focalX = 0.5, focalY =
     ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
 
     if (blend < 0.01 || !pattern) {
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -80,15 +83,15 @@ export function KaleidoscopeEffect({ src, alt, className, focalX = 0.5, focalY =
     const octx = off.getContext("2d")!;
     octx.fillStyle = pattern;
 
-    for (let i = 0; i < segments; i++) {
+    for (let i = 0; i < SEGMENTS; i++) {
       octx.save();
       octx.translate(cx, cy);
-      octx.rotate(i * step);
+      octx.rotate(i * STEP);
 
       // Clip to pie wedge — slightly oversized to prevent seam gaps
       octx.beginPath();
       octx.moveTo(0, 0);
-      octx.arc(0, 0, radius, -step * 0.51, step * 0.51);
+      octx.arc(0, 0, radius, -STEP * 0.51, STEP * 0.51);
       octx.closePath();
       octx.clip();
 
@@ -113,7 +116,7 @@ export function KaleidoscopeEffect({ src, alt, className, focalX = 0.5, focalY =
     ctx.drawImage(off, 0, 0);
     ctx.globalAlpha = 1;
 
-    rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(tick);
   }, []);
 
   useEffect(() => {
@@ -191,6 +194,7 @@ export function KaleidoscopeEffect({ src, alt, className, focalX = 0.5, focalY =
       onMouseMove={handleMouseMove}
       style={{ position: "relative", overflow: "hidden", cursor: "grab" }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- invisible sizer for canvas overlay; Image optimization N/A */}
       <img src={src} alt={alt} style={{ width: "100%", display: "block", visibility: "hidden" }} />
       <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
     </div>

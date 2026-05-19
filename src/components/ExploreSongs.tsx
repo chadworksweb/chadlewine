@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface ExploreSong {
   id: string;
@@ -78,11 +79,13 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
                   {(() => {
                     const { src, alt } = resolveArt(s);
                     return src ? (
-                      <img
+                      <Image
                         src={src}
                         alt={alt}
+                        width={600}
+                        height={600}
+                        sizes="(max-width: 640px) 60vw, 360px"
                         className="coverflow__art"
-                        loading="lazy"
                       />
                     ) : (
                       <div className="coverflow__art coverflow__art--empty" />
@@ -110,7 +113,7 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
             from{" "}
             {current.album ? (
               <Link
-                href={`/music/albums/${current.album.slug}`}
+                href={`/music/releases/${current.album.slug}`}
                 className="explore-songs__album-link"
               >
                 <em>{current.album.title}</em>

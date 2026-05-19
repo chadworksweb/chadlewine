@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Terms of Service - Chad Lewine",
@@ -85,7 +86,7 @@ export default function TermsPage() {
       <p>
         Download links are delivered by email immediately after purchase
         and remain available via the Site&rsquo;s download recovery flow
-        at <a href="/music/recover">/music/recover</a>. We make a
+        at <Link href="/music/recover">/music/recover</Link>. We make a
         reasonable effort to keep purchased files available indefinitely
         but do not guarantee permanent availability; back up your files
         after download.
@@ -265,7 +266,7 @@ export default function TermsPage() {
       <h2>14. Privacy</h2>
       <p>
         Our handling of personal information is described in our{" "}
-        <a href="/privacy-policy">Privacy Policy</a>, which is
+        <Link href="/privacy-policy">Privacy Policy</Link>, which is
         incorporated into these Terms by reference.
       </p>
 

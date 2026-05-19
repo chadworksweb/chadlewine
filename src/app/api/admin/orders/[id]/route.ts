@@ -70,7 +70,7 @@ export async function GET(
   const albumIds = Array.from(
     new Set(
       lines
-        .filter((l) => l.item_type === "album" && l.item_id)
+        .filter((l) => l.item_type === "release" && l.item_id)
         .map((l) => l.item_id as string),
     ),
   );
@@ -112,7 +112,7 @@ export async function GET(
   let albumMap: Record<string, { cover_art_path: string | null }> = {};
   if (albumIds.length) {
     const { data: albums } = await supabase
-      .from("albums")
+      .from("releases")
       .select("id, cover_art_path")
       .in("id", albumIds);
     albumMap = (albums || []).reduce<typeof albumMap>((acc, a) => {

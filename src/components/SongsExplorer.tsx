@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { focalCropStyle } from "@/lib/focal-crop";
 
 interface Topic {
@@ -279,11 +280,13 @@ function SongRow({
       >
         <td className="songs-explorer__td songs-explorer__td--art">
           {artSrc ? (
-            <img
+            <Image
               src={artSrc}
               alt={artAlt}
+              width={120}
+              height={120}
+              sizes="60px"
               className="songs-explorer__row-art"
-              loading="lazy"
               style={cardStyle}
             />
           ) : (
@@ -354,11 +357,13 @@ function SongRow({
               <div className="songs-explorer__drawer">
                 <div className="songs-explorer__drawer-art-col">
                   {artSrc ? (
-                    <img
+                    <Image
                       src={artSrc}
                       alt={artAlt}
+                      width={800}
+                      height={800}
+                      sizes="(max-width: 640px) 80vw, 400px"
                       className="songs-explorer__drawer-art"
-                      loading="lazy"
                       style={cardStyle}
                     />
                   ) : (

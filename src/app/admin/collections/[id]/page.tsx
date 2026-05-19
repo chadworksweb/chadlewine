@@ -66,6 +66,7 @@ export default function CollectionDetailPage({
     setLoading(false);
   }, [id]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load when id changes
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   async function saveMeta() {

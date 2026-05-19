@@ -273,7 +273,7 @@ export function AudienceAdmin({
                         </span>
                         {r.emails_received > 0 && (
                           <span className="campaign-list-row__pct">
-                            {" "}{r.emails_opened}/{r.emails_received}
+                            {" "}{r.emails_received} sent
                           </span>
                         )}
                       </td>

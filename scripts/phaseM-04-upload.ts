@@ -10,7 +10,6 @@
  * Skips files already present in the target zone (HEAD check) unless --force.
  */
 import { createReadStream, readFileSync, statSync } from "fs";
-import { basename } from "path";
 import { Readable } from "stream";
 import { config as loadEnv } from "dotenv";
 

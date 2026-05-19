@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { MeditationArchive } from "@/components/MeditationArchive";
@@ -81,18 +82,19 @@ export default async function MeditationsPage() {
     getHeroImage(),
   ]);
 
-  const latest = meditations[0];
-  const feed = meditations.slice(1);
-
   return (
     <div className="page-meditations">
       {/* Cover Hero — static art, swappable via Supabase Storage */}
       <section className="cover-hero">
         {heroImage && (
           <div className="cover-hero__art-wrap">
-            <img
+            <Image
               src={heroImage}
               alt="Meditations"
+              width={2400}
+              height={1200}
+              priority
+              sizes="100vw"
               className="cover-hero__art"
             />
           </div>

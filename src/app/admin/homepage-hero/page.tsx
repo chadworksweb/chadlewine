@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 interface Entry {
   id: string;
-  entity_type: "song" | "album" | "merch" | "observation" | "art";
+  entity_type: "song" | "release" | "merch" | "observation" | "art";
   entity_id: string;
   display_order: number;
   title: string;
@@ -17,7 +17,7 @@ interface LookupRow {
   slug: string | null;
 }
 
-const ENTITY_TYPES = ["song", "album", "merch", "observation", "art"] as const;
+const ENTITY_TYPES = ["song", "release", "merch", "observation", "art"] as const;
 type EntityType = (typeof ENTITY_TYPES)[number];
 
 export default function HomepageHeroAdmin() {
@@ -37,6 +37,7 @@ export default function HomepageHeroAdmin() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
     load();
   }, [load]);
 
@@ -49,6 +50,7 @@ export default function HomepageHeroAdmin() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load when picker type changes
     loadPicker(addType);
   }, [addType, loadPicker]);
 

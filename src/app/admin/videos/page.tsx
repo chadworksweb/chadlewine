@@ -9,6 +9,7 @@ export default function AdminVideosPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => { const res = await fetch("/api/admin/videos"); setVideos(await res.json()); setLoading(false); }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { fetchData(); }, [fetchData]);
 
   if (loading) return <div className="admin-page"><p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>Loading...</p></div>;

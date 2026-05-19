@@ -47,6 +47,7 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
   const [showMismatch, setShowMismatch] = useState(false);
   useEffect(() => {
     if (!rawMismatch) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- debounced display: setTimeout requires effect
       setShowMismatch(false);
       return;
     }

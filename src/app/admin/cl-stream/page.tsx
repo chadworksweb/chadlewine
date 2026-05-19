@@ -29,6 +29,7 @@ export default function CLStreamAdminPage() {
     load();
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { load(); }, []);
 
   return (

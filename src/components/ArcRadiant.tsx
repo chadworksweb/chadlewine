@@ -18,7 +18,7 @@ export type ArcSong = {
   rc_tier: string | null;
 };
 
-export type ArcAlbum = {
+export type ArcRelease = {
   id: string;
   slug: string;
   title: string;
@@ -45,7 +45,7 @@ export type ArcLifeEvent = {
 
 export type ArcInitialData = {
   songs: ArcSong[];
-  albums: ArcAlbum[];
+  albums: ArcRelease[];
   eras: ArcEra[];
   lifeEvents: ArcLifeEvent[];
   yearRange: [number, number];
@@ -53,7 +53,7 @@ export type ArcInitialData = {
 
 type SelectedItem =
   | { type: "song"; data: ArcSong }
-  | { type: "album"; data: ArcAlbum }
+  | { type: "release"; data: ArcRelease }
   | { type: "event"; data: ArcLifeEvent }
   | null;
 
@@ -62,7 +62,6 @@ type SelectedItem =
 // Zoom is continuous between MIN and MAX. The named bands below are just
 // readable labels for the current scale — they don't snap the value.
 const ZOOM_MIN = 1;
-const ZOOM_MAX = 80;
 
 function zoomLabel(z: number): string {
   if (z < 1.5) return "Lifetime";
@@ -97,19 +96,22 @@ const LAYER_LABELS: Record<LayerKey, string> = {
 };
 
 // Visual canvas height: graphics live above the centerline, year strip + spine
-// sit at the bottom (the "horizon"). Canvas height is responsive — scales with
-// viewport so the layers always have generous vertical space.
-const CANVAS_HEIGHT_MIN = 480;
+// sit at the bottom (the "horizon"). Canvas height is FIXED so it's identical
+// across viewport sizes — sized to the actual content envelope (max album
+// stalk + spine + small top padding) with no viewport-based scaling. Big
+// screens stop accumulating empty space above; small screens don't get
+// inflated past what their viewport supports.
+const CANVAS_HEIGHT = 400;
 const SPINE_RESERVED_PX = 40; // bottom strip reserved for year ticks + labels
 
-// Era zone — stacked just above the spine. Two sub-rows per kind keep adjacent
-// eras visually separated even when their date ranges are tight.
-const ERA_ROW_HEIGHT = 22;
-const ERA_ROW_GAP = 2;
+// Era zone — one lane per kind, stacked just above the spine. Overlap within
+// a kind is communicated by the translucent fills blending naturally.
+const ERA_ROW_HEIGHT = 33;
+const ERA_KIND_GAP = 4;
 const ERA_LIFE_ROW_BOTTOM = SPINE_RESERVED_PX + 6;
-const ERA_RELEASE_ROW_BOTTOM = ERA_LIFE_ROW_BOTTOM + 2 * (ERA_ROW_HEIGHT + ERA_ROW_GAP) + 8;
+const ERA_RELEASE_ROW_BOTTOM = ERA_LIFE_ROW_BOTTOM + ERA_ROW_HEIGHT + ERA_KIND_GAP;
 // Total era zone reserved height above spine
-const ERA_ZONE_TOP = ERA_RELEASE_ROW_BOTTOM + 2 * (ERA_ROW_HEIGHT + ERA_ROW_GAP);
+const ERA_ZONE_TOP = ERA_RELEASE_ROW_BOTTOM + ERA_ROW_HEIGHT;
 
 // Branch zone — dots and labels live here, well above the era zone so the
 // layers don't overlap visually. Patterns span this zone with wide variation.
@@ -118,10 +120,13 @@ const BRANCH_TOP_PADDING = 30;
 
 // Heights are written from spine. Branches with `bottom: SPINE_RESERVED_PX`
 // rise upward by `branchHeight`. So height = position-of-dot above spine.
-// The patterns below land dots well above the era zone.
-const SONG_HEIGHT_PATTERN = [220, 340, 280, 420, 200, 380, 260, 450, 240, 360, 300, 410, 320, 230, 390];
-const ALBUM_HEIGHT_PATTERN = [430, 380, 460, 410, 350, 440];
-const EVENT_HEIGHT_PATTERN = [180, 300, 240, 380, 210, 330, 270, 410, 190, 350, 290];
+// The patterns below land dots well above the era zone. ~25% shorter than the
+// previous design so the whole arc fits a laptop viewport without scrolling.
+const ALBUM_HEIGHT_PATTERN = [320, 285, 345, 305, 260, 330];
+// Life events stack tighter than the albums above them but with enough
+// vertical spread (~130 to ~225) that overlapping events don't pile on
+// top of each other.
+const EVENT_HEIGHT_PATTERN = [135, 195, 160, 220, 145, 205, 175, 225, 140, 200, 180];
 
 // ---------- Component ----------
 
@@ -131,27 +136,91 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     music: true, lifeEvents: true, lifeEras: true, releaseEras: true, compass: true,
   });
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
+  // Pixel position of the click that opened the modal, relative to the
+  // outer .arc-radiant container. Drives both the radial-gradient "hole"
+  // that keeps the active node un-dimmed and the SVG line connecting the
+  // node to the modal.
+  const [selectedPos, setSelectedPos] = useState<{ x: number; y: number } | null>(null);
   const [hover, setHover] = useState<{ title: string; x: number; y: number } | null>(null);
 
+  // Callback-ref + state so the modal can receive the actual element without
+  // reading rootRef.current during render (react-hooks/refs).
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+
+  function selectNode(item: SelectedItem, e: React.MouseEvent<HTMLElement>) {
+    setSelectedItem(item);
+    if (!item) {
+      setSelectedPos(null);
+      return;
+    }
+    const root = rootEl;
+    const target = e.currentTarget;
+    if (!root) {
+      setSelectedPos(null);
+      return;
+    }
+    // Anchor to the center of the node icon (CD/dot) rather than the raw
+    // click point so the line lands cleanly even when the user clicks the
+    // stalk or label region of the branch.
+    const dot = target.querySelector(
+      ".arc-radiant__cd, .arc-radiant__branch-dot",
+    ) as HTMLElement | null;
+    const dotRect = (dot ?? target).getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    setSelectedPos({
+      x: dotRect.left - rootRect.left + dotRect.width / 2,
+      y: dotRect.top - rootRect.top + dotRect.height / 2,
+    });
+  }
+
+  function clearSelection() {
+    setSelectedItem(null);
+    setSelectedPos(null);
+  }
   const [yearStart, yearEnd] = data.yearRange;
   const yearSpan = Math.max(1, yearEnd - yearStart);
 
-  // Sizing — start with stable SSR values, sync to viewport after mount to
-  // avoid hydration mismatches. Width scales with viewport (deeper zoom →
-  // wider total width → horizontal scroll). Canvas height also scales with
-  // viewport so layers always get generous breathing room.
-  const [baseWidth, setBaseWidth] = useState<number>(1200);
-  const [canvasHeight, setCanvasHeight] = useState<number>(540);
+  // Canvas height is fixed: viewport scaling was leaving empty vertical
+  // space above the highest branch on big screens and crushing the same
+  // area on small screens. The fixed value matches the content envelope.
+  const canvasHeight = CANVAS_HEIGHT;
+
+  // Mirror canvas scrollLeft + clientWidth in state so the overview locator can
+  // render the viewport box in the same coordinate space the canvas scrolls in.
+  // viewportWidth doubles as baseWidth: at zoom 1, totalWidth = viewportWidth,
+  // meaning the full timeline spans exactly the visible canvas (Lifetime view
+  // = entire locator track filled).
+  const [scrollLeft, setScrollLeft] = useState<number>(0);
+  const [viewportWidth, setViewportWidth] = useState<number>(1200);
+  const baseWidth = viewportWidth;
   useEffect(() => {
-    function update() {
-      setBaseWidth(Math.max(900, window.innerWidth - 60));
-      setCanvasHeight(Math.max(CANVAS_HEIGHT_MIN, window.innerHeight - 280));
+    const el = canvasRef.current;
+    if (!el) return;
+    function syncWidth() {
+      if (!el) return;
+      setViewportWidth(el.clientWidth);
     }
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    function syncScroll() {
+      if (!el) return;
+      setScrollLeft(el.scrollLeft);
+    }
+    syncWidth();
+    syncScroll();
+    el.addEventListener("scroll", syncScroll, { passive: true });
+    window.addEventListener("resize", syncWidth);
+    return () => {
+      el.removeEventListener("scroll", syncScroll);
+      window.removeEventListener("resize", syncWidth);
+    };
   }, []);
+
+  // When the locator drives a zoom + scroll change, we can't set scrollLeft
+  // until React re-renders the inner div at its new width — otherwise the new
+  // scrollLeft gets clamped by the old maxScroll. Stash the desired scroll on
+  // a ref and apply it from an effect that runs after totalWidth updates.
+  const pendingScrollRef = useRef<number | null>(null);
+
   const totalWidth = baseWidth * zoomLevel;
   const pxPerYear = totalWidth / yearSpan;
   const branchTop = canvasHeight - BRANCH_TOP_PADDING;
@@ -165,41 +234,21 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
 
   const chargeByYear = useMemo(() => buildChargeByYear(data.songs, yearStart, yearEnd), [data.songs, yearStart, yearEnd]);
 
-  // Vertical labels are ~14px wide. Two labels collide when their x-bands
-  // overlap. Greedy claim: walk most-recent-first, claim each x-band; skip
-  // labels whose band is already taken. This naturally hides older/duplicate
-  // labels while preserving the most recent ones at every zoom level.
-  const LABEL_WIDTH_PX = 16;
-  function pickVisibleLabels<T extends { id: string; date: string | null; x: number }>(items: T[]): Set<string> {
-    const sorted = [...items].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
-    const claimed: Array<[number, number]> = [];
-    const visible = new Set<string>();
-    for (const item of sorted) {
-      const lo = item.x - LABEL_WIDTH_PX / 2;
-      const hi = item.x + LABEL_WIDTH_PX / 2;
-      if (claimed.some(([a, b]) => lo < b && hi > a)) continue;
-      claimed.push([lo, hi]);
-      visible.add(item.id);
-    }
-    return visible;
-  }
-
   // Pre-sort eras by kind + date, fill in missing date_end values from the
   // NEXT same-kind era's date_start (or today if last). Most release eras come
   // from the discography ingest with no explicit "Era: Month - Month" window,
   // so date_end arrives null. Without chaining, every dateless era would
-  // stretch from its start all the way to today and they'd all visually
-  // overlap. Adjacent same-kind eras also alternate sub-rows so labels don't
-  // pile up when date ranges are still tight.
+  // stretch from its start all the way to today. Each kind sits in a single
+  // lane — overlapping eras blend through their translucent fills rather than
+  // splitting into sub-rows.
   const stackedEras = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     function chain(eras: ArcEra[]) {
       const sorted = [...eras].sort((a, b) => a.date_start.localeCompare(b.date_start));
       return sorted.map((era, i) => {
         const nextStart = sorted[i + 1]?.date_start ?? today;
-        // Honor an explicit date_end if present; otherwise cap to next era's start.
         const effectiveEnd = era.date_end && era.date_end < nextStart ? era.date_end : nextStart;
-        return { era, effectiveEnd, subRow: i % 2 };
+        return { era, effectiveEnd };
       });
     }
     return [
@@ -208,8 +257,11 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     ];
   }, [data.eras]);
 
+  // Max zoom = visible span of 1 year. visibleSpan = yearSpan / zoom, so
+  // zoom <= yearSpan keeps the visible window at >= 1 year wide.
+  const zoomMax = Math.max(ZOOM_MIN, yearSpan);
   function applyZoomDelta(factor: number) {
-    setZoomLevel((current) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, current * factor)));
+    setZoomLevel((current) => Math.max(ZOOM_MIN, Math.min(zoomMax, current * factor)));
   }
 
   function onPointerDown(e: React.PointerEvent) {
@@ -250,41 +302,23 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     return (yearFloat - yearStart) * pxPerYear;
   }
 
-  // Initial horizontal scroll to "now" — only on first mount.
-  const didInitialScrollRef = useRef(false);
+  // Apply pending scrollLeft after the inner div has re-rendered at the new
+  // totalWidth, so locator-driven zoom changes don't get clamped by the old
+  // maxScroll bound. setScrollLeft mirrors the new value back into state.
   useEffect(() => {
-    if (didInitialScrollRef.current) return;
+    const pending = pendingScrollRef.current;
+    if (pending == null) return;
     const el = canvasRef.current;
     if (!el) return;
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const targetX = dateToX(today);
-    if (targetX != null) {
-      el.scrollLeft = Math.max(0, targetX - el.clientWidth * 0.7);
-    }
-    didInitialScrollRef.current = true;
+    const maxScroll = Math.max(0, totalWidth - el.clientWidth);
+    const next = Math.max(0, Math.min(maxScroll, pending));
+    el.scrollLeft = next;
+    setScrollLeft(next);
+    pendingScrollRef.current = null;
   }, [totalWidth]);
 
   return (
-    <div className="arc-radiant">
-      <div className="arc-radiant__toolbar">
-        <span className="arc-radiant__zoom-hint" aria-hidden="true">
-          Pinch on mobile · ± buttons on desktop
-        </span>
-        <div className="arc-radiant__toolbar-right">
-          {proseAvailable && (
-            <Link href="/chad-lewine?view=prose" className="arc-radiant__view-switch">
-              Switch to Prose →
-            </Link>
-          )}
-          <div className="arc-radiant__zoom">
-            <span className="arc-radiant__zoom-label">{zoomLabel(zoomLevel)}</span>
-            <button onClick={() => applyZoomDelta(1 / 1.4)} aria-label="Zoom out">−</button>
-            <button onClick={() => applyZoomDelta(1.4)} aria-label="Zoom in">+</button>
-          </div>
-        </div>
-      </div>
-
+    <div className="arc-radiant" ref={setRootEl}>
       <div className="arc-radiant__upper">
         <aside className="arc-radiant__key" aria-label="Layer key">
           <h3 className="arc-radiant__key-title">Key</h3>
@@ -306,6 +340,38 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
           ))}
         </aside>
 
+        <div className="arc-radiant__main">
+        <div className="arc-radiant__toolbar">
+          <span className="arc-radiant__zoom-label">{zoomLabel(zoomLevel)}</span>
+          <ArcOverviewLocator
+            yearStart={yearStart}
+            yearEnd={yearEnd}
+            scrollLeft={scrollLeft}
+            totalWidth={totalWidth}
+            viewportWidth={viewportWidth}
+            baseWidth={baseWidth}
+            onChange={(nextZoom, nextScroll) => {
+              const z = Math.max(ZOOM_MIN, Math.min(zoomMax, nextZoom));
+              const el = canvasRef.current;
+              if (Math.abs(z - zoomLevel) < 1e-6) {
+                if (el) {
+                  const maxScroll = Math.max(0, totalWidth - el.clientWidth);
+                  el.scrollLeft = Math.max(0, Math.min(maxScroll, nextScroll));
+                }
+                return;
+              }
+              pendingScrollRef.current = nextScroll;
+              setZoomLevel(z);
+            }}
+          />
+          <div className="arc-radiant__toolbar-right">
+            {proseAvailable && (
+              <Link href="/radiant-arc?view=prose" className="arc-radiant__view-switch">
+                Switch to Prose →
+              </Link>
+            )}
+          </div>
+        </div>
         <div
           ref={canvasRef}
           className="arc-radiant__canvas"
@@ -326,7 +392,12 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
             <div className="arc-radiant__years">
               {Array.from({ length: yearSpan + 1 }, (_, i) => yearStart + i).map((year) => {
                 const x = dateToX(`${year}-01-01`) ?? 0;
-                const showLabel = zoomLevel >= 5 || year % 5 === 0;
+                // yearStart is always labeled (so 1989 anchors the timeline).
+                // Suppress the immediate next year (e.g. 1990) at low zoom so
+                // the two labels don't collide.
+                const showLabel =
+                  year === yearStart ||
+                  (year !== yearStart + 1 && (zoomLevel >= 5 || year % 5 === 0));
                 return (
                   <div
                     key={year}
@@ -339,11 +410,10 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               })}
             </div>
 
-            {/* Eras: horizontal segments, life kind sits in lower band, release
-                kind in upper band — well separated so the two don't merge.
-                Within a kind, adjacent eras alternate sub-rows so their labels
-                don't pile up when date ranges are tight. */}
-            {stackedEras.map(({ era, effectiveEnd, subRow }) => {
+            {/* Eras: horizontal segments. Life eras share one lane in the
+                lower band, release eras share one in the upper. Overlap is
+                communicated by the translucent fills blending naturally. */}
+            {stackedEras.map(({ era, effectiveEnd }) => {
               if (era.kind === "life" && !layers.lifeEras) return null;
               if (era.kind === "release" && !layers.releaseEras) return null;
               const x1 = dateToX(era.date_start);
@@ -352,8 +422,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               const width = Math.max(8, x2 - x1);
               const minLabelWidth = zoomLevel >= 5 ? 60 : zoomLevel >= 2 ? 120 : 180;
               const showLabel = width >= minLabelWidth;
-              const baseBottom = era.kind === "life" ? ERA_LIFE_ROW_BOTTOM : ERA_RELEASE_ROW_BOTTOM;
-              const bottomOffset = baseBottom + subRow * (ERA_ROW_HEIGHT + ERA_ROW_GAP);
+              const bottomOffset = era.kind === "life" ? ERA_LIFE_ROW_BOTTOM : ERA_RELEASE_ROW_BOTTOM;
               return (
                 <div
                   key={era.id}
@@ -396,91 +465,44 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               </svg>
             )}
 
-            {/* Songs — vertical branches rising from spine. Tier color drives
-                the CD ring color; labels run vertically up from each dot, with
-                collision-aware visibility so the most recent never gets hidden
-                behind older duplicates at the same x. */}
-            {layers.music && (() => {
-              const items = data.songs
-                .map((s, i) => ({ s, i, x: dateToX(s.write_date ?? s.release_date) }))
-                .filter((e): e is { s: ArcSong; i: number; x: number } => e.x != null)
-                .sort((a, b) => a.x - b.x);
-              const visibleLabels = pickVisibleLabels(items.map(({ s, x }) => ({
-                id: s.id, date: s.write_date ?? s.release_date, x,
-              })));
-              return items.map(({ s, i, x }) => {
-                const branchHeight = clamp(SONG_HEIGHT_PATTERN[i % SONG_HEIGHT_PATTERN.length]);
-                const showLabel = zoomLevel >= 2 && visibleLabels.has(s.id);
-                const tierColor = s.rc_tier ? TIER_COLORS[s.rc_tier] : "var(--arc-gold-bright)";
-                const isSelected = selectedItem?.type === "song" && selectedItem.data.id === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={`arc-radiant__branch arc-radiant__branch--song${isSelected ? " is-selected" : ""}`}
-                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
-                    onClick={() => setSelectedItem({ type: "song", data: s })}
-                    onPointerEnter={(e) => setHover({ title: s.title, x: e.clientX, y: e.clientY })}
-                    onPointerMove={(e) => setHover({ title: s.title, x: e.clientX, y: e.clientY })}
-                    onPointerLeave={() => setHover(null)}
-                  >
-                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
-                    <span
-                      className="arc-radiant__cd arc-radiant__cd--single"
-                      style={{ background: tierColor, borderColor: tierColor }}
-                    />
-                    {showLabel && <span className="arc-radiant__branch-label">{s.title}</span>}
-                  </button>
-                );
-              });
-            })()}
-
             {/* Albums — same CD icon as singles (slightly larger), placed at
-                the album's release_date. Differentiation between singles and
-                albums beyond size will come later. */}
+                the album's release_date. No on-canvas labels; title surfaces
+                via hover chip and the bottom detail panel. */}
             {layers.music && (() => {
               const items = data.albums
                 .map((a, i) => ({ a, i, x: dateToX(a.release_date) }))
-                .filter((e): e is { a: ArcAlbum; i: number; x: number } => e.x != null)
+                .filter((e): e is { a: ArcRelease; i: number; x: number } => e.x != null)
                 .sort((a, b) => a.x - b.x);
-              const visibleLabels = pickVisibleLabels(items.map(({ a, x }) => ({
-                id: a.id, date: a.release_date, x,
-              })));
               return items.map(({ a, i, x }) => {
                 const branchHeight = clamp(ALBUM_HEIGHT_PATTERN[i % ALBUM_HEIGHT_PATTERN.length]);
-                const showLabel = zoomLevel >= 2 && visibleLabels.has(a.id);
-                const isSelected = selectedItem?.type === "album" && selectedItem.data.id === a.id;
+                const isSelected = selectedItem?.type === "release" && selectedItem.data.id === a.id;
                 return (
                   <button
                     key={a.id}
                     type="button"
                     className={`arc-radiant__branch arc-radiant__branch--album${isSelected ? " is-selected" : ""}`}
                     style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
-                    onClick={() => setSelectedItem({ type: "album", data: a })}
+                    onClick={(e) => selectNode({ type: "release", data: a }, e)}
                     onPointerEnter={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
                     onPointerMove={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
                     onPointerLeave={() => setHover(null)}
                   >
                     <span className="arc-radiant__branch-line" style={{ height: branchHeight - 12 }} />
                     <span className="arc-radiant__cd arc-radiant__cd--album" />
-                    {showLabel && <span className="arc-radiant__branch-label">{a.title}</span>}
                   </button>
                 );
               });
             })()}
 
-            {/* Life events — vertical branches rising from spine, complementary green dots */}
+            {/* Life events — vertical branches rising from spine; titles
+                surface via hover chip + detail panel. */}
             {layers.lifeEvents && (() => {
               const events = data.lifeEvents
                 .map((ev, i) => ({ ev, i, x: dateToX(ev.date_start) }))
                 .filter((e): e is { ev: ArcLifeEvent; i: number; x: number } => e.x != null)
                 .sort((a, b) => a.x - b.x);
-              const visibleLabels = pickVisibleLabels(events.map(({ ev, x }) => ({
-                id: ev.id, date: ev.date_start, x,
-              })));
               return events.map(({ ev, i, x }) => {
                 const branchHeight = clamp(EVENT_HEIGHT_PATTERN[i % EVENT_HEIGHT_PATTERN.length]);
-                const showLabel = zoomLevel >= 2 && visibleLabels.has(ev.id);
                 const isSelected = selectedItem?.type === "event" && selectedItem.data.id === ev.id;
                 return (
                   <button
@@ -488,21 +510,20 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                     type="button"
                     className={`arc-radiant__branch arc-radiant__branch--event${isSelected ? " is-selected" : ""}`}
                     style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
-                    onClick={() => setSelectedItem({ type: "event", data: ev })}
+                    onClick={(e) => selectNode({ type: "event", data: ev }, e)}
                     onPointerEnter={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
                     onPointerMove={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
                     onPointerLeave={() => setHover(null)}
                   >
                     <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
                     <span className="arc-radiant__branch-dot arc-radiant__branch-dot--event" />
-                    {showLabel && <span className="arc-radiant__branch-label">{ev.title}</span>}
                   </button>
                 );
               });
             })()}
           </div>
         </div>
-
+        </div>
       </div>
 
       {hover && (
@@ -514,21 +535,14 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
         </div>
       )}
 
-      <div className="arc-radiant__bottom">
-        {selectedItem ? (
-          selectedItem.type === "song" ? (
-            <SongDetail song={selectedItem.data} onClose={() => setSelectedItem(null)} />
-          ) : selectedItem.type === "album" ? (
-            <AlbumDetail album={selectedItem.data} onClose={() => setSelectedItem(null)} />
-          ) : (
-            <EventDetail event={selectedItem.data} onClose={() => setSelectedItem(null)} />
-          )
-        ) : (
-          <div className="arc-radiant__bottom-empty">
-            Tap any node above to read its story.
-          </div>
-        )}
-      </div>
+      {selectedItem && selectedPos && (
+        <ArcRadiantModal
+          item={selectedItem}
+          nodePos={selectedPos}
+          rootEl={rootEl}
+          onClose={clearSelection}
+        />
+      )}
     </div>
   );
 }
@@ -554,7 +568,7 @@ function SongDetail({ song, onClose }: { song: ArcSong; onClose: () => void }) {
   );
 }
 
-function AlbumDetail({ album, onClose }: { album: ArcAlbum; onClose: () => void }) {
+function ReleaseDetail({ album, onClose }: { album: ArcRelease; onClose: () => void }) {
   return (
     <div className="arc-radiant__detail">
       <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
@@ -563,7 +577,7 @@ function AlbumDetail({ album, onClose }: { album: ArcAlbum; onClose: () => void 
         {album.release_date && <span>{album.release_date}</span>}
       </div>
       <h3 className="arc-radiant__detail-title">{album.title}</h3>
-      <Link href={`/music/albums/${album.slug}`} className="arc-radiant__detail-cta">
+      <Link href={`/music/releases/${album.slug}`} className="arc-radiant__detail-cta">
         Open album page →
       </Link>
     </div>
@@ -658,6 +672,373 @@ function ChargePath({ data, yearStart, yearSpan }: {
         <circle key={i} cx={p.x} cy={p.y} r={0.6} fill="#fff" stroke="url(#charge-gradient)" strokeWidth={0.4} vectorEffect="non-scaling-stroke" />
       ))}
     </>
+  );
+}
+
+// ---------- Overview locator (Ableton-style mini-trajectory) ----------
+
+type LocatorDrag = {
+  handle: "pan" | "left" | "right";
+  startClientX: number;
+  startClientY: number;
+  startVisibleStart: number;
+  startVisibleEnd: number;
+  overviewWidth: number;
+};
+
+function ArcOverviewLocator({
+  yearStart,
+  yearEnd,
+  scrollLeft,
+  totalWidth,
+  viewportWidth,
+  baseWidth,
+  onChange,
+}: {
+  yearStart: number;
+  yearEnd: number;
+  scrollLeft: number;
+  totalWidth: number;
+  viewportWidth: number;
+  baseWidth: number;
+  onChange: (zoomLevel: number, scrollLeft: number) => void;
+}) {
+  const yearSpan = Math.max(1, yearEnd - yearStart);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<LocatorDrag | null>(null);
+  const [isActive, setIsActive] = useState(false);
+
+  // Map canvas scroll/zoom → visible year window.
+  const safeTotal = Math.max(1, totalWidth);
+  const visibleStartYear = yearStart + (scrollLeft / safeTotal) * yearSpan;
+  const visibleEndYear = visibleStartYear + (viewportWidth / safeTotal) * yearSpan;
+
+  const leftPct = ((visibleStartYear - yearStart) / yearSpan) * 100;
+  const widthPct = Math.max(1.5, ((visibleEndYear - visibleStartYear) / yearSpan) * 100);
+
+  // Label format: when the visible span is wide we just show years (floor/ceil
+  // so the two labels never collapse to the same value). When zoomed in tight
+  // (under 5 years visible), add the month so the labels stay distinguishable.
+  function formatYear(yearFloat: number, mode: "start" | "end", withMonth: boolean): string {
+    const baseYear = mode === "start" ? Math.floor(yearFloat) : Math.ceil(yearFloat);
+    if (!withMonth) return String(baseYear);
+    const frac = yearFloat - Math.floor(yearFloat);
+    const monthIdx = Math.max(0, Math.min(11, Math.floor(frac * 12)));
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[monthIdx]} ${Math.floor(yearFloat)}`;
+  }
+  const span = visibleEndYear - visibleStartYear;
+  const withMonth = span < 5;
+  const startLabel = formatYear(visibleStartYear, "start", withMonth);
+  const endLabel = formatYear(visibleEndYear, "end", withMonth);
+
+  // Convert visible-year window → (zoomLevel, scrollLeft) and dispatch.
+  // Minimum visible span is 1 year (max zoom level).
+  const MIN_SPAN_YEARS = 1;
+  function applyWindow(visStart: number, visEnd: number) {
+    const s = Math.max(yearStart, Math.min(yearEnd - MIN_SPAN_YEARS, visStart));
+    const e = Math.max(s + MIN_SPAN_YEARS, Math.min(yearEnd, visEnd));
+    const visSpan = Math.max(MIN_SPAN_YEARS, e - s);
+    // pxPerYear inside the visible window stays equal to clientWidth/visSpan,
+    // so totalWidth = pxPerYear * yearSpan = (clientWidth * yearSpan) / visSpan.
+    const safeVp = Math.max(1, viewportWidth);
+    const nextTotal = (safeVp * yearSpan) / visSpan;
+    const nextZoom = nextTotal / Math.max(1, baseWidth);
+    const nextScroll = ((s - yearStart) / yearSpan) * nextTotal;
+    onChange(nextZoom, nextScroll);
+  }
+
+  // Live refs of the props the drag handlers read on every pointermove —
+  // closures inside useEffect would otherwise see stale values after the
+  // parent re-renders mid-drag. Sync in an effect so refs aren't mutated
+  // during render (react-hooks/refs).
+  const applyWindowRef = useRef<(s: number, e: number) => void>(() => {});
+  const yearStartRef = useRef(yearStart);
+  const yearEndRef = useRef(yearEnd);
+  const yearSpanRef = useRef(yearSpan);
+  useEffect(() => {
+    applyWindowRef.current = applyWindow;
+    yearStartRef.current = yearStart;
+    yearEndRef.current = yearEnd;
+    yearSpanRef.current = yearSpan;
+  });
+
+  function startDrag(
+    handle: LocatorDrag["handle"],
+    clientX: number,
+    clientY: number,
+    pointerId: number,
+  ) {
+    const track = trackRef.current;
+    if (!track) return;
+    dragRef.current = {
+      handle,
+      startClientX: clientX,
+      startClientY: clientY,
+      startVisibleStart: visibleStartYear,
+      startVisibleEnd: visibleEndYear,
+      overviewWidth: track.getBoundingClientRect().width || 1,
+    };
+    setIsActive(true);
+    // Capture so subsequent pointer moves keep firing on the track even
+    // when the cursor leaves the track's bounding box.
+    try {
+      track.setPointerCapture(pointerId);
+    } catch {
+      // ignore: some pointer types don't support capture
+    }
+  }
+
+  // Listeners stay registered for the component lifetime; the closures read
+  // from refs above so they always see the latest values without depending
+  // on React state directly. Listeners are on the track so setPointerCapture
+  // routes events here even when the cursor leaves the visible track.
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    function onMove(e: PointerEvent) {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const pxPerYear = drag.overviewWidth / yearSpanRef.current;
+      const yearDelta = (e.clientX - drag.startClientX) / pxPerYear;
+
+      let ns = drag.startVisibleStart;
+      let ne = drag.startVisibleEnd;
+
+      if (drag.handle === "pan") {
+        // Horizontal: pan the window. Vertical: scale the window's span
+        // around its center (Ableton-style overview drag — down to zoom in,
+        // up to zoom out). Negative sign flips the natural exp so a positive
+        // yPxDelta (downward drag) shrinks the span.
+        const yPxDelta = e.clientY - drag.startClientY;
+        const scale = Math.exp(-yPxDelta / 200);
+        const baseSpan = drag.startVisibleEnd - drag.startVisibleStart;
+        const scaledSpan = Math.max(
+          MIN_SPAN_YEARS,
+          Math.min(yearEndRef.current - yearStartRef.current, baseSpan * scale),
+        );
+        const baseCenter = (drag.startVisibleStart + drag.startVisibleEnd) / 2;
+        const center = baseCenter + yearDelta;
+        ns = center - scaledSpan / 2;
+        ne = center + scaledSpan / 2;
+        if (ns < yearStartRef.current) {
+          ns = yearStartRef.current;
+          ne = ns + scaledSpan;
+        }
+        if (ne > yearEndRef.current) {
+          ne = yearEndRef.current;
+          ns = ne - scaledSpan;
+        }
+      } else if (drag.handle === "left") {
+        ns = Math.max(
+          yearStartRef.current,
+          Math.min(ne - MIN_SPAN_YEARS, drag.startVisibleStart + yearDelta),
+        );
+      } else if (drag.handle === "right") {
+        ne = Math.min(
+          yearEndRef.current,
+          Math.max(ns + MIN_SPAN_YEARS, drag.startVisibleEnd + yearDelta),
+        );
+      }
+
+      applyWindowRef.current(ns, ne);
+    }
+    function onUp(e: PointerEvent) {
+      if (!dragRef.current) return;
+      dragRef.current = null;
+      setIsActive(false);
+      try {
+        track?.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+    }
+    track.addEventListener("pointermove", onMove);
+    track.addEventListener("pointerup", onUp);
+    track.addEventListener("pointercancel", onUp);
+    return () => {
+      track.removeEventListener("pointermove", onMove);
+      track.removeEventListener("pointerup", onUp);
+      track.removeEventListener("pointercancel", onUp);
+    };
+  }, []);
+
+  function onTrackPointerDown(e: React.PointerEvent) {
+    if (e.button !== undefined && e.button !== 0) return;
+    const target = (e.target as HTMLElement).closest("[data-handle]") as HTMLElement | null;
+    if (target?.dataset.handle) {
+      startDrag(
+        target.dataset.handle as LocatorDrag["handle"],
+        e.clientX,
+        e.clientY,
+        e.pointerId,
+      );
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    // Empty area click: jump viewport center to click position, keep span.
+    const track = trackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const targetCenter = yearStart + pct * yearSpan;
+    const span = visibleEndYear - visibleStartYear;
+    let ns = targetCenter - span / 2;
+    let ne = ns + span;
+    if (ns < yearStart) {
+      ns = yearStart;
+      ne = ns + span;
+    }
+    if (ne > yearEnd) {
+      ne = yearEnd;
+      ns = ne - span;
+    }
+    applyWindow(ns, ne);
+  }
+
+  return (
+    <div
+      ref={trackRef}
+      className={`arc-radiant__overview${isActive ? " is-active" : ""}`}
+      role="slider"
+      aria-label="Year-range locator: drag the box to pan, drag the edges to zoom"
+      aria-valuemin={yearStart}
+      aria-valuemax={yearEnd}
+      aria-valuenow={Math.round(visibleStartYear)}
+      tabIndex={-1}
+      onPointerDown={onTrackPointerDown}
+    >
+      <div
+        className="arc-radiant__overview-viewport"
+        data-handle="pan"
+        style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+      >
+        <span className="arc-radiant__overview-year arc-radiant__overview-year--left">
+          {startLabel}
+        </span>
+        <span className="arc-radiant__overview-year arc-radiant__overview-year--right">
+          {endLabel}
+        </span>
+        <div
+          className="arc-radiant__overview-handle arc-radiant__overview-handle--left"
+          data-handle="left"
+          aria-label="Drag to set start year"
+        />
+        <div
+          className="arc-radiant__overview-handle arc-radiant__overview-handle--right"
+          data-handle="right"
+          aria-label="Drag to set end year"
+        />
+        <div className="arc-radiant__overview-grip" aria-hidden="true" />
+      </div>
+    </div>
+  );
+}
+
+// ---------- Modal popover ----------
+//
+// Sits on top of the entire .arc-radiant area when a node is clicked. The
+// backdrop's background is a radial gradient with a transparent "hole"
+// centered on the clicked node — that keeps the active node bright while
+// everything else dims. An SVG line connects the node to the floating
+// detail panel.
+
+function ArcRadiantModal({
+  item,
+  nodePos,
+  rootEl,
+  onClose,
+}: {
+  item: NonNullable<SelectedItem>;
+  nodePos: { x: number; y: number };
+  rootEl: HTMLElement | null;
+  onClose: () => void;
+}) {
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>(() => ({
+    w: rootEl?.clientWidth ?? 1200,
+    h: rootEl?.clientHeight ?? 600,
+  }));
+  const [modalRect, setModalRect] = useState<{ x: number; y: number } | null>(null);
+
+  // Track the root's size so the line and gradient stay aligned through
+  // resizes / orientation changes while the modal is open.
+  useEffect(() => {
+    if (!rootEl) return;
+    const update = () => setSize({ w: rootEl.clientWidth, h: rootEl.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(rootEl);
+    return () => ro.disconnect();
+  }, [rootEl]);
+
+  // After layout, measure the modal so the line lands at its edge, not at
+  // the geometric center of the container.
+  useEffect(() => {
+    const m = modalRef.current;
+    const root = rootEl;
+    if (!m || !root) return;
+    const update = () => {
+      const mr = m.getBoundingClientRect();
+      const rr = root.getBoundingClientRect();
+      setModalRect({
+        x: mr.left - rr.left + mr.width / 2,
+        y: mr.top - rr.top + mr.height / 2,
+      });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(m);
+    return () => ro.disconnect();
+  }, [rootEl]);
+
+  const HOLE_R = 14; // radius of the "spotlight" around the active node
+  const FADE_R = HOLE_R + 14;
+  const dimColor = "rgba(5, 4, 2, 0.78)";
+  const background = `radial-gradient(circle at ${nodePos.x}px ${nodePos.y}px, transparent 0, transparent ${HOLE_R}px, ${dimColor} ${FADE_R}px, ${dimColor} 100%)`;
+
+  return (
+    <div
+      className="arc-radiant__modal-backdrop"
+      style={{ background }}
+      onClick={onClose}
+      role="presentation"
+    >
+      {modalRect && (
+        <svg
+          className="arc-radiant__modal-line"
+          width={size.w}
+          height={size.h}
+          aria-hidden="true"
+        >
+          <line
+            x1={nodePos.x}
+            y1={nodePos.y}
+            x2={modalRect.x}
+            y2={modalRect.y}
+            stroke="rgba(247, 200, 74, 0.65)"
+            strokeWidth={1.2}
+            strokeDasharray="4 4"
+          />
+        </svg>
+      )}
+      <div
+        ref={modalRef}
+        className="arc-radiant__modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        {item.type === "song" ? (
+          <SongDetail song={item.data} onClose={onClose} />
+        ) : item.type === "release" ? (
+          <ReleaseDetail album={item.data} onClose={onClose} />
+        ) : (
+          <EventDetail event={item.data} onClose={onClose} />
+        )}
+      </div>
+    </div>
   );
 }
 

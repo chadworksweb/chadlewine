@@ -27,7 +27,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 async function getProduct(
   key: string,
-): Promise<{ product: ProductRow; gallery: GalleryImage[]; linkedPrintSlug: string | null } | null> {
+): Promise<{
+  product: ProductRow;
+  gallery: GalleryImage[];
+  linkedPrintSlug: string | null;
+  isSuperIndividual: boolean;
+} | null> {
   const supabase = createPublicClient();
   const isUuid = UUID_RE.test(key);
   const { data } = await supabase
@@ -51,7 +56,24 @@ async function getProduct(
     linkedPrintSlug = linked?.slug ?? null;
   }
 
-  return { product, gallery, linkedPrintSlug };
+  const { data: siCollection } = await supabase
+    .from("collections")
+    .select("id")
+    .eq("slug", "super-individual")
+    .eq("status", "active")
+    .maybeSingle();
+  let isSuperIndividual = false;
+  if (siCollection) {
+    const { data: assignment } = await supabase
+      .from("collection_products")
+      .select("product_id")
+      .eq("collection_id", siCollection.id)
+      .eq("product_id", product.id)
+      .maybeSingle();
+    isSuperIndividual = !!assignment;
+  }
+
+  return { product, gallery, linkedPrintSlug, isSuperIndividual };
 }
 
 export async function generateMetadata({
@@ -85,7 +107,7 @@ export default async function MerchProductPage({
   const { slug } = await params;
   const result = await getProduct(slug);
   if (!result) notFound();
-  const { product, gallery, linkedPrintSlug } = result;
+  const { product, gallery, linkedPrintSlug, isSuperIndividual } = result;
 
   return (
     <>
@@ -99,6 +121,7 @@ export default async function MerchProductPage({
         price={product.price}
         variants={Array.isArray(product.variants) ? product.variants : []}
         linkedPrintSlug={linkedPrintSlug}
+        isSuperIndividual={isSuperIndividual}
       />
       <ExploreStrip excludeMerchIds={[product.id]} wrap />
     </>

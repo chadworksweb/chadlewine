@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
-import { AlbumHero, type AlbumHeroItem } from "@/components/AlbumHero";
+import { ReleaseHero, type ReleaseHeroItem } from "@/components/ReleaseHero";
 import { ExploreSongs } from "@/components/ExploreSongs";
 import { CurationGrid } from "@/components/CurationGrid";
 
@@ -44,9 +44,9 @@ interface SongRow {
   created_at: string;
 }
 
-interface AlbumJoinRow {
+interface ReleaseJoinRow {
   song_id: string;
-  album:
+  release:
     | { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null }
     | { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null }[]
     | null;
@@ -75,7 +75,7 @@ export default async function MusicHubPage() {
 
   const [heroAlbumsRes, songsRes, curatedRes] = await Promise.all([
     supabase
-      .from("albums")
+      .from("releases")
       .select(
         "id, title, slug, release_date, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom",
       )
@@ -115,7 +115,7 @@ export default async function MusicHubPage() {
   let select: AlbumRow | null = null;
   if (selectedId) {
     const { data: pickedRows } = await supabase
-      .from("albums")
+      .from("releases")
       .select(
         "id, title, slug, release_date, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom",
       )
@@ -131,7 +131,7 @@ export default async function MusicHubPage() {
   // Discography mosaic — 4 covers, excluding the two cards above
   const excludeIds = [latest?.id, select?.id].filter(Boolean) as string[];
   let mosaicQuery = supabase
-    .from("albums")
+    .from("releases")
     .select("id, cover_art_path")
     .eq("status", "published")
     .not("cover_art_path", "is", null)
@@ -148,20 +148,20 @@ export default async function MusicHubPage() {
   let albumBySong: Record<string, { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null } | null> = {};
   if (songIds.length > 0) {
     const { data: junctions } = await supabase
-      .from("album_songs")
-      .select("song_id, album:albums(title, slug, cover_art_path, cover_art_alt)")
+      .from("release_songs")
+      .select("song_id, release:releases(title, slug, cover_art_path, cover_art_alt)")
       .in("song_id", songIds);
 
     albumBySong = {};
-    for (const j of (junctions || []) as AlbumJoinRow[]) {
-      const alb = Array.isArray(j.album) ? j.album[0] : j.album;
+    for (const j of (junctions || []) as ReleaseJoinRow[]) {
+      const alb = Array.isArray(j.release) ? j.release[0] : j.release;
       if (alb && !albumBySong[j.song_id]) {
         albumBySong[j.song_id] = alb;
       }
     }
   }
 
-  const heroItems: AlbumHeroItem[] = heroAlbums
+  const heroItems: ReleaseHeroItem[] = heroAlbums
     .filter((a) => a.cover_art_path)
     .map((a) => ({
       slug: a.slug,
@@ -169,7 +169,7 @@ export default async function MusicHubPage() {
       releaseDate: a.release_date,
       artImagePath: a.cover_art_path || "",
       artAlt: a.cover_art_alt || a.title,
-      href: `/music/albums/${a.slug}`,
+      href: `/music/releases/${a.slug}`,
       ctaLabel: "Open Album →",
       focalX: a.card_focal_x != null ? a.card_focal_x / 100 : 0.5,
       focalY: a.card_focal_y != null ? a.card_focal_y / 100 : 0.5,
@@ -197,7 +197,7 @@ export default async function MusicHubPage() {
       </section>
 
       <div id="page-music-hub" className="page-static">
-        {heroItems.length > 0 && <AlbumHero items={heroItems} />}
+        {heroItems.length > 0 && <ReleaseHero items={heroItems} />}
 
       <div className="music-hub">
         <section className="music-hub__col">
@@ -253,7 +253,7 @@ export default async function MusicHubPage() {
 function AlbumCard({ album }: { album: AlbumRow }) {
   const year = album.release_date ? new Date(album.release_date).getFullYear() : null;
   return (
-    <Link href={`/music/albums/${album.slug}`} className="music-hub__card-link">
+    <Link href={`/music/releases/${album.slug}`} className="music-hub__card-link">
       {album.cover_art_path ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={album.cover_art_path} alt={album.title} className="music-hub__cover" loading="lazy" />

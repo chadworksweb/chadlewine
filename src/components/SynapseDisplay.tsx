@@ -6,16 +6,6 @@ interface SynapseDisplayProps {
   sourceId: string;
 }
 
-interface ThreadPull {
-  id: string;
-  source_type: string;
-  source_id: string;
-  target_type: string;
-  target_id: string;
-  direction: string;
-  description: string | null;
-}
-
 interface ResolvedConnection {
   direction: string;
   description: string | null;

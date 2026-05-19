@@ -178,21 +178,6 @@ function ScoreBadge({ score }: { score: number }) {
   );
 }
 
-function SectionDot({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    green: "var(--geo-green, #22c55e)",
-    yellow: "var(--geo-yellow, #eab308)",
-    red: "var(--geo-red, #ef4444)",
-    gray: "var(--geo-gray, #6b7280)",
-  };
-  return (
-    <span
-      className="geo-section-dot"
-      style={{ backgroundColor: colors[status] || colors.gray }}
-    />
-  );
-}
-
 export function GeoPanel(props: GeoPanelProps) {
   const { onChange, contentType = "observation" } = props;
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -262,7 +247,21 @@ export function GeoPanel(props: GeoPanelProps) {
     setFlyoutLoading(false);
   }
 
-  const { total, breakdown } = useMemo(() => computeScore(props), [props]);
+  const { total, breakdown } = useMemo(
+    () => computeScore(props),
+    // computeScore reads these scalar fields; listing them lets the memo
+    // actually skip work when nothing relevant changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      props.body,
+      props.focusKeyphrase,
+      props.secondaryKeyphrases,
+      props.citationSummary,
+      props.firstSentenceExtractable,
+      props.paaPairs,
+      props.entityTags,
+    ],
+  );
 
   const wc = useMemo(() => countWords(props.body), [props.body]);
   const readingTime = useMemo(() => (wc / 238).toFixed(1), [wc]);
@@ -343,24 +342,6 @@ export function GeoPanel(props: GeoPanelProps) {
       setSuggestError("Network error");
     }
     setLoading(false);
-  }
-
-  // Section status helpers
-  function sectionStatus(key: string): string {
-    const items = breakdown.filter((b) => {
-      if (key === "search") return b.label.includes("keyphrase");
-      if (key === "citation") return b.label.includes("Citation") || b.label.includes("First sentence");
-      if (key === "structure") return b.label.includes("Word count") || b.label.includes("Heading");
-      if (key === "paa") return b.label.includes("PAA");
-      if (key === "links") return b.label.includes("Internal links");
-      if (key === "entities") return b.label.includes("Entity");
-      if (key === "og") return b.label.includes("OG image");
-      return false;
-    });
-    if (items.length === 0) return "gray";
-    if (items.every((i) => i.points === i.max)) return "green";
-    if (items.some((i) => i.points > 0)) return "yellow";
-    return "red";
   }
 
   return (
