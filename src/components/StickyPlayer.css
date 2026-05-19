@@ -1,13 +1,17 @@
 .cl-sticky-player {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--site-width);
   z-index: 80;
-  background: rgba(13, 13, 20, 0.92);
+  background: rgba(30, 30, 44, 0.96);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-top: 1px solid var(--bg-glass-border);
+  /* Top-pointing shadow lifts the bar off the page content so it reads as a
+     distinct surface even when content scrolls underneath it. */
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
   padding-bottom: env(safe-area-inset-bottom);
   color: var(--text-primary);
 }
