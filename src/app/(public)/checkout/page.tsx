@@ -35,6 +35,7 @@ export default function CheckoutResumePage() {
     } catch {}
 
     if (items.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- must run on mount: load cart, POST to API, redirect or surface error
       setEmptyCart(true);
       return;
     }

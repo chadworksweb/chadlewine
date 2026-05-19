@@ -20,10 +20,17 @@ export function ReleaseDataSectionEditor({ albumId, section, cat, onChanged }: P
   const [status, setStatus] = useState(section.status);
   const [payload, setPayload] = useState<Record<string, unknown>>(section.data_payload || {});
 
-  useEffect(() => {
+  // Resync to incoming section when the parent swaps it (refetch after save,
+  // category switch). Adjusts during render only when the prop identity
+  // actually changes — replaces a useEffect that fired one render late.
+  const [lastSectionStatus, setLastSectionStatus] = useState(section.status);
+  const [lastSectionPayload, setLastSectionPayload] = useState(section.data_payload);
+  if (section.status !== lastSectionStatus || section.data_payload !== lastSectionPayload) {
+    setLastSectionStatus(section.status);
+    setLastSectionPayload(section.data_payload);
     setStatus(section.status);
     setPayload(section.data_payload || {});
-  }, [section.status, section.data_payload]);
+  }
 
   const buildPayload = useCallback(
     () => ({ data_payload: payload, status }),

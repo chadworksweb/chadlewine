@@ -38,6 +38,7 @@ export default function AdminThoughtlinesPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
     fetchThoughtlines();
   }, [fetchThoughtlines]);
 

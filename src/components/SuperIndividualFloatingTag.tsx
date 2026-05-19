@@ -19,6 +19,7 @@ export function SuperIndividualFloatingTag() {
   useEffect(() => {
     try {
       if (sessionStorage.getItem(SNOOZE_KEY) === "1") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- browser-only: read sessionStorage on mount
         setIsSnoozed(true);
         return;
       }

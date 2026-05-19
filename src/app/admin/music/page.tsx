@@ -139,6 +139,7 @@ export default function AdminMusicPage() {
     setSettingFeatured(false);
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { fetchData(); }, [fetchData]);
 
   if (loading) return <div className="admin-page"><p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>Loading...</p></div>;

@@ -33,6 +33,7 @@ export function SlidingArtPortfolio({ items }: { items: PortfolioItem[] }) {
   useEffect(() => {
     instanceRef.current?.setPaused(!!active);
     if (active) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- side effects: setTimeout + body.style mutation on active change
       setDisplayItem(active);
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";

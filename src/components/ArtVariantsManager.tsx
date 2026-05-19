@@ -40,6 +40,7 @@ export function ArtVariantsManager({ slug }: { slug: string }) {
     setLoading(false);
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load when slug changes
   useEffect(() => { load(); }, [slug]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   function patchRow(id: string, patch: Partial<RowState>) {

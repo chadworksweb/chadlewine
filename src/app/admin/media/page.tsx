@@ -163,6 +163,7 @@ export default function AdminMediaPage() {
     setLoading(false);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { fetchImages(); }, [fetchImages]);
 
   function selectImage(img: MediaImage) {

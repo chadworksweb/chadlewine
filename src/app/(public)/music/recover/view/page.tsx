@@ -24,6 +24,7 @@ function RecoverViewContent() {
   const [items, setItems] = useState<RecoveryItem[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- must run on mount: verify token and load song
     if (!token) { setState("invalid"); return; }
     let cancelled = false;
     (async () => {

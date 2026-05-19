@@ -82,6 +82,7 @@ export default function AnalyticsPage() {
     setLoading(false);
   }, [tab, days]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { fetchData(); }, [fetchData]);
 
   return (

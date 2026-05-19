@@ -38,6 +38,7 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
     if (!hash) return;
     const song = allSongs.find((s) => s.slug === hash);
     if (song) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- browser-only: read window.location.hash on mount
       setExpandedGroups(new Set([song.release_id]));
       setActiveTrackSlug(song.slug);
     }

@@ -41,6 +41,7 @@ export default function AdminAlbumsPage() {
     setLoading(false);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { fetchData(); }, [fetchData]);
 
   function handleSort(key: SortKey) {

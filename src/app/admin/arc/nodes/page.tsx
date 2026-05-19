@@ -48,6 +48,7 @@ export default function ArcNodesPage() {
     setLifeEvents(Array.isArray(lR) ? lR : []);
     setLoading(false);
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
   useEffect(() => { loadAll(); }, []);
 
   function flash(kind: Toast extends infer T ? (T extends { kind: infer K } ? K : never) : never, message: string) {
