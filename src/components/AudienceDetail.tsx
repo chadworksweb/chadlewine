@@ -67,6 +67,26 @@ function fmtDateTime(iso: string | null): string {
   }
 }
 
+function renderEventMeta(eventType: string, meta: Record<string, unknown>): string | null {
+  const parts: string[] = [];
+  if (typeof meta.order_number === "string" && meta.order_number) parts.push(meta.order_number);
+  if (typeof meta.tag === "string" && meta.tag) parts.push(meta.tag);
+
+  if (eventType === "coupon_claimed") {
+    if (typeof meta.code === "string" && meta.code) parts.push(meta.code);
+    if (typeof meta.percent_off === "number") parts.push(`${meta.percent_off}% off`);
+  }
+  if (eventType === "coupon_redeemed") {
+    const codes = Array.isArray(meta.codes) ? (meta.codes as unknown[]).filter((c): c is string => typeof c === "string") : [];
+    if (codes.length > 0) parts.push(codes.join(", "));
+    if (typeof meta.amount_discount_cents === "number" && meta.amount_discount_cents > 0) {
+      parts.push(`-$${(meta.amount_discount_cents / 100).toFixed(2)}`);
+    }
+  }
+
+  return parts.length > 0 ? `· ${parts.join(" · ")}` : null;
+}
+
 const EVENT_LABELS: Record<string, string> = {
   subscribed: "Subscribed",
   unsubscribed: "Unsubscribed",
@@ -85,6 +105,8 @@ const EVENT_LABELS: Record<string, string> = {
   profile_updated: "Profile updated",
   account_created: "Account created",
   account_linked: "Account linked",
+  coupon_claimed: "Coupon claimed",
+  coupon_redeemed: "Coupon redeemed",
 };
 
 export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {
@@ -422,12 +444,7 @@ export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {
                     </span>
                     {ev.metadata && Object.keys(ev.metadata).length > 0 && (
                       <span className="audience-timeline__meta">
-                        {(ev.metadata as { order_number?: string }).order_number
-                          ? `· ${(ev.metadata as { order_number?: string }).order_number}`
-                          : null}
-                        {(ev.metadata as { tag?: string }).tag
-                          ? ` · ${(ev.metadata as { tag?: string }).tag}`
-                          : null}
+                        {renderEventMeta(ev.event_type, ev.metadata as Record<string, unknown>)}
                       </span>
                     )}
                   </div>
