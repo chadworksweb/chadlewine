@@ -84,7 +84,10 @@ export function LightningEffect({ src, alt, className, focalX = 0.5, focalY = 0.
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [striking, setStriking] = useState(false);
   const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
-  focalRef.current = { x: focalX, y: focalY, z: zoom };
+
+  useEffect(() => {
+    focalRef.current = { x: focalX, y: focalY, z: zoom };
+  }, [focalX, focalY, zoom]);
 
   useEffect(() => {
     const img = new Image();

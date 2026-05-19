@@ -227,10 +227,13 @@ export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5,
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
-  focalRef.current = { x: focalX, y: focalY, z: zoom };
   const rafRef = useRef<number>(0);
   const shardsRef = useRef<Shard[]>([]);
   const initializedRef = useRef(false);
+
+  useEffect(() => {
+    focalRef.current = { x: focalX, y: focalY, z: zoom };
+  }, [focalX, focalY, zoom]);
 
   function initShards(w: number, h: number) {
     // Initial coarse Voronoi — large organic pieces
@@ -253,12 +256,12 @@ export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5,
     initializedRef.current = true;
   }
 
-  const draw = useCallback(() => {
+  const draw = useCallback(function tick() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
     if (!canvas || !ctx || !img || !img.complete) {
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -271,7 +274,7 @@ export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5,
     if (!initializedRef.current || shards.length === 0) {
       const crop = getCoverCropRect(img.naturalWidth, img.naturalHeight, w / h, focalRef.current.x, focalRef.current.y, focalRef.current.z);
       ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -366,7 +369,7 @@ export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5,
       initializedRef.current = false;
     }
 
-    rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(tick);
   }, []);
 
   useEffect(() => {
@@ -428,16 +431,16 @@ export function ShatterEffect({ src, alt, className, focalX = 0.5, focalY = 0.5,
         continue;
       }
 
-      const area = polyArea(s.polygon);
-
       if (s.generation >= 1) {
         // 3rd click in this area — pieces fall
         const angle = Math.atan2(s.cy - clickY, s.cx - clickX);
-        s.falling = true;
-        s.vx = Math.cos(angle) * 1.2 + (Math.random() - 0.5);
-        s.vy = -0.5 - Math.random() * 1.5;
-        s.angularVel = (Math.random() - 0.5) * 0.08;
-        newShards.push(s);
+        newShards.push({
+          ...s,
+          falling: true,
+          vx: Math.cos(angle) * 1.2 + (Math.random() - 0.5),
+          vy: -0.5 - Math.random() * 1.5,
+          angularVel: (Math.random() - 0.5) * 0.08,
+        });
       } else {
         // Subdivide into smaller pieces
         const children = subdivideShard(s, clickX, clickY);

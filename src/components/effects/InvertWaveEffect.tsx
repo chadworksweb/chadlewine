@@ -27,14 +27,17 @@ export function InvertWaveEffect({ src, alt, className, focalX = 0.5, focalY = 0
   const rafRef = useRef<number>(0);
   const wavesRef = useRef<Wave[]>([]);
   const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
-  focalRef.current = { x: focalX, y: focalY, z: zoom };
 
-  const draw = useCallback(() => {
+  useEffect(() => {
+    focalRef.current = { x: focalX, y: focalY, z: zoom };
+  }, [focalX, focalY, zoom]);
+
+  const draw = useCallback(function tick() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
     if (!canvas || !ctx || !img || !img.complete) {
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -83,7 +86,7 @@ export function InvertWaveEffect({ src, alt, className, focalX = 0.5, focalY = 0
         .filter((w) => w.life > 0 && w.radius < w.maxRadius);
     }
 
-    rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(tick);
   }, []);
 
   useEffect(() => {
