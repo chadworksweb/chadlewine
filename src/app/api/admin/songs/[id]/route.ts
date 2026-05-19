@@ -26,7 +26,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .from("release_songs")
     .select("release_id, track_number, release:releases(release_type)")
     .eq("song_id", songId);
-  const assoc = (assocRows || []).find((row: any) => {
+  type ReleaseLite = { release_type: string | null };
+  type AssocRow = { release_id: string; track_number: number | null; release: ReleaseLite | ReleaseLite[] | null };
+  const assoc = ((assocRows || []) as AssocRow[]).find((row) => {
     const rel = Array.isArray(row.release) ? row.release[0] : row.release;
     return rel?.release_type !== "single";
   }) || null;
@@ -78,9 +80,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .from("release_songs")
       .select("release:releases(slug, release_type)")
       .eq("song_id", id);
-    const albumLink = (albumLinkRows || [])
-      .map((row: any) => (Array.isArray(row.release) ? row.release[0] : row.release))
-      .find((rel: { slug?: string; release_type?: string } | null) => rel && rel.release_type !== "single");
+    type AlbumLinkRel = { slug?: string; release_type?: string };
+    type AlbumLinkRow = { release: AlbumLinkRel | AlbumLinkRel[] | null };
+    const albumLink = ((albumLinkRows || []) as AlbumLinkRow[])
+      .map((row) => (Array.isArray(row.release) ? row.release[0] : row.release))
+      .find((rel) => rel && rel.release_type !== "single");
     const albumSlug = (albumLink as { slug?: string } | undefined)?.slug;
     if (albumSlug) {
       await captureSlugChange(
@@ -99,7 +103,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .from("release_songs")
       .select("id, release_id, track_number, release:releases(release_type)")
       .eq("song_id", id);
-    const existing = (existingRows || []).find((row: any) => {
+    type ExistingRel = { release_type: string | null };
+    type ExistingRow = { id: string; release_id: string; track_number: number | null; release: ExistingRel | ExistingRel[] | null };
+    const existing = ((existingRows || []) as ExistingRow[]).find((row) => {
       const rel = Array.isArray(row.release) ? row.release[0] : row.release;
       return rel?.release_type !== "single";
     }) || null;
@@ -139,7 +145,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     .from("release_songs")
     .select("release_id, track_number, release:releases(release_type)")
     .eq("song_id", id);
-  const assoc = (assocRows || []).find((row: any) => {
+  type ReleaseLite = { release_type: string | null };
+  type AssocRow = { release_id: string; track_number: number | null; release: ReleaseLite | ReleaseLite[] | null };
+  const assoc = ((assocRows || []) as AssocRow[]).find((row) => {
     const rel = Array.isArray(row.release) ? row.release[0] : row.release;
     return rel?.release_type !== "single";
   }) || null;

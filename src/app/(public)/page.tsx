@@ -180,9 +180,11 @@ async function getSongBriefs(): Promise<SongBriefData[]> {
       .order("display_order", { ascending: true }),
   ]);
 
-  const albumBySong: Record<string, { title: string; slug: string } | null> = {};
-  for (const j of junctions || []) {
-    const alb = Array.isArray((j as any).release) ? (j as any).release[0] : (j as any).release;
+  type ReleaseLite = { title: string; slug: string };
+  type JunctionRow = { song_id: string; release: ReleaseLite | ReleaseLite[] | null };
+  const albumBySong: Record<string, ReleaseLite | null> = {};
+  for (const j of (junctions || []) as JunctionRow[]) {
+    const alb = Array.isArray(j.release) ? j.release[0] : j.release;
     if (alb && !albumBySong[j.song_id]) albumBySong[j.song_id] = alb;
   }
 
@@ -305,9 +307,11 @@ async function getExploreSongs() {
     .select("song_id, release:releases(title, slug, cover_art_path, cover_art_alt)")
     .in("song_id", songIds);
 
-  const albumBySong: Record<string, { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null } | null> = {};
-  for (const j of junctions || []) {
-    const alb = Array.isArray((j as any).release) ? (j as any).release[0] : (j as any).release;
+  type ReleaseLite = { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null };
+  type JunctionRow = { song_id: string; release: ReleaseLite | ReleaseLite[] | null };
+  const albumBySong: Record<string, ReleaseLite | null> = {};
+  for (const j of (junctions || []) as JunctionRow[]) {
+    const alb = Array.isArray(j.release) ? j.release[0] : j.release;
     if (alb && !albumBySong[j.song_id]) albumBySong[j.song_id] = alb;
   }
 

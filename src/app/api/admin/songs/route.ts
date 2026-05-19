@@ -28,7 +28,8 @@ export async function GET(request: Request) {
       .eq("release_id", albumId)
       .order("track_number");
     if (error) return Response.json({ error: error.message }, { status: 500 });
-    const flat = (data || []).map((row: any) => ({ ...row.song, track_number: row.track_number }));
+    type RsRow = { track_number: number; song: Record<string, unknown> };
+    const flat = ((data || []) as unknown as RsRow[]).map((row) => ({ ...row.song, track_number: row.track_number }));
     return Response.json(attachIsSingle(flat, singleIds));
   }
 

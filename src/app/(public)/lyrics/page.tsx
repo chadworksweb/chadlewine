@@ -31,9 +31,24 @@ export default async function LyricsPage() {
     .select("release_id, track_number, song:songs(id, title, slug, lyrics, instrumental, status)")
     .order("track_number");
 
+  type SongLite = {
+    id: string;
+    title: string;
+    slug: string;
+    lyrics: string | null;
+    instrumental: boolean | null;
+    status: string;
+  };
+  type JunctionRow = {
+    release_id: string;
+    track_number: number;
+    song: SongLite | null;
+  };
+  const junctionRows = (junctions || []) as unknown as JunctionRow[];
+
   // IDs of songs that belong to an album
   const albumSongIds = new Set(
-    (junctions || []).map((j: any) => j.song?.id).filter(Boolean)
+    junctionRows.map((j) => j.song?.id).filter(Boolean) as string[],
   );
 
   // Singles = published songs with lyrics (or instrumental) that aren't in any album
@@ -43,9 +58,19 @@ export default async function LyricsPage() {
     .eq("status", "published")
     .order("created_at", { ascending: false });
 
-  const singles = (allSongs || [])
-    .filter((s: any) => (s.lyrics || s.instrumental) && !albumSongIds.has(s.id))
-    .map((s: any, i: number) => ({
+  type SongRow = {
+    id: string;
+    title: string;
+    slug: string;
+    lyrics: string | null;
+    instrumental: boolean | null;
+    status: string;
+    created_at: string;
+  };
+
+  const singles = ((allSongs || []) as SongRow[])
+    .filter((s) => (s.lyrics || s.instrumental) && !albumSongIds.has(s.id))
+    .map((s, i) => ({
       id: s.id,
       release_id: "__singles__",
       title: s.title,
@@ -55,7 +80,8 @@ export default async function LyricsPage() {
       instrumental: s.instrumental === true,
     }));
 
-  const albums = (albumRows || []).map((a: any) => ({
+  type AlbumLite = { id: string; title: string; slug: string; release_date: string | null };
+  const albums = ((albumRows || []) as AlbumLite[]).map((a) => ({
     id: a.id,
     title: a.title,
     slug: a.slug,
@@ -64,16 +90,16 @@ export default async function LyricsPage() {
       : undefined,
   }));
 
-  const albumSongs = (junctions || [])
-    .filter((j: any) => j.song?.status === "published" && (j.song?.lyrics || j.song?.instrumental))
-    .map((j: any) => ({
-      id: j.song.id,
+  const albumSongs = junctionRows
+    .filter((j) => j.song?.status === "published" && (j.song?.lyrics || j.song?.instrumental))
+    .map((j) => ({
+      id: j.song!.id,
       release_id: j.release_id,
-      title: j.song.title,
-      slug: j.song.slug,
+      title: j.song!.title,
+      slug: j.song!.slug,
       track_number: j.track_number,
-      lyrics: j.song.lyrics || "",
-      instrumental: j.song.instrumental === true,
+      lyrics: j.song!.lyrics || "",
+      instrumental: j.song!.instrumental === true,
     }));
 
   return (

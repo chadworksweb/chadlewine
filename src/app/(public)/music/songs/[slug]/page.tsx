@@ -42,8 +42,19 @@ async function getSongData(songSlug: string) {
     .from("release_songs")
     .select("track_number, release:releases(id, title, slug, cover_art_path, cover_art_alt, status, release_date, release_type)")
     .eq("song_id", song.id);
-  const junction = (junctionRows || [])
-    .map((row: any) => ({
+  type ReleaseLite = {
+    id: string;
+    title: string;
+    slug: string;
+    cover_art_path: string | null;
+    cover_art_alt: string | null;
+    status: string;
+    release_date: string | null;
+    release_type: string | null;
+  };
+  type JunctionRow = { track_number: number; release: ReleaseLite | ReleaseLite[] | null };
+  const junction = ((junctionRows || []) as unknown as JunctionRow[])
+    .map((row) => ({
       track_number: row.track_number,
       album: Array.isArray(row.release) ? row.release[0] : row.release,
     }))
@@ -106,7 +117,7 @@ async function getSongData(songSlug: string) {
   // renderSection so any markdown-bearing field (content, key_points,
   // future additions) is converted in exactly one place.
   const renderedSections = await Promise.all(
-    (visibilitySections || []).map((s: any) => renderSection(s))
+    (visibilitySections || []).map((s) => renderSection(s)),
   );
 
   // Pull songs mentioned by the Connections section so the page can render
@@ -126,8 +137,17 @@ async function getSongData(songSlug: string) {
       .in("slug", mentionedSlugs)
       .in("status", ["unreleased", "published"]);
     // Preserve the mention order so the grid mirrors the prose flow.
+    type ConnAlbumLite = { cover_art_path: string | null; cover_art_alt: string | null };
+    type ConnSongRow = {
+      id: string;
+      slug: string;
+      title: string;
+      art_image_path: string | null;
+      art_alt: string | null;
+      album_songs: { album: ConnAlbumLite | null }[] | null;
+    };
     const bySlug = new Map(
-      (connSongs || []).map((s: any) => {
+      ((connSongs || []) as unknown as ConnSongRow[]).map((s) => {
         const albumCover = s.album_songs?.[0]?.album?.cover_art_path || null;
         const albumAlt = s.album_songs?.[0]?.album?.cover_art_alt || null;
         return [
@@ -250,9 +270,10 @@ export default async function SongDetailPage({
     "sync-placements": `Where could "${song.title}" be placed in film, TV, or ads?`,
   };
 
-  const sectionQAPairs = visibilitySections
-    .filter((s: any) => s.directAnswer && sectionHeadingMap[s.category])
-    .map((s: any) => ({
+  type VisibilitySectionRow = { directAnswer: string | null; category: keyof typeof sectionHeadingMap };
+  const sectionQAPairs: { question: string; answer: string }[] = (visibilitySections as VisibilitySectionRow[])
+    .filter((s): s is VisibilitySectionRow & { directAnswer: string } => !!s.directAnswer && !!sectionHeadingMap[s.category])
+    .map((s) => ({
       question: sectionHeadingMap[s.category],
       answer: s.directAnswer,
     }));

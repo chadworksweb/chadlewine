@@ -28,8 +28,27 @@ async function getAlbumData(releaseSlug: string) {
     .eq("release_id", album.id)
     .order("track_number");
 
-  const filtered = (junctions || []).filter(
-    (j: any) => j.song?.status === "published" || j.song?.status === "unreleased",
+  type SongPayload = {
+    id: string;
+    title: string;
+    slug: string;
+    duration_seconds: number | null;
+    streaming_path: string | null;
+    price: number | null;
+    status: string;
+    download_path: string | null;
+    download_path_mp3: string | null;
+    download_path_flac: string | null;
+    download_path_wav: string | null;
+    ringtone_path_m4r: string | null;
+    ringtone_path_mp3: string | null;
+    ringtone_price: number | null;
+    playback_mode: string | null;
+  };
+  type ReleaseSongRow = { track_number: number; song: SongPayload };
+
+  const filtered = ((junctions || []) as unknown as ReleaseSongRow[]).filter(
+    (j) => j.song?.status === "published" || j.song?.status === "unreleased",
   );
 
   // Release SKUs for the format picker.
@@ -37,10 +56,10 @@ async function getAlbumData(releaseSlug: string) {
   const releaseSkus = skusByRelease.get(album.id) || [];
 
   const playbackModes = await Promise.all(
-    filtered.map((j: any) => getPlaybackMode(j.song.playback_mode ?? null)),
+    filtered.map((j) => getPlaybackMode(j.song.playback_mode ?? null)),
   );
 
-  const songs = filtered.map((j: any, i: number) => {
+  const songs = filtered.map((j, i) => {
     const explicit = (["mp3", "flac", "wav"] as const).filter(
       (f) => j.song[`download_path_${f}`],
     );

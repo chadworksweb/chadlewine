@@ -93,7 +93,9 @@ export async function POST(request: Request) {
 
   if (!song) return Response.json({ error: "Song not found" }, { status: 404 });
 
-  const album = (junction as any)?.album;
+  type JunctionShape = { album: { title?: string; slug?: string } | { title?: string; slug?: string }[] | null } | null;
+  const albumRaw = (junction as JunctionShape)?.album;
+  const album = Array.isArray(albumRaw) ? albumRaw[0] : albumRaw;
   const voiceProfile = vpRow?.content || "";
   const badge = await fetchBadge(song.title, "Chad Lewine");
 
@@ -128,7 +130,8 @@ export async function POST(request: Request) {
       },
     ];
   } else {
-    messages = (history || []).map((m: any) => ({
+    type HistoryRow = { role: string; content: string };
+    messages = ((history || []) as HistoryRow[]).map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     }));
@@ -164,12 +167,18 @@ export async function POST(request: Request) {
 
   // Build existing sections context — for verbatim categories surface every
   // collected layer so Claude can paste them, never compose them.
-  const interviewCategories = new Set(
-    VISIBILITY_CATEGORIES.filter((c) => !c.autoGenerate).map((c) => c.slug)
+  const interviewCategories = new Set<string>(
+    VISIBILITY_CATEGORIES.filter((c) => !c.autoGenerate).map((c) => c.slug),
   );
-  const sectionState = (existingSections || [])
-    .filter((s: any) => s.content || s.direct_answer || (s.key_points && s.key_points.length > 0))
-    .map((s: any) => {
+  type ExistingSection = {
+    category: string;
+    content: string | null;
+    direct_answer: string | null;
+    key_points: string[] | null;
+  };
+  const sectionState = ((existingSections || []) as ExistingSection[])
+    .filter((s) => s.content || s.direct_answer || (s.key_points && s.key_points.length > 0))
+    .map((s) => {
       if (interviewCategories.has(s.category)) {
         const da = s.direct_answer ? `direct-answer: ${s.direct_answer}` : "(no direct-answer collected yet)";
         const pr = s.content ? `prose:\n${s.content}` : "(no prose collected yet)";

@@ -63,7 +63,17 @@ async function getDiscography() {
     .neq("release_type", "single")
     .order("release_date", { ascending: false });
 
-  const albumIds = (albums || []).map((a: any) => a.id);
+  type AlbumRow = {
+    id: string;
+    title: string;
+    slug: string;
+    release_date: string | null;
+    cover_art_path: string | null;
+    concept_statement: string | null;
+    release_type: string | null;
+  };
+  const albumRows = (albums || []) as AlbumRow[];
+  const albumIds = albumRows.map((a) => a.id);
   const allReleaseIds: string[] = [...albumIds];
 
   // SKUs per release — feeds format chips + the listing card price hint.
@@ -93,15 +103,20 @@ async function getDiscography() {
       .select("release_id, track_number, song:songs(title, status)")
       .in("release_id", albumIds)
       .order("track_number");
-    for (const t of tracks || []) {
-      const song = Array.isArray((t as any).song) ? (t as any).song[0] : (t as any).song;
+    type SongLite = { title: string; status: string };
+    type TrackRow = {
+      release_id: string;
+      track_number: number;
+      song: SongLite | SongLite[] | null;
+    };
+    for (const t of (tracks || []) as TrackRow[]) {
+      const song = Array.isArray(t.song) ? t.song[0] : t.song;
       if (!song || (song.status !== "published" && song.status !== "unreleased")) continue;
-      const aid = (t as any).release_id;
-      (tracksByAlbum[aid] ||= []).push(song.title);
+      (tracksByAlbum[t.release_id] ||= []).push(song.title);
     }
   }
 
-  const albumItems: DiscographyItem[] = (albums || []).map((a: any) => {
+  const albumItems: DiscographyItem[] = albumRows.map((a) => {
     const skuLabel = formatLabelByRelease.get(a.id) ?? null;
     const typeLabel = releaseTypeLabel(a.release_type);
     return {
@@ -136,7 +151,19 @@ async function getDiscography() {
         .in("id", singleIdsList)
         .order("release_date", { ascending: false });
 
-  const singleIds = (singles || []).map((s: any) => s.id);
+  type SingleRow = {
+    id: string;
+    title: string;
+    slug: string;
+    release_date: string | null;
+    art_image_path: string | null;
+    chorus: string | null;
+    card_focal_x: number | null;
+    card_focal_y: number | null;
+    card_zoom: number | null;
+  };
+  const singleRows = (singles || []) as SingleRow[];
+  const singleIds = singleRows.map((s) => s.id);
 
   // Get album art fallback for singles. Only consider album-type releases —
   // skip the new single-type release that this song now owns.
@@ -146,16 +173,18 @@ async function getDiscography() {
       .from("release_songs")
       .select("song_id, release:releases(cover_art_path, release_type)")
       .in("song_id", singleIds);
-    for (const j of junctions || []) {
-      const alb = Array.isArray((j as any).release) ? (j as any).release[0] : (j as any).release;
+    type ReleaseLite = { cover_art_path: string | null; release_type: string | null };
+    type JunctionRow = { song_id: string; release: ReleaseLite | ReleaseLite[] | null };
+    for (const j of (junctions || []) as JunctionRow[]) {
+      const alb = Array.isArray(j.release) ? j.release[0] : j.release;
       if (alb?.release_type === "single") continue;
-      if (alb?.cover_art_path && !albumArtBySong[(j as any).song_id]) {
-        albumArtBySong[(j as any).song_id] = alb.cover_art_path;
+      if (alb?.cover_art_path && !albumArtBySong[j.song_id]) {
+        albumArtBySong[j.song_id] = alb.cover_art_path;
       }
     }
   }
 
-  const singleItems: DiscographyItem[] = (singles || []).map((s: any) => ({
+  const singleItems: DiscographyItem[] = singleRows.map((s) => ({
     id: s.id,
     title: s.title,
     slug: s.slug,

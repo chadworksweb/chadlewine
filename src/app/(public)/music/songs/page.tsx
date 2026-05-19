@@ -76,12 +76,21 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
   // Prefer album-type releases over single-type when assigning the "album"
   // reference shown in the explorer. A song's own single release shouldn't
   // be surfaced as its album.
+  type ReleaseLite = {
+    title: string;
+    slug: string;
+    status: string;
+    cover_art_path: string | null;
+    cover_art_alt: string | null;
+    release_type: string | null;
+  };
+  type JunctionRow = { song_id: string; release: ReleaseLite | ReleaseLite[] | null };
   const albumBySong: Record<string, AlbumRef | null> = {};
-  for (const j of junctionsRes.data || []) {
-    const alb = Array.isArray((j as any).release) ? (j as any).release[0] : (j as any).release;
+  for (const j of (junctionsRes.data || []) as JunctionRow[]) {
+    const alb = Array.isArray(j.release) ? j.release[0] : j.release;
     if (!alb || alb.release_type === "single") continue;
-    if (!albumBySong[(j as any).song_id]) {
-      albumBySong[(j as any).song_id] = {
+    if (!albumBySong[j.song_id]) {
+      albumBySong[j.song_id] = {
         title: alb.title,
         slug: alb.slug,
         status: alb.status,
@@ -91,11 +100,13 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
     }
   }
 
+  type TopicLite = { id: string; label: string; slug: string };
+  type TopicLinkRow = { song_id: string; topic: TopicLite | TopicLite[] | null };
   const topicsBySong: Record<string, Topic[]> = {};
-  for (const link of topicLinksRes.data || []) {
-    const topic = Array.isArray((link as any).topic) ? (link as any).topic[0] : (link as any).topic;
+  for (const link of (topicLinksRes.data || []) as TopicLinkRow[]) {
+    const topic = Array.isArray(link.topic) ? link.topic[0] : link.topic;
     if (!topic) continue;
-    (topicsBySong[(link as any).song_id] ||= []).push({
+    (topicsBySong[link.song_id] ||= []).push({
       id: topic.id,
       label: topic.label,
       slug: topic.slug,

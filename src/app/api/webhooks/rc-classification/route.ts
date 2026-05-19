@@ -36,9 +36,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let body: any;
+  type WebhookBody = {
+    rc_song_id?: unknown;
+    match?: { isrc?: unknown; slug?: unknown; title?: unknown };
+    classification?: Record<string, unknown>;
+    action?: string;
+  };
+  let body: WebhookBody;
   try {
-    body = await request.json();
+    body = (await request.json()) as WebhookBody;
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }

@@ -28,5 +28,5 @@ export default function EditExpansionPage() {
     );
   }
 
-  return <ExpansionEditor initial={initial as any} songId={songId} songTitle={songTitle} />;
+  return <ExpansionEditor initial={initial as unknown as Parameters<typeof ExpansionEditor>[0]["initial"]} songId={songId} songTitle={songTitle} />;
 }

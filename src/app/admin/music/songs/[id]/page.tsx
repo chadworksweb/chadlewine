@@ -24,5 +24,5 @@ export default function EditSongPage() {
     );
   }
 
-  return <SongEditor initial={initial as any} />;
+  return <SongEditor initial={initial as unknown as Parameters<typeof SongEditor>[0]["initial"]} />;
 }

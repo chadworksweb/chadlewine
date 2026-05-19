@@ -100,12 +100,13 @@ export async function ReleaseSections({
     .eq("release_id", albumId)
     .order("track_number");
 
-  const albumSongs: Array<SongRow & { track_number: number }> = ((junctions || []) as unknown as Array<{
+  type JunctionRow = {
     track_number: number;
-    song: SongRow & { status: string } | null;
-  }>)
+    song: (SongRow & { status: string }) | (SongRow & { status: string })[] | null;
+  };
+  const albumSongs: Array<SongRow & { track_number: number }> = ((junctions || []) as unknown as JunctionRow[])
     .map((j) => {
-      const s = Array.isArray((j as any).song) ? (j as any).song[0] : j.song;
+      const s = Array.isArray(j.song) ? j.song[0] : j.song;
       if (!s) return null;
       if (s.status !== "published" && s.status !== "unreleased") return null;
       return { ...s, track_number: j.track_number };
@@ -121,23 +122,30 @@ export async function ReleaseSections({
   for (const s of sections) {
     const def = getReleaseCategoryDef(s.category);
     if (!def || def.kind !== "data") continue;
-    const p = s.data_payload || {};
-    if (s.category === "lyrics" && Array.isArray((p as any).song_ids)) {
-      for (const id of (p as any).song_ids) songIdsToFetch.add(id);
+    type PayloadShape = {
+      song_ids?: string[];
+      product_ids?: string[];
+      release_ids?: string[];
+      observation_ids?: string[];
+      items?: { kind?: string; song_id?: string }[];
+    };
+    const p = (s.data_payload || {}) as PayloadShape;
+    if (s.category === "lyrics" && Array.isArray(p.song_ids)) {
+      for (const id of p.song_ids) songIdsToFetch.add(id);
     }
-    if (s.category === "art" && Array.isArray((p as any).items)) {
-      for (const item of (p as any).items) {
+    if (s.category === "art" && Array.isArray(p.items)) {
+      for (const item of p.items) {
         if (item.kind === "song-art" && item.song_id) songIdsToFetch.add(item.song_id);
       }
     }
-    if (s.category === "merch" && Array.isArray((p as any).product_ids)) {
-      for (const id of (p as any).product_ids) productIdsToFetch.add(id);
+    if (s.category === "merch" && Array.isArray(p.product_ids)) {
+      for (const id of p.product_ids) productIdsToFetch.add(id);
     }
-    if (s.category === "you-might-also-like" && Array.isArray((p as any).release_ids)) {
-      for (const id of (p as any).release_ids) albumIdsToFetch.add(id);
+    if (s.category === "you-might-also-like" && Array.isArray(p.release_ids)) {
+      for (const id of p.release_ids) albumIdsToFetch.add(id);
     }
-    if (s.category === "related-observations" && Array.isArray((p as any).observation_ids)) {
-      for (const id of (p as any).observation_ids) observationIdsToFetch.add(id);
+    if (s.category === "related-observations" && Array.isArray(p.observation_ids)) {
+      for (const id of p.observation_ids) observationIdsToFetch.add(id);
     }
   }
 

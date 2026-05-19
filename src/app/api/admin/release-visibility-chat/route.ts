@@ -87,12 +87,13 @@ export async function POST(request: Request) {
 
   const voiceProfile = vpRow?.content || "";
 
+  type SongLite = { id: string; title: string; slug: string; lyrics: string | null; song_summary: string | null };
   const tracklist = ((junctions || []) as unknown as Array<{
     track_number: number;
-    song: { id: string; title: string; slug: string; lyrics: string | null; song_summary: string | null } | null;
+    song: SongLite | SongLite[] | null;
   }>)
     .map((j) => {
-      const s = Array.isArray((j as any).song) ? (j as any).song[0] : j.song;
+      const s = Array.isArray(j.song) ? j.song[0] : j.song;
       return s ? { ...s, track_number: j.track_number } : null;
     })
     .filter(Boolean) as Array<{ id: string; title: string; slug: string; lyrics: string | null; song_summary: string | null; track_number: number }>;
@@ -119,7 +120,8 @@ export async function POST(request: Request) {
       },
     ];
   } else {
-    messages = (history || []).map((m: any) => ({
+    type HistoryRow = { role: string; content: string };
+    messages = ((history || []) as HistoryRow[]).map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     }));
@@ -160,9 +162,15 @@ export async function POST(request: Request) {
   const interviewCategories = new Set(
     RELEASE_VISIBILITY_CATEGORIES.filter((c) => c.kind === "narrative" && !c.autoGenerate).map((c) => c.slug),
   );
-  const sectionState = (existingSections || [])
-    .filter((s: any) => s.content || s.direct_answer || (s.key_points && s.key_points.length > 0))
-    .map((s: any) => {
+  type ExistingSection = {
+    category: string;
+    content: string | null;
+    direct_answer: string | null;
+    key_points: string[] | null;
+  };
+  const sectionState = ((existingSections || []) as ExistingSection[])
+    .filter((s) => s.content || s.direct_answer || (s.key_points && s.key_points.length > 0))
+    .map((s) => {
       if (interviewCategories.has(s.category)) {
         const da = s.direct_answer ? `direct-answer: ${s.direct_answer}` : "(no direct-answer collected yet)";
         const pr = s.content ? `prose:\n${s.content}` : "(no prose collected yet)";
@@ -515,7 +523,9 @@ async function regenerateAlbumGeoFields(
     .select("track_number, song:songs(title, lyrics, song_summary)")
     .eq("release_id", albumId)
     .order("track_number");
-  const trackLines = ((junctions || []) as any[])
+  type TrackLineSong = { title: string; lyrics: string | null; song_summary: string | null };
+  type TrackLineRow = { track_number: number; song: TrackLineSong | TrackLineSong[] | null };
+  const trackLines = ((junctions || []) as TrackLineRow[])
     .map((j) => {
       const s = Array.isArray(j.song) ? j.song[0] : j.song;
       if (!s) return null;
