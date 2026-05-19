@@ -41,8 +41,6 @@ export default function SectionDetailPage(props: { params: Promise<{ slug: strin
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; message: string } | null>(null);
 
-  useEffect(() => { load(); }, [slug]);
-
   async function load() {
     const res = await fetch(`/api/admin/arc/sections/${slug}`);
     if (!res.ok) return;
@@ -52,6 +50,10 @@ export default function SectionDetailPage(props: { params: Promise<{ slug: strin
     setRevisions(d.revisions);
     setContentMd(d.section.content_md ?? "");
   }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- load reads slug; re-declared each render
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load when slug changes
+  useEffect(() => { load(); }, [slug]);
 
   async function saveDraft() {
     setSaving(true);

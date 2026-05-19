@@ -146,7 +146,9 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
   const [selectedPos, setSelectedPos] = useState<{ x: number; y: number } | null>(null);
   const [hover, setHover] = useState<{ title: string; x: number; y: number } | null>(null);
 
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  // Callback-ref + state so the modal can receive the actual element without
+  // reading rootRef.current during render (react-hooks/refs).
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
   function selectNode(item: SelectedItem, e: React.MouseEvent<HTMLElement>) {
@@ -155,7 +157,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
       setSelectedPos(null);
       return;
     }
-    const root = rootRef.current;
+    const root = rootEl;
     const target = e.currentTarget;
     if (!root) {
       setSelectedPos(null);
@@ -319,7 +321,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
   }, [totalWidth]);
 
   return (
-    <div className="arc-radiant" ref={rootRef}>
+    <div className="arc-radiant" ref={setRootEl}>
       <div className="arc-radiant__upper">
         <aside className="arc-radiant__key" aria-label="Layer key">
           <h3 className="arc-radiant__key-title">Key</h3>
@@ -540,7 +542,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
         <ArcRadiantModal
           item={selectedItem}
           nodePos={selectedPos}
-          rootEl={rootRef.current}
+          rootEl={rootEl}
           onClose={clearSelection}
         />
       )}
@@ -737,8 +739,8 @@ function ArcOverviewLocator({
   // Minimum visible span is 1 year (max zoom level).
   const MIN_SPAN_YEARS = 1;
   function applyWindow(visStart: number, visEnd: number) {
-    let s = Math.max(yearStart, Math.min(yearEnd - MIN_SPAN_YEARS, visStart));
-    let e = Math.max(s + MIN_SPAN_YEARS, Math.min(yearEnd, visEnd));
+    const s = Math.max(yearStart, Math.min(yearEnd - MIN_SPAN_YEARS, visStart));
+    const e = Math.max(s + MIN_SPAN_YEARS, Math.min(yearEnd, visEnd));
     const visSpan = Math.max(MIN_SPAN_YEARS, e - s);
     // pxPerYear inside the visible window stays equal to clientWidth/visSpan,
     // so totalWidth = pxPerYear * yearSpan = (clientWidth * yearSpan) / visSpan.
@@ -751,15 +753,18 @@ function ArcOverviewLocator({
 
   // Live refs of the props the drag handlers read on every pointermove —
   // closures inside useEffect would otherwise see stale values after the
-  // parent re-renders mid-drag.
+  // parent re-renders mid-drag. Sync in an effect so refs aren't mutated
+  // during render (react-hooks/refs).
   const applyWindowRef = useRef<(s: number, e: number) => void>(() => {});
-  applyWindowRef.current = applyWindow;
   const yearStartRef = useRef(yearStart);
-  yearStartRef.current = yearStart;
   const yearEndRef = useRef(yearEnd);
-  yearEndRef.current = yearEnd;
   const yearSpanRef = useRef(yearSpan);
-  yearSpanRef.current = yearSpan;
+  useEffect(() => {
+    applyWindowRef.current = applyWindow;
+    yearStartRef.current = yearStart;
+    yearEndRef.current = yearEnd;
+    yearSpanRef.current = yearSpan;
+  });
 
   function startDrag(
     handle: LocatorDrag["handle"],

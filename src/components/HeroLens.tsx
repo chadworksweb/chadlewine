@@ -167,7 +167,9 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   }, []);
 
   const onIndexChangeRef = useRef(onIndexChange);
-  onIndexChangeRef.current = onIndexChange;
+  useEffect(() => {
+    onIndexChangeRef.current = onIndexChange;
+  }, [onIndexChange]);
 
   const advance = useCallback(
     (direction: "up" | "down") => {
@@ -190,7 +192,9 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   );
 
   const advanceRef = useRef(advance);
-  advanceRef.current = advance;
+  useEffect(() => {
+    advanceRef.current = advance;
+  }, [advance]);
 
   const touchStart = useRef({ x: 0, y: 0 });
   const gestureAxis = useRef<null | "horizontal" | "vertical">(null);

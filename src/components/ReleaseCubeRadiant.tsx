@@ -142,7 +142,7 @@ export function ReleaseCubeRadiant({ variant = "song", title, href, coverArtPath
     return () => cancelAnimationFrame(raf);
   }, [active]);
 
-  const tick = useCallback(() => {
+  const tick = useCallback(function tickInner() {
     const t = targetRef.current;
     const c = currentRef.current;
     const nx = c.x + (t.x - c.x) * DAMPING;
@@ -155,7 +155,7 @@ export function ReleaseCubeRadiant({ variant = "song", title, href, coverArtPath
     const dx = Math.abs(t.x - nx);
     const dy = Math.abs(t.y - ny);
     if (dx > 0.05 || dy > 0.05) {
-      frameRef.current = requestAnimationFrame(tick);
+      frameRef.current = requestAnimationFrame(tickInner);
     } else {
       currentRef.current = { x: t.x, y: t.y };
       if (boxRef.current) {

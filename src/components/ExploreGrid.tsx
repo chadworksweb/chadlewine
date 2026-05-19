@@ -91,7 +91,7 @@ export function ExploreGrid({ items }: Props) {
     setHoveredIdx(nowOver);
   }, [activate]);
 
-  const tickGlow = useCallback(() => {
+  const tickGlow = useCallback(function tickGlowInner() {
     const t = glowTargetRef.current;
     const c = glowCurrentRef.current;
     if (!t || !c) {
@@ -115,7 +115,7 @@ export function ExploreGrid({ items }: Props) {
     }
 
     if (Math.abs(t.x - nx) > 0.3 || Math.abs(t.y - ny) > 0.3) {
-      glowFrameRef.current = requestAnimationFrame(tickGlow);
+      glowFrameRef.current = requestAnimationFrame(tickGlowInner);
     } else {
       glowFrameRef.current = null;
     }

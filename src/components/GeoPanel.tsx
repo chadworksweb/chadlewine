@@ -247,7 +247,21 @@ export function GeoPanel(props: GeoPanelProps) {
     setFlyoutLoading(false);
   }
 
-  const { total, breakdown } = useMemo(() => computeScore(props), [props]);
+  const { total, breakdown } = useMemo(
+    () => computeScore(props),
+    // computeScore reads these scalar fields; listing them lets the memo
+    // actually skip work when nothing relevant changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      props.body,
+      props.focusKeyphrase,
+      props.secondaryKeyphrases,
+      props.citationSummary,
+      props.firstSentenceExtractable,
+      props.paaPairs,
+      props.entityTags,
+    ],
+  );
 
   const wc = useMemo(() => countWords(props.body), [props.body]);
   const readingTime = useMemo(() => (wc / 238).toFixed(1), [wc]);

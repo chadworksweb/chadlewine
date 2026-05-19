@@ -26,20 +26,25 @@ type ClaimState =
    hyperlink-blue spectrum. CSS does all the motion; we just stamp the
    particles with per-element angle/distance/delay/hue inline. */
 function FireworksBurst() {
-  const dots = Array.from({ length: 24 }, (_, i) => {
-    const angle = (360 / 24) * i + (Math.random() * 6 - 3);
-    const dist = 110 + Math.random() * 70;
-    const delay = Math.random() * 120;
-    const hueKey = i % 3;
-    const hue = hueKey === 0 ? "139, 156, 247" : hueKey === 1 ? "168, 182, 255" : "64, 96, 255";
-    return { angle, dist, delay, hue, key: `d${i}` };
-  });
-  const sparks = Array.from({ length: 14 }, (_, i) => {
-    const angle = Math.random() * 360;
-    const dist = 60 + Math.random() * 50;
-    const delay = 40 + Math.random() * 220;
-    return { angle, dist, delay, key: `s${i}` };
-  });
+  // Stamp particles once on mount. Math.random() during render is impure and
+  // would re-generate positions on every re-render, restarting the CSS
+  // animations. useState's lazy initializer runs only on first render.
+  const [{ dots, sparks }] = useState(() => ({
+    dots: Array.from({ length: 24 }, (_, i) => {
+      const angle = (360 / 24) * i + (Math.random() * 6 - 3);
+      const dist = 110 + Math.random() * 70;
+      const delay = Math.random() * 120;
+      const hueKey = i % 3;
+      const hue = hueKey === 0 ? "139, 156, 247" : hueKey === 1 ? "168, 182, 255" : "64, 96, 255";
+      return { angle, dist, delay, hue, key: `d${i}` };
+    }),
+    sparks: Array.from({ length: 14 }, (_, i) => {
+      const angle = Math.random() * 360;
+      const dist = 60 + Math.random() * 50;
+      const delay = 40 + Math.random() * 220;
+      return { angle, dist, delay, key: `s${i}` };
+    }),
+  }));
   return (
     <div className="coupon-offer__fireworks" aria-hidden="true">
       <span className="coupon-offer__shockwave" />

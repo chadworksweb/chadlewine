@@ -85,12 +85,12 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
     buf2Ref.current = b1;
   }
 
-  const draw = useCallback(() => {
+  const draw = useCallback(function tick() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
     if (!canvas || !ctx || !img || !img.complete) {
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -101,7 +101,7 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
     const buf = buf1Ref.current;
 
     if (!buf || w === 0) {
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -158,7 +158,7 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
 
     ctx.putImageData(imageData, 0, 0);
 
-    rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(tick);
   }, []);
 
   useEffect(() => {

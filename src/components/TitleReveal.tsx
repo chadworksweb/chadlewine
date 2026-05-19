@@ -90,12 +90,12 @@ export function TitleReveal({ artImageUrl, children }: TitleRevealProps) {
     maskBuiltRef.current = true;
   }
 
-  const draw = useCallback(() => {
+  const draw = useCallback(function tick() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     const img = imgRef.current;
     if (!canvas || !ctx || !img || !img.complete) {
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -114,7 +114,7 @@ export function TitleReveal({ artImageUrl, children }: TitleRevealProps) {
 
     if (trailsRef.current.length === 0 || !mask) {
       ctx.restore();
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
@@ -143,7 +143,7 @@ export function TitleReveal({ artImageUrl, children }: TitleRevealProps) {
       .map((t) => ({ ...t, opacity: t.opacity - 0.008, radius: t.radius + 0.12 }))
       .filter((t) => t.opacity > 0);
 
-    rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(tick);
   }, []);
 
   useEffect(() => {

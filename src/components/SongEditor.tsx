@@ -690,6 +690,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
 
           {/* Content Freshness */}
           {form.updated_at && (() => {
+            // eslint-disable-next-line react-hooks/purity -- freshness indicator: snapshot of Date.now at render time is the desired behavior
             const months = (Date.now() - new Date(form.updated_at).getTime()) / (1000 * 60 * 60 * 24 * 30);
             const color = months > 12 ? "#ff3333" : months > 6 ? "#ffbb33" : "#33cc55";
             const label = months > 12 ? "Stale" : months > 6 ? "Aging" : "Fresh";

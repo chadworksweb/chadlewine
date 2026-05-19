@@ -402,6 +402,7 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
             <ul className="account-dashboard__coupons">
               {initial.coupons.map((c) => {
                 const isUsed = !!c.redeemed_at;
+                // eslint-disable-next-line react-hooks/purity -- "expired now" is a UI-time read; one snapshot per render is correct
                 const isExpired = !isUsed && new Date(c.expires_at).getTime() < Date.now();
                 const state = isUsed ? "used" : isExpired ? "expired" : "active";
                 return (
