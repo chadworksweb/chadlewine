@@ -10,8 +10,6 @@ export interface RenderCampaignEmailInput {
   fromName: string;
   /** Optional postal address footer (CAN-SPAM). Plain string. */
   postalAddress?: string | null;
-  /** Optional call-to-action rendered as a bulletproof button after body. */
-  cta?: { label: string; url: string } | null;
 }
 
 export interface RenderedEmail {
@@ -55,28 +53,11 @@ export function renderCampaignEmail(input: RenderCampaignEmailInput): RenderedEm
     unsubscribeUrl,
     fromName,
     postalAddress,
-    cta,
   } = input;
 
   const safePreheader = preheader ? escapeHtml(preheader) : "";
   const safeFrom = escapeHtml(fromName);
   const safeAddress = postalAddress ? escapeHtml(postalAddress) : "";
-
-  // Bulletproof table-as-button — Gmail strips bg+padding from raw <a>,
-  // so the cell holds the color and the anchor/span carry the text.
-  const ctaHtml =
-    cta && cta.label.trim() && cta.url.trim()
-      ? `
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:24px auto 8px;">
-                <tr>
-                  <td bgcolor="#4060ff" style="background:#4060ff;border-radius:4px;padding:14px 32px;">
-                    <a href="${escapeHtml(cta.url)}" style="text-decoration:none;color:#ffffff;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:600;font-size:14px;">
-                      <span style="color:#ffffff;text-decoration:none;">${escapeHtml(cta.label)}</span>
-                    </a>
-                  </td>
-                </tr>
-              </table>`
-      : "";
 
   const html = `<!doctype html>
 <html lang="en">
@@ -128,7 +109,7 @@ export function renderCampaignEmail(input: RenderCampaignEmailInput): RenderedEm
           <!-- Body -->
           <tr>
             <td class="cl-pad cl-body" style="padding:18px 32px 28px 32px;background:#ffffff;color:#1a1a26;font-size:17px;line-height:1.65;">
-              ${bodyHtml}${ctaHtml}
+              ${bodyHtml}
             </td>
           </tr>
 
@@ -155,14 +136,8 @@ export function renderCampaignEmail(input: RenderCampaignEmailInput): RenderedEm
 </body>
 </html>`;
 
-  const ctaText =
-    cta && cta.label.trim() && cta.url.trim()
-      ? `\n${cta.label}: ${cta.url}\n`
-      : "";
-
   const text = [
     htmlToText(bodyHtml),
-    ctaText,
     "—",
     `Unsubscribe: ${unsubscribeUrl}`,
     postalAddress ? `\n${postalAddress}` : "",

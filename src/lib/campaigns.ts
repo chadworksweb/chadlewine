@@ -127,8 +127,6 @@ interface CampaignRow {
   reply_to: string | null;
   audience_filter: AudienceFilter;
   status: string;
-  cta_label: string | null;
-  cta_url: string | null;
 }
 
 // Load the singleton globals row once per send batch.
@@ -144,13 +142,6 @@ async function loadGlobals(
     header_blocks: (data?.header_blocks as EmailBlock[]) || [],
     footer_blocks: (data?.footer_blocks as EmailBlock[]) || [],
   };
-}
-
-function ctaFromRow(row: { cta_label: string | null; cta_url: string | null }) {
-  if (row.cta_label && row.cta_url) {
-    return { label: row.cta_label, url: row.cta_url };
-  }
-  return null;
 }
 
 /** Build the unsubscribe URL for a given subscriber token. */
@@ -199,7 +190,6 @@ async function sendChunk(
               unsubscribeUrl: unsub,
               fromName: campaign.from_name,
               postalAddress: POSTAL_ADDRESS,
-              cta: ctaFromRow(campaign),
             });
 
         const { data, error } = await resend.emails.send({
@@ -240,7 +230,7 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
     .eq("id", campaignId)
     .eq("status", "draft")
     .select(
-      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, status, cta_label, cta_url"
+      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, status"
     )
     .single();
 
@@ -338,7 +328,7 @@ export async function sendTest(
   const { data: campaign, error } = await supabase
     .from("campaigns")
     .select(
-      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, cta_label, cta_url"
+      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to"
     )
     .eq("id", campaignId)
     .single();
@@ -377,7 +367,6 @@ export async function sendTest(
         unsubscribeUrl: unsub,
         fromName: campaign.from_name,
         postalAddress: POSTAL_ADDRESS,
-        cta: ctaFromRow(campaign),
       });
 
   const { data, error: sendErr } = await resend.emails.send({

@@ -52,8 +52,9 @@ export async function PUT(
   if (body.reply_to !== undefined) update.reply_to = body.reply_to;
   if (body.audience_filter !== undefined)
     update.audience_filter = body.audience_filter;
-  if (body.cta_label !== undefined) update.cta_label = body.cta_label;
-  if (body.cta_url !== undefined) update.cta_url = body.cta_url;
+  // cta_label/cta_url retired in favor of button blocks in body_blocks.
+  // Legacy values on existing rows are read once by CampaignEditor's
+  // useState initializer to seed a button block, then ignored.
 
   const { data, error } = await supabase
     .from("campaigns")

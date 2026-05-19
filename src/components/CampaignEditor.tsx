@@ -74,14 +74,29 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
   const [form, setForm] = useState<CampaignData>(() => {
     // Legacy: if a draft was created before the block editor and has
     // body_html but no body_blocks yet, lift the HTML into one paragraph
-    // block so the user has something editable to start with.
+    // block so the user has something editable to start with. Also lift
+    // any legacy cta_label/cta_url pair into a button block so the CTA
+    // survives the migration off those columns.
     if (
       (!initial.body_blocks || initial.body_blocks.length === 0) &&
-      initial.body_html?.trim()
+      (initial.body_html?.trim() || (initial.cta_label && initial.cta_url))
     ) {
-      const seed = newBlock("paragraph");
-      if (seed.type === "paragraph") seed.html = initial.body_html;
-      return { ...initial, body_blocks: [seed] };
+      const blocks: EmailBlock[] = [];
+      if (initial.body_html?.trim()) {
+        const p = newBlock("paragraph");
+        if (p.type === "paragraph") p.html = initial.body_html;
+        blocks.push(p);
+      }
+      if (initial.cta_label && initial.cta_url) {
+        const btn = newBlock("button");
+        if (btn.type === "button") {
+          btn.label = initial.cta_label;
+          btn.url = initial.cta_url;
+          btn.align = "center";
+        }
+        blocks.push(btn);
+      }
+      return { ...initial, body_blocks: blocks };
     }
     return initial;
   });
@@ -103,8 +118,6 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
       from_email: data.from_email,
       reply_to: data.reply_to,
       audience_filter: data.audience_filter,
-      cta_label: data.cta_label,
-      cta_url: data.cta_url,
     }),
     []
   );
@@ -270,30 +283,6 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
             )}
           </div>
 
-          <div className="campaign-editor__field">
-            <label className="campaign-editor__label">Call-to-action button label (optional)</label>
-            <input
-              type="text"
-              className="campaign-editor__input"
-              value={form.cta_label || ""}
-              onChange={(e) => setForm({ ...form, cta_label: e.target.value })}
-              disabled={isLocked}
-              placeholder="e.g. Listen now"
-            />
-            <label className="campaign-editor__label">Call-to-action button URL</label>
-            <input
-              type="url"
-              className="campaign-editor__input"
-              value={form.cta_url || ""}
-              onChange={(e) => setForm({ ...form, cta_url: e.target.value })}
-              disabled={isLocked}
-              placeholder="https://chadlewine.com/..."
-            />
-            <p className="campaign-editor__hint">
-              Rendered as a bulletproof table-button after the body. Leave both blank to omit.
-            </p>
-          </div>
-
           <div className="campaign-editor__field campaign-editor__preview-toggle">
             <button
               type="button"
@@ -312,8 +301,6 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
                 bodyHtml={form.body_html}
                 fromName={form.from_name}
                 fromEmail={form.from_email}
-                ctaLabel={form.cta_label}
-                ctaUrl={form.cta_url}
               />
             </div>
           )}
