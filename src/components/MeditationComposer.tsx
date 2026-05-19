@@ -53,6 +53,7 @@ const emptyMeditation: MeditationData = {
 export function MeditationComposer({ meditationId }: { meditationId?: string }) {
   const router = useRouter();
   const [form, setForm] = useState<MeditationData>(emptyMeditation);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- setter reserved for upcoming server-error surfacing
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(!meditationId);
   const [currentId, setCurrentId] = useState(meditationId);

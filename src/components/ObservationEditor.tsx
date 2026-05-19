@@ -93,12 +93,10 @@ function CoverArtPanel({
   imagePath,
   altText,
   onImageChange,
-  onAltChange,
 }: {
   imagePath: string;
   altText: string;
   onImageChange: (url: string) => void;
-  onAltChange: (alt: string) => void;
 }) {
   const [mediaOpen, setMediaOpen] = useState(false);
 
@@ -322,6 +320,7 @@ export function ObservationEditor({
 }) {
   const router = useRouter();
   const [form, setForm] = useState<ObservationData>(initial || emptyObservation);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- setter reserved for upcoming server-error surfacing
   const [error, setError] = useState("");
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
   const [allThoughtlines, setAllThoughtlines] = useState<ThoughtlineOption[]>([]);
@@ -355,7 +354,7 @@ export function ObservationEditor({
     art_fullres_wallpaper_path: d.art_fullres_wallpaper_path,
   }), []);
 
-  const { status: autosaveStatus, flush } = useAutosave({
+  const { status: autosaveStatus } = useAutosave({
     data: form,
     endpoint: "/api/admin/observations",
     id: form.id,
@@ -588,7 +587,6 @@ export function ObservationEditor({
             imagePath={form.art_image_path}
             altText={form.art_alt}
             onImageChange={(url) => set("art_image_path", url)}
-            onAltChange={(alt) => set("art_alt", alt)}
           />
 
           <FullResArtPanel

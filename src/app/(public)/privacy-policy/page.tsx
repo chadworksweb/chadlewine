@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy - Chad Lewine",
@@ -20,7 +21,7 @@ export default function PrivacyPolicyPage() {
         proprietor based in the Commonwealth of Pennsylvania, United States)
         collects, why we collect it, how we use and share it, and the choices
         you have. Capitalized terms not defined here have the meaning given
-        in our <a href="/terms-of-service">Terms of Service</a>.
+        in our <Link href="/terms-of-service">Terms of Service</Link>.
       </p>
 
       <h2>1. Information We Collect</h2>
@@ -183,7 +184,7 @@ export default function PrivacyPolicyPage() {
         <strong>Access and update.</strong> While logged in, you can view
         and update your display name, first/last name, mailing address,
         marketing preferences, and email address from{" "}
-        <a href="/account">your account</a>. You can also view your
+        <Link href="/account">your account</Link>. You can also view your
         order and download history there.
       </p>
       <p>

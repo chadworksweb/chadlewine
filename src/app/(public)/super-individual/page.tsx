@@ -417,7 +417,7 @@ export default async function SuperIndividualPage() {
         <div className="si-hero__inner">
           <h1 className="si-hero__eyebrow">Take back your power</h1>
           <h2 className="si-hero__headline">Super Individual</h2>
-          <p className="si-hero__sub">Chad Lewine's Super Individual Series.</p>
+          <p className="si-hero__sub">Chad Lewine&rsquo;s Super Individual Series.</p>
           <div className="si-hero__nav">
             <a href="#what" className="si-hero__nav-link">Super Individual</a>
             <a href="#thesis" className="si-hero__nav-link">My Thesis</a>
@@ -459,7 +459,7 @@ export default async function SuperIndividualPage() {
               <li>Locates where the drains are</li>
               <li>Calls out the drain, either to themselves or others</li>
               <li>Cuts off the drain and reclaims 100% of their energy</li>
-              <li>Audits to see if they're draining others</li>
+              <li>Audits to see if they&rsquo;re draining others</li>
             </ol>
           </div>
 

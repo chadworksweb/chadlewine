@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 interface ObservationSeoRow {
   id: string;
@@ -238,7 +239,7 @@ function SitemapHealthWidget() {
         ))}
       </div>
       <p style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>
-        Full breakdown at <a href="/admin/settings/sitemaps" style={{ color: "var(--text-secondary)" }}>Settings &rarr; Sitemaps</a>.
+        Full breakdown at <Link href="/admin/settings/sitemaps" style={{ color: "var(--text-secondary)" }}>Settings &rarr; Sitemaps</Link>.
       </p>
     </section>
   );

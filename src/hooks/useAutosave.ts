@@ -123,7 +123,10 @@ export function useAutosave<T>({
     };
   }, [data, delay, enabled, buildPayload, saveNow]);
 
-  // Flush on unmount / page leave
+  // Flush on unmount / page leave. Closing over the first-render data/endpoint
+  // is intentional — adding them to deps would re-arm the cleanup on every
+  // change and clobber the pending timer. Pre-unmount changes go through the
+  // primary autosave effect above.
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -139,6 +142,7 @@ export function useAutosave<T>({
         }
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only cleanup; see comment above
   }, []);
 
   /** Force an immediate save (e.g. before publish) */

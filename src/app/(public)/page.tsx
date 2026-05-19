@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { HomepageFeed } from "@/components/HomepageFeed";
@@ -360,7 +361,7 @@ export default async function HomePage() {
                 />
               ))}
             </div>
-            <a href="/merch" className="home-merch__view-all">View All Merch →</a>
+            <Link href="/merch" className="home-merch__view-all">View All Merch &rarr;</Link>
           </div>
         </section>
       )}

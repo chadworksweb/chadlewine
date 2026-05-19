@@ -81,9 +81,6 @@ export default async function MeditationsPage() {
     getHeroImage(),
   ]);
 
-  const latest = meditations[0];
-  const feed = meditations.slice(1);
-
   return (
     <div className="page-meditations">
       {/* Cover Hero — static art, swappable via Supabase Storage */}

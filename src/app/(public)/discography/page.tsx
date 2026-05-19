@@ -86,7 +86,7 @@ async function getDiscography() {
   }
 
   // Tracklists for all albums in one query
-  let tracksByAlbum: Record<string, string[]> = {};
+  const tracksByAlbum: Record<string, string[]> = {};
   if (albumIds.length > 0) {
     const { data: tracks } = await supabase
       .from("release_songs")
@@ -140,7 +140,7 @@ async function getDiscography() {
 
   // Get album art fallback for singles. Only consider album-type releases —
   // skip the new single-type release that this song now owns.
-  let albumArtBySong: Record<string, string | null> = {};
+  const albumArtBySong: Record<string, string | null> = {};
   if (singleIds.length > 0) {
     const { data: junctions } = await supabase
       .from("release_songs")

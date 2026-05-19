@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase-server";
 import { AccountAuthForm } from "@/components/AccountAuthForm";
 
@@ -42,7 +43,7 @@ export default async function ClaimPage({
             register flow instead.
           </p>
           <div className="account-auth__footer">
-            <a href="/account/register">Create an account →</a>
+            <Link href="/account/register">Create an account &rarr;</Link>
           </div>
         </div>
       </div>

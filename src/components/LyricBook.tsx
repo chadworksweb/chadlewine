@@ -32,16 +32,16 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
 
   const allSongs = [...singles, ...songs];
 
-  // Deep linking — resolve hash on mount
+  // Deep linking — resolve hash on mount.
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
     if (!hash) return;
     const song = allSongs.find((s) => s.slug === hash);
     if (song) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- browser-only: read window.location.hash on mount
       setExpandedGroups(new Set([song.release_id]));
       setActiveTrackSlug(song.slug);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; allSongs derives from props
   }, []);
 
   // Update hash when track changes

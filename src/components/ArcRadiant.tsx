@@ -112,9 +112,6 @@ const ERA_LIFE_ROW_BOTTOM = SPINE_RESERVED_PX + 6;
 const ERA_RELEASE_ROW_BOTTOM = ERA_LIFE_ROW_BOTTOM + ERA_ROW_HEIGHT + ERA_KIND_GAP;
 // Total era zone reserved height above spine
 const ERA_ZONE_TOP = ERA_RELEASE_ROW_BOTTOM + ERA_ROW_HEIGHT;
-// How far above the spine the era zone reaches — used by stalks to fade out
-// where they pass behind the era pills.
-const ERA_ZONE_FADE_PX = ERA_ZONE_TOP - SPINE_RESERVED_PX;
 
 // Branch zone — dots and labels live here, well above the era zone so the
 // layers don't overlap visually. Patterns span this zone with wide variation.

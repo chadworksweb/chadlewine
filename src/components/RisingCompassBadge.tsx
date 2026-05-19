@@ -3,7 +3,6 @@
  * Used on song and album pages.
  */
 interface RisingCompassBadgeProps {
-  tier: string;
   tierLabel: string;
   tierHex: string;
   charge: number;
@@ -13,7 +12,6 @@ interface RisingCompassBadgeProps {
 }
 
 export function RisingCompassBadge({
-  tier,
   tierLabel,
   tierHex,
   charge,

@@ -99,6 +99,7 @@ async function getSongData(songSlug: string) {
   const pairedArt = ((featuredArt as { art: (PairedArt & { status: string }) | null }[] | null) || [])
     .map((p) => p.art)
     .filter((a): a is PairedArt & { status: string } => !!a && (a.status === "published" || a.status === "unreleased"))
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure drops `status` after filtering on it above
     .map(({ status: _status, ...rest }) => rest);
 
   // Convert ALL visibility sections to render-ready data. Centralized in

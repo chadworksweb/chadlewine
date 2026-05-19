@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePlayer } from "@/components/PlayerContext";
 
 const IDLE_MS = 5_000;
@@ -80,14 +81,14 @@ export function SuperIndividualFloatingTag() {
           </button>
         ) : (
           <>
-            <a
+            <Link
               href="/irl/super-individual-pop-up"
               className="si-floating-tag__link"
               aria-label="Come see me in person at the Super Individual Pop-Up"
               onClick={() => setIsVisible(false)}
             >
               come see me in person
-            </a>
+            </Link>
             <button
               type="button"
               className="si-floating-tag__close"

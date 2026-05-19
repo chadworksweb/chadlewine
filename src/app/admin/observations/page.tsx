@@ -33,7 +33,7 @@ async function getObservations() {
     .in("observation_id", ids);
 
   const categoryIds = [...new Set(categoryLinks?.map((c) => c.category_id) || [])];
-  let categoryTitleMap = new Map<string, string>();
+  const categoryTitleMap = new Map<string, string>();
   if (categoryIds.length > 0) {
     const { data: categories } = await supabase
       .from("categories")
@@ -57,7 +57,7 @@ async function getObservations() {
     .in("observation_id", ids);
 
   const thoughtlineIds = [...new Set(thoughtlineLinks?.map((t) => t.thoughtline_id) || [])];
-  let thoughtlineTitleMap = new Map<string, string>();
+  const thoughtlineTitleMap = new Map<string, string>();
   if (thoughtlineIds.length > 0) {
     const { data: thoughtlines } = await supabase
       .from("thoughtlines")
@@ -81,7 +81,7 @@ async function getObservations() {
     .in("observation_id", ids);
 
   const tagIds = [...new Set(tagLinks?.map((t) => t.tag_id) || [])];
-  let tagLabelMap = new Map<string, string>();
+  const tagLabelMap = new Map<string, string>();
   if (tagIds.length > 0) {
     const { data: tags } = await supabase
       .from("tags")

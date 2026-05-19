@@ -110,7 +110,7 @@ export function MerchProductDetail({
             role="listitem"
             onClick={() => setActiveImage(img.url)}
             className={`product-detail__thumb${isActive ? " product-detail__thumb--active" : ""}`}
-            aria-pressed={isActive}
+            aria-current={isActive ? "true" : undefined}
             aria-label={img.alt || "Show this image"}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
