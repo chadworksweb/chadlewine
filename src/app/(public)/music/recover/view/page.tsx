@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 interface RecoveryItem {
   purchase_id: string;
@@ -89,10 +90,12 @@ function RecoverViewContent() {
               }}
             >
               {it.cover_art_path && (
-                <img
+                <Image
                   src={it.cover_art_path}
                   alt=""
-                  style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 3, flexShrink: 0 }}
+                  width={56}
+                  height={56}
+                  style={{ objectFit: "cover", borderRadius: 3, flexShrink: 0 }}
                 />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>

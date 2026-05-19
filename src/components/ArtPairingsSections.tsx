@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { focalCropStyle } from "@/lib/focal-crop";
 
 type PairedSong = {
@@ -35,9 +36,12 @@ export function ArtPairingsSections({ pairedSongs, pairedArt }: { pairedSongs: P
             {pairedSongs.map((s) => (
               <Link key={s.id} href={`/music/songs/${s.slug}`} className="art-pairing-card">
                 {s.art_image_path && (
-                  <img
+                  <Image
                     src={s.art_image_path}
                     alt={s.art_alt || s.title}
+                    width={600}
+                    height={600}
+                    sizes="(max-width: 640px) 50vw, 300px"
                     className="art-pairing-card__img"
                     style={focalCropStyle(s.card_focal_x, s.card_focal_y, s.card_zoom)}
                   />
@@ -58,9 +62,12 @@ export function ArtPairingsSections({ pairedSongs, pairedArt }: { pairedSongs: P
           <div className="art-detail__pairings-grid">
             {pairedArt.map((a) => (
               <Link key={a.id} href={`/art/${a.slug}`} className="art-pairing-card">
-                <img
+                <Image
                   src={a.image_path}
                   alt={a.image_alt || a.title}
+                  width={600}
+                  height={600}
+                  sizes="(max-width: 640px) 50vw, 300px"
                   className="art-pairing-card__img"
                   style={focalCropStyle(a.card_focal_x, a.card_focal_y, a.card_zoom)}
                 />

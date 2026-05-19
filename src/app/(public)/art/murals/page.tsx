@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { createPublicClient } from "@/lib/supabase-server";
 import { focalCropStyle } from "@/lib/focal-crop";
 
@@ -90,9 +91,12 @@ export default async function MuralsIndexPage({ searchParams }: { searchParams: 
             return (
               <li key={m.id} className="murals-index__card">
                 <Link href={`/art/${m.slug}`}>
-                  <img
+                  <Image
                     src={m.image_path}
                     alt={m.image_alt || m.title}
+                    width={800}
+                    height={800}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
                     className="murals-index__img"
                     style={focalCropStyle(m.card_focal_x, m.card_focal_y, m.card_zoom)}
                   />

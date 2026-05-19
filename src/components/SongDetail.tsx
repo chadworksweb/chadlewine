@@ -222,11 +222,14 @@ export function SongDetail({
         {/* Left column — Cover art (song art overrides album art) */}
         <div className="track-detail__art-col">
           {coverArtPath && (
-            <img
+            <Image
               src={coverArtPath}
               alt={coverArtAlt}
+              width={1200}
+              height={1200}
               className="track-detail__cover"
-              loading="eager"
+              priority
+              sizes="(max-width: 640px) 100vw, 600px"
               style={focalCropStyle(song.card_focal_x ?? null, song.card_focal_y ?? null, song.card_zoom ?? null)}
             />
           )}

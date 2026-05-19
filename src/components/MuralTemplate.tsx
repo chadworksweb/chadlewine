@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
 import { ArtPairingsSections, type PairedSong, type PairedArt } from "@/components/ArtPairingsSections";
 import { ArtLicensingSection } from "@/components/ArtLicensingSection";
@@ -116,9 +117,13 @@ export function MuralTemplate({
   return (
     <article className="art-detail art-detail--mural">
       <div className="art-detail__hero">
-        <img
+        <Image
           src={art.image_path}
           alt={art.image_alt || art.title}
+          width={2400}
+          height={1600}
+          priority
+          sizes="(max-width: 1024px) 100vw, 1200px"
           className="art-detail__hero-img"
           style={focalCropStyle(art.hero_focal_x, art.hero_focal_y, art.hero_zoom)}
         />
@@ -189,7 +194,15 @@ export function MuralTemplate({
             <h2>Gallery</h2>
             <div className="art-detail__gallery-grid">
               {gallery.map((src, i) => (
-                <img key={i} src={src} alt={`${art.title} — ${i + 1}`} className="art-detail__gallery-img" />
+                <Image
+                  key={i}
+                  src={src}
+                  alt={`${art.title} — ${i + 1}`}
+                  width={1600}
+                  height={1200}
+                  sizes="(max-width: 640px) 100vw, 800px"
+                  className="art-detail__gallery-img"
+                />
               ))}
             </div>
           </section>

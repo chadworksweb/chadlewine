@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { WaterRipple } from "@/components/WaterRipple";
 import { TitleReveal } from "@/components/TitleReveal";
 
@@ -60,9 +61,13 @@ function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boo
             />
           ) : (
             <div className="cover-hero__art-wrap">
-              <img
+              <Image
                 src={item.artImagePath}
                 alt={item.artAlt || item.title}
+                width={2400}
+                height={1600}
+                priority
+                sizes="100vw"
                 style={staticStyle}
               />
             </div>
