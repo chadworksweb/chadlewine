@@ -5821,7 +5821,9 @@ html {
   .account-dashboard__grid { grid-template-columns: 1fr; }
 }
 .account-dashboard__card {
-  background: var(--bg-elevated);
+  /* ~25% brighter than --bg-elevated (#13131c -> #181823) to lift panels
+     off the page background without changing the global token. */
+  background: #181823;
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: var(--space-lg);
@@ -5831,7 +5833,9 @@ html {
   font-size: 1.275rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 var(--space-sm) 0;
+  margin: 0 0 var(--space-md) 0;
+  padding: 0 0 var(--space-sm) 0;
+  border-bottom: 1px solid #6c6c84;
 }
 .account-dashboard__label {
   font-family: var(--font-ui);
@@ -21172,16 +21176,19 @@ body.cart-open {
 .account-dashboard__coupon-copy {
   font-family: var(--font-ui);
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
-  padding: 2px 6px;
+  font-weight: 600;
+  color: #ffffff;
+  padding: 3px 8px;
   border-radius: 3px;
-  background: rgba(139, 156, 247, 0.12);
+  background: var(--text-accent);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 .account-dashboard__coupon-code--copyable:hover .account-dashboard__coupon-copy,
 .account-dashboard__coupon-code--copyable:focus-visible .account-dashboard__coupon-copy {
-  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-accent) 88%, white);
+  box-shadow: 0 0 0 3px rgba(139, 156, 247, 0.22);
 }
 .account-dashboard__coupon-meta {
   display: flex;
