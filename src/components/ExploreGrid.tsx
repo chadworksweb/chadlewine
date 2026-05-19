@@ -121,6 +121,22 @@ export function ExploreGrid({ items }: Props) {
     }
   }, [dropOnCards]);
 
+  // Preload the optimized texture URLs MerchRippleCanvas will fetch on first
+  // hover. Without this, the canvas mounts cold on first pointermove, waits
+  // ~500ms for /_next/image to resolve, and only then starts rendering drops.
+  // The card's visible <img> uses a different URL (raw item.image_url) so it
+  // doesn't share cache with the canvas's optimized fetch — hence this prime.
+  useEffect(() => {
+    items.forEach((item) => {
+      if (!item.image_url) return;
+      const url = item.image_url.startsWith("/")
+        ? item.image_url
+        : `/_next/image?url=${encodeURIComponent(item.image_url)}&w=1080&q=100`;
+      const img = new Image();
+      img.src = url;
+    });
+  }, [items]);
+
   useEffect(() => {
     const grid = gridRef.current;
     if (!grid) return;
@@ -150,7 +166,12 @@ export function ExploreGrid({ items }: Props) {
     };
   }, [tickGlow]);
 
-  if (items.length === 0) return null;
+  // Intentionally do NOT early-return on empty items: the grid div must be in
+  // the DOM on first paint so the pointermove useEffect attaches its listener
+  // to gridRef. On surfaces where items load async (e.g. /thank-you), an early
+  // return null would skip the listener attach, and since the effect's deps
+  // are referentially stable, it would never re-run when items arrived — the
+  // canvas would mount but pointer activations would never fire.
 
   return (
     <div ref={gridRef} className="explore-strip__grid">
