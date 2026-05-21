@@ -12073,14 +12073,28 @@ html {
   transition: background-color 0.15s ease;
 }
 
-/* Stop square when active */
+/* Pause bars when active. The button pauses (doesn't stop), so the icon
+   is two vertical bars. Both bars are drawn inside one 11px-wide pseudo
+   via a linear-gradient — keeps the element a single rectangle that the
+   parent flex container centers naturally on x AND y, and the gradient
+   stays a single property so hover doesn't accidentally wipe the second
+   bar (the prior box-shadow trick collided with the hover glow rule). */
 .mini-player--active .mini-player__icon::after {
-  width: 14px;
+  width: 11px;
   height: 14px;
-  background: var(--td-active);
+  background: linear-gradient(
+    to right,
+    var(--td-active) 0%,
+    var(--td-active) 36%,
+    transparent 36%,
+    transparent 64%,
+    var(--td-active) 64%,
+    var(--td-active) 100%
+  );
   clip-path: none;
-  border-radius: 2px;
+  border-radius: 0;
   margin-left: 0;
+  box-shadow: none;
 }
 
 .mini-player__play-btn:hover .mini-player__icon::after {
@@ -12088,8 +12102,20 @@ html {
 }
 
 .mini-player--active .mini-player__play-btn:hover .mini-player__icon::after {
-  background: #ffaa33;
-  box-shadow: 0 0 8px rgba(255, 149, 0, 0.4);
+  /* Keep BOTH bars on hover — re-declare the same gradient with the hover
+     color. Indicating hover via the bar tint + a soft glow filter behind
+     them; box-shadow is dropped here so it can't overwrite the gradient. */
+  background: linear-gradient(
+    to right,
+    #ffaa33 0%,
+    #ffaa33 36%,
+    transparent 36%,
+    transparent 64%,
+    #ffaa33 64%,
+    #ffaa33 100%
+  );
+  filter: drop-shadow(0 0 6px rgba(255, 149, 0, 0.55));
+  box-shadow: none;
 }
 
 /* Progress ring */
@@ -13747,8 +13773,9 @@ html {
   }
 
   .mini-player--active .mini-player__icon::after {
-    width: 11px;
+    width: 9px;
     height: 11px;
+    /* Background gradient inherited from desktop rule — only size differs. */
   }
 
   .mini-player__name {
@@ -16845,6 +16872,79 @@ body.cart-open {
   border-radius: 8px;
   box-shadow: 0 0 60px rgba(212, 161, 58, 0.06) inset;
   overflow: hidden;
+}
+
+/* Fullscreen mode — overlay the entire viewport, hide site chrome. The body
+   class is added by the component so the page header (and any other site
+   chrome that sits outside the arc itself) collapses cleanly. */
+.arc-radiant--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--arc-bg);
+  padding-bottom: var(--space-lg, 2rem);
+}
+.arc-radiant--fullscreen .arc-radiant__upper {
+  flex: 1;
+  min-height: 0;
+}
+.arc-radiant--fullscreen .arc-radiant__main {
+  min-height: 0;
+}
+.arc-radiant--fullscreen .arc-radiant__canvas {
+  height: 100%;
+}
+.arc-radiant--fullscreen .arc-radiant__key {
+  justify-content: flex-start;
+}
+body.arc-radiant-fullscreen-active .page-radiant-arc__header,
+body.arc-radiant-fullscreen-active .site-header,
+body.arc-radiant-fullscreen-active .site-footer,
+body.arc-radiant-fullscreen-active .site-patronage,
+body.arc-radiant-fullscreen-active .subscribe-section,
+body.arc-radiant-fullscreen-active .cl-sticky-player {
+  display: none !important;
+}
+
+.arc-radiant__fullscreen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--arc-gold);
+  background: transparent;
+  border: 1px solid rgba(212, 161, 58, 0.35);
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 200ms ease, border-color 200ms ease, box-shadow 200ms ease, text-shadow 200ms ease;
+}
+.arc-radiant__fullscreen-btn:hover {
+  color: var(--arc-spark);
+  border-color: var(--arc-gold-bright);
+  box-shadow: 0 0 14px rgba(247, 200, 74, 0.4);
+  text-shadow: 0 0 8px rgba(247, 200, 74, 0.5);
+}
+.arc-radiant__fullscreen-btn svg {
+  display: block;
+}
+@media (max-width: 640px) {
+  .arc-radiant__fullscreen-label {
+    display: none;
+  }
+  .arc-radiant__fullscreen-btn {
+    padding: 5px 8px;
+  }
 }
 
 .arc-radiant__toolbar {

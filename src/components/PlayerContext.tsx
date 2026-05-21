@@ -41,6 +41,10 @@ type PlayerContextValue = {
   /** seek by fraction (0..1) within the active window */
   seek: (pct: number) => void;
   isCurrent: (id: string) => boolean;
+  /** Lazy-create a WebAudio AnalyserNode wired to the player's audio element.
+   *  Returns null on browsers without WebAudio or when CORS prevents it.
+   *  Safe to call from visualizers — same node is reused across calls. */
+  getAnalyser: () => AnalyserNode | null;
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -66,6 +70,9 @@ type PlaySession = {
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const rafRef = useRef<number>(0);
   const fadeInRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentRef = useRef<PlayerSong | null>(null);
@@ -77,10 +84,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [resolvedDuration, setResolvedDuration] = useState(0);
   const [audioTime, setAudioTime] = useState(0);
 
-  // Lazy-create the audio element once on the client
+  // Lazy-create the audio element once on the client. crossOrigin must be set
+  // BEFORE src for CORS to take effect on stream requests, which the WebAudio
+  // analyser needs to read frequency data (else getByteFrequencyData returns
+  // all zeros). Bunny pull zones return CORS headers so this is non-breaking.
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
+      audioRef.current.crossOrigin = "anonymous";
       audioRef.current.preload = "metadata";
     }
     return () => {
@@ -93,6 +104,33 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         a.load();
       }
     };
+  }, []);
+
+  // Lazy WebAudio graph for visualizers. First caller after a user-gesture
+  // play() will succeed; calls before any playback may also succeed (modern
+  // browsers allow AudioContext creation, just suspended until resume()).
+  const getAnalyser = useCallback((): AnalyserNode | null => {
+    if (analyserRef.current) return analyserRef.current;
+    if (typeof window === "undefined") return null;
+    const audio = audioRef.current;
+    if (!audio) return null;
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return null;
+    try {
+      const ctx = audioCtxRef.current ?? new Ctx();
+      audioCtxRef.current = ctx;
+      const source = sourceNodeRef.current ?? ctx.createMediaElementSource(audio);
+      sourceNodeRef.current = source;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.78;
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+      analyserRef.current = analyser;
+      return analyser;
+    } catch {
+      return null;
+    }
   }, []);
 
   // Anonymous play-count recording. One row per session (>= PLAY_MIN_SECONDS).
@@ -278,6 +316,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         audio.play().then(() => {
           setLoading(false);
           setPlaying(true);
+          // Resume any suspended AudioContext now that we're inside a user gesture
+          // chain; without this, the visualizer analyser yields silent data on
+          // browsers (Safari, some Chrome configs) that require explicit resume.
+          if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+            audioCtxRef.current.resume().catch(() => {});
+          }
 
           if (song.playbackMode === "preview") {
             // Fade in
@@ -397,6 +441,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         stop,
         seek,
         isCurrent,
+        getAnalyser,
       }}
     >
       {children}

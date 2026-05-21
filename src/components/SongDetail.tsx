@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MiniPlayer } from "@/components/MiniPlayer";
+import { CubeVisualizer } from "@/components/CubeVisualizer";
 import { CompassIcon } from "@/components/RCBadge";
 import { useCart } from "@/components/Cart";
 import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
@@ -220,20 +221,18 @@ export function SongDetail({
   return (
     <div className="track-detail">
       <div className="track-detail__grid">
-        {/* Left column — Cover art (song art overrides album art) */}
+        {/* Left column — immersive cube visualizer. Replaces the static cover;
+            still uses the cover art for cube faces + as the color source for
+            the ambient background. Mirrored EQ bar reads audio while playing. */}
         <div className="track-detail__art-col">
-          {coverArtPath && (
-            <Image
-              src={coverArtPath}
-              alt={coverArtAlt}
-              width={1200}
-              height={1200}
-              className="track-detail__cover"
-              priority
-              sizes="(max-width: 640px) 100vw, 600px"
-              style={focalCropStyle(song.card_focal_x ?? null, song.card_focal_y ?? null, song.card_zoom ?? null)}
-            />
-          )}
+          <CubeVisualizer
+            songId={song.id}
+            coverArtPath={coverArtPath}
+            coverArtAlt={coverArtAlt}
+            cardFocalX={song.card_focal_x ?? null}
+            cardFocalY={song.card_focal_y ?? null}
+            cardZoom={song.card_zoom ?? null}
+          />
         </div>
 
         {/* Right column — Content */}

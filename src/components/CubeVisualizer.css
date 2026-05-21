@@ -1,0 +1,261 @@
+/* Cube Visualizer — immersive listening surface in the song-detail art column.
+   The cube derives from album-cube but strips all hover/plane interactivity:
+   no rotate-on-pointer, no clickable faces, no CTA overlays. The cube is the
+   art; audio drives it. */
+
+.cube-vis {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--td-radius);
+  overflow: hidden;
+  background: #050508;
+  border: 1px solid var(--td-border);
+  isolation: isolate;
+  /* CSS-var driven values updated from rAF; defaults keep static look */
+  --cv-bass: 0;        /* 0..1 */
+  --cv-mid: 0;         /* 0..1 */
+  --cv-energy: 0;      /* 0..1 */
+  --cv-rot: 0deg;
+  --cv-c1: #1a1a26;
+  --cv-c2: #2a1e3a;
+  --cv-c3: #0a0f1c;
+  /* Morph driver. Idle (0) collapses all cube faces onto the center plane
+     and shows the flat cover at full size; playing (1) unfolds the faces
+     and fades the flat. @property registration makes the var animatable as
+     a number so transition on --cv-unfold smoothly drives every dependent
+     calc() each frame. Without @property the var would step abruptly. */
+  --cv-unfold: 0;
+  transition: --cv-unfold 800ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cube-vis.is-playing { --cv-unfold: 1; }
+
+@property --cv-unfold {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+/* Flat cover: visible at idle, fades out as --cv-unfold approaches 1.
+   Pure opacity crossfade with the cube stage — no shrink, no morph. */
+.cube-vis__flat {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  z-index: 4;
+  opacity: calc(1 - var(--cv-unfold));
+  pointer-events: none;
+}
+
+/* Layer 1 — color-extracted ambient. Three radial gradients drift at different
+   speeds; their positions/sizes pulse with bass. */
+.cube-vis__ambient {
+  position: absolute;
+  inset: -10%;
+  z-index: 0;
+  background:
+    radial-gradient(
+      ellipse calc(60% + var(--cv-bass) * 30%) calc(50% + var(--cv-bass) * 20%)
+      at calc(30% + var(--cv-ax, 0%) * 1) calc(35% + var(--cv-ay, 0%) * 1),
+      var(--cv-c1) 0%, transparent 65%
+    ),
+    radial-gradient(
+      ellipse calc(55% + var(--cv-mid) * 25%) calc(55% + var(--cv-mid) * 25%)
+      at calc(70% - var(--cv-ax, 0%) * 0.8) calc(60% - var(--cv-ay, 0%) * 0.8),
+      var(--cv-c2) 0%, transparent 60%
+    ),
+    radial-gradient(
+      ellipse 80% 80% at 50% 80%,
+      var(--cv-c3) 0%, transparent 70%
+    ),
+    #050508;
+  filter: saturate(1.1) blur(8px);
+  transform: scale(calc(1 + var(--cv-bass) * 0.05));
+  transition: filter 400ms ease-out;
+  will-change: transform, background-position;
+  opacity: var(--cv-unfold);
+}
+
+.cube-vis.is-playing .cube-vis__ambient {
+  animation: cube-vis-ambient-drift 24s ease-in-out infinite alternate;
+}
+
+@keyframes cube-vis-ambient-drift {
+  0%   { --cv-ax:  0%; --cv-ay:  0%; }
+  25%  { --cv-ax: 12%; --cv-ay: -8%; }
+  50%  { --cv-ax: -6%; --cv-ay: 10%; }
+  75%  { --cv-ax: -14%; --cv-ay: -6%; }
+  100% { --cv-ax:  8%; --cv-ay: 12%; }
+}
+
+/* @property declarations make --cv-ax / --cv-ay animatable as numbers.
+   Older browsers without @property still get a static look (no drift) but
+   nothing breaks — the gradient just renders with default 0% values. */
+@property --cv-ax {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+@property --cv-ay {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+
+/* Layer 2 — soft glow halo behind the cube, tinted by extracted color */
+.cube-vis__glow {
+  position: absolute;
+  inset: 10%;
+  z-index: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in oklab, var(--cv-c2) 70%, white) 0%,
+    color-mix(in oklab, var(--cv-c1) 60%, transparent) 30%,
+    transparent 60%
+  );
+  opacity: calc((0.35 + var(--cv-energy) * 0.45) * var(--cv-unfold));
+  transform: scale(calc(0.95 + var(--cv-bass) * 0.18));
+  filter: blur(20px);
+  pointer-events: none;
+}
+
+/* Layer 3 — 3D stage + cube. Stage fades in with --cv-unfold so the
+   cube cross-dissolves over the flat cover. No more fold animation. */
+.cube-vis__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1400px;
+  perspective-origin: 50% 50%;
+  pointer-events: none;
+  opacity: var(--cv-unfold);
+}
+
+/* Beat-morph wrapper sits OUTSIDE the rotating box so a momentary
+   scale/skew on a transient beat composes cleanly with the constant
+   rotation of the inner box. transition gives the snap-in (~120ms) +
+   slower spring-back (~360ms) feel; JS toggles its inline transform. */
+.cube-vis__box-outer {
+  position: relative;
+  width: 58%;
+  height: 58%;
+  transform-style: preserve-3d;
+  transform: none;
+  transition: transform 320ms cubic-bezier(0.34, 1.45, 0.5, 1);
+  will-change: transform;
+}
+
+.cube-vis__box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  /* Rotation comes from --cv-rx / --cv-ry, both accumulated unwrapped in JS
+     (no modulo-360). That means no transform "jump" at 360, so we do NOT
+     transition the transform — every frame we just write the new value
+     and the cube floats smoothly. A CSS transition here would interpolate
+     across any large delta and cause the spin-back artifact. */
+  transform:
+    rotateX(var(--cv-rx, 0deg))
+    rotateY(var(--cv-ry, 0deg))
+    scale(calc(1 + var(--cv-bass) * 0.06));
+  --cv-half-z: 0px; /* set from JS via ResizeObserver */
+  --cv-rx: 0deg;
+  --cv-ry: 0deg;
+  will-change: transform;
+}
+
+.cube-vis__face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0a0a14;
+  border: 1px solid color-mix(in oklab, var(--cv-c2) 30%, rgba(255,255,255,0.06));
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.04),
+    0 0 calc(20px + var(--cv-bass) * 40px) color-mix(in oklab, var(--cv-c2) 60%, transparent);
+  backface-visibility: hidden;
+}
+
+.cube-vis__face-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Faces are always fully extended into cube positions. The play <-> pause
+   transition is now a simple crossfade between the flat cover and the
+   visualizer stage (no folding), driven by stage opacity below. */
+.cube-vis__face--front  { transform: translateZ(var(--cv-half-z)); }
+.cube-vis__face--back   { transform: rotateY( 180deg) translateZ(var(--cv-half-z)); }
+.cube-vis__face--right  { transform: rotateY(  90deg) translateZ(var(--cv-half-z)); }
+.cube-vis__face--left   { transform: rotateY( -90deg) translateZ(var(--cv-half-z)); }
+.cube-vis__face--top    { transform: rotateX(  90deg) translateZ(var(--cv-half-z)); }
+.cube-vis__face--bottom { transform: rotateX( -90deg) translateZ(var(--cv-half-z)); }
+
+.cube-vis__face--right .cube-vis__face-img,
+.cube-vis__face--left  .cube-vis__face-img,
+.cube-vis__face--back  .cube-vis__face-img {
+  filter: brightness(0.65) saturate(0.85);
+}
+.cube-vis__face--top    .cube-vis__face-img,
+.cube-vis__face--bottom .cube-vis__face-img {
+  filter: brightness(0.4) saturate(0.7);
+}
+
+/* Layer 4 — mirrored EQ spectrum. Spans the full width of the art container
+   with a small side gutter, vertically centered on the X axis (horizontal
+   centerline) of the cube-vis box so bars expand symmetrically up + down
+   across the cube. Explicit width is required — leaving width unset on an
+   SVG with viewBox lets the browser fall back to intrinsic size and ignore
+   left+right pair, which collapsed the element into a corner. */
+.cube-vis__eq {
+  position: absolute;
+  left: 4%;
+  width: 92%;
+  top: 50%;
+  /* Slightly under halfway between the prior 56% and 96% experiments. */
+  height: 68%;
+  transform: translateY(-50%);
+  z-index: 3;
+  pointer-events: none;
+  display: block;
+  /* 0.71 = previous 0.95 * 0.75 — user requested 25% opacity reduction. */
+  opacity: calc(0.71 * var(--cv-unfold));
+  mix-blend-mode: screen;
+}
+
+.cube-vis__eq-bar {
+  fill: color-mix(in oklab, var(--cv-c2) 60%, white);
+  /* Each bar's transform origin is the centerline (y=50) — height grows
+     symmetrically up and down from there via scaleY animation in JS. */
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.cube-vis__eq-bar--reflect {
+  fill: color-mix(in oklab, var(--cv-c1) 50%, white);
+  opacity: 0.55;
+}
+
+.cube-vis__eq-axis {
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 0.5;
+  shape-rendering: crispEdges;
+}
+
+/* When idle (not playing) the EQ collapses to a thin axis line. */
+.cube-vis:not(.is-playing) .cube-vis__eq-bar {
+  transform: scaleY(0.04);
+  transition: transform 600ms ease-out;
+}

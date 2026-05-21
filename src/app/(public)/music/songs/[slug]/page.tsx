@@ -230,7 +230,13 @@ export default async function SongDetailPage({
     fetchBadge(song.title, "Chad Lewine"),
     getPlaybackMode(song.playback_mode),
     fetchSongSkusForIds(supabase, [song.id]),
-    album ? fetchReleaseSkusForIds(supabase, [album.id]) : fetchReleaseSkusForIds(supabase, []),
+    // Only surface album-format SKUs when the album itself is published.
+    // Unreleased albums still pass through getSongData (so the song page can
+    // link to them), but their "Choose Album Format" button must not appear
+    // since the album isn't on sale yet.
+    album && album.status === "published"
+      ? fetchReleaseSkusForIds(supabase, [album.id])
+      : fetchReleaseSkusForIds(supabase, []),
   ]);
 
   // Prefer song_skus rows. If empty, fall back to a synthetic SKU built from
