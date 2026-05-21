@@ -6,7 +6,7 @@ import Image from "next/image";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { CompassIcon } from "@/components/RCBadge";
 import { useCart } from "@/components/Cart";
-import { SkuPicker, type SkuPickerSku } from "@/components/SkuPicker";
+import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
 import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
 import { ExploreGrid } from "@/components/ExploreGrid";
@@ -144,8 +144,8 @@ export function SongDetail({
   visibilitySections?: VisibilitySectionProps[];
   badge?: BadgeProps | null;
   playbackMode?: "preview" | "full";
-  songSkus?: SkuPickerSku[];
-  releaseSkus?: SkuPickerSku[];
+  songSkus?: FormatShowcaseSku[];
+  releaseSkus?: FormatShowcaseSku[];
   geoFields?: GeoFieldsProps | null;
   ifYouLike?: IfYouLikeProps | null;
   pairedArt?: PairedArtProps[];
@@ -155,6 +155,7 @@ export function SongDetail({
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [openExpansions, setOpenExpansions] = useState<Set<string>>(new Set());
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [albumFormatsOpen, setAlbumFormatsOpen] = useState(false);
   const cart = useCart();
   const ringtoneInCart = cart.hasItem({ type: "ringtone", id: song.id, format: null });
   const ringtoneAvailable = !!song.ringtone_available && !!song.ringtone_price;
@@ -264,6 +265,7 @@ export function SongDetail({
               artImagePath={coverArtPath}
               artAlt={coverArtAlt}
               playbackMode={playbackMode}
+              hideTitle
             />
           )}
 
@@ -271,7 +273,7 @@ export function SongDetail({
           <div className="track-detail__action-row">
             <div className="track-detail__actions">
               {songSkus.length > 0 && (
-                <SkuPicker
+                <FormatShowcase
                   kind="song"
                   parentId={song.id}
                   title={song.title}
@@ -281,14 +283,15 @@ export function SongDetail({
                 />
               )}
               {album && releaseSkus.length > 0 && (
-                <SkuPicker
-                  kind="release"
-                  parentId={album.id}
-                  title={album.title}
-                  slug={album.slug}
-                  coverArtPath={album.cover_art_path}
-                  skus={releaseSkus}
-                />
+                <button
+                  type="button"
+                  className="track-detail__btn track-detail__btn--buy-album"
+                  aria-expanded={albumFormatsOpen}
+                  aria-controls="song-album-formats"
+                  onClick={() => setAlbumFormatsOpen((v) => !v)}
+                >
+                  {albumFormatsOpen ? "Hide Album Formats" : "Choose Album Format"}
+                </button>
               )}
               {ringtoneAvailable && song.ringtone_price && (
                 <button
@@ -367,6 +370,27 @@ export function SongDetail({
               </div>
             )}
           </div>
+
+          {/* Collapsible album-format carousel -- expanded by the "Choose
+              Album Format" button in the action row above. */}
+          {album && releaseSkus.length > 0 && (
+            <div
+              id="song-album-formats"
+              className={`track-detail__album-formats${albumFormatsOpen ? " is-open" : ""}`}
+              aria-hidden={!albumFormatsOpen}
+            >
+              <div className="track-detail__album-formats-inner">
+                <FormatShowcase
+                  kind="release"
+                  parentId={album.id}
+                  title={album.title}
+                  slug={album.slug}
+                  coverArtPath={album.cover_art_path}
+                  skus={releaseSkus}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Lyrics */}
           {song.instrumental ? (

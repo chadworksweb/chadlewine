@@ -33,6 +33,7 @@ const adminNav: NavItem[] = [
       { href: "/admin/audience", label: "Members" },
       { href: "/admin/campaigns", label: "Campaigns" },
       { href: "/admin/email-templates", label: "Email templates" },
+      { href: "/admin/fan-tracks", label: "For my fans" },
       { href: "/admin/analytics", label: "Analytics" },
     ],
   },

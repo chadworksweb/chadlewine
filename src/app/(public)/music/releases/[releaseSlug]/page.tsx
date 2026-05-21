@@ -24,7 +24,7 @@ async function getAlbumData(releaseSlug: string) {
   // Get songs via junction
   const { data: junctions } = await supabase
     .from("release_songs")
-    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, download_path, download_path_mp3, download_path_flac, download_path_wav, ringtone_path_m4r, ringtone_path_mp3, ringtone_price, playback_mode)")
+    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, song_summary, download_path, download_path_mp3, download_path_flac, download_path_wav, ringtone_path_m4r, ringtone_path_mp3, ringtone_price, playback_mode)")
     .eq("release_id", album.id)
     .order("track_number");
 
@@ -36,6 +36,7 @@ async function getAlbumData(releaseSlug: string) {
     streaming_path: string | null;
     price: number | null;
     status: string;
+    song_summary: string | null;
     download_path: string | null;
     download_path_mp3: string | null;
     download_path_flac: string | null;
@@ -76,6 +77,7 @@ async function getAlbumData(releaseSlug: string) {
       duration_seconds: j.song.duration_seconds,
       streaming_path: j.song.streaming_path,
       price: j.song.price,
+      song_summary: j.song.song_summary,
       playback_mode: playbackModes[i],
       download_formats: formats,
       ringtone_available: ringtoneAvailable,
@@ -179,6 +181,7 @@ export default async function AlbumDetailPage({
           duration_seconds: s.duration_seconds,
           streaming_path: s.streaming_path,
           price: s.price,
+          song_summary: s.song_summary,
           playback_mode: s.playback_mode,
           download_formats: s.download_formats,
           ringtone_available: s.ringtone_available,
@@ -191,6 +194,7 @@ export default async function AlbumDetailPage({
           price: s.price,
           status: s.status === "discontinued" ? "available" : s.status,
           stock: s.stock,
+          gallery_images: s.gallery_images,
           variants: s.variants,
         }))}
       />

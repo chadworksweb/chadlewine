@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet" role="img" aria-label="CD format template">
+  <defs>
+    <clipPath id="cover-clip-cd">
+      <rect x="40" y="72" width="160" height="256" />
+    </clipPath>
+    <radialGradient id="cd-sheen" cx="0.5" cy="0.5" r="0.55">
+      <stop offset="0%" stop-color="#1a2a3a" stop-opacity="1" />
+      <stop offset="60%" stop-color="#0d1a26" stop-opacity="1" />
+      <stop offset="100%" stop-color="#0a0f1a" stop-opacity="1" />
+    </radialGradient>
+    <linearGradient id="cd-highlight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00d4ff" stop-opacity="0" />
+      <stop offset="50%" stop-color="#00d4ff" stop-opacity="0.18" />
+      <stop offset="100%" stop-color="#00d4ff" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Jewel case outer outline -->
+  <rect x="36" y="68" width="328" height="264" fill="#0d0d1a" stroke="#3a3a5c" stroke-width="1" />
+
+  <!-- Hinge line down the center -->
+  <line x1="200" y1="68" x2="200" y2="332" stroke="#3a3a5c" stroke-width="1" stroke-dasharray="2 4" />
+
+  <!-- LEFT half: cover-art insert -->
+  <rect x="40" y="72" width="160" height="256" fill="#12121a" stroke="#00d4ff" stroke-width="1" />
+  <image data-cover="true" href="" x="40" y="72" width="160" height="256"
+         clip-path="url(#cover-clip-cd)" preserveAspectRatio="xMidYMid slice" />
+  <rect x="40" y="72" width="160" height="256" fill="none" stroke="#00d4ff" stroke-width="2" />
+
+  <!-- RIGHT half: CD disc -->
+  <g transform="translate(282 200)">
+    <circle r="108" fill="url(#cd-sheen)" stroke="#00d4ff" stroke-width="1.5" />
+    <!-- Highlight band suggesting the disc surface -->
+    <ellipse rx="108" ry="18" fill="url(#cd-highlight)" />
+    <!-- Inner ring -->
+    <circle r="42" fill="none" stroke="#00d4ff" stroke-width="0.5" opacity="0.6" />
+    <circle r="32" fill="#0d0d1a" stroke="#00d4ff" stroke-width="0.75" />
+    <!-- Spindle hole -->
+    <circle r="10" fill="#0d0d1a" stroke="#3a3a5c" stroke-width="1" />
+  </g>
+
+  <!-- Spec text down the right edge of the case (vertical) -->
+  <text transform="translate(354 200) rotate(90)" fill="#00d4ff" font-family="'Share Tech Mono', 'Courier New', monospace" font-size="9" text-anchor="middle" letter-spacing="3" opacity="0.7">COMPACT DISC</text>
+
+  <!-- Gold corner marks on insert -->
+  <path d="M 40 88 L 40 72 L 56 72" stroke="#ff9500" stroke-width="2" fill="none" stroke-linecap="square" />
+  <path d="M 200 312 L 200 328 L 184 328" stroke="#ff9500" stroke-width="2" fill="none" stroke-linecap="square" />
+
+  <!-- Bottom spec line -->
+  <text x="200" y="360" fill="#00d4ff" font-family="'Share Tech Mono', 'Courier New', monospace" font-size="11" text-anchor="middle" letter-spacing="3" opacity="0.85">JEWEL CASE / BOOKLET</text>
+</svg>

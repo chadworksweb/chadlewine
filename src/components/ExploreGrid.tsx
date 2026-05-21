@@ -15,6 +15,9 @@ export interface ExploreGridItem {
   image_alt: string | null;
   href: string;
   kind?: ExploreKind;
+  /** Override for the badge text. Lets a release surface as "Album" / "EP" /
+   *  "Single" while keeping kind="release" for styling. Falls back to kind. */
+  kind_label?: string | null;
 }
 
 interface Props {
@@ -211,7 +214,7 @@ export function ExploreGrid({ items }: Props) {
               </Link>
               {kind && (
                 <span className={`hero-lens__kind hero-lens__kind--${kind} merch-shop__card-kind`}>
-                  {kind}
+                  {item.kind_label || kind}
                 </span>
               )}
             </h3>

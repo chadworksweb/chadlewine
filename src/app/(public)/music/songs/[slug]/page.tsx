@@ -250,6 +250,7 @@ export default async function SongDetailPage({
           status: "available" as const,
           stock: null,
           display_order: 0,
+          gallery_images: [],
           variants: [],
         },
       ];
@@ -336,6 +337,7 @@ export default async function SongDetailPage({
           price: s.price,
           status: s.status === "discontinued" ? "available" : s.status,
           stock: s.stock,
+          gallery_images: s.gallery_images,
           variants: s.variants,
         }))}
         releaseSkus={releaseSkus.map((s) => ({
@@ -344,6 +346,7 @@ export default async function SongDetailPage({
           price: s.price,
           status: s.status === "discontinued" ? "available" : s.status,
           stock: s.stock,
+          gallery_images: s.gallery_images,
           variants: s.variants,
         }))}
         geoFields={{

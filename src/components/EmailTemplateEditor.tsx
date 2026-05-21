@@ -108,9 +108,9 @@ export function EmailTemplateEditor({ slug, initial }: EmailTemplateEditorProps)
         </h1>
         <div className="admin-page__header-actions">
           <span className="template-edit__save-status">{statusLabel}</span>
-          {slug === "fan-ode" && (
+          {slug === "for-my-fans-01" && (
             <Link
-              href={`/admin/preview/fan-ode`}
+              href={`/admin/preview/for-my-fans-01`}
               className="admin-btn admin-btn--secondary"
             >
               Open dedicated preview
@@ -122,8 +122,8 @@ export function EmailTemplateEditor({ slug, initial }: EmailTemplateEditorProps)
             onClick={async () => {
               const ok = confirm(
                 `Delete template "${name}"? This cannot be undone.${
-                  slug === "fan-ode"
-                    ? "\n\nWARNING: fan-ode is referenced by the drip cron — deleting will break the drip until you reseed."
+                  slug === "for-my-fans-01"
+                    ? "\n\nWARNING: for-my-fans-01 is referenced by the drip cron -- deleting will break the drip until you reseed."
                     : ""
                 }`,
               );

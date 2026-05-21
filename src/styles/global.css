@@ -5025,6 +5025,13 @@ html {
   margin-top: var(--space-md);
 }
 
+/* Inside a multi-column field grid, DOM siblings live on the same visual
+   row, so the adjacent-sibling top margin above would push the right-hand
+   field down. Reset it for fields placed in a grid container. */
+.obsv-editor__field-grid > .obsv-editor__field + .obsv-editor__field {
+  margin-top: 0;
+}
+
 .obsv-editor__label {
   font-family: var(--font-ui);
   font-size: var(--text-xs);
@@ -11196,6 +11203,54 @@ html {
   border: 1px solid var(--td-border);
 }
 
+/* Format-gallery: the frame overlays the album cover (which is the base
+   layer) so transitions between formats with and without galleries fade
+   cleanly through the cover beneath. Multiple image layers stack inside
+   and crossfade on swap. */
+.track-detail__gallery-frame {
+  position: absolute;
+  inset: 0;
+  background: #2a2a3e;
+  border-radius: var(--td-radius);
+  border: 1px solid var(--td-border);
+  overflow: hidden;
+  animation: track-detail-gallery-frame-in 0.35s ease-out forwards;
+}
+
+/* Going to a format with no gallery -- fade the whole frame out so the
+   album cover bleeds through. The useEffect drops the layers after the
+   animation completes. */
+.track-detail__gallery-frame.is-leaving {
+  animation: track-detail-gallery-frame-out 0.35s ease-out forwards;
+}
+
+.track-detail__gallery-img {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  animation: track-detail-gallery-fade 0.35s ease-out forwards;
+}
+
+@keyframes track-detail-gallery-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes track-detail-gallery-frame-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes track-detail-gallery-frame-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 .product-detail__cover {
   width: 100%;
   aspect-ratio: 1;
@@ -11327,7 +11382,8 @@ html {
   background: var(--td-bg-card);
   border: 1px solid var(--td-border);
   border-radius: var(--td-radius);
-  overflow: hidden;
+  /* No overflow:hidden -- the RC summary tooltip pops out of an info-bar
+     cell in the multi-format layout and used to get clipped here. */
   margin-bottom: 1.25rem;
 }
 
@@ -11464,7 +11520,7 @@ html {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 1.5rem;
-  align-items: start;
+  align-items: center;
   margin-bottom: 1.5rem;
 }
 
@@ -11638,19 +11694,21 @@ html {
 .track-detail__btn,
 .product-detail__btn {
   flex: 1;
-  height: 48px;
+  min-height: 56px;
+  padding: 14px 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--td-font-mono);
   font-weight: 700;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
   text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   -webkit-appearance: none;
   appearance: none;
   -webkit-tap-highlight-color: transparent;
@@ -11926,6 +11984,34 @@ html {
   margin-bottom: 0;
 }
 
+/* Collapsible album-format carousel inside a song detail page. Uses the
+   grid-template-rows 0fr -> 1fr trick so the panel animates from zero to
+   its natural content height. */
+.track-detail__album-formats {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 1rem;
+}
+
+.track-detail__album-formats.is-open {
+  grid-template-rows: 1fr;
+  margin-bottom: 1.5rem;
+}
+
+.track-detail__album-formats-inner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding-top: 0;
+  transition: opacity 0.2s ease, padding-top 0.25s ease;
+}
+
+.track-detail__album-formats.is-open .track-detail__album-formats-inner {
+  opacity: 1;
+  padding-top: 0.5rem;
+}
+
 /* ============================================================
    Mini Player
    ============================================================ */
@@ -12156,6 +12242,7 @@ html {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
+  padding-bottom: var(--space-3xl);
 }
 
 @media (max-width: 720px) {
@@ -13237,30 +13324,298 @@ html {
   text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
 }
 
-/* --- Album track listing --- */
+/* --- Album track listing (playlist style) --- */
 
-.album-detail__player {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: var(--space-xl);
-  margin-bottom: 1.25rem;
+.track-detail__concept {
+  margin: 0.5rem 0 var(--space-lg);
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1.55;
 }
 
-.mini-player--no-audio {
-  cursor: default;
+.album-detail__tracklist {
+  list-style: none;
+  margin: var(--space-xl) 0 1.25rem;
+  padding: 0;
+  border-top: 1px solid var(--td-border);
 }
 
-.mini-player--no-audio .mini-player__play-btn,
-.mini-player--no-audio .mini-player__waveform {
-  opacity: 0.2;
+.tracklist-row {
+  border-bottom: 1px solid var(--td-border);
+  font-family: var(--td-font-mono);
+  font-size: 13px;
+  color: var(--td-text);
+  transition: background-color 0.15s ease;
+}
+
+.tracklist-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tracklist-row--active {
+  background: rgba(255, 149, 0, 0.06);
+}
+
+.tracklist-row--expanded {
+  background: rgba(0, 212, 255, 0.04);
+}
+
+.tracklist-row__head {
+  display: grid;
+  grid-template-columns: 24px 26px 1fr auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.tracklist-row__num {
+  color: var(--td-text-muted, #888);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.tracklist-row__play-btn {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  color: var(--td-teal, #00d4aa);
+  transition: color 0.15s ease;
+}
+
+.tracklist-row__play-btn:hover:not(:disabled) {
+  color: var(--td-cyan, #00ffcc);
+}
+
+.tracklist-row__play-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tracklist-row--active .tracklist-row__play-btn {
+  color: var(--td-active, #ff9500);
+}
+
+.tracklist-row__play-btn:focus-visible {
+  outline: 2px solid var(--td-cyan-alt, #00d4ff);
+  outline-offset: 1px;
+}
+
+.tracklist-row__play-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
-.mini-player__play-spacer {
-  width: 48px;
-  flex-shrink: 0;
-  margin-right: 14px;
+/* Static track: ring around the button. Matches the play icon color
+   (currentColor) at lower opacity so the progress arc reads against it. */
+.tracklist-row__play-ring-track {
+  opacity: 0.35;
+}
+
+/* Progress arc: full opacity. Only visually advances while playing
+   because the JSX zeros the offset out when !isActive. */
+.tracklist-row__play-ring-progress {
+  opacity: 1;
+  transition: stroke-dashoffset 0.12s linear;
+}
+
+.tracklist-row__play-icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+/* Title + duration -- one click region that toggles the expand panel. */
+.tracklist-row__expand-btn {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tracklist-row__expand-btn:focus-visible {
+  outline: 2px solid var(--td-cyan-alt, #00d4ff);
+  outline-offset: 2px;
+}
+
+.tracklist-row__title {
+  color: var(--td-text);
+  font-family: var(--td-font-display, "VT323", "Courier New", monospace);
+  font-size: 1.15rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+  transition: color 0.15s ease;
+}
+
+.tracklist-row__expand-btn:hover .tracklist-row__title {
+  color: var(--td-cyan-alt, #00d4ff);
+}
+
+.tracklist-row--active .tracklist-row__title {
+  color: var(--td-active, #ff9500);
+}
+
+.tracklist-row__duration {
+  color: var(--td-text-muted, #888);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.tracklist-row__action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--td-text-muted, #888);
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+/* Add-to-cart icon is wider (+ sits beside the cart) so the button needs
+   more horizontal room than ringtone or other square actions. */
+.tracklist-row__action--cart {
+  width: 34px;
+}
+
+.tracklist-row__action:hover:not(:disabled) {
+  color: var(--td-cyan-alt, #00d4ff);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.tracklist-row__action:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tracklist-row__action.is-added {
+  color: var(--td-active, #ff9500);
+  opacity: 1;
+}
+
+.tracklist-row__action.is-added:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.tracklist-row__action:focus-visible {
+  outline: 2px solid var(--td-cyan-alt, #00d4ff);
+  outline-offset: 1px;
+}
+
+/* Animated open/close: the outer panel is a grid that animates its row
+   from 0fr to 1fr, while the inner wrapper has min-height: 0 + overflow
+   hidden so it can collapse to nothing. Modern equivalent of the old
+   max-height hack -- transitions to the natural content height.
+   Supported in Chrome 117+, Safari 17+, Firefox 121+. */
+.tracklist-row__panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tracklist-row--expanded .tracklist-row__panel {
+  grid-template-rows: 1fr;
+}
+
+.tracklist-row__panel-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 12px 0 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: 0;
+  transition: opacity 0.18s ease, padding-bottom 0.2s ease;
+}
+
+.tracklist-row--expanded .tracklist-row__panel-inner {
+  opacity: 1;
+  padding-bottom: 14px;
+}
+
+.tracklist-row__summary {
+  margin: 0;
+  color: var(--td-text);
+  font-family: var(--font-body, system-ui);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.tracklist-row__cta {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--td-cyan-alt, #00d4ff);
+  color: var(--td-cyan-alt, #00d4ff);
+  text-decoration: none;
+  font-family: var(--td-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.tracklist-row__cta:hover {
+  background: var(--td-cyan-alt, #00d4ff);
+  color: var(--td-bg, #0d0d1a);
+}
+
+.tracklist-row__cta svg {
+  transition: transform 0.15s ease;
+}
+
+.tracklist-row__cta:hover svg {
+  transform: translateX(2px);
+}
+
+@media (max-width: 480px) {
+  .tracklist-row__head {
+    grid-template-columns: 20px 26px 1fr auto auto auto;
+    gap: 8px;
+    padding: 8px 6px;
+  }
+  .tracklist-row__title {
+    font-size: 1rem;
+  }
+  .tracklist-row__panel-inner {
+    padding-left: 6px;
+  }
 }
 
 .mini-player__name {
@@ -13325,7 +13680,7 @@ html {
     height: 56px;
     font-size: 1rem;
     border-radius: 8px;
-    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   }
 
   .track-detail__rc-badge,
@@ -14010,6 +14365,14 @@ html {
 .song-landing__section {
   padding: var(--space-3xl) 0;
   position: relative;
+  /* Break out of the site-width container so the section background spans
+     the full viewport. The internal page-shell grid (defined further up)
+     re-anchors children back to --site-width. Needed because these
+     sections live inside .track-detail (a site-width block), not under
+     <main> directly. */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
 }
 
 .song-landing__section + .song-landing__section::before {
@@ -20673,11 +21036,14 @@ body.cart-open {
   gap: var(--space-2xl);
   min-width: 0;
 }
-/* Regular sticky-to-top rail. Pins the image near the top of the viewport
-   while scrolling down past its natural position. */
+/* Sticky-to-top rail. The `top:` matches the rail's natural top edge in the
+   viewport on first paint — nav-height (main padding) + space-2xl (page
+   padding-top above) — so sticky engages immediately and the portrait does
+   NOT scroll a few pixels before pinning. Releases naturally when the
+   section bottom rises past it. */
 .cart-thank-you__rail {
   position: sticky;
-  top: var(--space-xl);
+  top: calc(var(--nav-height) + var(--space-2xl));
 }
 @media (max-width: 980px) {
   .cart-thank-you__layout {
@@ -20708,11 +21074,27 @@ body.cart-open {
    don't want to touch that. */
 .cart-thank-you-page .explore-strip__grid {
   grid-template-columns: repeat(3, 1fr);
+  gap: calc(var(--space-lg) * 1.3225);
 }
 @media (max-width: 720px) {
   .cart-thank-you-page .explore-strip__grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* Scoped title + kind override for the thank-you explore grid only:
+   - title 20% smaller (1.57rem -> 1.256rem)
+   - kind badge stacked under the title (single-column, not side-by-side)
+   - both centered horizontally */
+.cart-thank-you-page .explore-strip__grid .merch-shop__card-title {
+  font-size: 1.256rem;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  text-align: center;
+}
+.cart-thank-you-page .explore-strip__grid .merch-shop__card-kind {
+  justify-self: center;
+  align-self: center;
 }
 
 /* LEFT — vertically centered greeting. */
@@ -21119,6 +21501,85 @@ body.cart-open {
   color: var(--text-tertiary);
 }
 
+/* Account-dashboard "For my fans" list */
+.account-dashboard__card--fan-tracks {
+  border-color: rgba(139, 156, 247, 0.32);
+}
+.account-dashboard__fan-tracks {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.account-dashboard__fan-track {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border-subtle);
+}
+.account-dashboard__fan-track-art {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #1a1a2a 0%, #0e0e18 100%);
+  border: 1px solid rgba(139, 156, 247, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.account-dashboard__fan-track-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.account-dashboard__fan-track-art span {
+  font-family: var(--font-display, var(--font-ui, sans-serif));
+  font-size: 28px;
+  font-weight: 300;
+  color: rgba(139, 156, 247, 0.55);
+}
+.account-dashboard__fan-track-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.account-dashboard__fan-track-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account-dashboard__fan-track-artist {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.account-dashboard__fan-track-btn {
+  font-family: var(--font-ui, -apple-system, sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 8px 16px;
+  border-radius: 4px;
+  background: #8b9cf7;
+  color: #0a0a14;
+  text-decoration: none;
+  transition: background 120ms ease;
+}
+.account-dashboard__fan-track-btn:hover {
+  background: #a3b1f7;
+}
+
 /* Account-dashboard coupons list */
 .account-dashboard__coupons {
   list-style: none;
@@ -21213,16 +21674,20 @@ body.cart-open {
 }
 
 /* ============================================================
-   Fan-ode landing page (/fan-song)
-   Private gift page for first-time buyers, 24h post-purchase.
+   For my fans (/for-my-fans-XX) — earned-access gated tracks.
+   Strict listening UX: play/pause/restart only, no scrub.
+
+   This wrapper is a plain DIV that lives inside the layout's <main>,
+   which is the page-shell grid. The grid places this in the content
+   track (--site-width) automatically. Do NOT add max-width / margin
+   auto / horizontal padding here — that fights the grid and bleeds.
    ============================================================ */
-.fan-song-page {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 80px var(--space-lg) 120px;
+.for-my-fans-page {
+  padding-top: var(--space-2xl);
+  padding-bottom: var(--space-4xl);
   color: var(--text-primary, #e0e0e8);
 }
-.fan-song-page__eyebrow {
+.for-my-fans-page__eyebrow {
   font-family: var(--font-ui, -apple-system, sans-serif);
   font-size: 11px;
   letter-spacing: 0.18em;
@@ -21230,86 +21695,161 @@ body.cart-open {
   color: #8b9cf7;
   margin: 0 0 14px;
 }
-.fan-song-page__greeting {
+.for-my-fans-page__hero {
+  margin: 0 0 36px;
+}
+.for-my-fans-page__player {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 32px;
+  margin: 0 0 48px;
+  align-items: start;
+}
+@media (max-width: 600px) {
+  .for-my-fans-page__player {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+.for-my-fans-page__art {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: linear-gradient(135deg, #1a1a2a 0%, #0e0e18 100%);
+  border: 1px solid rgba(139, 156, 247, 0.18);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.for-my-fans-page__art-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.for-my-fans-page__art-monogram {
+  font-family: var(--font-display, var(--font-ui, sans-serif));
+  font-size: clamp(72px, 16vw, 110px);
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  color: rgba(139, 156, 247, 0.55);
+}
+.for-my-fans-page__player-body {
+  min-width: 0;
+}
+.for-my-fans-page__player-artist {
   font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   font-style: italic;
-  font-size: 17px;
+  font-size: 14px;
   color: var(--text-secondary, #a0a0b0);
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
-.fan-song-page__title {
+.for-my-fans-page__player-title {
   font-family: var(--font-display, var(--font-ui, sans-serif));
-  font-size: clamp(34px, 6vw, 56px);
+  font-size: clamp(26px, 4.5vw, 38px);
   font-weight: 500;
   letter-spacing: -0.02em;
-  line-height: 1.05;
-  margin: 0 0 36px;
+  line-height: 1.1;
+  margin: 0 0 22px;
   color: var(--text-primary, #e0e0e8);
 }
-.fan-song-page__art-wrap {
-  margin: 0 0 32px;
-}
-.fan-song-page__art {
-  display: block;
+.for-my-fans-page__progress {
   width: 100%;
-  height: auto;
-  border-radius: 6px;
-  background: #13131c;
+  height: 3px;
+  background: rgba(139, 156, 247, 0.14);
+  border-radius: 2px;
+  overflow: hidden;
+  /* Read-only — no pointer interaction. */
+  pointer-events: none;
 }
-.fan-song-page__player {
-  margin: 0 0 40px;
+.for-my-fans-page__progress-fill {
+  height: 100%;
+  background: #8b9cf7;
+  transition: width 120ms linear;
 }
-.fan-song-page__audio {
-  width: 100%;
-  display: block;
-}
-.fan-song-page__player--coming {
-  padding: 18px 20px;
-  border: 1px dashed rgba(139,156,247,0.4);
-  border-radius: 6px;
+.for-my-fans-page__time {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-ui, -apple-system, sans-serif);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary, #a0a0b0);
-  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  font-style: italic;
-  font-size: 15px;
-  text-align: center;
+  margin: 8px 0 22px;
 }
-.fan-song-page__player--coming p { margin: 0; }
-.fan-song-page__note {
+.for-my-fans-page__controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.for-my-fans-page__btn {
+  font-family: var(--font-ui, -apple-system, sans-serif);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  padding: 12px 26px;
+  border-radius: 4px;
+  border: 1px solid rgba(139, 156, 247, 0.5);
+  background: transparent;
+  color: #e0e0e8;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+.for-my-fans-page__btn:hover:not(:disabled) {
+  background: rgba(139, 156, 247, 0.12);
+}
+.for-my-fans-page__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.for-my-fans-page__btn--play {
+  background: #8b9cf7;
+  border-color: #8b9cf7;
+  color: #0a0a14;
+  min-width: 120px;
+}
+.for-my-fans-page__btn--play:hover:not(:disabled) {
+  background: #a3b1f7;
+  border-color: #a3b1f7;
+}
+.for-my-fans-page__error {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 14px;
+  color: #f87171;
+  margin: 14px 0 0;
+}
+.for-my-fans-page__audio-el {
+  display: none;
+}
+.for-my-fans-page__note {
   font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   font-size: 17px;
   line-height: 1.65;
   color: var(--text-secondary, #a0a0b0);
 }
-.fan-song-page__note p {
-  margin: 0 0 14px;
-}
-.fan-song-page__note p:last-child {
-  margin-top: 28px;
-}
-.fan-song-page__note a {
-  color: #8b9cf7;
-  text-decoration: none;
-}
-.fan-song-page__note a:hover { text-decoration: underline; }
-.fan-song-page--gate {
+.for-my-fans-page__note p { margin: 0 0 14px; }
+.for-my-fans-page__note p:last-child { margin-top: 28px; }
+.for-my-fans-page__note a { color: #8b9cf7; text-decoration: none; }
+.for-my-fans-page__note a:hover { text-decoration: underline; }
+.for-my-fans-page--gate {
   text-align: center;
   padding-top: 140px;
 }
-.fan-song-page__gate-title {
+.for-my-fans-page__gate-title {
   font-family: var(--font-display, var(--font-ui, sans-serif));
   font-size: clamp(28px, 5vw, 42px);
   font-weight: 500;
   letter-spacing: -0.02em;
   margin: 0 0 20px;
 }
-.fan-song-page__gate-body {
+.for-my-fans-page__gate-body {
   font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   font-size: 17px;
   line-height: 1.65;
   color: var(--text-secondary, #a0a0b0);
   margin: 0;
 }
-.fan-song-page__gate-body a {
+.for-my-fans-page__gate-body a {
   color: #8b9cf7;
   text-decoration: underline;
 }

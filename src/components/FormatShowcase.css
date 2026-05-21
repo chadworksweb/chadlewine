@@ -1,0 +1,393 @@
+/* Format showcase carousel.
+   Sits inside .track-detail__actions, which means it inherits the
+   --td-* tokens from .track-detail / .product-detail. */
+
+.format-showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.format-showcase__viewport {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.format-showcase__scroller {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 0.625rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding: 0 0.5rem;
+  padding: 0.125rem 0.25rem 0.25rem;
+}
+
+.format-showcase__scroller::-webkit-scrollbar {
+  display: none;
+}
+
+/* When all cards fit without overflow, left-align them and relax
+   scroll-snap so the row reads as a static group rather than a carousel. */
+.format-showcase__scroller.is-fits {
+  justify-content: flex-start;
+  scroll-snap-type: none;
+  overflow-x: visible;
+}
+
+/* Cards. Fixed width so multiple peek; one card centers via justify-content. */
+.format-showcase__card {
+  flex: 0 0 min(160px, calc(100% - 1rem));
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--td-bg-card, #12121a);
+  border: 1px solid var(--td-border, #3a3a5c);
+  border-radius: var(--td-radius, 8px);
+  color: var(--td-text, #e0e0e0);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease,
+    background 140ms ease;
+}
+
+.format-showcase__card:hover {
+  border-color: var(--td-cyan-alt, #00d4ff);
+}
+
+.format-showcase__card.is-selected {
+  border-color: var(--td-active, #ff9500);
+  box-shadow:
+    0 0 0 1px var(--td-active, #ff9500),
+    0 0 24px -8px rgba(255, 149, 0, 0.45);
+  background: rgba(255, 149, 0, 0.04);
+}
+
+.format-showcase__card.is-sold-out {
+  opacity: 0.55;
+}
+
+.format-showcase__card:focus-visible {
+  outline: 2px solid var(--td-cyan-alt, #00d4ff);
+  outline-offset: 2px;
+}
+
+/* Art region -- 1:1 to match the mockup SVGs' natural viewBox. */
+.format-showcase__card-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: var(--td-bg, #0d0d1a);
+  border-radius: calc(var(--td-radius, 8px) - 4px);
+}
+
+.format-showcase__template,
+.format-showcase__primary-image,
+.format-showcase__inline-mockup {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.format-showcase__template {
+  object-fit: contain;
+}
+
+.format-showcase__primary-image {
+  object-fit: cover;
+}
+
+.format-showcase__inline-mockup {
+  display: block;
+}
+
+/* Equalizer mechanics ported from the Artist Empowerment Suite hero
+   visualizer: each of the 10 bars runs its OWN keyframe sequence with a
+   slightly different duration so the wave never repeats exactly. */
+.format-showcase__eq-bar {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/* Once a card has been selected (gets .has-played, which persists), each
+   bar sits at its AES rest scale (the keyframe 0%/100% value). When the
+   card is then selected, the animation runs once -- the final keyframe
+   matches this rest value, so the post-animation hold and the static rest
+   look identical, no snap on deselect. */
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(1)  { transform: scaleY(0.30); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(2)  { transform: scaleY(0.50); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(3)  { transform: scaleY(0.40); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(4)  { transform: scaleY(0.60); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(5)  { transform: scaleY(0.45); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(6)  { transform: scaleY(0.55); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(7)  { transform: scaleY(0.35); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(8)  { transform: scaleY(0.70); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(9)  { transform: scaleY(0.40); }
+.format-showcase__card.has-played .format-showcase__eq-bar:nth-child(10) { transform: scaleY(0.50); }
+
+/* AES keyframes, but: run a single cycle on select, then freeze (forwards
+   fill). Switching to another card and back replays. Idle bars stay at
+   their full natural height. */
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(1)  { animation: fs-eq1  2.8s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(2)  { animation: fs-eq2  2.5s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(3)  { animation: fs-eq3  3.1s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(4)  { animation: fs-eq4  2.6s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(5)  { animation: fs-eq5  2.9s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(6)  { animation: fs-eq6  2.4s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(7)  { animation: fs-eq7  3.2s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(8)  { animation: fs-eq8  2.3s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(9)  { animation: fs-eq9  3.0s ease-in-out 1 forwards; }
+.format-showcase__card.is-selected .format-showcase__eq-bar:nth-child(10) { animation: fs-eq10 2.7s ease-in-out 1 forwards; }
+
+@keyframes fs-eq1  { 0%,100%{transform:scaleY(0.30);} 25%{transform:scaleY(0.80);} 50%{transform:scaleY(0.50);} 75%{transform:scaleY(0.95);} }
+@keyframes fs-eq2  { 0%,100%{transform:scaleY(0.50);} 30%{transform:scaleY(0.90);} 60%{transform:scaleY(0.40);} 80%{transform:scaleY(0.70);} }
+@keyframes fs-eq3  { 0%,100%{transform:scaleY(0.40);} 20%{transform:scaleY(1.00);} 45%{transform:scaleY(0.60);} 70%{transform:scaleY(0.85);} }
+@keyframes fs-eq4  { 0%,100%{transform:scaleY(0.60);} 35%{transform:scaleY(0.35);} 55%{transform:scaleY(0.90);} 85%{transform:scaleY(0.55);} }
+@keyframes fs-eq5  { 0%,100%{transform:scaleY(0.45);} 15%{transform:scaleY(0.75);} 40%{transform:scaleY(0.95);} 65%{transform:scaleY(0.50);} }
+@keyframes fs-eq6  { 0%,100%{transform:scaleY(0.55);} 25%{transform:scaleY(0.85);} 50%{transform:scaleY(0.35);} 80%{transform:scaleY(1.00);} }
+@keyframes fs-eq7  { 0%,100%{transform:scaleY(0.35);} 30%{transform:scaleY(0.65);} 55%{transform:scaleY(0.90);} 75%{transform:scaleY(0.45);} }
+@keyframes fs-eq8  { 0%,100%{transform:scaleY(0.70);} 20%{transform:scaleY(0.40);} 45%{transform:scaleY(0.95);} 70%{transform:scaleY(0.60);} }
+@keyframes fs-eq9  { 0%,100%{transform:scaleY(0.40);} 35%{transform:scaleY(0.80);} 60%{transform:scaleY(0.55);} 85%{transform:scaleY(1.00);} }
+@keyframes fs-eq10 { 0%,100%{transform:scaleY(0.50);} 25%{transform:scaleY(0.95);} 50%{transform:scaleY(0.65);} 75%{transform:scaleY(0.40);} }
+
+/* Vinyl disc -- continuous rotation, only on the selected card. */
+.format-showcase__vinyl-disc {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.format-showcase__card.is-selected .format-showcase__vinyl-disc {
+  animation: format-showcase-spin 4.5s linear 1 forwards;
+}
+
+@keyframes format-showcase-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .format-showcase__card.is-selected .format-showcase__eq-bar,
+  .format-showcase__card.is-selected .format-showcase__vinyl-disc {
+    animation: none;
+  }
+}
+
+.format-showcase__card-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--td-active, #ff9500);
+  color: #0d0d1a;
+  font-family: var(--td-font-mono, "Share Tech Mono", "Courier New", monospace);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 3px;
+}
+
+.format-showcase__card-badge.is-sold-out {
+  background: var(--td-border, #3a3a5c);
+  color: var(--td-text, #e0e0e0);
+}
+
+.format-showcase__card-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.125rem;
+}
+
+.format-showcase__card-label {
+  font-family: var(--td-font-mono, "Share Tech Mono", "Courier New", monospace);
+  font-size: 0.875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--td-cyan-alt, #00d4ff);
+}
+
+.format-showcase__card.is-selected .format-showcase__card-label {
+  color: var(--td-active, #ff9500);
+}
+
+.format-showcase__card-price {
+  font-family: var(--td-font-mono, "Share Tech Mono", "Courier New", monospace);
+  font-size: 1rem;
+  color: var(--td-text, #e0e0e0);
+  font-weight: 600;
+}
+
+/* Arrows. */
+.format-showcase__arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--td-cyan-alt, #00d4ff);
+  border: 1px solid var(--td-border, #3a3a5c);
+  border-radius: 50%;
+  cursor: pointer;
+  font-family: var(--td-font-mono, "Share Tech Mono", "Courier New", monospace);
+  font-size: 1rem;
+  transition: border-color 140ms ease, color 140ms ease, opacity 140ms ease;
+  z-index: 1;
+}
+
+.format-showcase__arrow:hover:not(:disabled) {
+  border-color: var(--td-cyan-alt, #00d4ff);
+}
+
+.format-showcase__arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.format-showcase__arrow:focus-visible {
+  outline: 2px solid var(--td-cyan-alt, #00d4ff);
+  outline-offset: 2px;
+}
+
+.format-showcase__arrow--prev {
+  margin-right: 0.25rem;
+}
+
+.format-showcase__arrow--next {
+  margin-left: 0.25rem;
+}
+
+/* Dots. */
+.format-showcase__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.125rem 0;
+}
+
+.format-showcase__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 1px solid var(--td-border, #3a3a5c);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.format-showcase__dot:hover {
+  border-color: var(--td-cyan-alt, #00d4ff);
+}
+
+.format-showcase__dot.is-active {
+  background: var(--td-active, #ff9500);
+  border-color: var(--td-active, #ff9500);
+  transform: scale(1.2);
+}
+
+.format-showcase__dot:focus-visible {
+  outline: 2px solid var(--td-cyan-alt, #00d4ff);
+  outline-offset: 2px;
+}
+
+/* Variant chips. */
+.format-showcase__variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.format-showcase__variant {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  color: var(--td-text, #e0e0e0);
+  border: 1px solid var(--td-border, #3a3a5c);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  transition: border-color 140ms ease, background 140ms ease, opacity 140ms ease;
+}
+
+.format-showcase__variant:hover:not(:disabled) {
+  border-color: var(--td-cyan-alt, #00d4ff);
+}
+
+.format-showcase__variant.is-selected {
+  border-color: var(--td-active, #ff9500);
+  background: rgba(255, 149, 0, 0.08);
+  color: var(--td-active, #ff9500);
+}
+
+.format-showcase__variant.is-sold-out {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.format-showcase__variant:focus-visible {
+  outline: 2px solid var(--td-cyan-alt, #00d4ff);
+  outline-offset: 2px;
+}
+
+.format-showcase__variant-delta {
+  color: var(--td-text-muted, #888);
+  font-size: 0.8125rem;
+}
+
+.format-showcase__variant.is-selected .format-showcase__variant-delta {
+  color: var(--td-active, #ff9500);
+}
+
+.format-showcase__variant-badge {
+  padding: 0.1rem 0.4rem;
+  background: rgba(255, 149, 0, 0.18);
+  color: var(--td-active, #ff9500);
+  font-family: var(--td-font-mono, "Share Tech Mono", "Courier New", monospace);
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 3px;
+}
+
+.format-showcase__variant-badge.is-sold-out {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--td-text-muted, #888);
+}
+
+/* The buy button now renders with the unmodified .track-detail__btn /
+   .track-detail__btn--buy-album styling -- no .format-showcase__buy modifier.
+   Parent .format-showcase already provides the gap. */
+
+/* Narrow viewports: shrink card so 1.2 cards visible, hide arrows
+   (touch swipe handles nav). */
+@media (max-width: 480px) {
+  .format-showcase__card {
+    flex-basis: min(140px, calc(100% - 2rem));
+  }
+  .format-showcase__arrow {
+    display: none;
+  }
+}

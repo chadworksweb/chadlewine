@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { slugify } from "@/lib/utils";
+import { SkuGalleryPanel } from "@/components/admin/SkuGalleryPanel";
 import {
   RELEASE_FORMAT_OPTIONS,
   SKU_STATUS_OPTIONS,
@@ -83,6 +84,7 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [openSkus, setOpenSkus] = useState<Record<string, boolean>>({});
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<DraftSku>(emptyDraft(parentSlug));
 
@@ -183,6 +185,7 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
     }
     const created: SkuRow = await res.json();
     setSkus((prev) => [...prev, { ...created, variants: created.variants || [] }]);
+    setOpenSkus((prev) => ({ ...prev, [created.id]: true }));
     setDraft(emptyDraft(parentSlug));
     setAdding(false);
   }
@@ -342,68 +345,127 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
 
       {skus.map((sku) => {
         const open = !!expanded[sku.id];
+        const isOpen = !!openSkus[sku.id];
         return (
           <div
             key={sku.id}
             style={{
               border: "1px solid var(--border-subtle, rgba(255,255,255,0.08))",
-              padding: "var(--space-sm)",
               borderRadius: 4,
               marginBottom: "var(--space-sm)",
+              overflow: "hidden",
             }}
           >
-            <SkuFormFields
-              row={sku}
-              onChange={(p) => patchSku(sku.id, p)}
-              onBlurSave={() => saveSku(sku.id)}
-            />
+            <button
+              type="button"
+              onClick={() => setOpenSkus((p) => ({ ...p, [sku.id]: !isOpen }))}
+              aria-expanded={isOpen}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                width: "100%",
+                padding: "var(--space-sm)",
+                background: isOpen ? "rgba(255,255,255,0.03)" : "transparent",
+                border: 0,
+                borderBottom: isOpen
+                  ? "1px solid var(--border-subtle, rgba(255,255,255,0.08))"
+                  : "0",
+                color: "inherit",
+                cursor: "pointer",
+                fontFamily: "var(--font-ui)",
+                fontSize: "0.8rem",
+                textAlign: "left",
+              }}
+            >
+              <span style={{ width: 12, color: "var(--text-tertiary)", fontFamily: "var(--td-font-mono, monospace)" }}>
+                {isOpen ? "v" : ">"}
+              </span>
+              <span style={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {RELEASE_FORMAT_OPTIONS.find((o) => o.value === sku.format)?.label || sku.format}
+              </span>
+              <span style={{ color: "var(--text-tertiary)" }}>
+                {sku.price !== null ? `$${Number(sku.price).toFixed(2)}` : "no price"}
+              </span>
+              <span style={{ color: "var(--text-tertiary)" }}>
+                {SKU_STATUS_OPTIONS.find((o) => o.value === sku.status)?.label || sku.status}
+              </span>
+              {sku.variants.length > 0 && (
+                <span style={{ color: "var(--text-tertiary)" }}>
+                  {sku.variants.length} {sku.variants.length === 1 ? "variant" : "variants"}
+                </span>
+              )}
+              {sku.sku_code && (
+                <span style={{ marginLeft: "auto", color: "var(--text-tertiary)", fontFamily: "var(--td-font-mono, monospace)", fontSize: "0.7rem" }}>
+                  {sku.sku_code}
+                </span>
+              )}
+            </button>
 
-            <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <button type="button" className="admin-btn" onClick={() => saveSku(sku.id)} style={{ fontSize: "0.6875rem", padding: "4px 10px" }}>
-                Save
-              </button>
-              <button type="button" className="admin-btn admin-btn--danger" onClick={() => deleteSku(sku.id)} style={{ fontSize: "0.6875rem", padding: "4px 10px" }}>
-                Delete
-              </button>
-              <button
-                type="button"
-                className="admin-btn"
-                onClick={() => setExpanded((p) => ({ ...p, [sku.id]: !open }))}
-                style={{ fontSize: "0.6875rem", padding: "4px 10px", marginLeft: "auto" }}
-              >
-                Variants ({sku.variants.length}) {open ? "v" : ">"}
-              </button>
-            </div>
+            {isOpen && (
+              <div style={{ padding: "var(--space-sm)" }}>
+                <SkuFormFields
+                  row={sku}
+                  onChange={(p) => patchSku(sku.id, p)}
+                  onBlurSave={() => saveSku(sku.id)}
+                />
 
-            {open && (
-              <div style={{ marginTop: "var(--space-sm)", paddingTop: "var(--space-sm)", borderTop: "1px dashed var(--border-subtle, rgba(255,255,255,0.08))" }}>
-                {sku.variants.length === 0 && (
-                  <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.7rem", color: "var(--text-tertiary)", margin: "0 0 var(--space-xs)" }}>
-                    No variants. Use these for color, signed, size, etc.
-                  </p>
-                )}
-                {sku.variants.map((v) => (
-                  <VariantRowEditor
-                    key={v.id}
-                    row={v}
-                    onChange={(p) => {
-                      patchVariant(sku.id, v.id, p);
-                    }}
-                    onAutoSlug={() =>
-                      patchVariant(sku.id, v.id, { variant_slug: slugify(v.label || "") })
-                    }
-                    onSave={() => saveVariant(sku.id, v.id)}
-                    onDelete={() => deleteVariant(sku.id, v.id)}
+                <div style={{ marginTop: 12 }}>
+                  <SkuGalleryPanel
+                    skuId={sku.id}
+                    kind={kind}
+                    uploadFolder={parentSlug ? `sku-galleries/${parentSlug}/${sku.format}` : "sku-galleries"}
                   />
-                ))}
-                <button
-                  type="button"
-                  className="admin-btn"
-                  onClick={() => addVariant(sku.id)}
-                  style={{ fontSize: "0.6875rem", padding: "4px 10px", marginTop: 4 }}
-                >
-                  + Add Variant
-                </button>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <button type="button" className="admin-btn" onClick={() => saveSku(sku.id)} style={{ fontSize: "0.6875rem", padding: "4px 10px" }}>
+                    Save
+                  </button>
+                  <button type="button" className="admin-btn admin-btn--danger" onClick={() => deleteSku(sku.id)} style={{ fontSize: "0.6875rem", padding: "4px 10px" }}>
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-btn"
+                    onClick={() => setExpanded((p) => ({ ...p, [sku.id]: !open }))}
+                    style={{ fontSize: "0.6875rem", padding: "4px 10px", marginLeft: "auto" }}
+                  >
+                    Variants ({sku.variants.length}) {open ? "v" : ">"}
+                  </button>
+                </div>
+
+                {open && (
+                  <div style={{ marginTop: "var(--space-sm)", paddingTop: "var(--space-sm)", borderTop: "1px dashed var(--border-subtle, rgba(255,255,255,0.08))" }}>
+                    {sku.variants.length === 0 && (
+                      <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.7rem", color: "var(--text-tertiary)", margin: "0 0 var(--space-xs)" }}>
+                        No variants. Use these for color, signed, size, etc.
+                      </p>
+                    )}
+                    {sku.variants.map((v) => (
+                      <VariantRowEditor
+                        key={v.id}
+                        row={v}
+                        onChange={(p) => {
+                          patchVariant(sku.id, v.id, p);
+                        }}
+                        onAutoSlug={() =>
+                          patchVariant(sku.id, v.id, { variant_slug: slugify(v.label || "") })
+                        }
+                        onSave={() => saveVariant(sku.id, v.id)}
+                        onDelete={() => deleteVariant(sku.id, v.id)}
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      className="admin-btn"
+                      onClick={() => addVariant(sku.id)}
+                      style={{ fontSize: "0.6875rem", padding: "4px 10px", marginTop: 4 }}
+                    >
+                      + Add Variant
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -427,7 +489,7 @@ function SkuFormFields({
 
   return (
     <>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div className="obsv-editor__field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
         <div className={fieldCls}>
           <label className={labelCls}>Format</label>
           <select
@@ -552,7 +614,7 @@ function SkuFormFields({
       )}
 
       {!isDigital && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+        <div className="obsv-editor__field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
           <div className={fieldCls}>
             <label className={labelCls}>Weight (grams)</label>
             <input
@@ -579,7 +641,7 @@ function SkuFormFields({
       )}
 
       {isPrintify && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+        <div className="obsv-editor__field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
           <div className={fieldCls}>
             <label className={labelCls}>Printify product ID</label>
             <input
@@ -602,9 +664,11 @@ function SkuFormFields({
           </div>
         </div>
       )}
+
     </>
   );
 }
+
 
 function VariantRowEditor({
   row,

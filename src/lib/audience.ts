@@ -256,6 +256,12 @@ export async function upsertAudienceFromPurchase(opts: {
   }
   await refreshTags(supabase, audienceId);
 
+  // Fan-track grants are NOT minted here. The 24h drip cron
+  // (src/app/api/cron/fan-track-drip/route.ts) is the sole automatic
+  // grant + invite path so panel + email reveal together at the 24h
+  // mark. Admin-added grants and the publish-time backfill remain
+  // available as off-path tools.
+
   // Admin notifications — new member if this is the first time we've seen
   // them, otherwise a tier-change notification (e.g. subscriber → customer
   // on first purchase, customer → repeat-customer on second).
