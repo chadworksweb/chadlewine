@@ -183,6 +183,13 @@ export function CubeVisualizer({
       bassHistIdx: 0,
       beatCooldownUntil: 0,
       prevKick: 0,
+      // Adaptive baseline / residual for vocal-resistant onset detection.
+      // kickBaseline = slow envelope follower of the kick band; it rises
+      // when vocals sustain in the band. Subtracting it from current kick
+      // yields the residual — what's ABOVE the floor right now. Kicks
+      // produce sharp residual spikes even when the floor is high.
+      kickBaseline: 0,
+      prevResidual: 0,
     };
   })());
 
@@ -292,13 +299,12 @@ export function CubeVisualizer({
         mid = (mSum / (midEnd - bassEnd)) / 255;
         energy = (eSum / bins) / 255;
 
-        // Kick band — bin 1 covers ~43-86Hz at fftSize 1024, exactly the
-        // kick fundamental window. Bin 0 (DC + sub) is skipped. With the
-        // smaller FFT window the energy here responds within ~23ms of a
-        // kick attack instead of ~46ms, which keeps the morph firing on
-        // beat even during vocal sections.
+        // Kick band — bins 1-2 cover ~43-129Hz at fftSize 1024. Slightly
+        // wider than just bin 1 so vocal masking of the deep fundamental
+        // doesn't completely silence the kick signal; the kick body still
+        // pokes through bin 2 (~86-129Hz) during dense vocal sections.
         const KICK_START = 1;
-        const KICK_END = 2;
+        const KICK_END = 3;
         let kSum = 0;
         for (let i = KICK_START; i < KICK_END; i++) kSum += freqArr[i];
         kick = (kSum / (KICK_END - KICK_START)) / 255;
@@ -355,29 +361,21 @@ export function CubeVisualizer({
       s.mid += (mid - s.mid) * (mid > s.mid ? ka : kr);
       s.energy += (energy - s.energy) * (energy > s.energy ? ka : kr);
 
-      // SPIKE detection — looking for sharp rises, not sustained presence.
-      // Two onset gates working together:
-      //   - Absolute delta: kick energy jumped by > 0.13 in one frame.
-      //     Filters out floor noise.
-      //   - Relative rise: kick energy is at least 60% HIGHER than the
-      //     previous frame. This is the "spike vs sustained" gate — a
-      //     constant synth bass dipping and recovering has small relative
-      //     rise even if its absolute level is high. A real kick landing
-      //     on top of that bass spikes the band 100%+ relative to the
-      //     prior frame.
-      //   - Absolute level: post-spike value must be loud enough.
-      const delta = Math.max(0, kick - s.prevKick);
-      const relRise = delta / Math.max(s.prevKick, 0.08);
+      // Adaptive-baseline spike detection. Slow envelope (~200ms time
+      // constant) tracks sustained content; kicks spike above it.
+      s.kickBaseline = s.kickBaseline * 0.97 + kick * 0.03;
+      const residual = Math.max(0, kick - s.kickBaseline);
+      const delta = Math.max(0, residual - s.prevResidual);
+      s.prevResidual = residual;
       s.prevKick = kick;
       const isKick =
-        delta > 0.13 &&
-        relRise > 0.6 &&
-        kick > 0.22 &&
+        delta > 0.06 &&
+        residual > 0.09 &&
         ts > s.beatCooldownUntil;
       if (isKick) {
         s.beatCooldownUntil = ts + 500;
         meshBeatRef.current.seed = Math.random() * 1000;
-        meshBeatRef.current.intensity = Math.min(0.85, 0.45 + delta * 1.4);
+        meshBeatRef.current.intensity = Math.min(0.85, 0.45 + residual * 1.6);
         meshBeatRef.current.pending = true;
       }
 

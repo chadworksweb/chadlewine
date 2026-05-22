@@ -133,8 +133,11 @@ void main() {
   // the same factor, including edges).
   float bassPump = uBass * 0.05;
 
-  // Low-frequency 3D noise in object space.
-  float n = snoise(position * freq + vec3(uTime * 0.5 + timeOff));
+  // Noise pattern frozen per beat (no uTime term) so during the brief
+  // decay the bulge shape doesn't animate or ripple — it just snaps in
+  // and snaps out. uVariantSeed gives each beat a different static
+  // pattern via timeOff.
+  float n = snoise(position * freq + vec3(timeOff));
 
   // Final displacement: only along radial, only when edgeMask > 0, only
   // during the morph window.
@@ -258,9 +261,9 @@ function MorphMesh({
       beat.pending = false;
     }
 
-    // Decay morph amount exponentially. ~700ms half-life so big beats
-    // visibly hold for nearly a second before settling.
-    const decay = Math.pow(0.5, dt / 0.7);
+    // Snappy decay — half-life 100ms so each beat punches in and out
+    // cleanly without a lingering wave. After ~350ms morph is baseline.
+    const decay = Math.pow(0.5, dt / 0.10);
     morph.amount *= decay;
     if (morph.amount < 0.001) morph.amount = 0;
 
