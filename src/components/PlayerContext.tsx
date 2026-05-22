@@ -77,6 +77,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const fadeInRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentRef = useRef<PlayerSong | null>(null);
   const sessionRef = useRef<PlaySession | null>(null);
+  // Tracks the last setAudioTime push so the rAF tick can throttle updates
+  // to ~10 Hz. setState here re-renders every consumer of PlayerContext
+  // (including the WebGL CubeVisualizer); doing that 60x/sec dropped frames
+  // and made the progress bar lag visibly behind the audio. 100ms is far
+  // faster than the eye perceives on a long progress fill.
+  const lastAudioTimePushRef = useRef<number>(0);
 
   const [current, setCurrent] = useState<PlayerSong | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -122,8 +128,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const source = sourceNodeRef.current ?? ctx.createMediaElementSource(audio);
       sourceNodeRef.current = source;
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.78;
+      // fftSize 1024 -> 512 bins -> ~43Hz per bin at 44.1kHz sample rate.
+      // The FFT window itself is only ~23ms long (vs 46ms at 2048), which
+      // halves the inherent detection latency. We lose some sub-bass
+      // resolution but bin 1 (43-86Hz) still captures the kick fundamental
+      // cleanly. Smaller window = peak energy appears in the bin sooner
+      // after a kick attack, so the detector fires closer to on-beat.
+      analyser.fftSize = 1024;
+      // No smoothing at all. Spectral-flux onset detection needs raw FFT
+      // values to compute accurate frame-to-frame deltas; any smoothing
+      // attenuates the attack edge that the detector is looking for.
+      analyser.smoothingTimeConstant = 0;
       source.connect(analyser);
       analyser.connect(ctx.destination);
       analyserRef.current = analyser;
@@ -233,7 +248,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const song = currentRef.current;
     if (!audio || audio.paused || !song) return;
 
-    setAudioTime(audio.currentTime);
+    // Throttled state push — 100ms between updates is plenty for a
+    // smooth-looking progress bar and saves ~5x the re-render cost.
+    const nowMs = performance.now();
+    if (nowMs - lastAudioTimePushRef.current >= 100) {
+      lastAudioTimePushRef.current = nowMs;
+      setAudioTime(audio.currentTime);
+    }
 
     // Update the active session's max seconds heard (mode-normalized so
     // preview mode measures time inside the preview window, not raw currentTime).
@@ -403,13 +424,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const song = currentRef.current;
     if (!audio || !song) return;
     const clamped = Math.max(0, Math.min(1, pct));
+    // Compute the target time we ASKED for and use that for the immediate
+    // visual update. audio.currentTime read-back after assignment can be
+    // delayed/snapped by the browser (CORS streams especially) which is
+    // what made scrub clicks appear to "stick" or jump back to the wrong
+    // position. We also reset the throttle so the next tick re-syncs
+    // promptly with the audio's actual position.
+    let target: number;
     if (song.playbackMode === "preview") {
-      audio.currentTime = PREVIEW_START + clamped * PREVIEW_DURATION;
+      target = PREVIEW_START + clamped * PREVIEW_DURATION;
     } else {
       const dur = resolvedDuration > 0 ? resolvedDuration : audio.duration || 0;
-      if (dur > 0) audio.currentTime = clamped * dur;
+      target = dur > 0 ? clamped * dur : 0;
     }
-    setAudioTime(audio.currentTime);
+    audio.currentTime = target;
+    lastAudioTimePushRef.current = 0;
+    setAudioTime(target);
   }, [resolvedDuration]);
 
   const isCurrent = useCallback((id: string) => currentRef.current?.id === id, []);

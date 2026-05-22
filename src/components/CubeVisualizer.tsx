@@ -1,10 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { usePlayer } from "@/components/PlayerContext";
 import { focalCropStyle } from "@/lib/focal-crop";
+import type { BeatMorphRequest, MeshAnimRef } from "@/components/CubeVisualizerMesh";
 import "./CubeVisualizer.css";
+
+// Three.js + react-three-fiber are client-only and heavy (~250 KB gzipped).
+// Dynamic-import keeps them out of the song-detail SSR bundle and out of
+// the initial JS for visitors who never press play.
+const CubeVisualizerMesh = dynamic(
+  () => import("@/components/CubeVisualizerMesh").then((m) => m.CubeVisualizerMesh),
+  { ssr: false },
+);
 
 interface CubeVisualizerProps {
   songId: string;
@@ -24,9 +34,9 @@ const EQ_WIDTH = 100;          // SVG viewBox width
 const EQ_HEIGHT = 100;         // SVG viewBox height (centerline at 50)
 const EQ_BAR_GAP = EQ_WIDTH / EQ_BAR_COUNT;
 const EQ_BAR_WIDTH = EQ_BAR_GAP * 0.34;
-// Skip the lowest few FFT bins — DC + sub-bass tend to peg at full and
-// never visibly modulate, contributing nothing but visual dead weight.
-const EQ_LOW_SKIP = 3;
+// Skip pure DC (bin 0). With fftSize 2048 each bin is ~21Hz so we keep
+// the very-low bass bins (1+) which carry useful kick + sub energy.
+const EQ_LOW_SKIP = 1;
 // Wedge envelope — each bar's MAX geometric height varies by position.
 // Outer bars (low end) get a short segment, center bars (high end) get a
 // tall segment. scaleY animation still grows the bar symmetrically up+down
@@ -104,7 +114,17 @@ export function CubeVisualizer({
   const boxRef = useRef<HTMLDivElement | null>(null);
   const boxOuterRef = useRef<HTMLDivElement | null>(null);
   const boxResizeObsRef = useRef<ResizeObserver | null>(null);
-  const beatTimeoutRef = useRef<number | null>(null);
+
+  // Bridges to the Three.js mesh. meshAnimRef mirrors the rotation + bass
+  // state each frame so the mesh's useFrame can read them without React
+  // re-renders. meshBeatRef is a one-shot mailbox: tick sets pending=true
+  // when a transient beat fires, the mesh consumes + clears it.
+  const meshAnimRef = useRef<MeshAnimRef>({ rx: 0, ry: 0, bass: 0 });
+  const meshBeatRef = useRef<BeatMorphRequest>({
+    pending: false,
+    seed: 0,
+    intensity: 1,
+  });
   const eqBarsRef = useRef<(SVGRectElement | null)[]>([]);
   const eqReflectsRef = useRef<(SVGRectElement | null)[]>([]);
 
@@ -145,23 +165,24 @@ export function CubeVisualizer({
   const animRef = useRef((() => {
     // Start the cube at full target velocity so motion is visible from the
     // first frame instead of ramping in from zero (looked frozen for ~1s).
-    // Speed ~2 on the 0-10 scale: tvy 0.015 deg/ms (~24s/Y rotation),
-    // tvx 0.008 (~45s/X rotation).
-    const tvx = 0.008 * (Math.random() < 0.5 ? -1 : 1);
-    const tvy = 0.015 * (Math.random() < 0.5 ? -1 : 1);
+    // Speed bumped 10% from the prior 0.015/0.008 baseline.
+    const tvx = 0.0088 * (Math.random() < 0.5 ? -1 : 1);
+    const tvy = 0.0165 * (Math.random() < 0.5 ? -1 : 1);
     return {
       rx: 0, ry: 0,
       vx: tvx, vy: tvy,
       tvx, tvy,
       bass: 0, mid: 0, energy: 0,
       lastTs: 0,
-      // Beat detection. bassHist = rolling window of recent bass values;
-      // beatCooldownUntil blocks double-fires during sustained hits;
-      // lastBeatVariant avoids picking the same shape variant twice in a row.
+      // Kick detection state. bassHist tracks the recent kick-band level
+      // (now unused but kept in case we re-add envelope checks). prevKick
+      // is the previous-frame value, used for spectral-flux onset
+      // detection — a kick triggers a sharp positive delta, while
+      // sustained vocals/bass do not.
       bassHist: new Float32Array(28),
       bassHistIdx: 0,
       beatCooldownUntil: 0,
-      lastBeatVariant: -1,
+      prevKick: 0,
     };
   })());
 
@@ -196,36 +217,11 @@ export function CubeVisualizer({
     root.style.setProperty("--cv-c3", palette[2]);
   }, [palette]);
 
-  // Shape variants snapped to on big-beat transients. Each is a 3D
-  // transform applied to the box-outer wrapper; CSS transition gives a
-  // punchy snap-in and spring-back. Cube wrapper's preserve-3d keeps the
-  // inner cube faces in true 3D space throughout. All variants return to
-  // identity after ~280ms via timeout.
-  const BEAT_VARIANTS = useMemo(() => [
-    "scale3d(1.45, 0.55, 0.55)",                                     // wide bar
-    "scale3d(0.55, 1.45, 0.55)",                                     // tall bar
-    "rotateZ(45deg) scale3d(0.82, 0.82, 0.82)",                      // diamond
-    "rotate3d(1, 1, 0, 32deg) scale3d(1, 1, 1.55)",                  // tilted prism
-    "scale3d(1.35, 1.35, 1.35) rotate3d(1, 0, 1, 18deg)",            // bulged + tilted
-    "scale3d(0.7, 0.7, 1.8)",                                        // stretched depth
-    "rotateY(35deg) scale3d(0.9, 1.25, 0.9)",                        // skewed tall
-  ], []);
-
-  const triggerBeatMorph = useCallback((variantIdx: number) => {
-    const el = boxOuterRef.current;
-    if (!el) return;
-    el.style.transform = BEAT_VARIANTS[variantIdx];
-    if (beatTimeoutRef.current != null) {
-      window.clearTimeout(beatTimeoutRef.current);
-    }
-    beatTimeoutRef.current = window.setTimeout(() => {
-      if (boxOuterRef.current) boxOuterRef.current.style.transform = "";
-      beatTimeoutRef.current = null;
-    }, 280);
-  }, [BEAT_VARIANTS]);
-
   // Audio-driven animation loop. Runs only while this song is the active one
-  // and playing; otherwise the cube settles back to its idle pose.
+  // and playing; otherwise the cube settles back to its idle pose. Big-beat
+  // shape morphs are now handled inside CubeVisualizerMesh's WebGL shader;
+  // this loop only owns rotation + bass smoothing + beat DETECTION (which
+  // hands off to the mesh via meshBeatRef).
   useEffect(() => {
     const root = rootRef.current;
     const box = boxRef.current;
@@ -276,6 +272,13 @@ export function CubeVisualizer({
       s.lastTs = ts;
 
       let bass = 0, mid = 0, energy = 0;
+      // Narrow kick-detection window: bins 2-7 at fftSize 2048 cover ~40-150
+      // Hz, which is where kick drum fundamentals live. Wider than that
+      // bleeds into bass guitar / synth bass; narrower than that misses
+      // genres with higher-pitched kicks. Kept separate from the broader
+      // `bass` value used by the ambient / breathing effects so a busy
+      // mid-range doesn't trigger the morph.
+      let kick = 0;
       if (analyser && freqArr) {
         analyser.getByteFrequencyData(freqArr as Uint8Array<ArrayBuffer>);
         const bins = freqArr.length;
@@ -289,6 +292,17 @@ export function CubeVisualizer({
         mid = (mSum / (midEnd - bassEnd)) / 255;
         energy = (eSum / bins) / 255;
 
+        // Kick band — bin 1 covers ~43-86Hz at fftSize 1024, exactly the
+        // kick fundamental window. Bin 0 (DC + sub) is skipped. With the
+        // smaller FFT window the energy here responds within ~23ms of a
+        // kick attack instead of ~46ms, which keeps the morph firing on
+        // beat even during vocal sections.
+        const KICK_START = 1;
+        const KICK_END = 2;
+        let kSum = 0;
+        for (let i = KICK_START; i < KICK_END; i++) kSum += freqArr[i];
+        kick = (kSum / (KICK_END - KICK_START)) / 255;
+
         // Update EQ bars — Y-axis mirrored. Compute spectrum for EQ_HALF
         // values (low at h=0, high at h=HALF-1) and apply each value to a
         // symmetric pair of bars: one at index HALF-1-h (left of center),
@@ -299,9 +313,12 @@ export function CubeVisualizer({
         for (let h = 0; h < EQ_HALF; h++) {
           const t0 = h / EQ_HALF;
           const t1 = (h + 1) / EQ_HALF;
-          // Log-ish bin mapping starting AFTER the skipped DC/sub-bass bins.
-          const b0 = EQ_LOW_SKIP + Math.floor(Math.pow(t0, 1.8) * usable);
-          const b1 = Math.max(b0 + 1, EQ_LOW_SKIP + Math.floor(Math.pow(t1, 1.8) * usable));
+          // Log-ish bin mapping. Curve exponent lowered from 1.8 -> 1.35
+          // so the low-end bars get a meaningful bin span at the new 1024-
+          // bin FFT (with 1.8 they collapsed to 1-2 bins each and barely
+          // animated). 1.35 still gives octave-ish perceptual spacing.
+          const b0 = EQ_LOW_SKIP + Math.floor(Math.pow(t0, 1.35) * usable);
+          const b1 = Math.max(b0 + 1, EQ_LOW_SKIP + Math.floor(Math.pow(t1, 1.35) * usable));
           let sum = 0;
           for (let k = b0; k < b1; k++) sum += freqArr[k];
           // Per-bar frequency tilt — bass bins still have more raw energy,
@@ -338,33 +355,31 @@ export function CubeVisualizer({
       s.mid += (mid - s.mid) * (mid > s.mid ? ka : kr);
       s.energy += (energy - s.energy) * (energy > s.energy ? ka : kr);
 
-      // Beat detection: a "big beat" is when the RAW bass (not the smoothed
-      // s.bass — we need transient detection) sharply exceeds its recent
-      // rolling average. Pull from raw `bass` since smoothing kills peaks.
-      // Cooldown prevents the same hit from firing 60 times during its
-      // sustain. Threshold + multiplier picked so quiet sections don't
-      // trigger and loud sustained sections only fire on actual kicks.
-      const histLen = s.bassHist.length;
-      let avgBass = 0;
-      for (let k = 0; k < histLen; k++) avgBass += s.bassHist[k];
-      avgBass /= histLen;
-      const isBigBeat =
-        bass > 0.55 &&
-        bass > avgBass * 1.55 &&
+      // SPIKE detection — looking for sharp rises, not sustained presence.
+      // Two onset gates working together:
+      //   - Absolute delta: kick energy jumped by > 0.13 in one frame.
+      //     Filters out floor noise.
+      //   - Relative rise: kick energy is at least 60% HIGHER than the
+      //     previous frame. This is the "spike vs sustained" gate — a
+      //     constant synth bass dipping and recovering has small relative
+      //     rise even if its absolute level is high. A real kick landing
+      //     on top of that bass spikes the band 100%+ relative to the
+      //     prior frame.
+      //   - Absolute level: post-spike value must be loud enough.
+      const delta = Math.max(0, kick - s.prevKick);
+      const relRise = delta / Math.max(s.prevKick, 0.08);
+      s.prevKick = kick;
+      const isKick =
+        delta > 0.13 &&
+        relRise > 0.6 &&
+        kick > 0.22 &&
         ts > s.beatCooldownUntil;
-      if (isBigBeat) {
-        s.beatCooldownUntil = ts + 320; // ms — minimum gap between snaps
-        // Pick a variant that's not the same as last time so the morphs
-        // visibly cycle instead of accidentally repeating.
-        let v = Math.floor(Math.random() * BEAT_VARIANTS.length);
-        if (v === s.lastBeatVariant) v = (v + 1) % BEAT_VARIANTS.length;
-        s.lastBeatVariant = v;
-        triggerBeatMorph(v);
+      if (isKick) {
+        s.beatCooldownUntil = ts + 500;
+        meshBeatRef.current.seed = Math.random() * 1000;
+        meshBeatRef.current.intensity = Math.min(0.85, 0.45 + delta * 1.4);
+        meshBeatRef.current.pending = true;
       }
-      // Append current raw bass to rolling history AFTER comparison (so the
-      // average reflects the lead-up, not the beat itself).
-      s.bassHist[s.bassHistIdx] = bass;
-      s.bassHistIdx = (s.bassHistIdx + 1) % histLen;
 
       // DVD-logo motion with eased direction changes. Target velocity
       // (tvx/tvy) has a fixed magnitude per axis, its sign flips on rare
@@ -390,19 +405,18 @@ export function CubeVisualizer({
       box.style.setProperty("--cv-rx", `${s.rx.toFixed(2)}deg`);
       box.style.setProperty("--cv-ry", `${s.ry.toFixed(2)}deg`);
 
+      // Mirror state for the WebGL mesh. Plain assignment — the mesh's
+      // useFrame reads these on its own schedule without React renders.
+      meshAnimRef.current.rx = s.rx;
+      meshAnimRef.current.ry = s.ry;
+      meshAnimRef.current.bass = s.bass;
+
       raf = requestAnimationFrame(tick);
     };
 
     raf = requestAnimationFrame(tick);
     return () => {
       if (raf) cancelAnimationFrame(raf);
-      // Cancel any pending beat-recovery; clear the morph so the cube
-      // returns to its default shape rather than stuck mid-snap.
-      if (beatTimeoutRef.current != null) {
-        window.clearTimeout(beatTimeoutRef.current);
-        beatTimeoutRef.current = null;
-      }
-      if (boxOuterRef.current) boxOuterRef.current.style.transform = "";
     };
     // Intentionally omit `player` from deps — PlayerProvider rebuilds its
     // context value object every audio tick, so adding `player` here
@@ -410,7 +424,7 @@ export function CubeVisualizer({
     // steady-state rotation. getAnalyser is stable (useCallback []) inside
     // PlayerContext, so capturing player at effect-run time is safe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, triggerBeatMorph, BEAT_VARIANTS]);
+  }, [playing]);
 
   const eqIndices = useMemo(() => Array.from({ length: EQ_BAR_COUNT }, (_, i) => i), []);
 
@@ -443,45 +457,21 @@ export function CubeVisualizer({
 
       <div className="cube-vis__stage" aria-hidden="true">
         <div ref={boxOuterRef} className="cube-vis__box-outer">
-        <div ref={attachBox} className="cube-vis__box">
-          {coverArtPath && (
-            <>
-              <div className="cube-vis__face cube-vis__face--front">
-                {/* eslint-disable-next-line @next/next/no-img-element -- duplicate of flat, browser cache hits */}
-                <img src={coverArtPath} alt="" className="cube-vis__face-img" style={cardStyle as React.CSSProperties} />
-              </div>
-                  {/* Side/back/top/bottom faces use plain <img> rather than
-                      next/image: they reuse the same src as the front face
-                      (already optimized + cached), they're decorative and
-                      tinted/blurred, and 5 simultaneous calls to the dev
-                      image optimizer for the SAME url crashes its worker
-                      pool ("Jest worker encountered N child process
-                      exceptions"). Casting style to avoid the next/image
-                      transform conflict. */}
-                  <div className="cube-vis__face cube-vis__face--back">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- decorative face */}
-                    <img src={coverArtPath} alt="" className="cube-vis__face-img" style={cardStyle as React.CSSProperties} />
-                  </div>
-                  <div className="cube-vis__face cube-vis__face--right">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- decorative face */}
-                    <img src={coverArtPath} alt="" className="cube-vis__face-img" style={cardStyle as React.CSSProperties} />
-                  </div>
-                  <div className="cube-vis__face cube-vis__face--left">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- decorative face */}
-                    <img src={coverArtPath} alt="" className="cube-vis__face-img" style={cardStyle as React.CSSProperties} />
-                  </div>
-                  <div className="cube-vis__face cube-vis__face--top">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- decorative face */}
-                    <img src={coverArtPath} alt="" className="cube-vis__face-img" style={cardStyle as React.CSSProperties} />
-                  </div>
-                  <div className="cube-vis__face cube-vis__face--bottom">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- decorative face */}
-                    <img src={coverArtPath} alt="" className="cube-vis__face-img" style={cardStyle as React.CSSProperties} />
-                  </div>
-                </>
-              )}
-            </div>
+          <div ref={attachBox} className="cube-vis__box">
+            {/* WebGL mesh replaces the prior 6-CSS-faces cube. Rotation +
+                beat morphs all live in the shader / useFrame loop inside
+                the mesh component. We still keep the CSS box wrapper for
+                positioning (58% of stage, centered) and so the morph
+                container has a definitive size for the Canvas to fill. */}
+            {coverArtPath && (
+              <CubeVisualizerMesh
+                coverArtPath={coverArtPath}
+                animRef={meshAnimRef}
+                beatRef={meshBeatRef}
+              />
+            )}
           </div>
+        </div>
           </div>
 
       {/* Mirrored EQ — each bar centered on the y=50 axis; scaleY drives the
