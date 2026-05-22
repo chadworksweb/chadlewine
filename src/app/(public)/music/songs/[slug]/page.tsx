@@ -230,7 +230,13 @@ export default async function SongDetailPage({
     fetchBadge(song.title, "Chad Lewine"),
     getPlaybackMode(song.playback_mode),
     fetchSongSkusForIds(supabase, [song.id]),
-    album ? fetchReleaseSkusForIds(supabase, [album.id]) : fetchReleaseSkusForIds(supabase, []),
+    // Only surface album-format SKUs when the album itself is published.
+    // Unreleased albums still pass through getSongData (so the song page can
+    // link to them), but their "Choose Album Format" button must not appear
+    // since the album isn't on sale yet.
+    album && album.status === "published"
+      ? fetchReleaseSkusForIds(supabase, [album.id])
+      : fetchReleaseSkusForIds(supabase, []),
   ]);
 
   // Prefer song_skus rows. If empty, fall back to a synthetic SKU built from
@@ -250,6 +256,7 @@ export default async function SongDetailPage({
           status: "available" as const,
           stock: null,
           display_order: 0,
+          gallery_images: [],
           variants: [],
         },
       ];
@@ -311,6 +318,12 @@ export default async function SongDetailPage({
           ringtone_available:
             !!song.ringtone_price &&
             !!(song.ringtone_path_m4r || song.ringtone_path_mp3),
+          beat_peaks: Array.isArray(song.beat_peaks) ? song.beat_peaks : null,
+          beat_strengths: Array.isArray(song.beat_strengths) ? song.beat_strengths : null,
+          beat_kicks: Array.isArray(song.beat_kicks) ? song.beat_kicks : null,
+          beat_snares: Array.isArray(song.beat_snares) ? song.beat_snares : null,
+          beat_data: Array.isArray(song.beat_data) ? song.beat_data : null,
+          beat_offset_seconds: typeof song.beat_offset_seconds === "number" ? song.beat_offset_seconds : null,
         }}
         album={
           album
@@ -336,6 +349,7 @@ export default async function SongDetailPage({
           price: s.price,
           status: s.status === "discontinued" ? "available" : s.status,
           stock: s.stock,
+          gallery_images: s.gallery_images,
           variants: s.variants,
         }))}
         releaseSkus={releaseSkus.map((s) => ({
@@ -344,6 +358,7 @@ export default async function SongDetailPage({
           price: s.price,
           status: s.status === "discontinued" ? "available" : s.status,
           stock: s.stock,
+          gallery_images: s.gallery_images,
           variants: s.variants,
         }))}
         geoFields={{

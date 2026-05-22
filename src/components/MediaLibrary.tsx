@@ -200,12 +200,12 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
     setDragOver(false);
   }
 
-  async function handleDelete(name: string) {
+  async function handleDelete(name: string, zone?: string) {
     if (!confirm("Delete this image?")) return;
     await fetch("/api/admin/media", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, zone }),
     });
     if (selected?.name === name) setSelected(null);
     fetchImages();
@@ -369,7 +369,7 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
                 <button
                   type="button"
                   className="media-modal__delete-btn"
-                  onClick={() => handleDelete(selected.name)}
+                  onClick={() => handleDelete(selected.name, selected.zone)}
                 >
                   Delete
                 </button>

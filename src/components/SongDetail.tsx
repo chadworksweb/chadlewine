@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MiniPlayer } from "@/components/MiniPlayer";
+import { CubeVisualizer } from "@/components/CubeVisualizer";
 import { CompassIcon } from "@/components/RCBadge";
 import { useCart } from "@/components/Cart";
-import { SkuPicker, type SkuPickerSku } from "@/components/SkuPicker";
+import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
 import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
 import { ExploreGrid } from "@/components/ExploreGrid";
@@ -34,7 +35,31 @@ interface SongProps {
   card_zoom?: number | null;
   ringtone_price?: number | null;
   ringtone_available?: boolean;
+  /** Precomputed beat timestamps (seconds) from scripts/analyze_beats.py.
+   *  Visualizer fires morphs on these timestamps; falls back to live FFT
+   *  detection when null/empty. */
+  beat_peaks?: number[] | null;
+  /** Per-beat full-band onset strength, 0..1 normalized, aligned with beat_peaks. */
+  beat_strengths?: number[] | null;
+  /** Per-beat kick-band (20-160 Hz) energy, 0..1 normalized, aligned with beat_peaks.
+   *  Visualizer skips non-kick beats and scales morph intensity by this value. */
+  beat_kicks?: number[] | null;
+  /** Per-beat snare-band (200-450 Hz) energy, 0..1 normalized, aligned with beat_peaks.
+   *  Drives the corner-strobe effect (airplane wingtip light on snare hits). */
+  beat_snares?: number[] | null;
+  /** Multi-stem hit data from analyze_drums_stems.py. Sparse jsonb array
+   *  of { at, k?, s?, h?, to?, bp?, bs? } per hit. Takes priority over
+   *  the librosa columns above when present. */
+  beat_data?: BeatDataEvent[] | null;
+  /** Seconds to add to every beat_data event time at playback (alignment
+   *  nudge between stem-export timeline and the published MP3). */
+  beat_offset_seconds?: number | null;
 }
+
+type BeatDataEvent = {
+  at: number;
+  k?: number; s?: number; h?: number; to?: number; bp?: number; bs?: number;
+};
 
 interface AlbumProps {
   id: string;
@@ -144,8 +169,8 @@ export function SongDetail({
   visibilitySections?: VisibilitySectionProps[];
   badge?: BadgeProps | null;
   playbackMode?: "preview" | "full";
-  songSkus?: SkuPickerSku[];
-  releaseSkus?: SkuPickerSku[];
+  songSkus?: FormatShowcaseSku[];
+  releaseSkus?: FormatShowcaseSku[];
   geoFields?: GeoFieldsProps | null;
   ifYouLike?: IfYouLikeProps | null;
   pairedArt?: PairedArtProps[];
@@ -155,6 +180,7 @@ export function SongDetail({
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [openExpansions, setOpenExpansions] = useState<Set<string>>(new Set());
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [albumFormatsOpen, setAlbumFormatsOpen] = useState(false);
   const cart = useCart();
   const ringtoneInCart = cart.hasItem({ type: "ringtone", id: song.id, format: null });
   const ringtoneAvailable = !!song.ringtone_available && !!song.ringtone_price;
@@ -219,20 +245,24 @@ export function SongDetail({
   return (
     <div className="track-detail">
       <div className="track-detail__grid">
-        {/* Left column — Cover art (song art overrides album art) */}
+        {/* Left column — immersive cube visualizer. Replaces the static cover;
+            still uses the cover art for cube faces + as the color source for
+            the ambient background. Mirrored EQ bar reads audio while playing. */}
         <div className="track-detail__art-col">
-          {coverArtPath && (
-            <Image
-              src={coverArtPath}
-              alt={coverArtAlt}
-              width={1200}
-              height={1200}
-              className="track-detail__cover"
-              priority
-              sizes="(max-width: 640px) 100vw, 600px"
-              style={focalCropStyle(song.card_focal_x ?? null, song.card_focal_y ?? null, song.card_zoom ?? null)}
-            />
-          )}
+          <CubeVisualizer
+            songId={song.id}
+            coverArtPath={coverArtPath}
+            coverArtAlt={coverArtAlt}
+            cardFocalX={song.card_focal_x ?? null}
+            cardFocalY={song.card_focal_y ?? null}
+            cardZoom={song.card_zoom ?? null}
+            beatPeaks={song.beat_peaks ?? null}
+            beatStrengths={song.beat_strengths ?? null}
+            beatKicks={song.beat_kicks ?? null}
+            beatSnares={song.beat_snares ?? null}
+            beatData={song.beat_data ?? null}
+            beatOffset={song.beat_offset_seconds ?? null}
+          />
         </div>
 
         {/* Right column — Content */}
@@ -264,6 +294,7 @@ export function SongDetail({
               artImagePath={coverArtPath}
               artAlt={coverArtAlt}
               playbackMode={playbackMode}
+              hideTitle
             />
           )}
 
@@ -271,7 +302,7 @@ export function SongDetail({
           <div className="track-detail__action-row">
             <div className="track-detail__actions">
               {songSkus.length > 0 && (
-                <SkuPicker
+                <FormatShowcase
                   kind="song"
                   parentId={song.id}
                   title={song.title}
@@ -281,14 +312,15 @@ export function SongDetail({
                 />
               )}
               {album && releaseSkus.length > 0 && (
-                <SkuPicker
-                  kind="release"
-                  parentId={album.id}
-                  title={album.title}
-                  slug={album.slug}
-                  coverArtPath={album.cover_art_path}
-                  skus={releaseSkus}
-                />
+                <button
+                  type="button"
+                  className="track-detail__btn track-detail__btn--buy-album"
+                  aria-expanded={albumFormatsOpen}
+                  aria-controls="song-album-formats"
+                  onClick={() => setAlbumFormatsOpen((v) => !v)}
+                >
+                  {albumFormatsOpen ? "Hide Album Formats" : "Choose Album Format"}
+                </button>
               )}
               {ringtoneAvailable && song.ringtone_price && (
                 <button
@@ -367,6 +399,27 @@ export function SongDetail({
               </div>
             )}
           </div>
+
+          {/* Collapsible album-format carousel -- expanded by the "Choose
+              Album Format" button in the action row above. */}
+          {album && releaseSkus.length > 0 && (
+            <div
+              id="song-album-formats"
+              className={`track-detail__album-formats${albumFormatsOpen ? " is-open" : ""}`}
+              aria-hidden={!albumFormatsOpen}
+            >
+              <div className="track-detail__album-formats-inner">
+                <FormatShowcase
+                  kind="release"
+                  parentId={album.id}
+                  title={album.title}
+                  slug={album.slug}
+                  coverArtPath={album.cover_art_path}
+                  skus={releaseSkus}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Lyrics */}
           {song.instrumental ? (

@@ -15,6 +15,12 @@ export interface SkuVariantRow {
   display_order: number;
 }
 
+export interface SkuGalleryImage {
+  id: string;
+  url: string;
+  alt: string | null;
+}
+
 export interface ReleaseSkuRow {
   id: string;
   release_id: string;
@@ -23,6 +29,7 @@ export interface ReleaseSkuRow {
   status: SkuStatus;
   stock: number | null;
   display_order: number;
+  gallery_images: SkuGalleryImage[];
   variants: SkuVariantRow[];
 }
 
@@ -34,6 +41,7 @@ export interface SongSkuRow {
   status: SkuStatus;
   stock: number | null;
   display_order: number;
+  gallery_images: SkuGalleryImage[];
   variants: SkuVariantRow[];
 }
 
@@ -47,6 +55,41 @@ function sortSkus<T extends { display_order: number; format: string }>(a: T, b: 
 function sortVariants(a: SkuVariantRow, b: SkuVariantRow): number {
   if (a.display_order !== b.display_order) return a.display_order - b.display_order;
   return a.label.localeCompare(b.label);
+}
+
+// Bulk-fetch the full visible gallery per SKU, ordered with the primary row
+// first (one per SKU, enforced by partial unique index) then by position.
+// Returns a Map<sku_id, SkuGalleryImage[]>.
+async function fetchGalleryImagesForSkus(
+  supabase: SupabaseClient,
+  skuIds: string[],
+  parentCol: "release_sku_id" | "song_sku_id",
+): Promise<Map<string, SkuGalleryImage[]>> {
+  const out = new Map<string, SkuGalleryImage[]>();
+  if (skuIds.length === 0) return out;
+
+  const { data } = await supabase
+    .from("sku_images")
+    .select(`id, ${parentCol}, url, alt, is_primary, position`)
+    .in(parentCol, skuIds)
+    .is("deleted_at", null)
+    .eq("is_hidden", false)
+    .order("is_primary", { ascending: false })
+    .order("position", { ascending: true });
+
+  for (const row of (data || []) as Array<Record<string, unknown>>) {
+    const parentId = row[parentCol] as string | null;
+    const url = row.url as string | null;
+    if (!parentId || !url) continue;
+    const arr = out.get(parentId) ?? [];
+    arr.push({
+      id: row.id as string,
+      url,
+      alt: (row.alt as string | null) ?? null,
+    });
+    out.set(parentId, arr);
+  }
+  return out;
 }
 
 // Fetch sellable release SKUs (and their variants) for one or many releases.
@@ -69,11 +112,15 @@ export async function fetchReleaseSkusForIds(
   if (skuList.length === 0) return out;
 
   const skuIds = skuList.map((s) => s.id);
-  const { data: variantRows } = await supabase
-    .from("sku_variants")
-    .select("id, release_sku_id, label, variant_slug, price_delta, status, stock, display_order")
-    .in("release_sku_id", skuIds)
-    .in("status", ["available", "preorder", "sold_out"]);
+  const [variantRowsRes, galleryImages] = await Promise.all([
+    supabase
+      .from("sku_variants")
+      .select("id, release_sku_id, label, variant_slug, price_delta, status, stock, display_order")
+      .in("release_sku_id", skuIds)
+      .in("status", ["available", "preorder", "sold_out"]),
+    fetchGalleryImagesForSkus(supabase, skuIds, "release_sku_id"),
+  ]);
+  const variantRows = variantRowsRes.data;
 
   const variantsBySku = new Map<string, SkuVariantRow[]>();
   for (const v of (variantRows || []) as Array<SkuVariantRow & { release_sku_id: string }>) {
@@ -101,6 +148,7 @@ export async function fetchReleaseSkusForIds(
       status: sku.status,
       stock: sku.stock,
       display_order: sku.display_order,
+      gallery_images: galleryImages.get(sku.id) ?? [],
       variants: variantsBySku.get(sku.id) || [],
     };
     const arr = out.get(sku.release_id) || [];
@@ -129,11 +177,15 @@ export async function fetchSongSkusForIds(
   if (skuList.length === 0) return out;
 
   const skuIds = skuList.map((s) => s.id);
-  const { data: variantRows } = await supabase
-    .from("sku_variants")
-    .select("id, song_sku_id, label, variant_slug, price_delta, status, stock, display_order")
-    .in("song_sku_id", skuIds)
-    .in("status", ["available", "preorder", "sold_out"]);
+  const [variantRowsRes, galleryImages] = await Promise.all([
+    supabase
+      .from("sku_variants")
+      .select("id, song_sku_id, label, variant_slug, price_delta, status, stock, display_order")
+      .in("song_sku_id", skuIds)
+      .in("status", ["available", "preorder", "sold_out"]),
+    fetchGalleryImagesForSkus(supabase, skuIds, "song_sku_id"),
+  ]);
+  const variantRows = variantRowsRes.data;
 
   const variantsBySku = new Map<string, SkuVariantRow[]>();
   for (const v of (variantRows || []) as Array<SkuVariantRow & { song_sku_id: string }>) {
@@ -161,6 +213,7 @@ export async function fetchSongSkusForIds(
       status: sku.status,
       stock: sku.stock,
       display_order: sku.display_order,
+      gallery_images: galleryImages.get(sku.id) ?? [],
       variants: variantsBySku.get(sku.id) || [],
     };
     const arr = out.get(sku.song_id) || [];

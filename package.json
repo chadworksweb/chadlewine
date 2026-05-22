@@ -13,11 +13,14 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@marsidev/react-turnstile": "^1.5.2",
+    "@react-three/fiber": "^9.6.1",
     "@supabase/supabase-js": "^2.100.0",
+    "@types/three": "^0.184.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "dotenv": "^17.3.1",
     "gray-matter": "^4.0.3",
+    "hls.js": "^1.6.16",
     "next": "^16.2.3",
     "posthog-js": "^1.367.0",
     "react": "19.2.4",
@@ -27,6 +30,7 @@
     "resend": "^4.8.0",
     "stripe": "^21.0.1",
     "svix": "^1.93.0",
+    "three": "^0.184.0",
     "tsx": "^4.21.0"
   },
   "devDependencies": {

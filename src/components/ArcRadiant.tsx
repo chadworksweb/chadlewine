@@ -135,6 +135,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
     music: true, lifeEvents: true, lifeEras: true, releaseEras: true, compass: true,
   });
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   // Pixel position of the click that opened the modal, relative to the
   // outer .arc-radiant container. Drives both the radial-gradient "hole"
@@ -181,10 +182,12 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
   const [yearStart, yearEnd] = data.yearRange;
   const yearSpan = Math.max(1, yearEnd - yearStart);
 
-  // Canvas height is fixed: viewport scaling was leaving empty vertical
-  // space above the highest branch on big screens and crushing the same
-  // area on small screens. The fixed value matches the content envelope.
-  const canvasHeight = CANVAS_HEIGHT;
+  // Canvas height is normally fixed at CANVAS_HEIGHT. In fullscreen we track
+  // the canvas element's measured clientHeight so the inner content fills the
+  // viewport. Branch heights below scale proportionally so dots use the
+  // larger area instead of clustering near the spine.
+  const [fullscreenCanvasHeight, setFullscreenCanvasHeight] = useState<number>(CANVAS_HEIGHT);
+  const canvasHeight = isFullscreen ? fullscreenCanvasHeight : CANVAS_HEIGHT;
 
   // Mirror canvas scrollLeft + clientWidth in state so the overview locator can
   // render the viewport box in the same coordinate space the canvas scrolls in.
@@ -226,6 +229,16 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
   const branchTop = canvasHeight - BRANCH_TOP_PADDING;
   function clamp(h: number): number {
     return Math.max(BRANCH_BOTTOM, Math.min(branchTop, h));
+  }
+
+  // Linear scale that maps the standard 400px-tall canvas patterns into the
+  // current canvas. BRANCH_BOTTOM is fixed (era zone above the spine), so we
+  // scale only the headroom above it. Identity (1.0) at default canvasHeight.
+  const baseBranchHeadroom = CANVAS_HEIGHT - BRANCH_TOP_PADDING - BRANCH_BOTTOM;
+  const currentBranchHeadroom = branchTop - BRANCH_BOTTOM;
+  const branchHeightScale = baseBranchHeadroom > 0 ? currentBranchHeadroom / baseBranchHeadroom : 1;
+  function scalePattern(p: number): number {
+    return BRANCH_BOTTOM + (p - BRANCH_BOTTOM) * branchHeightScale;
   }
 
   // Pinch state (two-pointer)
@@ -302,6 +315,69 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     return (yearFloat - yearStart) * pxPerYear;
   }
 
+  // Measure canvas clientHeight while fullscreen so the inner content fills
+  // the viewport (minus toolbar). Falls back to the fixed CANVAS_HEIGHT when
+  // not fullscreen so the page renders at its compact, site-width size.
+  useEffect(() => {
+    if (!isFullscreen) {
+      setFullscreenCanvasHeight(CANVAS_HEIGHT);
+      return;
+    }
+    const el = canvasRef.current;
+    if (!el) return;
+    const update = () => {
+      const h = el.clientHeight;
+      if (h > 0) setFullscreenCanvasHeight(h);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isFullscreen]);
+
+  // Body scroll lock + ESC-to-exit while fullscreen.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.classList.add("arc-radiant-fullscreen-active");
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsFullscreen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.classList.remove("arc-radiant-fullscreen-active");
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [isFullscreen]);
+
+  // Optional browser Fullscreen API sync. Best-effort: if the request fails
+  // (permissions, unsupported), the app-level fullscreen still works. Listen
+  // for fullscreenchange so user-initiated F11/ESC stays in sync with state.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = rootEl;
+    if (!root) return;
+    if (isFullscreen) {
+      if (document.fullscreenElement !== root && root.requestFullscreen) {
+        root.requestFullscreen().catch(() => {});
+      }
+    } else if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, [isFullscreen, rootEl]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    function onFsChange() {
+      const active = document.fullscreenElement === rootEl;
+      setIsFullscreen((prev) => (prev !== active ? active : prev));
+    }
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, [rootEl]);
+
   // Apply pending scrollLeft after the inner div has re-rendered at the new
   // totalWidth, so locator-driven zoom changes don't get clamped by the old
   // maxScroll bound. setScrollLeft mirrors the new value back into state.
@@ -318,7 +394,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
   }, [totalWidth]);
 
   return (
-    <div className="arc-radiant" ref={setRootEl}>
+    <div className={`arc-radiant${isFullscreen ? " arc-radiant--fullscreen" : ""}`} ref={setRootEl}>
       <div className="arc-radiant__upper">
         <aside className="arc-radiant__key" aria-label="Layer key">
           <h3 className="arc-radiant__key-title">Key</h3>
@@ -370,6 +446,41 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                 Switch to Prose →
               </Link>
             )}
+            <button
+              type="button"
+              className="arc-radiant__fullscreen-btn"
+              onClick={() => setIsFullscreen((v) => !v)}
+              aria-pressed={isFullscreen}
+              aria-label={isFullscreen ? "Exit fullscreen (Esc)" : "Enter fullscreen"}
+              title={isFullscreen ? "Exit fullscreen (Esc)" : "Enter fullscreen"}
+            >
+              {isFullscreen ? (
+                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                  <path
+                    d="M6 1v4H2M10 1v4h4M6 15v-4H2M10 15v-4h4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                  <path
+                    d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+              <span className="arc-radiant__fullscreen-label">
+                {isFullscreen ? "Exit" : "Fullscreen"}
+              </span>
+            </button>
           </div>
         </div>
         <div
@@ -474,7 +585,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                 .filter((e): e is { a: ArcRelease; i: number; x: number } => e.x != null)
                 .sort((a, b) => a.x - b.x);
               return items.map(({ a, i, x }) => {
-                const branchHeight = clamp(ALBUM_HEIGHT_PATTERN[i % ALBUM_HEIGHT_PATTERN.length]);
+                const branchHeight = clamp(scalePattern(ALBUM_HEIGHT_PATTERN[i % ALBUM_HEIGHT_PATTERN.length]));
                 const isSelected = selectedItem?.type === "release" && selectedItem.data.id === a.id;
                 return (
                   <button
@@ -502,7 +613,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                 .filter((e): e is { ev: ArcLifeEvent; i: number; x: number } => e.x != null)
                 .sort((a, b) => a.x - b.x);
               return events.map(({ ev, i, x }) => {
-                const branchHeight = clamp(EVENT_HEIGHT_PATTERN[i % EVENT_HEIGHT_PATTERN.length]);
+                const branchHeight = clamp(scalePattern(EVENT_HEIGHT_PATTERN[i % EVENT_HEIGHT_PATTERN.length]));
                 const isSelected = selectedItem?.type === "event" && selectedItem.data.id === ev.id;
                 return (
                   <button

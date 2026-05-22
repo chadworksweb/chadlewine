@@ -17,6 +17,17 @@ interface DownloadItem {
   formatLinks: Array<{ format: "mp3" | "flac" | "wav"; url: string }>;
 }
 
+interface FanTrackItem {
+  grant_id: string;
+  slug: string;
+  title: string;
+  artist_credit: string;
+  cover_art_path: string | null;
+  url: string;
+  granted_at: string;
+  first_played_at: string | null;
+}
+
 export interface AccountAudience {
   id: string;
   email: string;
@@ -138,6 +149,7 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
   };
   const [portalBusy, setPortalBusy] = useState(false);
   const [downloads, setDownloads] = useState<DownloadItem[] | null>(null);
+  const [fanTracks, setFanTracks] = useState<FanTrackItem[] | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const copyCode = async (code: string) => {
@@ -168,6 +180,12 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
       .then((r) => r.json())
       .then((d) => {
         if (!cancelled && Array.isArray(d.items)) setDownloads(d.items);
+      })
+      .catch(() => {});
+    fetch("/api/account/fan-tracks")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && Array.isArray(d.items)) setFanTracks(d.items);
       })
       .catch(() => {});
     return () => {
@@ -407,6 +425,43 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
         </div>
 
         <div className="account-dashboard__column">
+        {fanTracks && fanTracks.length > 0 && (
+          <section className="account-dashboard__card account-dashboard__card--fan-tracks">
+            <h2 className="account-dashboard__card-title">For my fans</h2>
+            <p className="account-dashboard__hint">
+              Unreleased tracks &mdash; yours because you bought something
+              real. Earned, not shared.
+            </p>
+            <ul className="account-dashboard__fan-tracks">
+              {fanTracks.map((ft) => {
+                const monogram = (ft.title.trim()[0] || "C").toUpperCase();
+                return (
+                  <li key={ft.grant_id} className="account-dashboard__fan-track">
+                    <div className="account-dashboard__fan-track-art" aria-hidden="true">
+                      {ft.cover_art_path ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={ft.cover_art_path} alt="" />
+                      ) : (
+                        <span>{monogram}</span>
+                      )}
+                    </div>
+                    <div className="account-dashboard__fan-track-body">
+                      <div className="account-dashboard__fan-track-title">{ft.title}</div>
+                      <div className="account-dashboard__fan-track-artist">{ft.artist_credit}</div>
+                    </div>
+                    <Link
+                      href={ft.url}
+                      className="account-dashboard__fan-track-btn"
+                    >
+                      Listen
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {initial.coupons.length > 0 && (
           <section className="account-dashboard__card">
             <h2 className="account-dashboard__card-title">Your coupons</h2>

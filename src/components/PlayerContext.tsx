@@ -41,6 +41,16 @@ type PlayerContextValue = {
   /** seek by fraction (0..1) within the active window */
   seek: (pct: number) => void;
   isCurrent: (id: string) => boolean;
+  /** Lazy-create a WebAudio AnalyserNode wired to the player's audio element.
+   *  Returns null on browsers without WebAudio or when CORS prevents it.
+   *  Safe to call from visualizers — same node is reused across calls. */
+  getAnalyser: () => AnalyserNode | null;
+  /** Returns the live audio element's currentTime in seconds — used by the
+   *  visualizer's precomputed-beat scheduler which needs frame-accurate
+   *  playback position (the public displayTime is throttled to 10Hz to keep
+   *  re-renders cheap, so it's too coarse for beat triggers). Returns 0
+   *  when no audio is loaded. */
+  getCurrentTime: () => number;
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -66,10 +76,19 @@ type PlaySession = {
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const rafRef = useRef<number>(0);
   const fadeInRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentRef = useRef<PlayerSong | null>(null);
   const sessionRef = useRef<PlaySession | null>(null);
+  // Tracks the last setAudioTime push so the rAF tick can throttle updates
+  // to ~10 Hz. setState here re-renders every consumer of PlayerContext
+  // (including the WebGL CubeVisualizer); doing that 60x/sec dropped frames
+  // and made the progress bar lag visibly behind the audio. 100ms is far
+  // faster than the eye perceives on a long progress fill.
+  const lastAudioTimePushRef = useRef<number>(0);
 
   const [current, setCurrent] = useState<PlayerSong | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -77,10 +96,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [resolvedDuration, setResolvedDuration] = useState(0);
   const [audioTime, setAudioTime] = useState(0);
 
-  // Lazy-create the audio element once on the client
+  // Lazy-create the audio element once on the client. crossOrigin must be set
+  // BEFORE src for CORS to take effect on stream requests, which the WebAudio
+  // analyser needs to read frequency data (else getByteFrequencyData returns
+  // all zeros). Bunny pull zones return CORS headers so this is non-breaking.
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
+      audioRef.current.crossOrigin = "anonymous";
       audioRef.current.preload = "metadata";
     }
     return () => {
@@ -93,6 +116,42 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         a.load();
       }
     };
+  }, []);
+
+  // Lazy WebAudio graph for visualizers. First caller after a user-gesture
+  // play() will succeed; calls before any playback may also succeed (modern
+  // browsers allow AudioContext creation, just suspended until resume()).
+  const getAnalyser = useCallback((): AnalyserNode | null => {
+    if (analyserRef.current) return analyserRef.current;
+    if (typeof window === "undefined") return null;
+    const audio = audioRef.current;
+    if (!audio) return null;
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return null;
+    try {
+      const ctx = audioCtxRef.current ?? new Ctx();
+      audioCtxRef.current = ctx;
+      const source = sourceNodeRef.current ?? ctx.createMediaElementSource(audio);
+      sourceNodeRef.current = source;
+      const analyser = ctx.createAnalyser();
+      // fftSize 1024 -> 512 bins -> ~43Hz per bin at 44.1kHz sample rate.
+      // The FFT window itself is only ~23ms long (vs 46ms at 2048), which
+      // halves the inherent detection latency. We lose some sub-bass
+      // resolution but bin 1 (43-86Hz) still captures the kick fundamental
+      // cleanly. Smaller window = peak energy appears in the bin sooner
+      // after a kick attack, so the detector fires closer to on-beat.
+      analyser.fftSize = 1024;
+      // No smoothing at all. Spectral-flux onset detection needs raw FFT
+      // values to compute accurate frame-to-frame deltas; any smoothing
+      // attenuates the attack edge that the detector is looking for.
+      analyser.smoothingTimeConstant = 0;
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+      analyserRef.current = analyser;
+      return analyser;
+    } catch {
+      return null;
+    }
   }, []);
 
   // Anonymous play-count recording. One row per session (>= PLAY_MIN_SECONDS).
@@ -195,7 +254,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const song = currentRef.current;
     if (!audio || audio.paused || !song) return;
 
-    setAudioTime(audio.currentTime);
+    // Throttled state push — 100ms between updates is plenty for a
+    // smooth-looking progress bar and saves ~5x the re-render cost.
+    const nowMs = performance.now();
+    if (nowMs - lastAudioTimePushRef.current >= 100) {
+      lastAudioTimePushRef.current = nowMs;
+      setAudioTime(audio.currentTime);
+    }
 
     // Update the active session's max seconds heard (mode-normalized so
     // preview mode measures time inside the preview window, not raw currentTime).
@@ -278,6 +343,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         audio.play().then(() => {
           setLoading(false);
           setPlaying(true);
+          // Resume any suspended AudioContext now that we're inside a user gesture
+          // chain; without this, the visualizer analyser yields silent data on
+          // browsers (Safari, some Chrome configs) that require explicit resume.
+          if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+            audioCtxRef.current.resume().catch(() => {});
+          }
 
           if (song.playbackMode === "preview") {
             // Fade in
@@ -359,16 +430,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const song = currentRef.current;
     if (!audio || !song) return;
     const clamped = Math.max(0, Math.min(1, pct));
+    // Compute the target time we ASKED for and use that for the immediate
+    // visual update. audio.currentTime read-back after assignment can be
+    // delayed/snapped by the browser (CORS streams especially) which is
+    // what made scrub clicks appear to "stick" or jump back to the wrong
+    // position. We also reset the throttle so the next tick re-syncs
+    // promptly with the audio's actual position.
+    let target: number;
     if (song.playbackMode === "preview") {
-      audio.currentTime = PREVIEW_START + clamped * PREVIEW_DURATION;
+      target = PREVIEW_START + clamped * PREVIEW_DURATION;
     } else {
       const dur = resolvedDuration > 0 ? resolvedDuration : audio.duration || 0;
-      if (dur > 0) audio.currentTime = clamped * dur;
+      target = dur > 0 ? clamped * dur : 0;
     }
-    setAudioTime(audio.currentTime);
+    audio.currentTime = target;
+    lastAudioTimePushRef.current = 0;
+    setAudioTime(target);
   }, [resolvedDuration]);
 
   const isCurrent = useCallback((id: string) => currentRef.current?.id === id, []);
+
+  const getCurrentTime = useCallback(() => {
+    return audioRef.current?.currentTime ?? 0;
+  }, []);
 
   // Derive display values
   const isPreview = current?.playbackMode === "preview";
@@ -397,6 +481,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         stop,
         seek,
         isCurrent,
+        getAnalyser,
+        getCurrentTime,
       }}
     >
       {children}

@@ -3,41 +3,48 @@ import { renderTemplateBySlug } from "@/lib/email-blocks";
 
 export const dynamic = "force-dynamic";
 
-interface FanOdePreviewProps {
-  searchParams: Promise<{ first_name?: string; token?: string }>;
+interface Props {
+  searchParams: Promise<{
+    first_name?: string;
+    token?: string;
+    track_url?: string;
+  }>;
 }
 
-export default async function FanOdePreview({ searchParams }: FanOdePreviewProps) {
+const SLUG = "for-my-fans-01";
+
+export default async function ForMyFans01Preview({ searchParams }: Props) {
   const sp = await searchParams;
   const firstName = sp.first_name ?? "Chad";
   const token = sp.token ?? "preview-token-aabbccddeeff0011";
+  const trackUrl =
+    sp.track_url ??
+    `https://chadlewine.com/${SLUG}?token=${encodeURIComponent(token)}`;
 
-  const rendered = await renderTemplateBySlug("fan-ode", {
+  const rendered = await renderTemplateBySlug(SLUG, {
     first_name: firstName,
     token,
+    track_url: trackUrl,
   });
 
   if (!rendered) {
     return (
       <div className="admin-page">
         <div className="admin-page__header">
-          <h1 className="admin-page__title">Fan-ode template missing</h1>
+          <h1 className="admin-page__title">for-my-fans-01 template missing</h1>
         </div>
         <p style={{ color: "var(--text-tertiary)" }}>
-          The <code>fan-ode</code> template hasn&rsquo;t been seeded yet. Run the
-          {" "}<code>20260516140000_email_blocks.sql</code> migration in
-          Supabase SQL Editor.
+          The <code>for-my-fans-01</code> template hasn&rsquo;t been seeded yet.
+          Run <code>20260519130100_fan_track_email_template.sql</code>.
         </p>
       </div>
     );
   }
 
-  const html = rendered.html;
-
   return (
     <div className="admin-page">
       <div className="admin-page__header">
-        <h1 className="admin-page__title">Fan-ode email preview</h1>
+        <h1 className="admin-page__title">For-my-fans-01 email preview</h1>
       </div>
 
       <form method="get" className="email-preview__controls">
@@ -60,6 +67,15 @@ export default async function FanOdePreview({ searchParams }: FanOdePreviewProps
             className="email-preview__input"
           />
         </label>
+        <label className="email-preview__label">
+          Track URL
+          <input
+            type="text"
+            name="track_url"
+            defaultValue={trackUrl}
+            className="email-preview__input"
+          />
+        </label>
         <button type="submit" className="admin-btn admin-btn--secondary">
           Re-render
         </button>
@@ -67,7 +83,7 @@ export default async function FanOdePreview({ searchParams }: FanOdePreviewProps
 
       <p className="email-preview__hint">
         Edit blocks in{" "}
-        <Link href="/admin/email-templates/fan-ode" className="admin-table__link">
+        <Link href={`/admin/email-templates/${SLUG}`} className="admin-table__link">
           the block editor
         </Link>
         . Globals (header + footer) live{" "}
@@ -78,8 +94,8 @@ export default async function FanOdePreview({ searchParams }: FanOdePreviewProps
       </p>
 
       <iframe
-        title="Fan-ode email preview"
-        srcDoc={html}
+        title="For-my-fans-01 email preview"
+        srcDoc={rendered.html}
         className="email-preview__frame"
       />
     </div>

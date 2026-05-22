@@ -5,7 +5,8 @@ export type MediaType =
   | "cover-art"
   | "music-streaming"
   | "music-download"
-  | "art-fullres";
+  | "art-fullres"
+  | "fan-track";
 
 export type MediaTypeConfig = {
   storageZone: string;
@@ -41,6 +42,16 @@ const AUDIO_MIME_TYPES = [
   "audio/mp4",
   "audio/x-m4a",
   "audio/aac",
+  "application/octet-stream",
+] as const;
+
+// HLS playlist + segment ingest. application/octet-stream covers
+// segment%03d.ts uploads from some ffmpeg + node-fetch combos.
+const HLS_MIME_TYPES = [
+  "application/vnd.apple.mpegurl",
+  "application/x-mpegurl",
+  "audio/mpegurl",
+  "video/mp2t",
   "application/octet-stream",
 ] as const;
 
@@ -95,6 +106,15 @@ export const MEDIA_TYPE_CONFIG: Record<MediaType, MediaTypeConfig> = {
     tokenKey: env("BUNNY_TOKEN_KEY_ART"),
     allowedMimeTypes: PRINT_IMAGE_MIME_TYPES,
     label: "Art full-res",
+  },
+  "fan-track": {
+    storageZone: env("BUNNY_STORAGE_ZONE_FAN_TRACKS"),
+    storagePassword: env("BUNNY_STORAGE_ZONE_FAN_TRACKS_PASSWORD"),
+    pullZoneUrl: env("BUNNY_PULL_ZONE_FAN_TRACKS"),
+    tokenAuth: true,
+    tokenKey: env("BUNNY_TOKEN_KEY_FAN_TRACKS"),
+    allowedMimeTypes: HLS_MIME_TYPES,
+    label: "Fan-track HLS",
   },
 };
 

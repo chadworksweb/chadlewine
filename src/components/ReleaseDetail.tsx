@@ -4,7 +4,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/components/Cart";
-import { SkuPicker, type SkuPickerSku } from "@/components/SkuPicker";
+import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
+import type { SkuGalleryImage } from "@/lib/release-skus";
 
 interface AlbumProps {
   id: string;
@@ -25,6 +26,7 @@ interface SongProps {
   duration_seconds: number | null;
   streaming_path: string | null;
   price: number | null;
+  song_summary?: string | null;
   playback_mode?: "preview" | "full";
   download_formats?: Array<"mp3" | "flac" | "wav">;
   ringtone_available?: boolean;
@@ -71,47 +73,11 @@ function CompassIcon({ charge, tierHex }: { charge: number; tierHex: string }) {
   );
 }
 
-// Seeded PRNG for deterministic waveform
-function mulberry32(seed: number) {
-  return function () {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) | 0;
-  }
-  return hash;
-}
-
-function generateBars(title: string, count: number): number[] {
-  const rng = mulberry32(hashString(title));
-  const raw: number[] = [];
-  for (let i = 0; i < count; i++) {
-    const base = rng() * 0.6 + 0.2;
-    const detail = (rng() - 0.5) * 0.3;
-    raw.push(Math.max(0.15, Math.min(1, base + detail)));
-  }
-  const smoothed: number[] = [];
-  for (let i = 0; i < raw.length; i++) {
-    const prev = raw[i - 1] ?? raw[i];
-    const next = raw[i + 1] ?? raw[i];
-    smoothed.push(prev * 0.2 + raw[i] * 0.6 + next * 0.2);
-  }
-  return smoothed;
-}
-
 const PREVIEW_START = 13;
 const PREVIEW_DURATION = 30;
 const FADE_DURATION = 2;
-const BAR_COUNT = 50;
-const CIRCUMFERENCE = 2 * Math.PI * 18;
+const PLAY_RING_RADIUS = 12;
+const PLAY_RING_CIRCUMFERENCE = 2 * Math.PI * PLAY_RING_RADIUS;
 
 export function ReleaseDetail({
   album,
@@ -122,11 +88,43 @@ export function ReleaseDetail({
   album: AlbumProps;
   songs: SongProps[];
   badge?: AlbumBadgeProps | null;
-  skus?: SkuPickerSku[];
+  skus?: FormatShowcaseSku[];
 }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeGallery, setActiveGallery] = useState<SkuGalleryImage[]>([]);
+  const [activeGalleryUrl, setActiveGalleryUrl] = useState<string | null>(null);
+
+  // Layered render of the active art image so swaps crossfade instead of
+  // flashing. Each url change pushes a new layer; older layers drop out
+  // once the new one's fade-in finishes.
+  const [galleryLayers, setGalleryLayers] = useState<Array<{ key: number; url: string; alt: string }>>([]);
+  const galleryLayerCounterRef = useRef(0);
+
+  useEffect(() => {
+    if (!activeGalleryUrl) {
+      // Clear after the fade-out so the previous gallery image can dissolve
+      // into the album cover beneath instead of snapping out.
+      const t = setTimeout(() => setGalleryLayers([]), 420);
+      return () => clearTimeout(t);
+    }
+    const meta = activeGallery.find((g) => g.url === activeGalleryUrl);
+    const alt = meta?.alt || album.title;
+    const key = ++galleryLayerCounterRef.current;
+    setGalleryLayers((prev) => [...prev, { key, url: activeGalleryUrl, alt }]);
+    const t = setTimeout(() => {
+      setGalleryLayers((prev) => prev.filter((l) => l.key === key));
+    }, 420);
+    return () => clearTimeout(t);
+  }, [activeGalleryUrl, activeGallery, album.title]);
+
+  const handleFormatSelection = useCallback((sku: FormatShowcaseSku | null) => {
+    const imgs = sku?.gallery_images ?? [];
+    setActiveGallery(imgs);
+    setActiveGalleryUrl(imgs[0]?.url ?? null);
+  }, []);
   const cart = useCart();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number>(0);
@@ -225,10 +223,60 @@ export function ReleaseDetail({
     audio.load();
   }
 
+  const hasMultipleFormats = skus.length > 1;
+
+  // Rising Compass badge -- rendered identically whether it lives in the
+  // info bar (multiple formats) or the action row (single format). Falls
+  // back to null when no badge data exists.
+  const badgeBlock = badge ? (
+    <div className="track-detail__rc-badge">
+      <a
+        href={badge.artistSlug ? `https://risingcompass.net/artists/${encodeURIComponent(badge.artistSlug)}` : "https://risingcompass.net"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="track-detail__rc-compass-link"
+      >
+        <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
+      </a>
+      <div className="track-detail__rc-data">
+        <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
+          {badge.tierLabel}
+        </span>
+        <div className="track-detail__rc-charge-row">
+          <span className="track-detail__rc-charge">
+            {badge.charge > 0 ? "+" : ""}{badge.charge}
+          </span>
+          {badge.chargeSummary && (
+            <div className="track-detail__rc-summary-wrap">
+              <button
+                type="button"
+                className="track-detail__rc-summary-btn"
+                onClick={() => setSummaryOpen((v) => !v)}
+                aria-label="Read charge summary"
+                title="Charge summary"
+              >
+                &#x1F4AC;
+              </button>
+              {summaryOpen && (
+                <div className="track-detail__rc-summary-tooltip">
+                  <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
+                  {badge.contaminated && badge.contaminationNote && (
+                    <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="track-detail">
       <div className="track-detail__grid">
-        {/* Left — Album art */}
+        {/* Left -- Album cover always sits as the base layer; the selected
+            format gallery (if any) overlays it and crossfades on swap. */}
         <div className="track-detail__art-col">
           {album.cover_art_path && (
             <Image
@@ -241,12 +289,56 @@ export function ReleaseDetail({
               priority
             />
           )}
+          {galleryLayers.length > 0 && (
+            <div
+              className={`track-detail__gallery-frame${activeGalleryUrl ? "" : " is-leaving"}`}
+            >
+              {galleryLayers.map((layer) => (
+                /* eslint-disable-next-line @next/next/no-img-element -- gallery uploads vary; Next/Image optimizer over-compresses Bunny mockups. */
+                <img
+                  key={layer.key}
+                  src={layer.url}
+                  alt={layer.alt}
+                  className="track-detail__gallery-img"
+                  decoding="async"
+                />
+              ))}
+            </div>
+          )}
+          {activeGallery.length > 1 && (
+            <div
+              className="product-detail__gallery product-detail__gallery--floating"
+              role="list"
+              aria-label="Format gallery"
+            >
+              {activeGallery.map((img) => {
+                const isActive = img.url === activeGalleryUrl;
+                return (
+                  <button
+                    key={img.id}
+                    type="button"
+                    role="listitem"
+                    onClick={() => setActiveGalleryUrl(img.url)}
+                    className={`product-detail__thumb${isActive ? " product-detail__thumb--active" : ""}`}
+                    aria-current={isActive ? "true" : undefined}
+                    aria-label={img.alt || "Show this image"}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.url} alt={img.alt || ""} decoding="async" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right — Album content */}
         <div className="track-detail__content-col">
           <h1 className="track-detail__title">{album.title}</h1>
 
+          {/* With multiple formats the album-level "Format" cell is ambiguous
+             (FormatShowcase already shows them all), so we hide it and pull
+             the Rising Compass badge up into the info bar in its place. */}
           {/* Info bar */}
           <div className="track-detail__info-bar" data-cols={3}>
             <div className="track-detail__info-cell">
@@ -259,81 +351,48 @@ export function ReleaseDetail({
                 <span className="track-detail__info-value">{year}</span>
               </div>
             )}
-            {album.format_label && (
+            {!hasMultipleFormats && album.format_label && (
               <div className="track-detail__info-cell">
                 <span className="track-detail__info-label">Format</span>
                 <span className="track-detail__info-value">{album.format_label}</span>
               </div>
             )}
+            {hasMultipleFormats && badgeBlock && (
+              <div className="track-detail__info-cell track-detail__info-cell--rc">
+                {badgeBlock}
+              </div>
+            )}
           </div>
 
-          {/* Action row: buy button + RC badge */}
+          {/* Action row: buy block (+ RC badge only when there's a single format) */}
           <div className="track-detail__action-row">
             <div className="track-detail__actions">
-              <SkuPicker
+              <FormatShowcase
                 kind="release"
                 parentId={album.id}
                 title={album.title}
                 slug={album.slug}
                 coverArtPath={album.cover_art_path}
                 skus={skus}
+                onSelectionChange={handleFormatSelection}
               />
             </div>
 
-            {badge && (
-              <div className="track-detail__rc-badge">
-                <a
-                  href={badge.artistSlug ? `https://risingcompass.net/artists/${encodeURIComponent(badge.artistSlug)}` : "https://risingcompass.net"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="track-detail__rc-compass-link"
-                >
-                  <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
-                </a>
-                <div className="track-detail__rc-data">
-                  <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
-                    {badge.tierLabel}
-                  </span>
-                  <div className="track-detail__rc-charge-row">
-                    <span className="track-detail__rc-charge">
-                      {badge.charge > 0 ? "+" : ""}{badge.charge}
-                    </span>
-                    {badge.chargeSummary && (
-                      <div className="track-detail__rc-summary-wrap">
-                        <button
-                          type="button"
-                          className="track-detail__rc-summary-btn"
-                          onClick={() => setSummaryOpen((v) => !v)}
-                          aria-label="Read charge summary"
-                          title="Charge summary"
-                        >
-                          &#x1F4AC;
-                        </button>
-                        {summaryOpen && (
-                          <div className="track-detail__rc-summary-tooltip">
-                            <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
-                            {badge.contaminated && badge.contaminationNote && (
-                              <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            {!hasMultipleFormats && badgeBlock}
           </div>
 
-          {/* Mini player track listing */}
+          {album.concept_statement && (
+            <div className="track-detail__concept" style={{ whiteSpace: "pre-wrap" }}>
+              {album.concept_statement}
+            </div>
+          )}
+
+          {/* Playlist-style track listing */}
           {songs.length > 0 && (
-            <div className="album-detail__player">
+            <ol className="album-detail__tracklist">
               {songs.map((song) => {
                 const isActive = playingId === song.id;
                 const hasAudio = !!song.streaming_path;
-                const bars = generateBars(song.title, BAR_COUNT);
-                const songProgress = isActive ? progress : 0;
-                const ringOffset = CIRCUMFERENCE - songProgress * CIRCUMFERENCE;
                 const downloadFormats = song.download_formats || [];
                 const canDownload = !!song.price && downloadFormats.length > 0;
                 const inCart = canDownload
@@ -344,174 +403,227 @@ export function ReleaseDetail({
                   ? cart.hasItem({ type: "ringtone", id: song.id, format: null })
                   : false;
 
+                const isExpanded = expandedId === song.id;
+                const panelId = `tracklist-panel-${song.id}`;
                 return (
-                  <div
+                  <li
                     key={song.id}
-                    className={`mini-player ${isActive ? "mini-player--active" : ""} ${!hasAudio ? "mini-player--no-audio" : ""}`}
+                    className={`tracklist-row${isActive ? " tracklist-row--active" : ""}${!hasAudio ? " tracklist-row--no-audio" : ""}${isExpanded ? " tracklist-row--expanded" : ""}`}
                   >
-                    <button
-                      type="button"
-                      className="mini-player__play-btn"
-                      onClick={hasAudio ? () => handlePlay(song) : undefined}
-                      disabled={!hasAudio}
-                      aria-label={isActive ? "Stop preview" : "Play preview"}
-                    >
-                      <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
-                        <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
-                        <circle
-                          className="mini-player__ring-progress"
-                          cx="20" cy="20" r="18"
-                          style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
-                        />
-                      </svg>
-                      <span className="mini-player__icon" />
-                    </button>
-
-                    <span className="mini-player__number">{song.track_number}</span>
-
-                    <Link
-                      href={`/music/songs/${song.slug}`}
-                      className="mini-player__name"
-                    >
-                      {song.title}
-                    </Link>
-
-                    <div className="mini-player__waveform">
-                      <div className="mini-player__wf-layer mini-player__wf-bg">
-                        <div className="mini-player__wf-main">
-                          {bars.map((h, i) => <span key={i} style={{ height: `${h * 100}%` }} />)}
-                        </div>
-                        <div className="mini-player__wf-reflect">
-                          {bars.map((h, i) => <span key={i} style={{ height: `${h * 100}%` }} />)}
-                        </div>
-                      </div>
-                      <div
-                        className="mini-player__wf-layer mini-player__wf-fg-clip"
-                        style={{ width: `${songProgress * 100}%` }}
-                      >
-                        <div className="mini-player__wf-fg-inner">
-                          <div className="mini-player__wf-main">
-                            {bars.map((h, i) => <span key={i} style={{ height: `${h * 100}%` }} />)}
-                          </div>
-                          <div className="mini-player__wf-reflect">
-                            {bars.map((h, i) => <span key={i} style={{ height: `${h * 100}%` }} />)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <span className="mini-player__duration">
-                      {song.duration_seconds ? formatDuration(song.duration_seconds) : "—"}
-                    </span>
-
-                    <button
-                      type="button"
-                      className={`mini-player__download${inCart ? " mini-player__download--in-cart" : ""}`}
-                      onClick={() => {
-                        if (inCart || !canDownload || !song.price) return;
-                        cart.add({
-                          type: "song",
-                          id: song.id,
-                          title: song.title,
-                          slug: song.slug,
-                          price: song.price,
-                          format: null,
-                          cover_art_path: album.cover_art_path,
-                        });
-                      }}
-                      disabled={!canDownload || inCart}
-                      aria-disabled={inCart}
-                      aria-label={
-                        !canDownload
-                          ? "Download not available"
-                          : inCart
-                            ? `${song.title} already in cart`
-                            : `Add ${song.title} to cart`
-                      }
-                      title={
-                        !canDownload
-                          ? "Download not available"
-                          : inCart
-                            ? "Already in cart"
-                            : "Add to cart"
-                      }
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                    </button>
-
-                    {ringtoneAvailable && (
+                    <div className="tracklist-row__head">
+                      <span className="tracklist-row__num">
+                        {String(song.track_number).padStart(2, "0")}
+                      </span>
                       <button
                         type="button"
-                        className={`mini-player__ringtone${ringtoneInCart ? " mini-player__ringtone--in-cart" : ""}`}
+                        className="tracklist-row__play-btn"
+                        onClick={hasAudio ? () => handlePlay(song) : undefined}
+                        disabled={!hasAudio}
+                        aria-label={isActive ? "Stop preview" : `Play ${song.title} preview`}
+                      >
+                        <svg
+                          className="tracklist-row__play-ring"
+                          viewBox="0 0 26 26"
+                          aria-hidden="true"
+                        >
+                          <circle
+                            className="tracklist-row__play-ring-track"
+                            cx="13"
+                            cy="13"
+                            r={PLAY_RING_RADIUS}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                          <circle
+                            className="tracklist-row__play-ring-progress"
+                            cx="13"
+                            cy="13"
+                            r={PLAY_RING_RADIUS}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeDasharray={PLAY_RING_CIRCUMFERENCE}
+                            strokeDashoffset={
+                              PLAY_RING_CIRCUMFERENCE *
+                              (1 - (isActive ? progress : 0))
+                            }
+                            transform="rotate(-90 13 13)"
+                          />
+                        </svg>
+                        <span className="tracklist-row__play-icon" aria-hidden="true">
+                          {isActive ? (
+                            <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor">
+                              <rect x="0" y="0" width="3" height="10" />
+                              <rect x="7" y="0" width="3" height="10" />
+                            </svg>
+                          ) : (
+                            <svg width="8" height="9" viewBox="0 0 10 11" fill="currentColor">
+                              <polygon points="0,0 10,5.5 0,11" />
+                            </svg>
+                          )}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="tracklist-row__expand-btn"
+                        onClick={() => setExpandedId((prev) => (prev === song.id ? null : song.id))}
+                        aria-expanded={isExpanded}
+                        aria-controls={panelId}
+                      >
+                        <span className="tracklist-row__title">{song.title}</span>
+                        <span className="tracklist-row__duration">
+                          {song.duration_seconds ? formatDuration(song.duration_seconds) : "--"}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`tracklist-row__action tracklist-row__action--cart${inCart ? " is-added" : ""}`}
                         onClick={() => {
-                          if (ringtoneInCart || !song.ringtone_price) return;
+                          if (inCart || !canDownload || !song.price) return;
                           cart.add({
-                            type: "ringtone",
+                            type: "song",
                             id: song.id,
                             title: song.title,
                             slug: song.slug,
-                            price: song.ringtone_price,
+                            price: song.price,
                             format: null,
                             cover_art_path: album.cover_art_path,
                           });
                         }}
-                        disabled={ringtoneInCart}
-                        aria-disabled={ringtoneInCart}
+                        disabled={!canDownload || inCart}
+                        aria-disabled={inCart}
                         aria-label={
-                          ringtoneInCart
-                            ? `${song.title} ringtone already in cart`
-                            : `Add ${song.title} ringtone to cart`
+                          !canDownload
+                            ? "Not available"
+                            : inCart
+                              ? `${song.title} already in cart`
+                              : `Add ${song.title} to cart`
                         }
-                        title={ringtoneInCart ? "Ringtone already in cart" : "Add ringtone to cart"}
+                        title={
+                          !canDownload
+                            ? "Not available"
+                            : inCart
+                              ? "Added to cart"
+                              : "Add to cart"
+                        }
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                            d="M5 2h7a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2.5 2.25a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1h-2zM9.5 9 6 12l3.5 3z"
-                          />
-                          <path d="M16.46 8.46a1 1 0 0 1 1.41 0 5 5 0 0 1 0 7.07 1 1 0 0 1-1.41-1.41 3 3 0 0 0 0-4.24 1 1 0 0 1 0-1.41z" />
-                          <path d="M19.29 5.64a1 1 0 0 1 1.41 0 9 9 0 0 1 0 12.73 1 1 0 0 1-1.41-1.41 7 7 0 0 0 0-9.9 1 1 0 0 1 0-1.41z" />
-                        </svg>
+                        {inCart ? (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="16"
+                            viewBox="0 0 30 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <polyline points="1,11 3,13 6,8" />
+                            <circle cx="16" cy="21" r="1.6" />
+                            <circle cx="25" cy="21" r="1.6" />
+                            <path d="M10 4h2l2.4 11.2A2 2 0 0 0 16.36 17H26a2 2 0 0 0 1.95-1.56L29 8H13" />
+                          </svg>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="16"
+                            viewBox="0 0 30 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <line x1="4" y1="8" x2="4" y2="14" />
+                            <line x1="1" y1="11" x2="7" y2="11" />
+                            <circle cx="16" cy="21" r="1.6" />
+                            <circle cx="25" cy="21" r="1.6" />
+                            <path d="M10 4h2l2.4 11.2A2 2 0 0 0 16.36 17H26a2 2 0 0 0 1.95-1.56L29 8H13" />
+                          </svg>
+                        )}
                       </button>
-                    )}
-                  </div>
+
+                      {ringtoneAvailable && (
+                        <button
+                          type="button"
+                          className={`tracklist-row__action${ringtoneInCart ? " is-added" : ""}`}
+                          onClick={() => {
+                            if (ringtoneInCart || !song.ringtone_price) return;
+                            cart.add({
+                              type: "ringtone",
+                              id: song.id,
+                              title: song.title,
+                              slug: song.slug,
+                              price: song.ringtone_price,
+                              format: null,
+                              cover_art_path: album.cover_art_path,
+                            });
+                          }}
+                          disabled={ringtoneInCart}
+                          aria-disabled={ringtoneInCart}
+                          aria-label={
+                            ringtoneInCart
+                              ? `${song.title} ringtone already in cart`
+                              : `Add ${song.title} ringtone to cart`
+                          }
+                          title={ringtoneInCart ? "Ringtone added to cart" : "Add ringtone to cart"}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M5 2h7a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2.5 2.25a.5.5 0 0 0 0 1h2a.5.5 0 0 0 0-1h-2zM9.5 9 6 12l3.5 3z"
+                            />
+                            <path d="M16.46 8.46a1 1 0 0 1 1.41 0 5 5 0 0 1 0 7.07 1 1 0 0 1-1.41-1.41 3 3 0 0 0 0-4.24 1 1 0 0 1 0-1.41z" />
+                            <path d="M19.29 5.64a1 1 0 0 1 1.41 0 9 9 0 0 1 0 12.73 1 1 0 0 1-1.41-1.41 7 7 0 0 0 0-9.9 1 1 0 0 1 0-1.41z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    <div
+                      id={panelId}
+                      className="tracklist-row__panel"
+                      aria-hidden={!isExpanded}
+                    >
+                      <div className="tracklist-row__panel-inner">
+                        {song.song_summary && (
+                          <p className="tracklist-row__summary">{song.song_summary}</p>
+                        )}
+                        <Link
+                          href={`/music/songs/${song.slug}`}
+                          className="tracklist-row__cta"
+                          tabIndex={isExpanded ? 0 : -1}
+                        >
+                          <span>Explore song</span>
+                          <svg width="14" height="10" viewBox="0 0 14 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <line x1="0" y1="5" x2="12" y2="5" />
+                            <polyline points="8,1 12,5 8,9" />
+                          </svg>
+                        </Link>
+                      </div>
+                    </div>
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           )}
 
-          {/* Album concept (replaces the old free-form description). */}
-          {album.concept_statement && (
-            <div className="track-detail__section">
-              <h3 className="track-detail__section-title">Concept</h3>
-              <div className="track-detail__summary-text" style={{ whiteSpace: "pre-wrap" }}>
-                {album.concept_statement}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

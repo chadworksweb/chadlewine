@@ -275,7 +275,6 @@ const MAX_ITEMS = 15;
 
 function ThankYouExplore() {
   const [items, setItems] = useState<ExploreGridItem[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const seenKeys = useRef<Set<string>>(new Set());
@@ -286,7 +285,8 @@ function ThankYouExplore() {
       setLoading(true);
       try {
         const url = new URL("/api/explore/products", window.location.origin);
-        if (cursor) url.searchParams.set("cursor", cursor);
+        const exclude = Array.from(seenKeys.current).join(",");
+        if (exclude) url.searchParams.set("exclude", exclude);
         url.searchParams.set("limit", String(size));
         const res = await fetch(url.toString(), { cache: "no-store" });
         const data = (await res.json()) as {
@@ -300,15 +300,14 @@ function ThankYouExplore() {
           return true;
         });
         setItems((prev) => [...prev, ...fresh]);
-        setCursor(data.next_cursor);
-        setHasMore(!!data.has_more && !!data.next_cursor);
+        setHasMore(!!data.has_more);
       } catch {
         setHasMore(false);
       } finally {
         setLoading(false);
       }
     },
-    [cursor, hasMore, loading],
+    [hasMore, loading],
   );
 
   useEffect(() => {
@@ -395,10 +394,6 @@ function CartThankYouContent() {
               <p className="cart-thank-you__greeting-line">
                 Your purchase is confirmed. Download links are on their way to
                 your email.
-              </p>
-              <p className="cart-thank-you__greeting-fine">
-                Don&apos;t see it within a minute? Recover all your downloads at{" "}
-                <Link href="/music/recover" style={{ color: "var(--text-accent)" }}>/music/recover</Link>.
               </p>
             </div>
             <div className="cart-thank-you__coupon-col">

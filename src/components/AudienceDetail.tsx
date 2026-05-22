@@ -107,6 +107,8 @@ const EVENT_LABELS: Record<string, string> = {
   account_linked: "Account linked",
   coupon_claimed: "Coupon claimed",
   coupon_redeemed: "Coupon redeemed",
+  fan_track_granted: "Fan track granted",
+  fan_track_played: "Fan track played",
 };
 
 export function AudienceDetail({ initial }: { initial: AudienceDetailData }) {

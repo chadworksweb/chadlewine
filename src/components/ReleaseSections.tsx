@@ -222,18 +222,6 @@ export async function ReleaseSections({
           </div>
         </section>
       )}
-      {album.concept_statement && (
-        <section className="album-section album-section--concept" aria-labelledby="album-section-concept">
-          <div className="album-section__inner">
-            <h2 className="album-section__heading" id="album-section-concept">Concept</h2>
-            <div className="album-section__prose">
-              {album.concept_statement.split(/\n\n+/).map((para, i) => (
-                <p key={i}>{para}</p>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
       {sections.map((s) => {
         const def = getReleaseCategoryDef(s.category);
         if (!def) return null;

@@ -1,17 +1,20 @@
 import { createPublicClient } from "@/lib/supabase-server";
+import { releaseTypeLabel } from "@/lib/release-labels";
 
 /* Union of every priced, image-bearing, purchasable item across the catalog.
    Output shape matches ExploreGrid (key/id/slug/title/image_url/image_alt/
    href/kind) so the thank-you page can render the same water-ripple grid
    used elsewhere on the site.
 
-   Pagination: each kind queries the latest N (created_at desc) older than
-   the cursor, then we merge across kinds by created_at desc and trim to
-   the page limit.
+   Selection: shuffle the merged pool and return the first `limit` items that
+   aren't in `exclude`. The client passes the keys it has already shown so
+   Load More always returns truly new items rather than the next-newest set.
+   `next_cursor` is retained in the response shape for compatibility but is
+   no longer used.
 */
 
 const PER_PAGE_DEFAULT = 6;
-const PER_KIND_OVERSHOOT = 30;
+const PER_KIND_OVERSHOOT = 100;
 
 type Kind = "song" | "release" | "merch" | "art";
 
@@ -24,12 +27,23 @@ interface ExploreItem {
   image_alt: string | null;
   href: string;
   kind: Kind;
+  kind_label: string | null;
   sort_at: string;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const cursor = url.searchParams.get("cursor") || null;
+  const excludeParam = url.searchParams.get("exclude") || "";
+  const excludeSet = new Set(excludeParam.split(",").filter(Boolean));
   const limit = Math.min(
     Math.max(parseInt(url.searchParams.get("limit") || `${PER_PAGE_DEFAULT}`, 10), 1),
     36,
@@ -40,14 +54,13 @@ export async function GET(request: Request) {
 
   // Songs with a price.
   {
-    let q = supabase
+    const q = supabase
       .from("songs")
       .select("id, title, slug, price, art_image_path, art_alt, created_at")
       .not("art_image_path", "is", null)
       .gt("price", 0)
       .order("created_at", { ascending: false })
       .limit(PER_KIND_OVERSHOOT);
-    if (cursor) q = q.lt("created_at", cursor);
     const { data } = await q;
     for (const s of (data || []) as Array<{
       id: string; title: string; slug: string; price: number;
@@ -62,6 +75,7 @@ export async function GET(request: Request) {
         image_alt: s.art_alt || s.title,
         href: `/music/songs/${s.slug}`,
         kind: "song",
+        kind_label: null,
         sort_at: s.created_at,
       });
     }
@@ -79,18 +93,18 @@ export async function GET(request: Request) {
       new Set((skuRows || []).map((r: { release_id: string }) => r.release_id)),
     );
 
-    let q = supabase
+    const q = supabase
       .from("releases")
-      .select("id, title, slug, cover_art_path, cover_art_alt, created_at")
+      .select("id, title, slug, cover_art_path, cover_art_alt, release_type, created_at")
       .not("cover_art_path", "is", null)
       .in("id", sellableReleaseIds.length > 0 ? sellableReleaseIds : [""])
       .order("created_at", { ascending: false })
       .limit(PER_KIND_OVERSHOOT);
-    if (cursor) q = q.lt("created_at", cursor);
     const { data } = await q;
     for (const a of (data || []) as Array<{
       id: string; title: string; slug: string;
-      cover_art_path: string | null; cover_art_alt: string | null; created_at: string;
+      cover_art_path: string | null; cover_art_alt: string | null;
+      release_type: string | null; created_at: string;
     }>) {
       items.push({
         key: `album:${a.id}`,
@@ -101,6 +115,7 @@ export async function GET(request: Request) {
         image_alt: a.cover_art_alt || a.title,
         href: `/music/releases/${a.slug}`,
         kind: "release",
+        kind_label: releaseTypeLabel(a.release_type) || null,
         sort_at: a.created_at,
       });
     }
@@ -108,7 +123,7 @@ export async function GET(request: Request) {
 
   // Products: priced merch + originals. variant_type='original' renders as kind='art'.
   {
-    let q = supabase
+    const q = supabase
       .from("products")
       .select("id, title, slug, price, image_url, image_alt, variant_type, status, created_at")
       .eq("status", "active")
@@ -116,7 +131,6 @@ export async function GET(request: Request) {
       .gt("price", 0)
       .order("created_at", { ascending: false })
       .limit(PER_KIND_OVERSHOOT);
-    if (cursor) q = q.lt("created_at", cursor);
     const { data } = await q;
     for (const p of (data || []) as Array<{
       id: string; title: string; slug: string | null; price: number;
@@ -133,20 +147,24 @@ export async function GET(request: Request) {
         image_alt: p.image_alt || p.title,
         href: p.slug ? `/merch/${p.slug}` : `/merch`,
         kind: isOriginal ? "art" : "merch",
+        kind_label: null,
         sort_at: p.created_at,
       });
     }
   }
 
-  // Sort merged by created_at desc, trim to page, expose next cursor.
-  items.sort((a, b) => (a.sort_at < b.sort_at ? 1 : -1));
-  const page = items.slice(0, limit);
-  const nextCursor = page.length > 0 ? page[page.length - 1].sort_at : null;
-  const hasMore = items.length > limit;
+  // Drop anything the client has already shown, then shuffle the remaining
+  // pool and take the page. has_more reports whether there are still fresh
+  // items left after this slice — when it's false, the client hides the
+  // Load More button.
+  const fresh = items.filter((i) => !excludeSet.has(i.key));
+  const shuffled = shuffle(fresh);
+  const page = shuffled.slice(0, limit);
+  const hasMore = shuffled.length > limit;
 
   return Response.json({
     items: page.map(({ sort_at, ...rest }) => ({ ...rest, sort_at })),
-    next_cursor: hasMore ? nextCursor : null,
+    next_cursor: null,
     has_more: hasMore,
   });
 }

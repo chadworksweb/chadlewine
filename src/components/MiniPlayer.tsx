@@ -13,6 +13,9 @@ interface MiniPlayerProps {
   artImagePath: string | null;
   artAlt: string | null;
   playbackMode?: PlaybackMode;
+  // Hide the in-player title link. The song-detail page sets this since the
+  // page H1 already shows the title.
+  hideTitle?: boolean;
 }
 
 // Seeded PRNG (mulberry32) — deterministic waveform per track
@@ -68,6 +71,7 @@ export function MiniPlayer({
   streamingUrl,
   trackNumber,
   trackTitle,
+  hideTitle = false,
   durationSeconds,
   artImagePath,
   artAlt,
@@ -121,9 +125,11 @@ export function MiniPlayer({
       </button>
 
       <span className="mini-player__number">{trackNumber}</span>
-      <Link href={`/music/songs/${songSlug}`} className="mini-player__name">
-        {trackTitle}
-      </Link>
+      {!hideTitle && (
+        <Link href={`/music/songs/${songSlug}`} className="mini-player__name">
+          {trackTitle}
+        </Link>
+      )}
 
       <div className="mini-player__waveform">
         <div className="mini-player__wf-layer mini-player__wf-bg">

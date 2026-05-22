@@ -186,10 +186,14 @@ export default function EditAlbumPage() {
               className="obsv-editor__input"
               value={form.concept_statement || ""}
               onChange={e => set("concept_statement", e.target.value || null)}
-              rows={10}
+              rows={3}
               placeholder="The album's manifesto -- its concept, theme, the 'why' of the record."
             />
           </div>
+
+          {form.id && (
+            <SkuPanel kind="release" parentId={form.id} parentSlug={form.slug} />
+          )}
 
           {/* Visibility Engine -- inline, mirrors songs */}
           {form.id && (
@@ -310,10 +314,6 @@ export default function EditAlbumPage() {
               <input id="display_order" className="obsv-editor__input" type="number" min={0} value={form.display_order} onChange={e => set("display_order", parseInt(e.target.value) || 0)} />
             </div>
           </div>
-
-          {form.id && (
-            <SkuPanel kind="release" parentId={form.id} parentSlug={form.slug} />
-          )}
         </div>
       </div>
 
