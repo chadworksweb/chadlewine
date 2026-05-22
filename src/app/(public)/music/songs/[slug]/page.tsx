@@ -318,6 +318,12 @@ export default async function SongDetailPage({
           ringtone_available:
             !!song.ringtone_price &&
             !!(song.ringtone_path_m4r || song.ringtone_path_mp3),
+          beat_peaks: Array.isArray(song.beat_peaks) ? song.beat_peaks : null,
+          beat_strengths: Array.isArray(song.beat_strengths) ? song.beat_strengths : null,
+          beat_kicks: Array.isArray(song.beat_kicks) ? song.beat_kicks : null,
+          beat_snares: Array.isArray(song.beat_snares) ? song.beat_snares : null,
+          beat_data: Array.isArray(song.beat_data) ? song.beat_data : null,
+          beat_offset_seconds: typeof song.beat_offset_seconds === "number" ? song.beat_offset_seconds : null,
         }}
         album={
           album

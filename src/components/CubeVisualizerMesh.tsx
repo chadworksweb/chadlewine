@@ -15,6 +15,25 @@ export type BeatMorphRequest = {
   intensity: number;
 };
 
+/** Snare pulse mailbox — same one-shot pattern as BeatMorphRequest but
+ *  drives the corner-spike effect instead of the radial face bulge. Kept
+ *  separate so a kick morph and a snare spike can decay independently
+ *  when both fire on the same beat (kick+backbeat overlap). */
+export type SnarePulseRequest = {
+  pending: boolean;
+  intensity: number;
+};
+
+/** Generic one-shot pulse mailbox for the secondary stem effects: hat,
+ *  tom, bass pulse. `seed` is used by tom to pick a shake direction;
+ *  other effects ignore it. Same producer/consumer contract as the
+ *  kick/snare refs above. */
+export type PulseRequest = {
+  pending: boolean;
+  intensity: number;
+  seed: number;
+};
+
 /** Per-frame animation state shared with the mesh via ref. CubeVisualizer
  *  owns the rotation accumulator and bass smoothing; the mesh reads them
  *  inside useFrame to drive its transform/shader uniforms. */
@@ -40,6 +59,8 @@ uniform float uTime;
 uniform float uMorphAmount;
 uniform float uVariantSeed;
 uniform float uBass;
+
+varying float vCornerMask;   // 1 at the 8 cube corners, 0 along edges + face interiors
 
 //
 // Simplex noise 3D (Ashima Arts) — compact, fast, license-permissive.
@@ -93,7 +114,13 @@ float snoise(vec3 v) {
 }
 
 void main() {
-  vUv = uv;
+  // Inset UVs by ~0.5% on each side so the texture sampler never reaches
+  // the exact texel boundary at face corners. The BoxGeometry maps each
+  // face's UV from (0,0) to (1,1); the very corner vertices sit on the
+  // texture edge and, with anisotropic filtering, sample pixels just
+  // beyond it — which clamp-to-edge mode reads as the dark border of the
+  // cover art, drawing thin dark "inner cube" outlines at each corner.
+  vUv = uv * 0.992 + 0.004;
   vNormal = normalize(normalMatrix * normal);
 
   // Per-variant pattern. Frequency dropped HARD (0.25-0.6) so each face
@@ -103,7 +130,11 @@ void main() {
   // smooth convex bulge.
   float freq      = mix(0.25, 0.6, fract(uVariantSeed * 0.731));
   float timeOff   = uVariantSeed * 117.0;
-  float amp       = 0.18;
+  // Kick morph amplitude bumped from 0.18 -> 0.22 for a noticeably
+  // stronger reaction on the beats that fire (per spec: "morph stronger
+  // on the kick"). Snares get a fragment-shader corner strobe instead
+  // of a geometry change — see the fragment shader.
+  float amp       = 0.22;
 
   // Radial direction (from cube center). Pushing along this keeps faces
   // sealed because every vertex sharing a world position pushes the same
@@ -139,8 +170,22 @@ void main() {
   // pattern via timeOff.
   float n = snoise(position * freq + vec3(timeOff));
 
-  // Final displacement: only along radial, only when edgeMask > 0, only
-  // during the morph window.
+  // CORNER MASK — peaks at the 8 cube corners, asymptotically falls
+  // toward zero across face interiors. dmax is the LARGEST distance-
+  // to-face: corners have dmax ~= 0, everywhere else dmax is large.
+  //
+  // Uses exponential decay (NOT smoothstep) for a critical reason:
+  // smoothstep has a sharp transition where it reaches exactly zero
+  // (its tail meets the clamped-zero region). That C2 discontinuity
+  // drew a visible "inner cube" outline at the strobe-zone boundary
+  // — a square of dark lines inset 32% from each face edge, exactly
+  // where smoothstep's range ended. Exponential decay is C∞ smooth
+  // everywhere, asymptotic to zero, never crosses it — no boundary
+  // line possible.
+  vCornerMask = exp(-dmax * 9.0);
+
+  // Final displacement: bass-pumped scale + face bulge (edges only).
+  // No corner displacement — the snare effect is fragment-side.
   vec3 scaled = position * (1.0 + bassPump);
   vec3 displaced = scaled + radial * (n * amp * uMorphAmount * edgeMask);
 
@@ -151,14 +196,20 @@ void main() {
 `;
 
 // Fragment shader: sample the cover art texture and add a subtle rim
-// highlight so the silhouette reads as a 3D mesh, not a flat decal.
+// highlight so the silhouette reads as a 3D mesh. On snare hits, a bright
+// additive strobe lights up the 8 cube corners (vCornerMask) like the
+// wingtip lights on an airplane wing.
 const FRAGMENT_SHADER = /* glsl */ `
 varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vViewPos;
+varying float vCornerMask;
 
 uniform sampler2D uTexture;
 uniform float uMorphAmount;
+uniform float uSnareAmount;     // 0..1, corner strobe (snare hits)
+uniform float uHatAmount;       // 0..1, rim brightness boost (hat hits)
+uniform float uBassPulseAmount; // 0..1, acid color-filter (bass pulse hits)
 
 void main() {
   vec4 tex = texture2D(uTexture, vUv);
@@ -176,7 +227,42 @@ void main() {
   float ndv = max(0.0, dot(normalize(vNormal), viewDir));
   float rim = pow(1.0 - ndv, 2.4);
 
-  vec3 color = base + rim * (0.12 + uMorphAmount * 0.25);
+  // HAT RIM PULSE — brief brightness boost on the existing rim term,
+  // not at corners (snare's territory) and not on face interiors (kick's
+  // territory). The rim runs along the cube's visible silhouette
+  // perpendicular to view direction, so the hat reads as a quick edge
+  // glint — punctuation, not punch. Capped so loud hat patterns don't
+  // strobe the silhouette into oblivion.
+  float hatRim = rim * uHatAmount * 0.85;
+
+  vec3 color = base + rim * (0.12 + uMorphAmount * 0.25) + vec3(hatRim);
+
+  // BASS PULSE — acid color filter. NOT a spatial effect (the cube
+  // doesn't swell). Boosts saturation hard and skews the palette toward
+  // magenta + cyan on the R/B axis, pulling G down. Result: the cover
+  // art briefly reads like it got dunked in acid — same composition,
+  // intensified, hue-warped. Decays out cleanly so the cube returns to
+  // its true palette between hits.
+  if (uBassPulseAmount > 0.001) {
+    float luma = dot(color, vec3(0.299, 0.587, 0.114));
+    // Saturation amplifier — pull values away from luminance.
+    vec3 saturated = mix(vec3(luma), color, 1.0 + uBassPulseAmount * 1.8);
+    // Magenta/cyan acid lean: R + B up, G down.
+    vec3 acidWash = saturated * vec3(1.18, 0.78, 1.32);
+    color = mix(color, acidWash, min(1.0, uBassPulseAmount));
+  }
+
+  // SNARE STROBE — airplane wingtip flash. Tightens the corner mask
+  // before lighting so the strobe reads as a small point of light at
+  // each corner rather than a soft halo bleeding across half the face.
+  // pow(mask, 2.5) sharpens; multiplier (1.4) overdrives the peak so a
+  // strong snare visibly blows out the corner toward white. Slightly
+  // cool tint (1.0, 1.05, 1.15) so the strobe doesn't compete with
+  // warm-toned cover art — reads as light, not as paint.
+  float strobeMask = pow(vCornerMask, 2.5);
+  vec3 strobeColor = vec3(1.0, 1.05, 1.15);
+  color += strobeColor * (strobeMask * uSnareAmount * 1.4);
+
   gl_FragColor = vec4(color, 1.0);
 }
 `;
@@ -185,14 +271,30 @@ function MorphMesh({
   coverArtPath,
   animRef,
   beatRef,
+  snareRef,
+  hatRef,
+  tomRef,
+  bassPulseRef,
 }: {
   coverArtPath: string;
   animRef: React.MutableRefObject<MeshAnimRef>;
   beatRef: React.MutableRefObject<BeatMorphRequest>;
+  snareRef: React.MutableRefObject<SnarePulseRequest>;
+  hatRef: React.MutableRefObject<PulseRequest>;
+  tomRef: React.MutableRefObject<PulseRequest>;
+  bassPulseRef: React.MutableRefObject<PulseRequest>;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const matRef = useRef<THREE.ShaderMaterial>(null);
   const morphStateRef = useRef({ amount: 0, seed: 0 });
+  const snareStateRef = useRef({ amount: 0 });
+  const hatStateRef = useRef({ amount: 0 });
+  // Tom shake offsets the whole mesh in 3D space briefly. dx/dy are the
+  // direction the cube jumps on the latest hit (set when consumed); amount
+  // is the magnitude that decays. Picking a direction per hit makes
+  // successive toms read as separate physical hits, not a single rumble.
+  const tomStateRef = useRef({ amount: 0, dx: 0, dy: 0 });
+  const bassPulseStateRef = useRef({ amount: 0 });
 
   // Load the cover art texture imperatively (not via useLoader) so we can
   // explicitly set crossOrigin BEFORE the request fires and apply colorSpace
@@ -207,7 +309,18 @@ function MorphMesh({
       coverArtPath,
       (loaded) => {
         loaded.colorSpace = THREE.SRGBColorSpace;
-        loaded.anisotropy = 8;
+        // Mipmaps were generating downsampled versions of the cover art
+        // that bled the texture's edge pixels (often dark borders) into
+        // the lower mip levels. Combined with BoxGeometry corner UVs
+        // hitting exactly (0,0)/(1,1), this drew thin dark gaps at every
+        // cube corner. Linear-only filtering samples the source texture
+        // directly with no downsample artifacts. Anisotropy off for the
+        // same reason — at corner angles it samples a wide kernel that
+        // straddles the texture edge.
+        loaded.minFilter = THREE.LinearFilter;
+        loaded.magFilter = THREE.LinearFilter;
+        loaded.generateMipmaps = false;
+        loaded.anisotropy = 1;
         loaded.needsUpdate = true;
       },
       undefined,
@@ -235,6 +348,9 @@ function MorphMesh({
       uMorphAmount: { value: 0 },
       uVariantSeed: { value: 0 },
       uBass: { value: 0 },
+      uSnareAmount: { value: 0 },
+      uHatAmount: { value: 0 },
+      uBassPulseAmount: { value: 0 },
       uTexture: { value: texture },
     }),
     [texture],
@@ -250,22 +366,89 @@ function MorphMesh({
     mesh.rotation.x = (anim.rx * Math.PI) / 180;
     mesh.rotation.y = (anim.ry * Math.PI) / 180;
 
-    // Consume a pending beat: kick morph amount to peak and adopt the
-    // new variant seed. CubeVisualizer's tick sets pending=true; we
-    // clear it so a single beat triggers exactly one morph cycle.
+    // Consume a pending kick: morph amount to peak + adopt new variant
+    // seed. Pending flag cleared so one kick = one morph cycle.
     const beat = beatRef.current;
     const morph = morphStateRef.current;
     if (beat.pending) {
-      morph.amount = Math.min(1.4, beat.intensity);
+      morph.amount = Math.min(1.7, beat.intensity);
       morph.seed = beat.seed;
       beat.pending = false;
     }
 
-    // Snappy decay — half-life 100ms so each beat punches in and out
-    // cleanly without a lingering wave. After ~350ms morph is baseline.
-    const decay = Math.pow(0.5, dt / 0.10);
-    morph.amount *= decay;
+    // Kick morph decay — half-life 100ms; sharp punch in/out.
+    const morphDecay = Math.pow(0.5, dt / 0.10);
+    morph.amount *= morphDecay;
     if (morph.amount < 0.001) morph.amount = 0;
+
+    // Consume a pending snare: drive corner-strobe amount to peak.
+    // Independent of the kick morph so backbeats that fire both
+    // (kick + snare on same beat) get both effects simultaneously.
+    const snare = snareRef.current;
+    const snareState = snareStateRef.current;
+    if (snare.pending) {
+      snareState.amount = Math.min(1.2, snare.intensity);
+      snare.pending = false;
+    }
+
+    // Strobe decay — half-life 70ms, faster than the kick. Airplane
+    // wingtip strobes punch on and OFF fast; a slow decay would read
+    // as a glow, not a strobe. After ~250ms the corners are dark.
+    const snareDecay = Math.pow(0.5, dt / 0.07);
+    snareState.amount *= snareDecay;
+    if (snareState.amount < 0.001) snareState.amount = 0;
+
+    // Consume a pending hat — brief rim brightness boost. Capped low so
+    // dense hat patterns (16th notes throughout a chorus) feel like
+    // shimmer, not strobing.
+    const hat = hatRef.current;
+    const hatState = hatStateRef.current;
+    if (hat.pending) {
+      hatState.amount = Math.min(1.0, hat.intensity);
+      hat.pending = false;
+    }
+    // Rim decay — half-life 50ms. Hats are tightest punctuation: faster
+    // than the snare strobe so 16th-note hat lines stay readable as
+    // discrete events instead of smearing into a sustained glow.
+    const hatDecay = Math.pow(0.5, dt / 0.05);
+    hatState.amount *= hatDecay;
+    if (hatState.amount < 0.001) hatState.amount = 0;
+
+    // Consume a pending tom — cube physical shake. Direction picked from
+    // the incoming seed so successive toms feel like separate hits
+    // (e.g., tom fill that walks down the kit reads as the cube tossed
+    // around) rather than a single sustained rumble.
+    const tom = tomRef.current;
+    const tomState = tomStateRef.current;
+    if (tom.pending) {
+      const dir = Math.floor(tom.seed * 4) % 4;
+      tomState.dx = dir === 0 ? 1 : dir === 1 ? -1 : 0;
+      tomState.dy = dir === 2 ? 1 : dir === 3 ? -1 : 0;
+      tomState.amount = Math.min(1.0, tom.intensity);
+      tom.pending = false;
+    }
+    // Shake decay — half-life 80ms. Cube settles fast back to center.
+    const tomDecay = Math.pow(0.5, dt / 0.08);
+    tomState.amount *= tomDecay;
+    if (tomState.amount < 0.001) tomState.amount = 0;
+    // Magnitude: 0.06 mesh units at peak — small enough not to clip out
+    // of frame, big enough to read as a real jolt against the cube's
+    // 1.32-unit size.
+    mesh.position.x = tomState.dx * tomState.amount * 0.06;
+    mesh.position.y = tomState.dy * tomState.amount * 0.06;
+
+    // Consume a pending bass pulse — additive boost to the uBass uniform
+    // that drives the breathing scale. Slower decay than the percussive
+    // effects so sub-bass reads as a sustained pump, not a flick.
+    const bassPulse = bassPulseRef.current;
+    const bassPulseState = bassPulseStateRef.current;
+    if (bassPulse.pending) {
+      bassPulseState.amount = Math.min(1.0, bassPulse.intensity);
+      bassPulse.pending = false;
+    }
+    const bassPulseDecay = Math.pow(0.5, dt / 0.20);
+    bassPulseState.amount *= bassPulseDecay;
+    if (bassPulseState.amount < 0.001) bassPulseState.amount = 0;
 
     // Push uniforms through the material's OWN uniforms object — Three.js's
     // ShaderMaterial constructor clones the uniforms prop, so mutations on
@@ -275,7 +458,13 @@ function MorphMesh({
     u.uTime.value = state.clock.elapsedTime;
     u.uMorphAmount.value = morph.amount;
     u.uVariantSeed.value = morph.seed;
+    // uBass is purely FFT-driven (full-mix bass smoothing). Bass-pulse
+    // hits no longer feed it — they drive uBassPulseAmount instead,
+    // which is a color filter, not a spatial effect.
     u.uBass.value = anim.bass;
+    u.uSnareAmount.value = snareState.amount;
+    u.uHatAmount.value = hatState.amount;
+    u.uBassPulseAmount.value = bassPulseState.amount;
   });
 
   return (
@@ -289,7 +478,7 @@ function MorphMesh({
         vertexShader={VERTEX_SHADER}
         fragmentShader={FRAGMENT_SHADER}
         uniforms={uniforms}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
         transparent={false}
       />
     </mesh>
@@ -300,10 +489,18 @@ export function CubeVisualizerMesh({
   coverArtPath,
   animRef,
   beatRef,
+  snareRef,
+  hatRef,
+  tomRef,
+  bassPulseRef,
 }: {
   coverArtPath: string;
   animRef: React.MutableRefObject<MeshAnimRef>;
   beatRef: React.MutableRefObject<BeatMorphRequest>;
+  snareRef: React.MutableRefObject<SnarePulseRequest>;
+  hatRef: React.MutableRefObject<PulseRequest>;
+  tomRef: React.MutableRefObject<PulseRequest>;
+  bassPulseRef: React.MutableRefObject<PulseRequest>;
 }) {
   return (
     <Canvas
@@ -332,6 +529,10 @@ export function CubeVisualizerMesh({
         coverArtPath={coverArtPath}
         animRef={animRef}
         beatRef={beatRef}
+        snareRef={snareRef}
+        hatRef={hatRef}
+        tomRef={tomRef}
+        bassPulseRef={bassPulseRef}
       />
     </Canvas>
   );

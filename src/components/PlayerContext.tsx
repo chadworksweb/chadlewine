@@ -45,6 +45,12 @@ type PlayerContextValue = {
    *  Returns null on browsers without WebAudio or when CORS prevents it.
    *  Safe to call from visualizers — same node is reused across calls. */
   getAnalyser: () => AnalyserNode | null;
+  /** Returns the live audio element's currentTime in seconds — used by the
+   *  visualizer's precomputed-beat scheduler which needs frame-accurate
+   *  playback position (the public displayTime is throttled to 10Hz to keep
+   *  re-renders cheap, so it's too coarse for beat triggers). Returns 0
+   *  when no audio is loaded. */
+  getCurrentTime: () => number;
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -444,6 +450,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const isCurrent = useCallback((id: string) => currentRef.current?.id === id, []);
 
+  const getCurrentTime = useCallback(() => {
+    return audioRef.current?.currentTime ?? 0;
+  }, []);
+
   // Derive display values
   const isPreview = current?.playbackMode === "preview";
   const displayDuration = isPreview
@@ -472,6 +482,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         seek,
         isCurrent,
         getAnalyser,
+        getCurrentTime,
       }}
     >
       {children}

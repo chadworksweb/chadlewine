@@ -35,7 +35,31 @@ interface SongProps {
   card_zoom?: number | null;
   ringtone_price?: number | null;
   ringtone_available?: boolean;
+  /** Precomputed beat timestamps (seconds) from scripts/analyze_beats.py.
+   *  Visualizer fires morphs on these timestamps; falls back to live FFT
+   *  detection when null/empty. */
+  beat_peaks?: number[] | null;
+  /** Per-beat full-band onset strength, 0..1 normalized, aligned with beat_peaks. */
+  beat_strengths?: number[] | null;
+  /** Per-beat kick-band (20-160 Hz) energy, 0..1 normalized, aligned with beat_peaks.
+   *  Visualizer skips non-kick beats and scales morph intensity by this value. */
+  beat_kicks?: number[] | null;
+  /** Per-beat snare-band (200-450 Hz) energy, 0..1 normalized, aligned with beat_peaks.
+   *  Drives the corner-strobe effect (airplane wingtip light on snare hits). */
+  beat_snares?: number[] | null;
+  /** Multi-stem hit data from analyze_drums_stems.py. Sparse jsonb array
+   *  of { at, k?, s?, h?, to?, bp?, bs? } per hit. Takes priority over
+   *  the librosa columns above when present. */
+  beat_data?: BeatDataEvent[] | null;
+  /** Seconds to add to every beat_data event time at playback (alignment
+   *  nudge between stem-export timeline and the published MP3). */
+  beat_offset_seconds?: number | null;
 }
+
+type BeatDataEvent = {
+  at: number;
+  k?: number; s?: number; h?: number; to?: number; bp?: number; bs?: number;
+};
 
 interface AlbumProps {
   id: string;
@@ -232,6 +256,12 @@ export function SongDetail({
             cardFocalX={song.card_focal_x ?? null}
             cardFocalY={song.card_focal_y ?? null}
             cardZoom={song.card_zoom ?? null}
+            beatPeaks={song.beat_peaks ?? null}
+            beatStrengths={song.beat_strengths ?? null}
+            beatKicks={song.beat_kicks ?? null}
+            beatSnares={song.beat_snares ?? null}
+            beatData={song.beat_data ?? null}
+            beatOffset={song.beat_offset_seconds ?? null}
           />
         </div>
 

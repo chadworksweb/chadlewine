@@ -14,6 +14,7 @@
   isolation: isolate;
   /* CSS-var driven values updated from rAF; defaults keep static look */
   --cv-bass: 0;        /* 0..1 */
+  --cv-bass-synth: 0;  /* 0..1 — bass synth note-attack envelope; boosts ambient saturation + brightness */
   --cv-mid: 0;         /* 0..1 */
   --cv-energy: 0;      /* 0..1 */
   --cv-rot: 0deg;
@@ -72,8 +73,18 @@
       var(--cv-c3) 0%, transparent 70%
     ),
     #050508;
-  filter: saturate(1.1) blur(8px);
-  transform: scale(calc(1 + var(--cv-bass) * 0.05));
+  /* Bass synth slams the ambient — saturation, brightness, hue rotate,
+     AND scale all swell together so each chord-change feels like the
+     whole vibe behind the cube turns over for a moment. Hue-rotate is
+     the unlock: same colors get re-cast through a different palette,
+     not just brightened, so the effect reads as "harmonic change" not
+     just "louder." */
+  filter:
+    saturate(calc(1.1 + var(--cv-bass-synth) * 5.5))
+    brightness(calc(1 + var(--cv-bass-synth) * 1.8))
+    hue-rotate(calc(var(--cv-bass-synth) * 35deg))
+    blur(8px);
+  transform: scale(calc(1 + var(--cv-bass) * 0.05 + var(--cv-bass-synth) * 0.35));
   transition: filter 400ms ease-out;
   will-change: transform, background-position;
   opacity: var(--cv-unfold);
@@ -117,9 +128,12 @@
     color-mix(in oklab, var(--cv-c1) 60%, transparent) 30%,
     transparent 60%
   );
-  opacity: calc((0.35 + var(--cv-energy) * 0.45) * var(--cv-unfold));
-  transform: scale(calc(0.95 + var(--cv-bass) * 0.18));
-  filter: blur(20px);
+  /* Glow opacity + scale + hue both ride the bass-synth swell — the
+     halo blooms larger and color-shifts on each chord change so the
+     effect is unmistakable even at the visualizer's small footprint. */
+  opacity: calc((0.35 + var(--cv-energy) * 0.45 + var(--cv-bass-synth) * 1.6) * var(--cv-unfold));
+  transform: scale(calc(0.95 + var(--cv-bass) * 0.18 + var(--cv-bass-synth) * 0.55));
+  filter: hue-rotate(calc(var(--cv-bass-synth) * 30deg)) blur(20px);
   pointer-events: none;
 }
 

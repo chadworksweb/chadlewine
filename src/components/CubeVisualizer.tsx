@@ -1,11 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { usePlayer } from "@/components/PlayerContext";
 import { focalCropStyle } from "@/lib/focal-crop";
-import type { BeatMorphRequest, MeshAnimRef } from "@/components/CubeVisualizerMesh";
+import type { BeatMorphRequest, MeshAnimRef, PulseRequest, SnarePulseRequest } from "@/components/CubeVisualizerMesh";
+
+/** One row of songs.beat_data — a single drum/instrument hit moment.
+ *  Keys present iff that stem fired on this hit. Sparse on purpose so
+ *  the payload stays small across hundreds of hits per song. */
+type BeatEvent = {
+  at: number;
+  k?: number;   // kick      -> face bulge morph
+  s?: number;   // snare     -> corner strobe
+  h?: number;   // hat       -> rim brightness pulse
+  to?: number;  // tom       -> cube position shake
+  bp?: number;  // bass pulse-> uBass spike
+  bs?: number;  // bass synth-> ambient palette shift (CSS, parent-handled)
+};
 import "./CubeVisualizer.css";
 
 // Three.js + react-three-fiber are client-only and heavy (~250 KB gzipped).
@@ -23,26 +36,73 @@ interface CubeVisualizerProps {
   cardFocalX?: number | null;
   cardFocalY?: number | null;
   cardZoom?: number | null;
+  /** Precomputed beat onset timestamps in seconds. When present, the
+   *  visualizer fires morphs at those exact timecodes (sample-accurate,
+   *  vocal-resistant). When null/empty, falls back to live FFT spike
+   *  detection in the audio loop below. */
+  beatPeaks?: number[] | null;
+  /** Per-beat full-band onset strength, 0..1, aligned with beatPeaks.
+   *  Currently used for diagnostics; reserved for future non-kick effects. */
+  beatStrengths?: number[] | null;
+  /** Per-beat kick-band (~20-160 Hz) energy, 0..1, aligned with beatPeaks.
+   *  Drives kick-only morphs: beats below KICK_THRESH are skipped entirely
+   *  so the cube reacts to actual kick hits, not snares/hats/ghost notes. */
+  beatKicks?: number[] | null;
+  /** Per-beat snare-band (~200-450 Hz) energy, 0..1, aligned with beatPeaks.
+   *  Drives the airplane-wingtip strobe at the cube's 8 corners. Fires
+   *  independently of kicks so a kick+snare beat gets both effects. */
+  beatSnares?: number[] | null;
+  /** Multi-stem drum + instrument hits from analyze_drums_stems.py.
+   *  Takes priority over beat_peaks/kicks/snares when present — songs
+   *  with isolated stems get richer per-hit dispatch (hat, tom, bass).
+   *  See BeatEvent for the per-row shape. */
+  beatData?: BeatEvent[] | null;
+  /** Seconds to add to every beat_data event time at playback. Stems
+   *  exported from Ableton rarely align to the ms with the published
+   *  MP3; this nudge corrects without re-analyzing. Positive = events
+   *  fire later (stems lag the MP3). Negative = earlier. */
+  beatOffset?: number | null;
 }
 
-// EQ is mirrored on both axes. Bass sits at the OUTER edges, treble at
-// the center. 108 bars total (+20% from 90); bars stay thin so the dense
-// mirrored spectrum reads as spikes rather than a solid block.
-const EQ_BAR_COUNT = 108;
-const EQ_HALF = EQ_BAR_COUNT / 2;
-const EQ_WIDTH = 100;          // SVG viewBox width
-const EQ_HEIGHT = 100;         // SVG viewBox height (centerline at 50)
-const EQ_BAR_GAP = EQ_WIDTH / EQ_BAR_COUNT;
-const EQ_BAR_WIDTH = EQ_BAR_GAP * 0.34;
-// Skip pure DC (bin 0). With fftSize 2048 each bin is ~21Hz so we keep
-// the very-low bass bins (1+) which carry useful kick + sub energy.
-const EQ_LOW_SKIP = 1;
-// Wedge envelope — each bar's MAX geometric height varies by position.
-// Outer bars (low end) get a short segment, center bars (high end) get a
-// tall segment. scaleY animation still grows the bar symmetrically up+down
-// from y=50; with smaller rects, outer bars simply have less room to fill.
-const EQ_MIN_H = 14;   // viewBox units — outer-edge bars
-const EQ_MAX_H = 92;   // viewBox units — center bars
+// Beats with kick-band energy below this are NOT kicks — skip the morph
+// entirely so the cube responds to drums only. Tuned for the normalized
+// 0..1 values written by scripts/analyze_beats.py: clear kicks land
+// 0.4-1.0, snare/hat-only beats land below 0.25 in practice.
+const KICK_THRESH = 0.32;
+// Intensity scaling for kicks above the threshold. Bumped from
+// (0.55, 0.75) -> (0.65, 0.95) per spec: morph reaction stronger on
+// kicks. Bottom-of-range kick now ~0.95 intensity (vs prior 0.79);
+// the song's peak kick drives ~1.60 intensity (clamped by mesh at 1.7).
+const KICK_INTENSITY_FLOOR = 0.65;
+const KICK_INTENSITY_RANGE = 0.95;
+
+// Snare threshold mirrors the kick threshold's role. Snare-band onset
+// is much cleaner thanks to HPSS — clear snare hits land 0.4-1.0,
+// kick-only beats land near 0. 0.30 catches the meaningful range
+// without firing strobes on every weak articulation in the band.
+const SNARE_THRESH = 0.30;
+// Snare strobe peaks at ~1.0 intensity. Cube's snare uniform clamps
+// at 1.2 so even maxed snares can't blow out beyond a controlled flash.
+const SNARE_INTENSITY_FLOOR = 0.55;
+const SNARE_INTENSITY_RANGE = 0.55;
+
+// Stem-derived thresholds (used when beat_data is present, i.e., the song
+// was analyzed via analyze_drums_stems.py from isolated stems). Stems
+// have zero cross-talk by construction — every detected onset IS that
+// drum — so thresholds can be much lower without risking false fires.
+// They're really just floors below which the visual would be invisible.
+const HAT_THRESH = 99;  // temporarily disabled — was 0.18; bump back when ready to bring shimmer back
+const TOM_THRESH = 0.20;
+const BASS_PULSE_THRESH = 0.20;
+const BASS_SYNTH_THRESH = 0.15;
+
+// Diagnostic kick-only mode. When true: the FFT analyser is bypassed
+// (no cube breathing, no EQ bars, no ambient color pump), rotation
+// drift stops (cube stays statically oriented), and the ONLY visible
+// motion is the kick morph firing from beat_data. Use to dial in
+// beat_offset_seconds against the audible kick with zero other movement
+// confusing the alignment. Set false to restore normal playback.
+const DIAGNOSTIC_KICK_ONLY = false;
 
 /** Pull 3 dominant colors out of an image via a downsampled canvas histogram.
  *  Quantizes each channel to 5 bits, weights buckets by saturation so the
@@ -105,10 +165,23 @@ export function CubeVisualizer({
   cardFocalX,
   cardFocalY,
   cardZoom,
+  beatPeaks,
+  beatStrengths: _beatStrengths,
+  beatKicks,
+  beatSnares,
+  beatData,
+  beatOffset,
 }: CubeVisualizerProps) {
   const player = usePlayer();
   const isThis = player.isCurrent(songId);
   const playing = isThis && player.playing;
+  // Stem-derived data wins when present — it carries more information
+  // (hat, tom, bass effects) per-hit and is by-construction clean. The
+  // legacy librosa path stays as a fallback for songs analyzed before
+  // the multi-stem pipeline.
+  const useBeatData = !!(beatData && beatData.length > 0);
+  const usePrecomputedBeats = !useBeatData && !!(beatPeaks && beatPeaks.length > 0);
+  const beatOffsetSec = beatOffset ?? 0;
 
   const rootRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -125,9 +198,21 @@ export function CubeVisualizer({
     seed: 0,
     intensity: 1,
   });
-  const eqBarsRef = useRef<(SVGRectElement | null)[]>([]);
-  const eqReflectsRef = useRef<(SVGRectElement | null)[]>([]);
-
+  const meshSnareRef = useRef<SnarePulseRequest>({
+    pending: false,
+    intensity: 1,
+  });
+  // Secondary stem effects — populated only when beat_data is present
+  // (analyze_drums_stems.py path). For librosa-only songs these stay
+  // idle. PulseRequest carries an optional seed so tom can pick a
+  // shake direction per hit.
+  const meshHatRef = useRef<PulseRequest>({ pending: false, intensity: 0, seed: 0 });
+  const meshTomRef = useRef<PulseRequest>({ pending: false, intensity: 0, seed: 0 });
+  const meshBassPulseRef = useRef<PulseRequest>({ pending: false, intensity: 0, seed: 0 });
+  // Bass synth drives a CSS variable on the root (ambient gradient hue
+  // shift), not a mesh uniform. Lives in this component, no mailbox to
+  // the WebGL side needed.
+  const bassSynthStateRef = useRef({ amount: 0 });
   // Callback ref: fires whenever the cube box attaches OR detaches. Because
   // the box only mounts when playing flips true, a normal useLayoutEffect with
   // [] deps misses the mount entirely (boxRef.current was null when it ran).
@@ -163,11 +248,13 @@ export function CubeVisualizer({
   // so a sign flip doesn't whip — the cube smoothly decelerates through
   // zero and accelerates the other way, like a logo bouncing softly.
   const animRef = useRef((() => {
-    // Start the cube at full target velocity so motion is visible from the
-    // first frame instead of ramping in from zero (looked frozen for ~1s).
-    // Speed bumped 10% from the prior 0.015/0.008 baseline.
-    const tvx = 0.0088 * (Math.random() < 0.5 ? -1 : 1);
-    const tvy = 0.0165 * (Math.random() < 0.5 ? -1 : 1);
+    // "Flying through space, no friction" — pick a random velocity once,
+    // hold it forever. 3x slower than the prior baseline (~0.0029 deg/ms
+    // X, ~0.0055 deg/ms Y → roughly one full rotation every 30 and 18
+    // minutes respectively). The bounce/sign-flip logic below is gone:
+    // the cube never makes a distinct change of direction, it just drifts.
+    const tvx = 0.0029 * (Math.random() < 0.5 ? -1 : 1);
+    const tvy = 0.0055 * (Math.random() < 0.5 ? -1 : 1);
     return {
       rx: 0, ry: 0,
       vx: tvx, vy: tvy,
@@ -190,6 +277,10 @@ export function CubeVisualizer({
       // produce sharp residual spikes even when the floor is high.
       kickBaseline: 0,
       prevResidual: 0,
+      // Index of the next not-yet-triggered beat in the precomputed
+      // beat_peaks array. Advanced as playback crosses each timestamp;
+      // re-synced on seek by walking forward/backward in the tick loop.
+      nextBeatIdx: 0,
     };
   })());
 
@@ -286,7 +377,7 @@ export function CubeVisualizer({
       // `bass` value used by the ambient / breathing effects so a busy
       // mid-range doesn't trigger the morph.
       let kick = 0;
-      if (analyser && freqArr) {
+      if (analyser && freqArr && !DIAGNOSTIC_KICK_ONLY) {
         analyser.getByteFrequencyData(freqArr as Uint8Array<ArrayBuffer>);
         const bins = freqArr.length;
         const bassEnd = Math.max(2, Math.floor(bins * 0.06));
@@ -309,49 +400,6 @@ export function CubeVisualizer({
         for (let i = KICK_START; i < KICK_END; i++) kSum += freqArr[i];
         kick = (kSum / (KICK_END - KICK_START)) / 255;
 
-        // Update EQ bars — Y-axis mirrored. Compute spectrum for EQ_HALF
-        // values (low at h=0, high at h=HALF-1) and apply each value to a
-        // symmetric pair of bars: one at index HALF-1-h (left of center),
-        // one at index HALF+h (right of center). Bass sits in the middle,
-        // treble fans out toward the edges.
-        const usableTotal = Math.floor(bins * 0.7); // skip top, mostly silent
-        const usable = usableTotal - EQ_LOW_SKIP;   // and the dead-weight low end
-        for (let h = 0; h < EQ_HALF; h++) {
-          const t0 = h / EQ_HALF;
-          const t1 = (h + 1) / EQ_HALF;
-          // Log-ish bin mapping. Curve exponent lowered from 1.8 -> 1.35
-          // so the low-end bars get a meaningful bin span at the new 1024-
-          // bin FFT (with 1.8 they collapsed to 1-2 bins each and barely
-          // animated). 1.35 still gives octave-ish perceptual spacing.
-          const b0 = EQ_LOW_SKIP + Math.floor(Math.pow(t0, 1.35) * usable);
-          const b1 = Math.max(b0 + 1, EQ_LOW_SKIP + Math.floor(Math.pow(t1, 1.35) * usable));
-          let sum = 0;
-          for (let k = b0; k < b1; k++) sum += freqArr[k];
-          // Per-bar frequency tilt — bass bins still have more raw energy,
-          // so weight rises from ~0.28 at the bottom to 1.0 at the top so
-          // the center bars don't permanently peg.
-          const freqWeight = 0.28 + 0.72 * Math.pow(h / (EQ_HALF - 1), 0.85);
-          const v = Math.min(1, (sum / (b1 - b0)) / 200) * freqWeight;
-          // Per-pair scale ceiling — outer pairs at 0.5, center pairs at
-          // ~0.576 (high-end height reduced 20% from the prior 0.72 peak).
-          const peakCeiling = 0.5 + 0.076 * Math.pow(h / (EQ_HALF - 1), 0.7);
-          const scaled = Math.max(0.04, Math.pow(v, 0.85)) * peakCeiling;
-          // Bass at the outer edges, treble at the center: h=0 (lowest freq)
-          // maps to the far-left and far-right bars; h=HALF-1 (highest)
-          // maps to the two center bars.
-          const leftIdx = h;
-          const rightIdx = EQ_BAR_COUNT - 1 - h;
-          const leftBar = eqBarsRef.current[leftIdx];
-          const rightBar = eqBarsRef.current[rightIdx];
-          const leftReflect = eqReflectsRef.current[leftIdx];
-          const rightReflect = eqReflectsRef.current[rightIdx];
-          const t = `scaleY(${scaled})`;
-          const tr = `scaleY(${scaled * 0.85})`;
-          if (leftBar) leftBar.style.transform = t;
-          if (rightBar) rightBar.style.transform = t;
-          if (leftReflect) leftReflect.style.transform = tr;
-          if (rightReflect) rightReflect.style.transform = tr;
-        }
       }
 
       // Smooth incoming values so the cube doesn't jitter on transients.
@@ -361,22 +409,184 @@ export function CubeVisualizer({
       s.mid += (mid - s.mid) * (mid > s.mid ? ka : kr);
       s.energy += (energy - s.energy) * (energy > s.energy ? ka : kr);
 
-      // Adaptive-baseline spike detection. Slow envelope (~200ms time
-      // constant) tracks sustained content; kicks spike above it.
-      s.kickBaseline = s.kickBaseline * 0.97 + kick * 0.03;
-      const residual = Math.max(0, kick - s.kickBaseline);
-      const delta = Math.max(0, residual - s.prevResidual);
-      s.prevResidual = residual;
-      s.prevKick = kick;
-      const isKick =
-        delta > 0.06 &&
-        residual > 0.09 &&
-        ts > s.beatCooldownUntil;
-      if (isKick) {
-        s.beatCooldownUntil = ts + 500;
-        meshBeatRef.current.seed = Math.random() * 1000;
-        meshBeatRef.current.intensity = Math.min(0.85, 0.45 + residual * 1.6);
-        meshBeatRef.current.pending = true;
+      if (useBeatData && beatData) {
+        // Multi-stem dispatcher (analyze_drums_stems.py path). beat_data
+        // is sorted by .at. We track the next-unfired index in the same
+        // way as the beat_peaks branch below: walk forward as currentTime
+        // crosses each event, binary-search to resync on seek.
+        const t = player.getCurrentTime();
+        const SLOP = 0.05;
+
+        // Resync after backwards seek
+        if (
+          s.nextBeatIdx > 0 &&
+          t + SLOP < (beatData[s.nextBeatIdx - 1].at + beatOffsetSec)
+        ) {
+          let lo = 0, hi = beatData.length;
+          while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (beatData[mid].at + beatOffsetSec < t - SLOP) lo = mid + 1;
+            else hi = mid;
+          }
+          s.nextBeatIdx = lo;
+        }
+
+        // Fast-forward past missed events (tab-in-background recovery)
+        while (
+          s.nextBeatIdx < beatData.length &&
+          beatData[s.nextBeatIdx].at + beatOffsetSec < t - SLOP
+        ) {
+          s.nextBeatIdx++;
+        }
+
+        // Fire every event whose adjusted time has just crossed currentTime.
+        // The inner loop handles the case where multiple events stacked
+        // within one tick interval (which shouldn't happen at 60Hz given
+        // a 16ms tick + ~50ms slop, but is cheap to handle).
+        while (
+          s.nextBeatIdx < beatData.length &&
+          t + SLOP >= beatData[s.nextBeatIdx].at + beatOffsetSec
+        ) {
+          const ev = beatData[s.nextBeatIdx];
+          s.nextBeatIdx++;
+
+          // Snare / kick mutual exclusion preserved from the librosa path:
+          // a hit with both kick and snare populated fires the strobe
+          // only. Backbeats stay readable as strobe-not-morph events.
+          const kickVal = ev.k ?? 0;
+          const snareVal = ev.s ?? 0;
+          if (snareVal >= SNARE_THRESH) {
+            meshSnareRef.current.intensity =
+              SNARE_INTENSITY_FLOOR + snareVal * SNARE_INTENSITY_RANGE;
+            meshSnareRef.current.pending = true;
+          } else if (kickVal >= KICK_THRESH) {
+            meshBeatRef.current.seed = Math.random() * 1000;
+            meshBeatRef.current.intensity =
+              KICK_INTENSITY_FLOOR + kickVal * KICK_INTENSITY_RANGE;
+            meshBeatRef.current.pending = true;
+          }
+
+          // Secondary effects stack freely with whichever of kick/snare
+          // fired above — a backbeat with hat + snare gets both the
+          // corner strobe AND the rim shimmer.
+          const hatVal = ev.h ?? 0;
+          if (hatVal >= HAT_THRESH) {
+            meshHatRef.current.intensity = 0.4 + hatVal * 0.6;
+            meshHatRef.current.pending = true;
+          }
+          const tomVal = ev.to ?? 0;
+          if (tomVal >= TOM_THRESH) {
+            meshTomRef.current.seed = Math.random();
+            meshTomRef.current.intensity = 0.5 + tomVal * 0.5;
+            meshTomRef.current.pending = true;
+          }
+          const bpVal = ev.bp ?? 0;
+          if (bpVal >= BASS_PULSE_THRESH) {
+            meshBassPulseRef.current.intensity = 0.4 + bpVal * 0.6;
+            meshBassPulseRef.current.pending = true;
+          }
+          const bsVal = ev.bs ?? 0;
+          if (bsVal >= BASS_SYNTH_THRESH) {
+            // Push into local state — CSS variable update happens below
+            // alongside the bass/mid/energy decay so all CSS-driven
+            // values move in lockstep.
+            bassSynthStateRef.current.amount = Math.max(
+              bassSynthStateRef.current.amount,
+              0.3 + bsVal * 0.7,
+            );
+          }
+        }
+      } else if (usePrecomputedBeats && beatPeaks) {
+        // Precomputed-beats path: read live audio.currentTime and fire a
+        // morph each time we cross a beat timestamp. Vocal-immune, sample-
+        // accurate, no FFT needed for triggering. Resync on seek by
+        // walking the cursor forward or backward to match the actual
+        // playback position.
+        const t = player.getCurrentTime();
+        const SLOP = 0.05; // 50ms tolerance for missed frames
+
+        // Resync after seek (currentTime jumped backwards past prior beat)
+        if (s.nextBeatIdx > 0 && t + SLOP < beatPeaks[s.nextBeatIdx - 1]) {
+          // Binary search the next future beat
+          let lo = 0, hi = beatPeaks.length;
+          while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (beatPeaks[mid] < t - SLOP) lo = mid + 1;
+            else hi = mid;
+          }
+          s.nextBeatIdx = lo;
+        }
+
+        // Fast-forward past any beats we already missed (e.g. tab was in
+        // background and currentTime advanced past several).
+        while (
+          s.nextBeatIdx < beatPeaks.length &&
+          beatPeaks[s.nextBeatIdx] < t - SLOP
+        ) {
+          s.nextBeatIdx++;
+        }
+
+        // Fire if we just crossed the next beat. Kick-aware: when we have
+        // per-beat kick-band data, skip beats below KICK_THRESH entirely
+        // (snare/hat-only, ghost notes) and scale the surviving kicks'
+        // intensity by their kick-band magnitude. Without kick data we
+        // fall back to the prior uniform 0.7 morph on every beat.
+        if (
+          s.nextBeatIdx < beatPeaks.length &&
+          t + SLOP >= beatPeaks[s.nextBeatIdx]
+        ) {
+          const idx = s.nextBeatIdx;
+          s.nextBeatIdx++;
+          if (beatKicks && idx < beatKicks.length) {
+            const kick = beatKicks[idx];
+            const snare = beatSnares?.[idx] ?? 0;
+            // Snare takes precedence. Backbeats often have both kick AND
+            // snare above their thresholds (snare body fundamentals leak
+            // into the kick band, real backbeats stack both drums); if we
+            // fire both, every snare beat ALSO morphs the cube — exactly
+            // the visual the spec rejects. Treat the beat as a snare hit
+            // whenever the snare band is meaningfully active, otherwise
+            // fall through to the kick morph.
+            if (snare >= SNARE_THRESH) {
+              meshSnareRef.current.intensity =
+                SNARE_INTENSITY_FLOOR + snare * SNARE_INTENSITY_RANGE;
+              meshSnareRef.current.pending = true;
+            } else if (kick >= KICK_THRESH) {
+              meshBeatRef.current.seed = Math.random() * 1000;
+              meshBeatRef.current.intensity =
+                KICK_INTENSITY_FLOOR + kick * KICK_INTENSITY_RANGE;
+              meshBeatRef.current.pending = true;
+            }
+            // else: ghost beat, no effect
+          }
+          // No `else` fallback: songs analyzed under the v1 pipeline (no
+          // beat_kicks) still iterate their beat_peaks for seek-tracking
+          // accounting, but fire no morphs. Same rule as the unprocessed
+          // case below — only fully-processed songs morph.
+        }
+      }
+      // No live-FFT spike-detection fallback anymore. Songs without
+      // beat_data and without beat_peaks simply don't morph — the cube
+      // still floats and the ambient still breathes, but visual stem
+      // reaction requires the song to have been run through one of the
+      // analyzers. Prevents the "kinda random" feeling on unprocessed
+      // songs where live detection was misfiring on vocals.
+
+      // Diagnostic kick-only: flatten EQ bars to scaleY(0) and skip the
+      // rotation update so the cube stays statically oriented + the EQ
+      // is invisible. Only the kick morph dispatched above remains.
+      if (DIAGNOSTIC_KICK_ONLY) {
+        s.bass = 0; s.mid = 0; s.energy = 0;
+        bassSynthStateRef.current.amount = 0;
+        root.style.setProperty("--cv-bass", "0");
+        root.style.setProperty("--cv-mid", "0");
+        root.style.setProperty("--cv-energy", "0");
+        root.style.setProperty("--cv-bass-synth", "0");
+        meshAnimRef.current.bass = 0;
+        meshAnimRef.current.rx = s.rx;
+        meshAnimRef.current.ry = s.ry;
+        raf = requestAnimationFrame(tick);
+        return;
       }
 
       // DVD-logo motion with eased direction changes. Target velocity
@@ -386,28 +596,50 @@ export function CubeVisualizer({
       // out as a gradual deceleration through zero and re-acceleration,
       // no whip. Speeds: ~tvy 0.032 deg/ms -> ~11s per Y rotation,
       // ~tvx 0.018 deg/ms -> ~20s per X rotation. Slow, deliberate float.
-      const ease = 1 - Math.pow(0.001, dt / 1600);
+      // Solar-system rotation. Target velocity is held at a confident
+      // ±max magnitude — the cube has a clear heading at all times.
+      // Direction reversals happen rarely (mean ~3.5 min on Y, ~5.5 min
+      // on X) and the velocity glides through the change over an 8s
+      // ease — so slow that the reversal is barely perceptible as a
+      // discrete event. Most of the time the cube is moving steadily
+      // in one direction, like a planet on a long orbit.
+      const ease = 1 - Math.pow(0.001, dt / 8000);
       s.vx += (s.tvx - s.vx) * ease;
       s.vy += (s.tvy - s.vy) * ease;
-      // Bounce probabilities: ~0.0022/frame -> ~7s mean interval per axis.
-      // Slower change cadence than before so the cube settles into each
-      // direction long enough to register before reversing.
-      if (Math.random() < 0.0022) s.tvy = -s.tvy;
-      if (Math.random() < 0.0016) s.tvx = -s.tvx;
+      if (Math.random() < 0.00008) s.tvy = -s.tvy;  // ~3.5 min mean
+      if (Math.random() < 0.00005) s.tvx = -s.tvx;  // ~5.6 min mean
       s.rx += s.vx * dt;
       s.ry += s.vy * dt;
+
+      // Bass synth → ambient gradient + glow swell. 500ms half-life:
+      // bass synth notes are sustained, not transient, so the visual
+      // swell needs to linger for the chord-change feeling to register.
+      // After ~1.5s the swell has decayed to ~12%, after ~2.5s it's
+      // back to baseline.
+      const bsState = bassSynthStateRef.current;
+      if (bsState.amount > 0.001) {
+        const bsDecay = Math.pow(0.5, dt / 500);
+        bsState.amount *= bsDecay;
+        if (bsState.amount < 0.001) bsState.amount = 0;
+      }
 
       root.style.setProperty("--cv-bass", s.bass.toFixed(3));
       root.style.setProperty("--cv-mid", s.mid.toFixed(3));
       root.style.setProperty("--cv-energy", s.energy.toFixed(3));
+      root.style.setProperty("--cv-bass-synth", bsState.amount.toFixed(3));
       box.style.setProperty("--cv-rx", `${s.rx.toFixed(2)}deg`);
       box.style.setProperty("--cv-ry", `${s.ry.toFixed(2)}deg`);
 
       // Mirror state for the WebGL mesh. Plain assignment — the mesh's
       // useFrame reads these on its own schedule without React renders.
+      // bass is forced to 0 so the FFT-driven micro-breathing doesn't
+      // continuously inflate/deflate the cube between stem hits. The cube
+      // is now purely stem-reactive (kick morph, tom shake, etc.) plus
+      // inertial drift. CSS ambient layer still uses s.bass — only the
+      // shader's spatial response is muted.
       meshAnimRef.current.rx = s.rx;
       meshAnimRef.current.ry = s.ry;
-      meshAnimRef.current.bass = s.bass;
+      meshAnimRef.current.bass = 0;
 
       raf = requestAnimationFrame(tick);
     };
@@ -423,8 +655,6 @@ export function CubeVisualizer({
     // PlayerContext, so capturing player at effect-run time is safe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
-
-  const eqIndices = useMemo(() => Array.from({ length: EQ_BAR_COUNT }, (_, i) => i), []);
 
   return (
     <div
@@ -466,64 +696,16 @@ export function CubeVisualizer({
                 coverArtPath={coverArtPath}
                 animRef={meshAnimRef}
                 beatRef={meshBeatRef}
+                snareRef={meshSnareRef}
+                hatRef={meshHatRef}
+                tomRef={meshTomRef}
+                bassPulseRef={meshBassPulseRef}
               />
             )}
           </div>
         </div>
           </div>
 
-      {/* Mirrored EQ — each bar centered on the y=50 axis; scaleY drives the
-          symmetric expansion up + down. Reflected (lower) layer is dimmer so
-          the spectrum reads as a sound wave instead of a barcode. */}
-      <svg
-        className="cube-vis__eq"
-        viewBox={`0 0 ${EQ_WIDTH} ${EQ_HEIGHT}`}
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        {eqIndices.map((i) => {
-          const x = i * EQ_BAR_GAP + (EQ_BAR_GAP - EQ_BAR_WIDTH) / 2;
-          // Centerness: 1 at the middle bars, 0 at the outer edges. Curve
-          // (^0.65) keeps the inner cluster tall and lets the outer bars
-          // ramp down gently rather than dropping off sharply.
-          const center = (EQ_BAR_COUNT - 1) / 2;
-          const centerness = 1 - Math.abs(i - center) / center;
-          const barH = EQ_MIN_H + (EQ_MAX_H - EQ_MIN_H) * Math.pow(centerness, 0.65);
-          const barY = 50 - barH / 2;
-          return (
-            <rect
-              key={`u-${i}`}
-              ref={(el) => { eqBarsRef.current[i] = el; }}
-              className="cube-vis__eq-bar"
-              x={x}
-              y={barY}
-              width={EQ_BAR_WIDTH}
-              height={barH}
-              rx={EQ_BAR_WIDTH * 0.35}
-            />
-          );
-        })}
-        {eqIndices.map((i) => {
-          // Reflected fade — same geometry as primary, dimmer fill behind.
-          const x = i * EQ_BAR_GAP + (EQ_BAR_GAP - EQ_BAR_WIDTH) / 2;
-          const center = (EQ_BAR_COUNT - 1) / 2;
-          const centerness = 1 - Math.abs(i - center) / center;
-          const barH = EQ_MIN_H + (EQ_MAX_H - EQ_MIN_H) * Math.pow(centerness, 0.65);
-          const barY = 50 - barH / 2;
-          return (
-            <rect
-              key={`r-${i}`}
-              ref={(el) => { eqReflectsRef.current[i] = el; }}
-              className="cube-vis__eq-bar cube-vis__eq-bar--reflect"
-              x={x}
-              y={barY}
-              width={EQ_BAR_WIDTH}
-              height={barH}
-              rx={EQ_BAR_WIDTH * 0.35}
-            />
-          );
-        })}
-      </svg>
     </div>
   );
 }

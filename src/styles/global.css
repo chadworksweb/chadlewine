@@ -13666,8 +13666,16 @@ html {
   .track-detail__art-col,
   .product-detail__art-col {
     position: static;
+    width: 100%;
     max-width: 400px;
     margin: 0 auto;
+    /* Defensive: force the row to size to the cube. Without an explicit
+       row height in the mobile grid, browsers can collapse the art row
+       to zero before the cube's aspect-ratio sizes itself, especially
+       when the cube content (WebGL canvas + next/image) is loading
+       async. min-height seeds the row so the cube has something to
+       size against on first paint. */
+    min-height: min(100vw - 2 * var(--space-md), 400px);
   }
 
   .track-detail__content-col,
