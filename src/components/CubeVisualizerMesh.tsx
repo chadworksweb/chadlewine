@@ -34,6 +34,23 @@ export type PulseRequest = {
   seed: number;
 };
 
+/** One dash on the hat trail. face is 0..5 (+X, -X, +Y, -Y, +Z, -Z),
+ *  (u, v) are 0..1 face-local UV coords, age in number of hat hits
+ *  since this dash was placed, (dirU, dirV) is the pen's heading at
+ *  placement time (used to orient the dash as a line segment along
+ *  pen motion). */
+export type HatTrailEntry = {
+  face: number;
+  u: number;
+  v: number;
+  dirU: number;
+  dirV: number;
+  age: number;
+};
+
+// Fixed trail capacity matched to the GLSL fragment loop bound.
+const HAT_TRAIL_CAP = 30;
+
 /** Per-frame animation state shared with the mesh via ref. CubeVisualizer
  *  owns the rotation accumulator and bass smoothing; the mesh reads them
  *  inside useFrame to drive its transform/shader uniforms. */
@@ -61,6 +78,7 @@ uniform float uVariantSeed;
 uniform float uBass;
 
 varying float vCornerMask;   // 1 at the 8 cube corners, 0 along edges + face interiors
+flat varying float vFace;    // 0=+X 1=-X 2=+Y 3=-Y 4=+Z 5=-Z (constant per face, derived from vertex normal)
 
 //
 // Simplex noise 3D (Ashima Arts) — compact, fast, license-permissive.
@@ -122,6 +140,17 @@ void main() {
   // cover art, drawing thin dark "inner cube" outlines at each corner.
   vUv = uv * 0.992 + 0.004;
   vNormal = normalize(normalMatrix * normal);
+
+  // Face ID from raw object-space normal (BoxGeometry has flat per-face
+  // normals — all 4 vertices of any face share the same direction).
+  // Encoded 0..5 in the same order the JS pen uses (+X -X +Y -Y +Z -Z).
+  vec3 ln = normal;
+  if (ln.x > 0.5)       vFace = 0.0;
+  else if (ln.x < -0.5) vFace = 1.0;
+  else if (ln.y > 0.5)  vFace = 2.0;
+  else if (ln.y < -0.5) vFace = 3.0;
+  else if (ln.z > 0.5)  vFace = 4.0;
+  else                  vFace = 5.0;
 
   // Per-variant pattern. Frequency dropped HARD (0.25-0.6) so each face
   // shows roughly one continuous wave / bulge, not multiple ripples.
@@ -204,12 +233,22 @@ varying vec2 vUv;
 varying vec3 vNormal;
 varying vec3 vViewPos;
 varying float vCornerMask;
+flat varying float vFace;
 
 uniform sampler2D uTexture;
 uniform float uMorphAmount;
 uniform float uSnareAmount;     // 0..1, corner strobe (snare hits)
-uniform float uHatAmount;       // 0..1, rim brightness boost (hat hits)
+uniform float uHatAmount;       // 0..1, legacy hat rim glow (now disabled; hats draw trails instead)
 uniform float uBassPulseAmount; // 0..1, acid color-filter (bass pulse hits)
+// Hat trail: ring buffer of up to 30 dashes. uHatTrail[i] = (face, u, v, age).
+// age = -1 means slot is unused. Newest entries have age 0; entries with
+// age >= 20 are in the fade-out tail; age >= 30 are discarded JS-side
+// so they should never appear here.
+// uHatTrailDir[i] = (dirU, dirV), the pen's heading at the moment this
+// dash was placed. The fragment shader uses it to orient the dash as a
+// thin line segment along that direction (a tick mark, not a disc).
+uniform vec4 uHatTrail[30];
+uniform vec2 uHatTrailDir[30];
 
 void main() {
   vec4 tex = texture2D(uTexture, vUv);
@@ -227,15 +266,49 @@ void main() {
   float ndv = max(0.0, dot(normalize(vNormal), viewDir));
   float rim = pow(1.0 - ndv, 2.4);
 
-  // HAT RIM PULSE — brief brightness boost on the existing rim term,
-  // not at corners (snare's territory) and not on face interiors (kick's
-  // territory). The rim runs along the cube's visible silhouette
-  // perpendicular to view direction, so the hat reads as a quick edge
-  // glint — punctuation, not punch. Capped so loud hat patterns don't
-  // strobe the silhouette into oblivion.
-  float hatRim = rim * uHatAmount * 0.85;
+  // Hat rim glow is disabled — hats now draw a dash trail on the cube
+  // surface (see HAT TRAIL block below). The uniform is kept defined so
+  // legacy songs / future re-enabling is one line away.
+  vec3 color = base + rim * (0.12 + uMorphAmount * 0.25);
 
-  vec3 color = base + rim * (0.12 + uMorphAmount * 0.25) + vec3(hatRim);
+  // HAT TRAIL — walking dash effect. Each entry in uHatTrail is one
+  // tick-mark on the cube's surface, oriented along the pen's heading
+  // at the time it was placed. Rendered as a hard-edged thin line
+  // segment (no smoothstep / feather): solid white inside the rect,
+  // zero outside. Dimensions tuned so a single dash reads as a ~3px
+  // tick on a typical cube face (~400px wide rendered).
+  float trailGlow = 0.0;
+  // Length along pen direction (~14px on a 400px face).
+  const float DASH_HALF_LEN = 0.018;
+  // Width perpendicular to pen direction (~3px on a 400px face).
+  const float DASH_HALF_W   = 0.0035;
+  for (int i = 0; i < 30; i++) {
+    vec4 d = uHatTrail[i];
+    if (d.w < 0.0) continue;
+    if (abs(d.x - vFace) > 0.1) continue;  // dash not on this face
+    vec2 dashUv = vec2(d.y, d.z);
+    vec2 dir = uHatTrailDir[i];
+    // Defensive normalize in case the uniform got loaded with a
+    // zero-length direction (sentinel slot, etc.) — avoids NaN.
+    float dlen = length(dir);
+    if (dlen < 0.001) continue;
+    dir = dir / dlen;
+    vec2 perp = vec2(-dir.y, dir.x);
+    vec2 toFrag = vUv - dashUv;
+    float along = abs(dot(toFrag, dir));
+    float across = abs(dot(toFrag, perp));
+    // Hard rectangle: inside = full, outside = nothing. No feather.
+    if (along < DASH_HALF_LEN && across < DASH_HALF_W) {
+      // Age fade still applies — first 20 dashes full, last 10 linear
+      // fade to zero. Older dashes pass through quantization steps in
+      // intensity but each remains solid (no edge feather).
+      float ageFade = d.w < 20.0 ? 1.0 : max(0.0, 1.0 - (d.w - 20.0) / 10.0);
+      trailGlow = max(trailGlow, ageFade);
+    }
+  }
+  // White-cool tint matches the snare strobe so both percussive accents
+  // read as the same "stage lighting" family.
+  color += vec3(1.0, 1.04, 1.10) * trailGlow * 0.95;
 
   // BASS PULSE — acid color filter. NOT a spatial effect (the cube
   // doesn't swell). Boosts saturation hard and skews the palette toward
@@ -275,6 +348,7 @@ function MorphMesh({
   hatRef,
   tomRef,
   bassPulseRef,
+  hatTrailRef,
 }: {
   coverArtPath: string;
   animRef: React.MutableRefObject<MeshAnimRef>;
@@ -283,6 +357,7 @@ function MorphMesh({
   hatRef: React.MutableRefObject<PulseRequest>;
   tomRef: React.MutableRefObject<PulseRequest>;
   bassPulseRef: React.MutableRefObject<PulseRequest>;
+  hatTrailRef: React.MutableRefObject<HatTrailEntry[]>;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const matRef = useRef<THREE.ShaderMaterial>(null);
@@ -351,6 +426,17 @@ function MorphMesh({
       uSnareAmount: { value: 0 },
       uHatAmount: { value: 0 },
       uBassPulseAmount: { value: 0 },
+      // 30 disabled slots; CubeVisualizer fills them each frame from
+      // hatTrailRef. Sentinel age = -1 means "skip in fragment loop."
+      uHatTrail: {
+        value: Array.from({ length: HAT_TRAIL_CAP }, () => new THREE.Vector4(0, 0, 0, -1)),
+      },
+      // Pen heading at each dash's placement time. Same indexing as
+      // uHatTrail; zero-length sentinel means "skip" (shader guards
+      // against divide-by-zero on normalize).
+      uHatTrailDir: {
+        value: Array.from({ length: HAT_TRAIL_CAP }, () => new THREE.Vector2(0, 0)),
+      },
       uTexture: { value: texture },
     }),
     [texture],
@@ -465,6 +551,24 @@ function MorphMesh({
     u.uSnareAmount.value = snareState.amount;
     u.uHatAmount.value = hatState.amount;
     u.uBassPulseAmount.value = bassPulseState.amount;
+
+    // Mirror the JS-side hat trail into the GLSL uniform array. Three.js
+    // ShaderMaterial supports vec4[] via an array of Vector4 instances;
+    // we mutate the existing entries instead of reassigning so the
+    // underlying buffer Three.js uploads each frame keeps its identity.
+    const trail = hatTrailRef.current;
+    const slots = u.uHatTrail.value as THREE.Vector4[];
+    const dirs = u.uHatTrailDir.value as THREE.Vector2[];
+    for (let i = 0; i < HAT_TRAIL_CAP; i++) {
+      const entry = trail[i];
+      if (entry) {
+        slots[i].set(entry.face, entry.u, entry.v, entry.age);
+        dirs[i].set(entry.dirU, entry.dirV);
+      } else {
+        slots[i].set(0, 0, 0, -1);
+        dirs[i].set(0, 0);
+      }
+    }
   });
 
   return (
@@ -493,6 +597,7 @@ export function CubeVisualizerMesh({
   hatRef,
   tomRef,
   bassPulseRef,
+  hatTrailRef,
 }: {
   coverArtPath: string;
   animRef: React.MutableRefObject<MeshAnimRef>;
@@ -501,6 +606,7 @@ export function CubeVisualizerMesh({
   hatRef: React.MutableRefObject<PulseRequest>;
   tomRef: React.MutableRefObject<PulseRequest>;
   bassPulseRef: React.MutableRefObject<PulseRequest>;
+  hatTrailRef: React.MutableRefObject<HatTrailEntry[]>;
 }) {
   return (
     <Canvas
@@ -533,6 +639,7 @@ export function CubeVisualizerMesh({
         hatRef={hatRef}
         tomRef={tomRef}
         bassPulseRef={bassPulseRef}
+        hatTrailRef={hatTrailRef}
       />
     </Canvas>
   );

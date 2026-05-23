@@ -95,23 +95,110 @@ def supabase_client():
     return create_client(url, key)
 
 
-def detect_hits(stem_path: Path) -> list[tuple[float, float]]:
+def compute_pitch(stem_path: Path, target_hz: float = 20.0) -> list[float]:
+    """Monophonic pitch track at ~target_hz, normalized 0..1 over the
+    song's own MIDI range. For sustained-instrument stems (synth bass,
+    leads, vocals) where the envelope tells us 'how loud' but not 'what
+    note.' Uses librosa.pyin (probabilistic YIN) which is the canonical
+    monophonic f0 tracker.
+
+    Unvoiced / unpitched frames (silence, breath) hold the last valid
+    value so the visual color doesn't snap to a default during gaps.
+    Normalization is in MIDI semitone space (perceptual / linear-in-
+    pitch), not Hz space (log-skewed)."""
+    librosa, np = _lazy_imports()
+    y, sr = librosa.load(str(stem_path), sr=22050, mono=True)
+    hop = max(1, int(round(sr / target_hz)))
+
+    # Bass synth range: C1 (~33Hz, sub-bass) to C5 (~523Hz, high lead).
+    # Plenty of headroom in both directions; pyin will return NaN for
+    # anything outside this range.
+    fmin = librosa.note_to_hz("C1")
+    fmax = librosa.note_to_hz("C5")
+    f0, _voiced_flag, _voiced_probs = librosa.pyin(
+        y=y, fmin=fmin, fmax=fmax, sr=sr,
+        hop_length=hop, frame_length=hop * 4,
+    )
+    if f0.size == 0:
+        return []
+
+    # Pull valid (voiced) samples to define the per-song MIDI range.
+    valid = f0[~np.isnan(f0)]
+    if valid.size == 0:
+        return [0.5] * len(f0)
+    midi_valid = librosa.hz_to_midi(valid)
+    midi_min = float(midi_valid.min())
+    midi_max = float(midi_valid.max())
+    midi_span = midi_max - midi_min if midi_max > midi_min else 1.0
+
+    out: list[float] = []
+    last_valid = 0.5
+    for f in f0:
+        if np.isnan(f):
+            out.append(round(last_valid, 4))
+        else:
+            m = float(librosa.hz_to_midi(float(f)))
+            n = (m - midi_min) / midi_span
+            n = max(0.0, min(1.0, n))
+            last_valid = n
+            out.append(round(n, 4))
+    return out
+
+
+def compute_envelope(stem_path: Path, target_hz: float = 20.0) -> tuple[list[float], float]:
+    """Continuous amplitude envelope: per-frame RMS sampled at ~target_hz,
+    normalized 0..1 via 95th-percentile. Used for SUSTAINED stems (bass
+    synth, pads) where onset detection misses everything between note
+    attacks. Returns (values, actual_hz). actual_hz differs slightly from
+    target_hz because hop_length must be an integer."""
+    librosa, np = _lazy_imports()
+    y, sr = librosa.load(str(stem_path), sr=22050, mono=True)
+    hop = max(1, int(round(sr / target_hz)))
+    actual_hz = sr / hop
+    # frame_length = 2*hop gives ~50% overlap — RMS reacts faster to
+    # changes than the default frame_length=2048 while still smoothing
+    # out very short transients (which we don't want for an ambient
+    # follower).
+    rms = librosa.feature.rms(y=y, hop_length=hop, frame_length=hop * 2)[0]
+    if rms.size == 0:
+        return [], actual_hz
+    p95 = float(np.percentile(rms, 95))
+    if p95 <= 0:
+        p95 = float(rms.max()) or 1.0
+    values = [round(min(1.0, float(r) / p95), 4) for r in rms]
+    return values, actual_hz
+
+
+def detect_hits(stem_path: Path, sensitive: bool = False) -> list[tuple[float, float]]:
     """Return [(time_seconds, normalized_strength_0_to_1), ...] for every
     onset in the stem. 95th-percentile normalization per file so the top
     ~5% of hits clip at 1.0 and the rest spread across the meaningful
-    range, matching the analyze_beats.py convention."""
+    range, matching the analyze_beats.py convention.
+
+    sensitive=True is for sustained instruments (e.g. synth bass) where
+    note attacks are softer than percussion. Lowers delta (peak picking
+    threshold) and tightens the local-average windows so individual
+    notes inside a chord progression are detected, not just the brief
+    moments of overall energy spikes."""
     librosa, np = _lazy_imports()
 
     y, sr = librosa.load(str(stem_path), sr=22050, mono=True)
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
 
-    # wait=2 frames at hop=512/sr=22050 = ~46ms minimum spacing between
-    # hits. Prevents a single hard kick attack registering as two adjacent
-    # hits while allowing fast drum-machine patterns (32nd-note kicks at
-    # 180 BPM = 83ms). Acceptable for all six stem types.
-    onset_frames = librosa.onset.onset_detect(
-        onset_envelope=onset_env, sr=sr, units="frames", wait=2,
-    )
+    # wait=1 frame at hop=512/sr=22050 = ~23ms minimum spacing. Catches
+    # the fastest musically-spaced snare rolls (64th-notes at 200 BPM ≈
+    # 23ms) without producing double-trigger artifacts on hard attacks.
+    # Stems have zero cross-talk so false positives within a single kit
+    # piece are not a real risk.
+    if sensitive:
+        onset_frames = librosa.onset.onset_detect(
+            onset_envelope=onset_env, sr=sr, units="frames",
+            wait=1, delta=0.02, pre_avg=20, post_avg=20,
+        )
+    else:
+        onset_frames = librosa.onset.onset_detect(
+            onset_envelope=onset_env, sr=sr, units="frames", wait=1,
+        )
     if onset_frames.size == 0:
         return []
 
@@ -177,8 +264,12 @@ def main() -> None:
         p = Path(getattr(args, dest))
         if not p.exists():
             print(f"{label.capitalize()} stem not found: {p}", file=sys.stderr); sys.exit(1)
-        print(f"[detect {label}] {p}")
-        hits = detect_hits(p)
+        # Bass synth is sustained — chord changes produce gentle attacks
+        # rather than percussive transients. Use the sensitive detector
+        # so individual notes register, not just the rare big swells.
+        sensitive = dest == "bass_synth"
+        print(f"[detect {label}{' (sensitive)' if sensitive else ''}] {p}")
+        hits = detect_hits(p, sensitive=sensitive)
         hits_by_key[key] = hits
         head = ", ".join(f"{t:.2f}" for t, _ in hits[:5])
         print(f"  {len(hits)} {label} hits — first 5: {head}")
@@ -195,10 +286,23 @@ def main() -> None:
         print(f"No song with slug={args.slug!r}", file=sys.stderr)
         sys.exit(1)
 
-    sb.table("songs").update({
-        "beat_data": beat_data,
-    }).eq("slug", args.slug).execute()
-    print(f"  -> written to songs.beat_data for slug={args.slug}")
+    update: dict = {"beat_data": beat_data}
+
+    # Bass synth: write BOTH the discrete attacks (in beat_data) AND a
+    # continuous envelope. Frontend prefers the envelope when present
+    # (continuous follower); shape it via BASS_SYNTH_ENV_GATE / CURVE
+    # constants there to taste.
+    if args.bass_synth:
+        bs_env, bs_hz = compute_envelope(Path(args.bass_synth))
+        bs_pitch = compute_pitch(Path(args.bass_synth), target_hz=bs_hz)
+        update["bass_synth_envelope"] = bs_env
+        update["bass_synth_envelope_hz"] = round(bs_hz, 4)
+        update["bass_synth_pitch"] = bs_pitch
+        print(f"[envelope bass synth] {len(bs_env)} frames @ {bs_hz:.2f} Hz")
+        print(f"[pitch    bass synth] {len(bs_pitch)} frames (normalized 0..1)")
+
+    sb.table("songs").update(update).eq("slug", args.slug).execute()
+    print(f"  -> written to songs for slug={args.slug}")
 
 
 if __name__ == "__main__":

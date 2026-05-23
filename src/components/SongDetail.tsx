@@ -54,6 +54,16 @@ interface SongProps {
   /** Seconds to add to every beat_data event time at playback (alignment
    *  nudge between stem-export timeline and the published MP3). */
   beat_offset_seconds?: number | null;
+  /** Continuous RMS envelope of the bass-synth stem, 0..1 normalized.
+   *  Sampled at bass_synth_envelope_hz; drives the ambient swell
+   *  continuously rather than on discrete attacks. */
+  bass_synth_envelope?: number[] | null;
+  /** Sample rate (Hz) of bass_synth_envelope. index = floor(t * hz). */
+  bass_synth_envelope_hz?: number | null;
+  /** Per-frame pitch of the bass-synth stem, normalized 0..1 over the
+   *  song's own MIDI range. Same sample rate + length as envelope.
+   *  Drives ambient/glow hue rotation per note. */
+  bass_synth_pitch?: number[] | null;
 }
 
 type BeatDataEvent = {
@@ -262,6 +272,9 @@ export function SongDetail({
             beatSnares={song.beat_snares ?? null}
             beatData={song.beat_data ?? null}
             beatOffset={song.beat_offset_seconds ?? null}
+            bassSynthEnvelope={song.bass_synth_envelope ?? null}
+            bassSynthEnvelopeHz={song.bass_synth_envelope_hz ?? null}
+            bassSynthPitch={song.bass_synth_pitch ?? null}
           />
         </div>
 

@@ -67,12 +67,6 @@ interface Line {
   created_at: string;
 }
 
-const TIER_LABEL: Record<string, string> = {
-  art: "The Art",
-  line: "The Line",
-  fusion: "The Fusion",
-};
-
 interface ConfigRow {
   label: string;
   value: string;
@@ -83,17 +77,8 @@ function configRows(cfg: Record<string, unknown> | null): ConfigRow[] {
   const rows: ConfigRow[] = [];
   if (typeof cfg.size === "string") rows.push({ label: "Size", value: cfg.size });
   if (typeof cfg.color === "string") rows.push({ label: "Color", value: cfg.color });
-  if (typeof cfg.tier === "string") {
-    rows.push({ label: "Tier", value: TIER_LABEL[cfg.tier] || cfg.tier });
-  }
-  if (typeof cfg.blueprint_id === "number") {
-    rows.push({ label: "Blueprint", value: String(cfg.blueprint_id) });
-  }
   if (typeof cfg.variant_id === "number") {
     rows.push({ label: "Variant", value: String(cfg.variant_id) });
-  }
-  if (typeof cfg.source_type === "string" && typeof cfg.source_id === "string") {
-    rows.push({ label: "Source", value: `${cfg.source_type} · ${cfg.source_id.slice(0, 8)}` });
   }
   return rows;
 }
@@ -399,7 +384,7 @@ export default function OrderDetailPage() {
             Review &amp; Push to Printify
           </h3>
           <p style={{ fontFamily: "var(--font-ui)", color: "var(--text-tertiary)", fontSize: 13, marginTop: 0 }}>
-            Map each physical line to a Printify product + variant. For configurator lines you may need to create the Printify product first, then paste IDs here.
+            Map each physical line to a Printify product + variant.
           </p>
 
           {physicalLines.map((l) => {
@@ -407,8 +392,6 @@ export default function OrderDetailPage() {
             const fulfillmentLabel =
               fulfillment === "manual" ? "Manual"
               : fulfillment === "printify_curated" ? "Curated"
-              : fulfillment === "printify_configurator" ? "Configurator"
-              : l.product_config_snapshot ? "Configurator"
               : null;
             return (
             <div key={l.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 80px", gap: 8, marginBottom: 8, alignItems: "center" }}>

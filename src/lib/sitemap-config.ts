@@ -75,10 +75,6 @@ async function fetchPages(): Promise<SitemapEntry[]> {
     { url: `${BASE_URL}/discography`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE_URL}/archive/xanga`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/merch`, changeFrequency: "weekly", priority: 0.6 },
-    { url: `${BASE_URL}/merch/art`, changeFrequency: "weekly", priority: 0.5 },
-    { url: `${BASE_URL}/merch/line`, changeFrequency: "weekly", priority: 0.5 },
-    { url: `${BASE_URL}/merch/fusion`, changeFrequency: "weekly", priority: 0.5 },
-    { url: `${BASE_URL}/merch/pick`, changeFrequency: "weekly", priority: 0.5 },
   ];
 
   const { data: doorPages } = await supabase

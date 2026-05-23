@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { MerchProductDetail } from "@/components/MerchProductDetail";
+import { MerchProductJsonLd } from "@/components/MerchProductJsonLd";
 import { ExploreStrip } from "@/components/ExploreStrip";
 import type { ProductVariant } from "@/components/MerchProductCard";
 import { getGalleryForProduct, type GalleryImage } from "@/lib/product-images";
@@ -111,13 +112,21 @@ export default async function MerchProductPage({
 
   return (
     <>
+      <MerchProductJsonLd
+        id={product.id}
+        slug={product.slug}
+        title={product.title}
+        description={product.description}
+        images={gallery.map((g) => g.url)}
+        price={product.price}
+        variants={Array.isArray(product.variants) ? product.variants : []}
+      />
       <AdminEditButton href={`/admin/merch/products/${product.slug || product.id}`} />
       <MerchProductDetail
         id={product.id}
         title={product.title}
         description={product.description}
         gallery={gallery}
-        tier={product.tier}
         price={product.price}
         variants={Array.isArray(product.variants) ? product.variants : []}
         linkedPrintSlug={linkedPrintSlug}

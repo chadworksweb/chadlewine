@@ -430,24 +430,8 @@ export async function POST(request: Request) {
             const cfgRaw = session.metadata?.[`cfg_${line.c}`];
             try { if (cfgRaw) cfg = JSON.parse(cfgRaw); } catch { /* ignore */ }
           }
-          const isConfiguratorLine = !!(cfg && cfg.tier && cfg.blueprint_id);
 
-          if (isConfiguratorLine) {
-            const tierLabel =
-              cfg!.tier === "art" ? "The Art" : cfg!.tier === "line" ? "The Line" : "The Fusion";
-            itemTitle = `${tierLabel} — Custom merch`;
-            const sourceType = cfg!.source_type as string | undefined;
-            const sourceId = cfg!.source_id as string | undefined;
-            if (sourceType && sourceId) {
-              const table = sourceType === "song" ? "songs" : "observations";
-              const { data: src } = await supabase
-                .from(table)
-                .select("art_image_path")
-                .eq("id", sourceId)
-                .single();
-              imageUrl = (src as { art_image_path?: string } | null)?.art_image_path || undefined;
-            }
-          } else if (line.i) {
+          if (line.i) {
             const { data: product } = await supabase
               .from("products")
               .select("title, image_url")

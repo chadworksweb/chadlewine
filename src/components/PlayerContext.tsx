@@ -241,6 +241,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     clearFadeIn();
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "none";
+      navigator.mediaSession.metadata = null;
+    }
     currentRef.current = null;
     setCurrent(null);
     setPlaying(false);
@@ -326,6 +330,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       audio.src = song.streamingUrl;
 
+      // Tell the OS this is real audio playback. Lockscreen on mobile
+      // shows title/artist/artwork + play/pause/seek controls, and
+      // iOS Safari stops auto-suspending the tab on screen lock once
+      // MediaSession metadata is set.
+      if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: song.title,
+          artist: "Chad Lewine",
+          artwork: song.artImagePath
+            ? [
+                { src: song.artImagePath, sizes: "512x512" },
+                { src: song.artImagePath, sizes: "256x256" },
+              ]
+            : [],
+        });
+        navigator.mediaSession.playbackState = "playing";
+      }
+
       const onLoadedMeta = () => {
         if (audio.duration && Number.isFinite(audio.duration)) {
           setResolvedDuration(audio.duration);
@@ -397,6 +419,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setPlaying(false);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     clearFadeIn();
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = "paused";
+    }
     // Commit the listening burst now — pagehide is unreliable on mobile and
     // never fires on Next client navigations, so a paused-then-walked-away
     // session would otherwise be silently dropped. /api/play has a 30s soft
@@ -421,9 +446,40 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
     audio.play().then(() => {
       setPlaying(true);
+      if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "playing";
+      }
       rafRef.current = requestAnimationFrame(tick);
     }).catch(() => {});
   }, [tick]);
+
+  // Register MediaSession action handlers AFTER pause/resume/stop are
+  // defined so the closures point to current functions. Re-runs when
+  // those callbacks change to avoid stale-closure bugs.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    const ms = navigator.mediaSession;
+    ms.setActionHandler("play", () => { resume(); });
+    ms.setActionHandler("pause", () => { pause(); });
+    ms.setActionHandler("stop", () => { stop(); });
+    ms.setActionHandler("seekbackward", () => {
+      const a = audioRef.current;
+      if (a) a.currentTime = Math.max(0, a.currentTime - 10);
+    });
+    ms.setActionHandler("seekforward", () => {
+      const a = audioRef.current;
+      if (a && Number.isFinite(a.duration)) {
+        a.currentTime = Math.min(a.duration, a.currentTime + 10);
+      }
+    });
+    return () => {
+      ms.setActionHandler("play", null);
+      ms.setActionHandler("pause", null);
+      ms.setActionHandler("stop", null);
+      ms.setActionHandler("seekbackward", null);
+      ms.setActionHandler("seekforward", null);
+    };
+  }, [pause, resume, stop]);
 
   const seek = useCallback((pct: number) => {
     const audio = audioRef.current;

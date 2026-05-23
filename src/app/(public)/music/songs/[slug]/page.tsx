@@ -189,7 +189,7 @@ export async function generateMetadata({
 
   const { song, album } = result;
   const releaseLabel = album ? album.title : "Single";
-  const title = song.seo_title || `${song.title} — ${releaseLabel} — Chad Lewine`;
+  const title = song.seo_title || `${song.title} — ${releaseLabel}`;
   const description =
     song.seo_description ||
     song.citation_summary ||
@@ -324,6 +324,9 @@ export default async function SongDetailPage({
           beat_snares: Array.isArray(song.beat_snares) ? song.beat_snares : null,
           beat_data: Array.isArray(song.beat_data) ? song.beat_data : null,
           beat_offset_seconds: typeof song.beat_offset_seconds === "number" ? song.beat_offset_seconds : null,
+          bass_synth_envelope: Array.isArray(song.bass_synth_envelope) ? song.bass_synth_envelope : null,
+          bass_synth_envelope_hz: typeof song.bass_synth_envelope_hz === "number" ? song.bass_synth_envelope_hz : null,
+          bass_synth_pitch: Array.isArray(song.bass_synth_pitch) ? song.bass_synth_pitch : null,
         }}
         album={
           album

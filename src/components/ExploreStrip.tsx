@@ -44,18 +44,11 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
   const supabase = createPublicClient();
   const excludeSet = new Set(excludeMerchIds);
 
-  const [productsRes, catalogPicksRes, songsRes, albumsRes, artRes] = await Promise.all([
+  const [productsRes, songsRes, albumsRes, artRes] = await Promise.all([
     supabase
       .from("products")
       .select("id, slug, title, image_url, image_alt")
       .in("fulfillment", ["manual", "printify_curated"])
-      .eq("status", "active")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("products")
-      .select("id, slug, title, image_url, image_alt")
-      .eq("fulfillment", "printify_configurator")
-      .eq("is_catalog_item", true)
       .eq("status", "active")
       .order("created_at", { ascending: false }),
     supabase
@@ -81,10 +74,7 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
       .limit(40),
   ]);
 
-  const allProducts = [
-    ...((productsRes.data || []) as ProductRow[]),
-    ...((catalogPicksRes.data || []) as ProductRow[]),
-  ];
+  const allProducts = (productsRes.data || []) as ProductRow[];
 
   const allMerchPool: ExploreItem[] = allProducts
     .filter((p) => p.image_url)

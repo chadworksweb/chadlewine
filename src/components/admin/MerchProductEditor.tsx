@@ -6,15 +6,13 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { MerchGalleryPanel } from "@/components/admin/MerchGalleryPanel";
 import { LinkedPrintPicker } from "@/components/admin/LinkedPrintPicker";
 
-const TIERS = ["art", "line", "fusion", "pick"] as const;
 const STATUSES = ["active", "inactive", "pending_review"] as const;
-const FULFILLMENTS = ["manual", "printify_curated", "printify_configurator"] as const;
+const FULFILLMENTS = ["manual", "printify_curated"] as const;
 
 interface ProductData {
   id?: string;
   title: string;
   slug: string;
-  tier: string;
   fulfillment: string;
   status: string;
   description: string;
@@ -30,7 +28,6 @@ interface ProductData {
 const emptyProduct: ProductData = {
   title: "",
   slug: "",
-  tier: "art",
   fulfillment: "manual",
   status: "active",
   description: "",
@@ -66,7 +63,6 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           id: d.id,
           title: d.title || "",
           slug: d.slug || "",
-          tier: d.tier || "art",
           fulfillment: d.fulfillment || "printify_curated",
           status: d.status || "active",
           description: d.description || "",
@@ -87,7 +83,6 @@ export function MerchProductEditor({ idOrSlug }: Props) {
     return {
       title: data.title,
       slug: data.slug || null,
-      tier: data.tier,
       fulfillment: data.fulfillment,
       status: data.status,
       description: data.description || null,
@@ -205,18 +200,11 @@ export function MerchProductEditor({ idOrSlug }: Props) {
       </div>
 
       <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Tier</label>
-        <select className="obsv-editor__input" value={form.tier} onChange={(e) => set("tier", e.target.value)}>
-          {TIERS.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-        </select>
-      </div>
-
-      <div className="obsv-editor__field">
         <label className="obsv-editor__label">Fulfillment</label>
         <select className="obsv-editor__input" value={form.fulfillment} onChange={(e) => set("fulfillment", e.target.value)}>
           {FULFILLMENTS.map((f) => (
             <option key={f} value={f}>
-              {f === "manual" ? "Manual (self-fulfilled)" : f === "printify_curated" ? "Printify Curated" : "Printify Configurator"}
+              {f === "manual" ? "Manual (self-fulfilled)" : "Printify Curated"}
             </option>
           ))}
         </select>

@@ -69,11 +69,6 @@ export default function AdminMerchPage() {
     );
   }
 
-  const tierCounts = products.reduce<Record<string, number>>((acc, p) => {
-    acc[p.tier] = (acc[p.tier] || 0) + 1;
-    return acc;
-  }, {});
-
   return (
     <div className="admin-page">
       <div className="admin-page__header">
@@ -104,12 +99,6 @@ export default function AdminMerchPage() {
           <span className="admin-stats__value">{products.length}</span>
           <span className="admin-stats__label">Total Products</span>
         </div>
-        {["art", "line", "fusion", "pick"].map((tier) => (
-          <div key={tier} className="admin-stats__card">
-            <span className="admin-stats__value">{tierCounts[tier] || 0}</span>
-            <span className="admin-stats__label">{tier.charAt(0).toUpperCase() + tier.slice(1)}</span>
-          </div>
-        ))}
         <div className={`admin-stats__card${pendingOrders > 0 ? " admin-stats__card--warn" : ""}`}>
           <span className="admin-stats__value">{pendingOrders}</span>
           <span className="admin-stats__label">Pending Review</span>
@@ -131,7 +120,6 @@ export default function AdminMerchPage() {
         <thead>
           <tr>
             <th className="admin-table__th">Title</th>
-            <th className="admin-table__th">Tier</th>
             <th className="admin-table__th">Fulfillment</th>
             <th className="admin-table__th">Price</th>
             <th className="admin-table__th">Status</th>
@@ -142,7 +130,7 @@ export default function AdminMerchPage() {
         <tbody>
           {products.length === 0 && (
             <tr>
-              <td className="admin-table__td admin-table__td--empty" colSpan={7}>No products yet.</td>
+              <td className="admin-table__td admin-table__td--empty" colSpan={6}>No products yet.</td>
             </tr>
           )}
           {products.map((p) => (
@@ -158,10 +146,7 @@ export default function AdminMerchPage() {
                 )}
               </td>
               <td className="admin-table__td">
-                <span className="admin-meta-chip">{p.tier}</span>
-              </td>
-              <td className="admin-table__td">
-                <span className="admin-meta-chip">{p.fulfillment === "manual" ? "Manual" : p.fulfillment === "printify_curated" ? "Curated" : "Config"}</span>
+                <span className="admin-meta-chip">{p.fulfillment === "manual" ? "Manual" : "Curated"}</span>
               </td>
               <td className="admin-table__td">
                 {p.price ? `$${Number(p.price).toFixed(2)}` : "--"}

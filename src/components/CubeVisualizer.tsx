@@ -62,6 +62,17 @@ interface CubeVisualizerProps {
    *  MP3; this nudge corrects without re-analyzing. Positive = events
    *  fire later (stems lag the MP3). Negative = earlier. */
   beatOffset?: number | null;
+  /** Continuous RMS envelope of the bass-synth stem, sampled at
+   *  bassSynthEnvelopeHz. When present, drives the ambient swell
+   *  directly (no discrete attack/decay), making sustained synth
+   *  passages render as continuous color swells instead of sparse
+   *  flashes on rare note attacks. */
+  bassSynthEnvelope?: number[] | null;
+  bassSynthEnvelopeHz?: number | null;
+  /** Per-frame normalized pitch of the bass-synth stem (0..1 over the
+   *  song's MIDI range). Same sample rate + length as envelope. Drives
+   *  ambient/glow hue rotation per note. */
+  bassSynthPitch?: number[] | null;
 }
 
 // Beats with kick-band energy below this are NOT kicks — skip the morph
@@ -80,7 +91,7 @@ const KICK_INTENSITY_RANGE = 0.95;
 // is much cleaner thanks to HPSS — clear snare hits land 0.4-1.0,
 // kick-only beats land near 0. 0.30 catches the meaningful range
 // without firing strobes on every weak articulation in the band.
-const SNARE_THRESH = 0.30;
+const SNARE_THRESH = 0.15;  // stems are clean by construction — lower threshold catches softer roll hits
 // Snare strobe peaks at ~1.0 intensity. Cube's snare uniform clamps
 // at 1.2 so even maxed snares can't blow out beyond a controlled flash.
 const SNARE_INTENSITY_FLOOR = 0.55;
@@ -91,10 +102,52 @@ const SNARE_INTENSITY_RANGE = 0.55;
 // have zero cross-talk by construction — every detected onset IS that
 // drum — so thresholds can be much lower without risking false fires.
 // They're really just floors below which the visual would be invisible.
-const HAT_THRESH = 99;  // temporarily disabled — was 0.18; bump back when ready to bring shimmer back
+// Hat dash trail: each hat hit advances a pen across the cube's surface
+// and drops a short-lived white dash at the new position. Threshold is
+// low because hats are dense in most songs and the visual layer is
+// designed to read as a constant tracery (not punctuation).
+const HAT_THRESH = 0.18;
+// 30-entry ring buffer: ages 0..19 = full brightness, 20..29 = linear
+// fade to 0, drop at 30. Bumping these requires syncing the shader's
+// loop bound (kept as a literal int there since GLSL needs constant).
+const HAT_TRAIL_FULL = 20;
+const HAT_TRAIL_FADE = 10;
+const HAT_TRAIL_MAX = HAT_TRAIL_FULL + HAT_TRAIL_FADE;  // 30
+
+// Cube face adjacency — for each face, which face neighbors it on edge
+// [right (u>1), left (u<0), top (v>1), bottom (v<0)].
+//
+// Face IDs match the shader's vFace (0=+X, 1=-X, 2=+Y, 3=-Y, 4=+Z, 5=-Z).
+// Derived from Three.js BoxGeometry's per-face UV orientation. Without
+// this table, the prior implementation picked a RANDOM adjacent face
+// at every edge crossing, which roughly half the time jumped to a face
+// that's on the far side of the cube from the current viewpoint — the
+// trail visually vanished. The deterministic mapping below keeps the
+// pen on faces that are geometrically adjacent at the edge it crossed.
+const FACE_NEIGHBORS: Record<number, readonly [number, number, number, number]> = {
+  0: [5, 4, 2, 3], // +X: r=-Z l=+Z t=+Y b=-Y
+  1: [4, 5, 2, 3], // -X: r=+Z l=-Z t=+Y b=-Y
+  2: [0, 1, 5, 4], // +Y: r=+X l=-X t=-Z b=+Z
+  3: [0, 1, 4, 5], // -Y: r=+X l=-X t=+Z b=-Z
+  4: [0, 1, 2, 3], // +Z: r=+X l=-X t=+Y b=-Y
+  5: [1, 0, 2, 3], // -Z: r=-X l=+X t=+Y b=-Y
+};
 const TOM_THRESH = 0.20;
 const BASS_PULSE_THRESH = 0.20;
 const BASS_SYNTH_THRESH = 0.15;
+
+// Bass-synth envelope shaping (applied to the continuous envelope path
+// only). GATE = 0 and CURVE = 1 means raw envelope passes through
+// unshaped — the "cranked, always-on" baseline. Adjust GATE upward to
+// gate quiet sections out, or CURVE upward to crush the noise floor
+// and emphasize peaks.
+const BASS_SYNTH_ENV_GATE = 0;
+const BASS_SYNTH_ENV_CURVE = 1;
+// Low-pass smoothing on the envelope readout. Time constant in ms —
+// higher = smoother + slower to respond + more ambient feel. At 400ms,
+// the effect blends across a quarter-second window so 50ms-resolution
+// envelope frame-to-frame jumps become continuous ambient swells.
+const BASS_SYNTH_SMOOTHING_MS = 400;
 
 // Diagnostic kick-only mode. When true: the FFT analyser is bypassed
 // (no cube breathing, no EQ bars, no ambient color pump), rotation
@@ -171,6 +224,9 @@ export function CubeVisualizer({
   beatSnares,
   beatData,
   beatOffset,
+  bassSynthEnvelope,
+  bassSynthEnvelopeHz,
+  bassSynthPitch,
 }: CubeVisualizerProps) {
   const player = usePlayer();
   const isThis = player.isCurrent(songId);
@@ -207,12 +263,31 @@ export function CubeVisualizer({
   // idle. PulseRequest carries an optional seed so tom can pick a
   // shake direction per hit.
   const meshHatRef = useRef<PulseRequest>({ pending: false, intensity: 0, seed: 0 });
+  // Hat dash pen + trail. Pen walks the cube's faces in face-local UV
+  // space (0..1, 0..1). Each hat hit advances the pen by a small step
+  // and drops a new entry on the trail. Direction has continuity (small
+  // random nudge per step); face transitions happen at edge crossings
+  // (random adjacent face, opposite-edge entry — keeps movement
+  // continuous in u or v across the boundary).
+  const penRef = useRef({
+    face: 4,    // +Z (front) — first visible face the listener sees
+    u: 0.5,
+    v: 0.5,
+    dirU: 0.78,  // initial heading ~22° from horizontal
+    dirV: 0.62,
+  });
+  const hatTrailRef = useRef<Array<{ face: number; u: number; v: number; dirU: number; dirV: number; age: number }>>([]);
   const meshTomRef = useRef<PulseRequest>({ pending: false, intensity: 0, seed: 0 });
   const meshBassPulseRef = useRef<PulseRequest>({ pending: false, intensity: 0, seed: 0 });
   // Bass synth drives a CSS variable on the root (ambient gradient hue
   // shift), not a mesh uniform. Lives in this component, no mailbox to
   // the WebGL side needed.
   const bassSynthStateRef = useRef({ amount: 0 });
+  // Smoothed pitch in 0..1 (normalized over the song's MIDI range).
+  // Pushed to --cv-bass-synth-pitch each frame; CSS uses it to drive
+  // hue-rotate on the ambient + glow layers (gated by envelope intensity
+  // so silent sections don't leak a stale color cast).
+  const bassSynthPitchStateRef = useRef({ value: 0.5 });
   // Callback ref: fires whenever the cube box attaches OR detaches. Because
   // the box only mounts when playing flips true, a normal useLayoutEffect with
   // [] deps misses the mount entirely (boxRef.current was null when it ran).
@@ -471,8 +546,74 @@ export function CubeVisualizer({
           // corner strobe AND the rim shimmer.
           const hatVal = ev.h ?? 0;
           if (hatVal >= HAT_THRESH) {
-            meshHatRef.current.intensity = 0.4 + hatVal * 0.6;
-            meshHatRef.current.pending = true;
+            // Advance the pen one step in its current direction, then
+            // drop a new dash at the new position. Pen continuity gives
+            // each hat hit a sense of "moving" along the cube; small
+            // random direction nudges keep the path from being a perfect
+            // straight line.
+            const pen = penRef.current;
+            const STEP = 0.06;  // 6% of face per hat
+            pen.u += pen.dirU * STEP;
+            pen.v += pen.dirV * STEP;
+
+            // Edge crossing: jump to the GEOMETRICALLY ADJACENT face via
+            // the FACE_NEIGHBORS table. Whichever edge had the largest
+            // overshoot wins (handles diagonal exits cleanly). Pen
+            // enters the new face at the opposite edge so u or v stays
+            // continuous across the seam.
+            if (pen.u < 0 || pen.u > 1 || pen.v < 0 || pen.v > 1) {
+              let edge = -1;
+              let excess = 0;
+              if (pen.u > 1)          { edge = 0; excess = pen.u - 1; }
+              if (pen.u < 0 && -pen.u > excess) { edge = 1; excess = -pen.u; }
+              if (pen.v > 1 && pen.v - 1 > excess) { edge = 2; excess = pen.v - 1; }
+              if (pen.v < 0 && -pen.v > excess) { edge = 3; excess = -pen.v; }
+
+              const newFace = FACE_NEIGHBORS[pen.face][edge];
+
+              // Clamp the secondary axis to [0,1] before transitioning,
+              // then place the primary axis at the entry edge of the
+              // new face. (Diagonal exits would otherwise carry an
+              // out-of-range value into the new face's UV.)
+              pen.u = Math.max(0, Math.min(1, pen.u));
+              pen.v = Math.max(0, Math.min(1, pen.v));
+              if (edge === 0)      pen.u = 0;  // exited right → enter left
+              else if (edge === 1) pen.u = 1;  // exited left → enter right
+              else if (edge === 2) pen.v = 0;  // exited top → enter bottom
+              else                 pen.v = 1;  // exited bottom → enter top
+              pen.face = newFace;
+            }
+
+            // Small heading nudge (≤±0.2 rad ≈ ±11°) per hit. Keeps
+            // direction mostly continuous (not chaotic) with enough
+            // wander that the trail doesn't draw a perfect line.
+            const ang = (Math.random() - 0.5) * 0.4;
+            const cos = Math.cos(ang);
+            const sin = Math.sin(ang);
+            const ndu = pen.dirU * cos - pen.dirV * sin;
+            const ndv = pen.dirU * sin + pen.dirV * cos;
+            const mag = Math.sqrt(ndu * ndu + ndv * ndv) || 1;
+            pen.dirU = ndu / mag;
+            pen.dirV = ndv / mag;
+
+            // Age existing dashes, drop the old ones, push the new one
+            // at the front (newest = age 0). Each dash captures the
+            // pen's current heading so the shader can orient it as a
+            // line segment along the direction of pen travel.
+            const trail = hatTrailRef.current;
+            for (const t of trail) t.age += 1;
+            while (trail.length > 0 && trail[trail.length - 1].age >= HAT_TRAIL_MAX) {
+              trail.pop();
+            }
+            trail.unshift({
+              face: pen.face,
+              u: pen.u,
+              v: pen.v,
+              dirU: pen.dirU,
+              dirV: pen.dirV,
+              age: 0,
+            });
+            if (trail.length > HAT_TRAIL_MAX) trail.length = HAT_TRAIL_MAX;
           }
           const tomVal = ev.to ?? 0;
           if (tomVal >= TOM_THRESH) {
@@ -485,11 +626,13 @@ export function CubeVisualizer({
             meshBassPulseRef.current.intensity = 0.4 + bpVal * 0.6;
             meshBassPulseRef.current.pending = true;
           }
+          // Discrete bass-synth dispatch — only used as a fallback when
+          // a continuous envelope is NOT available. Sustained synths
+          // produce sparse onset hits which alone don't drive a
+          // perceptible ambient swell; the envelope path below replaces
+          // this with a continuous follower.
           const bsVal = ev.bs ?? 0;
-          if (bsVal >= BASS_SYNTH_THRESH) {
-            // Push into local state — CSS variable update happens below
-            // alongside the bass/mid/energy decay so all CSS-driven
-            // values move in lockstep.
+          if (!bassSynthEnvelope && bsVal >= BASS_SYNTH_THRESH) {
             bassSynthStateRef.current.amount = Math.max(
               bassSynthStateRef.current.amount,
               0.3 + bsVal * 0.7,
@@ -611,13 +754,58 @@ export function CubeVisualizer({
       s.rx += s.vx * dt;
       s.ry += s.vy * dt;
 
-      // Bass synth → ambient gradient + glow swell. 500ms half-life:
-      // bass synth notes are sustained, not transient, so the visual
-      // swell needs to linger for the chord-change feeling to register.
-      // After ~1.5s the swell has decayed to ~12%, after ~2.5s it's
-      // back to baseline.
+      // Bass synth — two paths, mutually exclusive:
+      // - Continuous envelope (preferred): read pre-computed RMS at the
+      //   playback time and assign directly. Sustained synth notes give
+      //   continuous ambient swells exactly proportional to their level.
+      // - Discrete attack + decay (fallback): when no envelope is in
+      //   the DB, the bs entries in beat_data feed a Math.max + 500ms
+      //   half-life decay (set up in the dispatcher above).
       const bsState = bassSynthStateRef.current;
-      if (bsState.amount > 0.001) {
+      if (bassSynthEnvelope && bassSynthEnvelopeHz && bassSynthEnvelope.length > 0) {
+        // Apply the same beatOffsetSec used for discrete event dispatch:
+        // the envelope was sampled in the stem's timeline, but playback
+        // is on the published MP3's timeline. Offset corrects between
+        // the two so the swell lands at the same musical moment as the
+        // kick/snare/tom hits.
+        const tNow = player.getCurrentTime() - beatOffsetSec;
+        // Linear interpolation between adjacent envelope frames so
+        // playback inside a 50ms frame interval reads as a continuous
+        // gradient rather than a stair-step.
+        const fIdx = tNow * bassSynthEnvelopeHz;
+        const idx0 = Math.floor(fIdx);
+        let target = 0;
+        if (idx0 >= 0 && idx0 < bassSynthEnvelope.length) {
+          const a = bassSynthEnvelope[idx0];
+          const b = bassSynthEnvelope[idx0 + 1] ?? a;
+          const frac = fIdx - idx0;
+          const raw = a * (1 - frac) + b * frac;
+          // Gate + power curve: crush noise floor and emphasize peaks.
+          if (raw > BASS_SYNTH_ENV_GATE) {
+            const scaled = (raw - BASS_SYNTH_ENV_GATE) / (1 - BASS_SYNTH_ENV_GATE);
+            target = Math.pow(scaled, BASS_SYNTH_ENV_CURVE);
+          }
+        }
+        // Low-pass smooth toward the target over BASS_SYNTH_SMOOTHING_MS.
+        // Without this, the envelope's frame-to-frame jumps register as
+        // jitter; with it, the ambient swell glides smoothly between
+        // levels — feels like a breathing layer instead of a follower.
+        const k = 1 - Math.pow(0.001, dt / BASS_SYNTH_SMOOTHING_MS);
+        bsState.amount += (target - bsState.amount) * k;
+
+        // Pitch follows the same interpolation + smoothing pattern as the
+        // envelope, with the same sample rate (envelope and pitch share
+        // bassSynthEnvelopeHz by construction). Smoothed pitch drives
+        // hue-rotate on the ambient layer via the --cv-bass-synth-pitch
+        // CSS variable.
+        if (bassSynthPitch && bassSynthPitch.length > 0 && idx0 >= 0 && idx0 < bassSynthPitch.length) {
+          const pa = bassSynthPitch[idx0];
+          const pb = bassSynthPitch[idx0 + 1] ?? pa;
+          const frac = fIdx - idx0;
+          const pitchTarget = pa * (1 - frac) + pb * frac;
+          bassSynthPitchStateRef.current.value += (pitchTarget - bassSynthPitchStateRef.current.value) * k;
+        }
+      } else if (bsState.amount > 0.001) {
         const bsDecay = Math.pow(0.5, dt / 500);
         bsState.amount *= bsDecay;
         if (bsState.amount < 0.001) bsState.amount = 0;
@@ -627,6 +815,7 @@ export function CubeVisualizer({
       root.style.setProperty("--cv-mid", s.mid.toFixed(3));
       root.style.setProperty("--cv-energy", s.energy.toFixed(3));
       root.style.setProperty("--cv-bass-synth", bsState.amount.toFixed(3));
+      root.style.setProperty("--cv-bass-synth-pitch", bassSynthPitchStateRef.current.value.toFixed(3));
       box.style.setProperty("--cv-rx", `${s.rx.toFixed(2)}deg`);
       box.style.setProperty("--cv-ry", `${s.ry.toFixed(2)}deg`);
 
@@ -656,10 +845,31 @@ export function CubeVisualizer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
 
+  // Fullscreen toggle. requestFullscreen on the cube root makes the
+  // browser draw a square cube centered on a black viewport (CSS sizes
+  // the element to min(100vw, 100vh) when :fullscreen). Esc / system
+  // gesture exits; we listen for fullscreenchange to keep the toggle's
+  // icon in sync if the user exits via the OS rather than our button.
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === rootRef.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const toggleFullscreen = useCallback(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (document.fullscreenElement === el) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
   return (
     <div
       ref={rootRef}
-      className={`cube-vis${playing ? " is-playing" : ""}`}
+      className={`cube-vis${playing ? " is-playing" : ""}${isFullscreen ? " is-fullscreen" : ""}`}
       aria-hidden={false}
     >
       {/* Flat cover stays mounted at all times — its opacity + scale is
@@ -683,6 +893,26 @@ export function CubeVisualizer({
       <div className="cube-vis__ambient" aria-hidden="true" />
       <div className="cube-vis__glow" aria-hidden="true" />
 
+      {/* Fullscreen toggle — small icon button, top-right of the cube.
+          SVG inline so no dependency on icon fonts. Shape swaps between
+          "expand" arrows (idle) and "collapse" arrows (fullscreen). */}
+      <button
+        type="button"
+        className="cube-vis__fs-toggle"
+        onClick={toggleFullscreen}
+        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      >
+        {isFullscreen ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          </svg>
+        )}
+      </button>
+
       <div className="cube-vis__stage" aria-hidden="true">
         <div ref={boxOuterRef} className="cube-vis__box-outer">
           <div ref={attachBox} className="cube-vis__box">
@@ -700,6 +930,7 @@ export function CubeVisualizer({
                 hatRef={meshHatRef}
                 tomRef={meshTomRef}
                 bassPulseRef={meshBassPulseRef}
+                hatTrailRef={hatTrailRef}
               />
             )}
           </div>
