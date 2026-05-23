@@ -5,6 +5,7 @@ import { createPublicClient } from "@/lib/supabase-server";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
 import { ArtPieceJsonLd } from "@/components/ArtPieceJsonLd";
+import { ArtProductJsonLd } from "@/components/ArtProductJsonLd";
 import { ArtPairingsSections } from "@/components/ArtPairingsSections";
 import { ArtLicensingSection } from "@/components/ArtLicensingSection";
 import { MuralTemplate, type MuralDetails } from "@/components/MuralTemplate";
@@ -192,22 +193,31 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
   } : null;
 
   const jsonLd = (
-    <ArtPieceJsonLd
-      title={art.title}
-      url={`https://chadlewine.com/art/${art.slug}`}
-      image={art.image_path}
-      imageAlt={art.image_alt}
-      artSummary={art.art_summary}
-      description={art.description}
-      citationSummary={art.citation_summary}
-      medium={art.medium}
-      dimensions={art.dimensions}
-      yearCreated={art.year_created}
-      focusKeyphrase={art.focus_keyphrase}
-      secondaryKeyphrases={art.secondary_keyphrases || []}
-      paaPairs={art.paa_pairs || []}
-      muralLocation={muralLocation}
-    />
+    <>
+      <ArtPieceJsonLd
+        title={art.title}
+        url={`https://chadlewine.com/art/${art.slug}`}
+        image={art.image_path}
+        imageAlt={art.image_alt}
+        artSummary={art.art_summary}
+        description={art.description}
+        citationSummary={art.citation_summary}
+        medium={art.medium}
+        dimensions={art.dimensions}
+        yearCreated={art.year_created}
+        focusKeyphrase={art.focus_keyphrase}
+        secondaryKeyphrases={art.secondary_keyphrases || []}
+        paaPairs={art.paa_pairs || []}
+        muralLocation={muralLocation}
+      />
+      <ArtProductJsonLd
+        slug={art.slug}
+        title={art.title}
+        description={art.citation_summary || art.art_summary || art.description}
+        image={art.image_path}
+        products={products}
+      />
+    </>
   );
 
   if (isMural && muralDetails) {

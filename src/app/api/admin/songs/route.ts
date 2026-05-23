@@ -78,9 +78,6 @@ export async function POST(request: Request) {
     portrait_zoom: typeof body.portrait_zoom === "number" ? body.portrait_zoom : 1.0,
     chorus: body.chorus || null,
     chad_quote: body.chad_quote || null,
-    hook_line: body.hook_line || null,
-    merch_lines: body.merch_lines || [],
-    merch_enabled: body.merch_enabled === true,
   }).select().single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });

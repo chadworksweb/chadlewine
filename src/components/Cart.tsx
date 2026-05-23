@@ -25,8 +25,8 @@ export type CartItem = {
   format: "mp3" | "flac" | "wav" | null;
   cover_art_path: string | null;
   // Merch-only fields. variant_label shows under the title in the cart drawer
-  // ("Print", "The Art tee", etc.). product_config carries configurator state
-  // so the same blueprint with different sources is a distinct cart line.
+  // ("Print", etc.). product_config carries the chosen curated variant
+  // (size/color) so different variants are distinct cart lines.
   variant_label?: string | null;
   product_config?: Record<string, unknown> | null;
   // SKU layer. sku_id selects a release_skus / song_skus row; sku_variant_id

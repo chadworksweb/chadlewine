@@ -14,7 +14,6 @@ interface Props {
   title: string;
   description: string | null;
   gallery: GalleryImage[];
-  tier: string;
   price: number | null;
   variants: ProductVariant[];
   linkedPrintSlug?: string | null;

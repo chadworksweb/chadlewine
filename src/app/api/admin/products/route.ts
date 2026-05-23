@@ -37,7 +37,9 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("products")
     .insert({
-      tier: body.tier || "art",
+      // tier retired as a category; column is now nullable (art-merch products
+      // get tier set to art_print/art_original by the art-products route).
+      tier: body.tier ?? null,
       fulfillment: body.fulfillment || "printify_curated",
       title,
       slug,

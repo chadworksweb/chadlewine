@@ -54,8 +54,8 @@ export async function createCartCheckoutSession(params: {
     cover_art_url?: string;
   }>;
   cart_items_metadata: string;
-  // Extra Stripe metadata keys — used by configurator merch lines to carry
-  // their full product_config (one cfg_<idx> key per configurator line).
+  // Extra Stripe metadata keys — used by merch lines with a product_config
+  // (curated-variant selection) to carry it (one cfg_<idx> key per such line).
   extra_metadata?: Record<string, string>;
   // True when the cart has any physical line; flips on Stripe shipping address
   // collection so the webhook + Printify push have an address.
@@ -86,8 +86,8 @@ export async function createCartCheckoutSession(params: {
         unit_amount: toCents(li.price),
       },
       // Digital + physical goods — quantity always 1; the same SKU can't be
-      // bought twice in one cart (configurator items differ by config so they're
-      // distinct lines).
+      // bought twice in one cart (variant-configured items differ by config so
+      // they're distinct lines).
       quantity: 1,
     };
   });

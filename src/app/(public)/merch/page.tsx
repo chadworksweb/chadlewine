@@ -33,26 +33,14 @@ interface ProductRow {
 export default async function MerchPage() {
   const supabase = createPublicClient();
 
-  const [productsRes, catalogPicksRes] = await Promise.all([
-    supabase
-      .from("products")
-      .select("id, slug, title, image_url, image_alt")
-      .in("fulfillment", ["manual", "printify_curated"])
-      .eq("status", "active")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("products")
-      .select("id, slug, title, image_url, image_alt")
-      .eq("fulfillment", "printify_configurator")
-      .eq("is_catalog_item", true)
-      .eq("status", "active")
-      .order("created_at", { ascending: false }),
-  ]);
+  const productsRes = await supabase
+    .from("products")
+    .select("id, slug, title, image_url, image_alt")
+    .in("fulfillment", ["manual", "printify_curated"])
+    .eq("status", "active")
+    .order("created_at", { ascending: false });
 
-  const allProducts = [
-    ...((productsRes.data || []) as ProductRow[]),
-    ...((catalogPicksRes.data || []) as ProductRow[]),
-  ];
+  const allProducts = (productsRes.data || []) as ProductRow[];
 
   return (
     <div id="page-merch" className="page-merch">

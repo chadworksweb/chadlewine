@@ -27,7 +27,6 @@ export async function MeditationMerchSection({
       <div className="merch-section__grid">
         {products.map((p) => (
           <div key={p.id} className="merch-section__card">
-            <span className="merch-section__tier">{p.tier}</span>
             <h3 className="merch-section__title">{p.title}</h3>
             {p.description && (
               <p className="merch-section__desc">{p.description}</p>

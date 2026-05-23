@@ -19,17 +19,6 @@ type CartLineInput = {
   sku_variant_id?: string | null;
 };
 
-// Curated blueprints — server-authoritative price/title for configurator-style
-// cart items so the client can never set its own price. Kept defensively for
-// any historical cart payloads even though the configurator UI is retired.
-const CURATED_BLUEPRINTS: Record<number, { title: string; price: number }> = {
-  706: { title: "Comfort Colors 1717", price: 34.99 },
-};
-
-function isConfigurator(config: Record<string, unknown> | null | undefined): boolean {
-  return !!config && typeof config.blueprint_id === "number" && typeof config.tier === "string";
-}
-
 const FORMAT_LABEL: Record<string, string> = {
   digital: "Digital",
   vinyl: "Vinyl",
@@ -315,52 +304,6 @@ export async function POST(request: Request) {
         price: linePrice,
         cover_art_url: album.cover_art_path || undefined,
       });
-    } else if (raw.type === "merch" && isConfigurator(raw.product_config)) {
-      // Configurator merch — server-authoritative price from blueprint id.
-      const cfg = raw.product_config as Record<string, unknown>;
-      const blueprintId = cfg.blueprint_id as number;
-      const blueprint = CURATED_BLUEPRINTS[blueprintId];
-      if (!blueprint) {
-        return Response.json({ error: "Unknown product type" }, { status: 400 });
-      }
-      const tierLabel =
-        cfg.tier === "art" ? "The Art" : cfg.tier === "line" ? "The Line" : "The Fusion";
-
-      let sourceTitle: string | null = null;
-      let coverArt: string | null = null;
-      if (cfg.source_type === "song" && cfg.source_id) {
-        const { data: song } = await supabase
-          .from("songs")
-          .select("title, art_image_path")
-          .eq("id", cfg.source_id as string)
-          .single();
-        sourceTitle = song?.title || null;
-        coverArt = song?.art_image_path || null;
-      } else if (cfg.source_type === "obs" && cfg.source_id) {
-        const { data: obs } = await supabase
-          .from("observations")
-          .select("title, art_image_path")
-          .eq("id", cfg.source_id as string)
-          .single();
-        sourceTitle = obs?.title || null;
-        coverArt = obs?.art_image_path || null;
-      }
-
-      const title = `${tierLabel} — ${blueprint.title}`;
-      const desc = sourceTitle ? `From "${sourceTitle}"` : undefined;
-
-      resolved.push({
-        type: "merch",
-        item_id: null,
-        sku_id: null,
-        sku_variant_id: null,
-        format: null,
-        title,
-        description: desc,
-        price: blueprint.price,
-        cover_art_url: coverArt || undefined,
-        product_config: cfg,
-      });
     } else if (raw.type === "merch" || raw.type === "art_original") {
       if (!raw.id) {
         return Response.json({ error: "Invalid cart item" }, { status: 400 });
@@ -429,8 +372,8 @@ export async function POST(request: Request) {
   // Compact metadata payload — Stripe metadata caps at 500 chars per key.
   // When a SKU is resolved (sk present), the webhook uses sk to look up the
   // release_id / song_id (parent), so i is dropped from those lines.
-  // Configurator merch lines reference an external cfg_<idx> key for their
-  // full product_config; everything else fits inline.
+  // Merch lines with a product_config (curated-variant size/color selection)
+  // reference an external cfg_<idx> key for it; everything else fits inline.
   const cfgKeys: Record<string, string> = {};
   const metaItems = resolved.map((r, idx) => {
     const t =
@@ -461,7 +404,7 @@ export async function POST(request: Request) {
     if (r.product_config) {
       cfgKeys[`cfg_${idx}`] = JSON.stringify(r.product_config);
       if (cfgKeys[`cfg_${idx}`].length > 480) {
-        throw new Error(`Configurator product config exceeds Stripe metadata limit (line ${idx})`);
+        throw new Error(`Product config exceeds Stripe metadata limit (line ${idx})`);
       }
       line.c = idx;
     }

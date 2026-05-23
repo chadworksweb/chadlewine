@@ -14,7 +14,8 @@
   isolation: isolate;
   /* CSS-var driven values updated from rAF; defaults keep static look */
   --cv-bass: 0;        /* 0..1 */
-  --cv-bass-synth: 0;  /* 0..1 — bass synth note-attack envelope; boosts ambient saturation + brightness */
+  --cv-bass-synth: 0;  /* 0..1 — bass synth amplitude envelope (continuous follower) */
+  --cv-bass-synth-pitch: 0.5;  /* 0..1 — normalized over song's MIDI pitch range; drives hue rotation */
   --cv-mid: 0;         /* 0..1 */
   --cv-energy: 0;      /* 0..1 */
   --cv-rot: 0deg;
@@ -79,10 +80,16 @@
      the unlock: same colors get re-cast through a different palette,
      not just brightened, so the effect reads as "harmonic change" not
      just "louder." */
+  /* Both saturation and brightness ride PITCH (scaled by envelope
+     intensity so silent sections don't bloom). Pitch is mapped 0.3..1
+     not 0..1 — even the lowest notes get some visible effect, but
+     higher notes swell much harder. This lands the user's spec: bass
+     synth darker/quieter as pitch falls, brighter/more saturated as
+     it rises. Within a single note the envelope still drives the
+     attack/decay; pitch just sets how vividly that note registers. */
   filter:
-    saturate(calc(1.1 + var(--cv-bass-synth) * 5.5))
-    brightness(calc(1 + var(--cv-bass-synth) * 1.8))
-    hue-rotate(calc(var(--cv-bass-synth) * 35deg))
+    saturate(calc(1.1 + var(--cv-bass-synth) * 5.5 * (0.3 + 0.7 * var(--cv-bass-synth-pitch))))
+    brightness(calc(1 + var(--cv-bass-synth) * 1.8 * (0.3 + 0.7 * var(--cv-bass-synth-pitch))))
     blur(8px);
   transform: scale(calc(1 + var(--cv-bass) * 0.05 + var(--cv-bass-synth) * 0.35));
   transition: filter 400ms ease-out;
@@ -128,12 +135,20 @@
     color-mix(in oklab, var(--cv-c1) 60%, transparent) 30%,
     transparent 60%
   );
-  /* Glow opacity + scale + hue both ride the bass-synth swell — the
-     halo blooms larger and color-shifts on each chord change so the
-     effect is unmistakable even at the visualizer's small footprint. */
-  opacity: calc((0.35 + var(--cv-energy) * 0.45 + var(--cv-bass-synth) * 1.6) * var(--cv-unfold));
-  transform: scale(calc(0.95 + var(--cv-bass) * 0.18 + var(--cv-bass-synth) * 0.55));
-  filter: hue-rotate(calc(var(--cv-bass-synth) * 30deg)) blur(20px);
+  /* Glow opacity rides envelope * pitch — quiet sections fade out
+     completely (no stale halo), low-pitched notes bloom subtly, high-
+     pitched notes bloom hard. Same 0.3..1 pitch mapping as the ambient
+     layer for consistency. */
+  opacity: calc(
+    (0.35 + var(--cv-energy) * 0.45
+      + var(--cv-bass-synth) * 1.6 * (0.3 + 0.7 * var(--cv-bass-synth-pitch))
+    ) * var(--cv-unfold)
+  );
+  transform: scale(calc(
+    0.95 + var(--cv-bass) * 0.18
+    + var(--cv-bass-synth) * 0.55 * (0.3 + 0.7 * var(--cv-bass-synth-pitch))
+  ));
+  filter: blur(20px);
   pointer-events: none;
 }
 
@@ -258,4 +273,113 @@
 .cube-vis:not(.is-playing) .cube-vis__eq-bar {
   transform: scaleY(0.04);
   transition: transform 600ms ease-out;
+}
+
+/* Fullscreen toggle button — small square in the top-right of the cube.
+   Subtle when idle, lights up on hover. Position must be inside the
+   .cube-vis container so it scales with the cube (and stays visible in
+   fullscreen mode). */
+.cube-vis__fs-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out;
+  opacity: var(--cv-unfold, 1);
+}
+.cube-vis__fs-toggle:hover,
+.cube-vis__fs-toggle:focus-visible {
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+  outline: none;
+}
+.cube-vis__fs-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* When the cube-vis element enters fullscreen, the browser sizes the
+   element to fill the viewport. We override the cube to stay a centered
+   square at min(100vw, 100vh) so the cube doesn't stretch on non-square
+   viewports. ::backdrop fills the rest of the viewport with the cube's
+   own dark background so there's no white flash. */
+.cube-vis:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  aspect-ratio: unset;
+  border-radius: 0;
+  border: none;
+  background: #050508;
+  /* Center the inner cube square inside the full viewport. The internal
+     layers (flat, ambient, glow, stage) all use position: absolute; inset: 0
+     of the cube-vis container. To keep them square + centered when the
+     container is non-square, we constrain their effective area via a
+     CSS grid that places everything in a single auto-sized cell whose
+     width and height are both min(100vw, 100vh). */
+  display: grid;
+  place-items: center;
+}
+.cube-vis:fullscreen::backdrop {
+  background: #050508;
+}
+/* In fullscreen, the cube-vis container IS the full viewport. We split
+   the visual layers into two groups:
+   - FOREGROUND (cover + 3D stage): stays a centered square at
+     min(100vw, 100vh), placed inside the cube-vis grid cell. Keeps the
+     cube from stretching on non-square viewports.
+   - BACKDROP (ambient gradient + glow halo + any future backdrop FX):
+     fills the entire viewport via absolute positioning so the bass
+     synth swell / ambient color reads as full-bleed atmosphere, not
+     a square confined to the cube's footprint.
+   FUTURE-PROOFING: any new "backdrop" element added inside .cube-vis
+   should also be `position: absolute; inset: 0` and listed in the
+   selector below (or given the .cube-vis__backdrop convention) so it
+   automatically fills the fullscreen viewport.
+*/
+.cube-vis:fullscreen .cube-vis__flat,
+.cube-vis:fullscreen .cube-vis__stage {
+  position: relative;
+  inset: auto;
+  grid-area: 1 / 1;
+  width: min(100vw, 100vh);
+  height: min(100vw, 100vh);
+}
+.cube-vis:fullscreen .cube-vis__ambient,
+.cube-vis:fullscreen .cube-vis__glow,
+.cube-vis:fullscreen .cube-vis__backdrop {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  grid-area: unset;
+  /* Override the ambient layer's normal `inset: -10%` overscan since
+     in fullscreen we want it pinned exactly to the viewport edges.
+     The glow uses `inset: 10%` normally; here it stretches edge-to-edge
+     and the radial-gradient keyword `circle` keeps it circular instead
+     of becoming an ellipse on wide viewports. */
+}
+/* Bigger toggle button in fullscreen so it's tappable on mobile. */
+.cube-vis:fullscreen .cube-vis__fs-toggle {
+  width: 44px;
+  height: 44px;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+}
+.cube-vis:fullscreen .cube-vis__fs-toggle svg {
+  width: 22px;
+  height: 22px;
 }
