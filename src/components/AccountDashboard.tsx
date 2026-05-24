@@ -14,7 +14,7 @@ interface DownloadItem {
   cover_art_path: string | null;
   amount: number | null;
   created_at: string;
-  formatLinks: Array<{ format: "mp3" | "flac" | "wav"; url: string }>;
+  formatLinks: Array<{ format: "mp3" | "flac" | "wav" | "m4r"; url: string }>;
 }
 
 interface FanTrackItem {

@@ -30,16 +30,11 @@ interface SongData {
   track_number: number;
   duration_seconds: number | null;
   streaming_path: string | null;
-  download_path: string | null;
-  download_path_mp3: string | null;
-  download_path_flac: string | null;
-  download_path_wav: string | null;
   ringtone_path_m4r: string | null;
   ringtone_path_mp3: string | null;
   ringtone_price: number | null;
   lyrics: string | null;
   instrumental: boolean;
-  price: number | null;
   status: string;
   release_date: string | null;
   song_summary: string | null;
@@ -83,16 +78,11 @@ const emptySong: SongData = {
   track_number: 1,
   duration_seconds: null,
   streaming_path: null,
-  download_path: null,
-  download_path_mp3: null,
-  download_path_flac: null,
-  download_path_wav: null,
   ringtone_path_m4r: null,
   ringtone_path_mp3: null,
   ringtone_price: null,
   lyrics: null,
   instrumental: false,
-  price: null,
   status: "draft",
   release_date: null,
   song_summary: null,
@@ -365,16 +355,11 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       track_number: d.track_number,
       duration_seconds: d.duration_seconds,
       streaming_path: d.streaming_path,
-      download_path: d.download_path,
-      download_path_mp3: d.download_path_mp3,
-      download_path_flac: d.download_path_flac,
-      download_path_wav: d.download_path_wav,
       ringtone_path_m4r: d.ringtone_path_m4r,
       ringtone_path_mp3: d.ringtone_path_mp3,
       ringtone_price: d.ringtone_price,
       lyrics: d.lyrics,
       instrumental: d.instrumental,
-      price: d.price,
       status: d.status,
       release_date: d.release_date,
       song_summary: d.song_summary,
@@ -831,45 +816,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 placeholder="https://cdn.bunny.net/..."
               />
             </div>
-
-            <BunnyMusicUploader
-              fieldId="download_path_mp3"
-              label="Download — MP3"
-              folder={form.slug ? `songs/${form.slug}` : ""}
-              acceptExtension=".mp3"
-              value={form.download_path_mp3}
-              onChange={(p) => set("download_path_mp3", p)}
-            />
-
-            <BunnyMusicUploader
-              fieldId="download_path_flac"
-              label="Download — FLAC"
-              folder={form.slug ? `songs/${form.slug}` : ""}
-              acceptExtension=".flac"
-              value={form.download_path_flac}
-              onChange={(p) => set("download_path_flac", p)}
-            />
-
-            <BunnyMusicUploader
-              fieldId="download_path_wav"
-              label="Download — WAV"
-              folder={form.slug ? `songs/${form.slug}` : ""}
-              acceptExtension=".wav"
-              value={form.download_path_wav}
-              onChange={(p) => set("download_path_wav", p)}
-            />
-
-            <div className="obsv-editor__field">
-              <label className="obsv-editor__label" htmlFor="download_path">Download (legacy)</label>
-              <input
-                id="download_path"
-                className="obsv-editor__input obsv-editor__input--mono"
-                type="text"
-                value={form.download_path || ""}
-                onChange={(e) => set("download_path", e.target.value || null)}
-                placeholder="Used only if no MP3/FLAC/WAV set"
-              />
-            </div>
           </div>
 
           {/* Ringtone — separate SKU sold inline with the song.
@@ -914,26 +860,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 placeholder="0.99"
               />
             </div>
-          </div>
-
-          {/* Commerce (legacy single price -- new commerce lives in Formats below) */}
-          <div className="obsv-editor__panel">
-            <h3 className="obsv-editor__panel-title">Commerce (legacy)</h3>
-
-            <div className="obsv-editor__field">
-              <label className="obsv-editor__label" htmlFor="price">Price ($)</label>
-              <input
-                id="price"
-                className="obsv-editor__input"
-                type="number"
-                min={0}
-                value={form.price ?? ""}
-                step="0.01"
-                onChange={(e) => set("price", e.target.value ? parseFloat(e.target.value) : null)}
-                placeholder="1.99"
-              />
-            </div>
-
           </div>
 
           {form.id && (

@@ -48,14 +48,11 @@ export async function GET() {
     songIds.length
       ? supabase
           .from("songs")
-          .select(
-            "id, title, slug, download_path_mp3, download_path_flac, download_path_wav, download_path",
-          )
+          .select("id, title, slug, ringtone_path_m4r, ringtone_path_mp3")
           .in("id", songIds)
       : Promise.resolve({ data: [] as Array<{
           id: string; title: string; slug: string;
-          download_path_mp3: string | null; download_path_flac: string | null;
-          download_path_wav: string | null; download_path: string | null;
+          ringtone_path_m4r: string | null; ringtone_path_mp3: string | null;
         }> }),
     albumIds.length
       ? supabase
@@ -97,34 +94,33 @@ export async function GET() {
       ? p.item_id ? albumMap.get(p.item_id) : undefined
       : p.item_id ? songMap.get(p.item_id) : undefined;
 
-    // Per-format availability: prefer SKU-attached download paths; legacy
-    // purchases (no SKU id) fall back to songs.download_path_* for songs.
-    // Legacy releases have no path source (releases.download_path_* dropped) —
-    // their links surface empty.
+    // Per-format availability comes from the SKU-attached download paths.
+    // Purchases without a SKU reference have no path source — links empty.
     let pathSource: Record<string, string | null | undefined> | undefined;
     if (p.release_sku_id) {
       pathSource = releaseSkuMap.get(p.release_sku_id);
     } else if (p.song_sku_id) {
       pathSource = songSkuMap.get(p.song_sku_id);
-    } else if (p.item_type === "song" || p.item_type === "ringtone") {
-      pathSource = rec as Record<string, string | null | undefined> | undefined;
     }
 
     const available: FormatKey[] = pathSource
       ? FORMATS.filter((f) => pathSource![`download_path_${f}`])
       : [];
-    if (
-      !available.length &&
-      (p.item_type === "song" || p.item_type === "ringtone") &&
-      (rec as { download_path?: string | null } | undefined)?.download_path
-    ) {
-      available.push("mp3");
-    }
 
     const tokenBase = `/api/download/${p.id}`;
-    const formatLinks = p.format
-      ? [{ format: p.format as FormatKey, url: tokenBase }]
-      : available.map((f) => ({ format: f, url: `${tokenBase}?format=${f}` }));
+    let formatLinks: Array<{ format: FormatKey | "m4r"; url: string }>;
+    if (p.item_type === "ringtone") {
+      // Ringtones deliver M4R (iPhone) + MP3 (Android) from the song's
+      // ringtone_path_*; the download token route resolves each via ?format.
+      const r = rec as { ringtone_path_m4r?: string | null; ringtone_path_mp3?: string | null } | undefined;
+      formatLinks = [];
+      if (r?.ringtone_path_m4r) formatLinks.push({ format: "m4r", url: `${tokenBase}?format=m4r` });
+      if (r?.ringtone_path_mp3) formatLinks.push({ format: "mp3", url: `${tokenBase}?format=mp3` });
+    } else if (p.format) {
+      formatLinks = [{ format: p.format as FormatKey, url: tokenBase }];
+    } else {
+      formatLinks = available.map((f) => ({ format: f, url: `${tokenBase}?format=${f}` }));
+    }
 
     return {
       purchase_id: p.id,

@@ -315,19 +315,11 @@ export async function POST(request: Request) {
               );
               const { data: songRow } = await supabase
                 .from("songs")
-                .select("title, art_image_path, download_path_mp3, download_path_flac, download_path_wav, download_path")
+                .select("title, art_image_path")
                 .eq("id", sku.song_id)
                 .single();
               itemTitle = songRow?.title || "Your song";
               imageUrl = songRow?.art_image_path || undefined;
-              if (availableFormats.length === 0) {
-                // SKU has no download paths set yet — fall back to song-level
-                // legacy paths so the buyer still gets a download link.
-                availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-                  (f) => (songRow as Record<string, unknown> | null)?.[`download_path_${f}`],
-                );
-                if (!availableFormats.length && songRow?.download_path) availableFormats = ["mp3"];
-              }
               if (!imageUrl && sku.song_id) {
                 const { data: assoc } = await supabase
                   .from("release_songs")
@@ -340,18 +332,15 @@ export async function POST(request: Request) {
               }
             }
           } else {
-            // Legacy: songs.download_path_* still present.
+            // Song line without a SKU reference. No new purchases create these
+            // (songs are SKU-only); resolve title/image for the email only.
             const { data: song } = await supabase
               .from("songs")
-              .select("title, art_image_path, download_path_mp3, download_path_flac, download_path_wav, download_path")
+              .select("title, art_image_path")
               .eq("id", line.i!)
               .single();
             itemTitle = song?.title || "Your song";
             imageUrl = song?.art_image_path || undefined;
-            availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-              (f) => (song as Record<string, unknown> | null)?.[`download_path_${f}`],
-            );
-            if (!availableFormats.length && song?.download_path) availableFormats = ["mp3"];
 
             if (!imageUrl) {
               const { data: assoc } = await supabase

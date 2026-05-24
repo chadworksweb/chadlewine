@@ -59,7 +59,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!resolved) return Response.json({ error: "Song not found" }, { status: 404 });
   const id = resolved.id;
 
-  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "download_path", "download_path_mp3", "download_path_flac", "download_path_wav", "ringtone_path_m4r", "ringtone_path_mp3", "ringtone_price", "lyrics", "instrumental", "price", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote"];
+  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "ringtone_path_m4r", "ringtone_path_mp3", "ringtone_price", "lyrics", "instrumental", "status", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote"];
   const updates: Record<string, unknown> = {};
   for (const f of songFields) { if (f in body) updates[f] = body[f]; }
 
