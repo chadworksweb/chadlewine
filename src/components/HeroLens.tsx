@@ -50,28 +50,33 @@ function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boo
     <>
       <div className="hero-lens__slide-art">
         {item.artImagePath && (
-          isCurrent ? (
-            <WaterRipple
+          <div className="cover-hero__art-wrap">
+            {/* Persistent static base — always mounted, so there is never a
+                blank frame. When a slide becomes current the ripple canvas
+                mounts on top but stays transparent until its first paint; this
+                base shows through until then, identically cropped, so the image
+                no longer vanishes-then-pops the moment it reaches focus. */}
+            <Image
               src={item.artImagePath}
               alt={item.artAlt || item.title}
-              className="cover-hero__art-wrap"
-              focalX={item.focalX}
-              focalY={item.focalY}
-              zoom={item.zoom}
+              width={2400}
+              height={1600}
+              priority
+              sizes="100vw"
+              style={staticStyle}
             />
-          ) : (
-            <div className="cover-hero__art-wrap">
-              <Image
-                src={item.artImagePath}
-                alt={item.artAlt || item.title}
-                width={2400}
-                height={1600}
-                priority
-                sizes="100vw"
-                style={staticStyle}
-              />
-            </div>
-          )
+            {isCurrent && (
+              <div className="hero-lens__ripple-layer">
+                <WaterRipple
+                  src={item.artImagePath}
+                  alt={item.artAlt || item.title}
+                  focalX={item.focalX}
+                  focalY={item.focalY}
+                  zoom={item.zoom}
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -207,6 +212,38 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const [isDragging, setIsDragging] = useState(false);
   const viewportWidthRef = useRef(0);
 
+  // One-time mobile swipe affordance: on first homepage view this session,
+  // the slides ease left to reveal more of the next peek, then settle back,
+  // while a faint "swipe" label fades in and out. Teaches the gesture once
+  // without leaving permanent chrome (the desktop nav arrows are hidden on
+  // mobile). Gated by sessionStorage so it doesn't replay on every visit.
+  const [nudgePx, setNudgePx] = useState(0);
+  const [showHint, setShowHint] = useState(false);
+
+  useEffect(() => {
+    if (!isMobile || total <= 1) return;
+    const key = "cl_hero_swipe_hint";
+    try {
+      if (sessionStorage.getItem(key)) return;
+    } catch {
+      // Private mode / storage blocked — still show the hint, just don't persist.
+    }
+    setShowHint(true);
+    const timers = [
+      window.setTimeout(() => setNudgePx(-34), 650),
+      window.setTimeout(() => setNudgePx(0), 1200),
+      window.setTimeout(() => {
+        setShowHint(false);
+        // Persist only after the hint has fully played. Writing it up-front
+        // breaks under React StrictMode's dev double-invoke: the discarded
+        // first pass would set the flag, then the real pass would skip. The
+        // off-timer is cleared on unmount, so a throwaway pass never persists.
+        try { sessionStorage.setItem(key, "1"); } catch {}
+      }, 2600),
+    ];
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [isMobile, total]);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (lockoutRef.current) return;
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -246,12 +283,22 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
       }
       const dx = e.changedTouches[0].clientX - touchStart.current.x;
       const threshold = Math.max(60, viewportWidthRef.current * 0.25);
+      const shouldAdvance = Math.abs(dx) > threshold;
+      // Swipe-left (dx<0) -> next (up); swipe-right (dx>0) -> prev (down).
+      const dir: "up" | "down" = dx < 0 ? "up" : "down";
+      // Re-enable the slide transition first (isDragging -> false) while the
+      // slide is still held at its dragged offset, then reset/advance on a
+      // later frame. Clearing transition:none and moving the transform in the
+      // same paint skips the transition (the slide blinks into place instead
+      // of easing). Two rAFs guarantee one painted frame with the transition
+      // live before the offset resets and the index advances.
       setIsDragging(false);
-      setDragPx(0);
-      if (Math.abs(dx) > threshold) {
-        // Swipe-left (dx<0) → next (up); swipe-right (dx>0) → prev (down).
-        advanceRef.current(dx < 0 ? "up" : "down");
-      }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setDragPx(0);
+          if (shouldAdvance) advanceRef.current(dir);
+        });
+      });
     },
     []
   );
@@ -268,7 +315,14 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
         onTouchMove={isMobile ? handleTouchMove : undefined}
         onTouchEnd={isMobile ? handleTouchEnd : undefined}
       >
-        {items.map((item, i) => {
+        {(() => {
+          // How far the slides are dragged from rest, as a fraction of viewport
+          // width, clamped to one slide of travel. Derived from dragPx so it
+          // tracks the finger live AND rides the release-settle frames (dragPx
+          // stays set until the post-advance reset). 0 on desktop / at rest.
+          const vw = viewportWidthRef.current || 1;
+          const dragFrac = isMobile ? Math.max(-1, Math.min(1, dragPx / vw)) : 0;
+          return items.map((item, i) => {
           // Shortest signed distance modulo total — so item N-1 reads as
           // offset -1 when current is 0, and item 0 reads as offset +1
           // when current is N-1. Carousel wraps both directions.
@@ -278,11 +332,34 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
           if (Math.abs(offset) > 1) return null;
           const role = offset === 0 ? "current" : offset < 0 ? "prev" : "next";
 
-          const dragOffset = isMobile && isDragging ? ` + ${dragPx}px` : "";
+          // Veil opacity tracks each slide's live proximity to center: the
+          // current slide dims as it leaves (|dragFrac|), the slide being
+          // dragged toward center brightens (1 - |dragFrac|), the receding
+          // peek stays dim. At rest this gives current=0, peeks=1 — the same
+          // resting state the old role-based rule produced — but now the fade
+          // rides the swipe instead of snapping after the role class flips.
+          let proximity: number;
+          if (role === "current") proximity = 1 - Math.abs(dragFrac);
+          else if (role === "next") proximity = dragFrac < 0 ? -dragFrac : 0;
+          else proximity = dragFrac > 0 ? dragFrac : 0;
+          const veil = Math.max(0, Math.min(1, 1 - proximity));
+
+          // While dragging, follow the finger; otherwise apply the one-time
+          // nudge offset (0 except during the swipe-hint animation). Both ride
+          // the same translateX so the nudge eases via the CSS transition.
+          // dragPx stays applied through the release-settle frames (after
+          // isDragging clears) so the slide eases from where the finger let go
+          // instead of snapping -- see handleTouchEnd.
+          const activeOffset = dragPx || nudgePx;
+          const dragOffset = isMobile && activeOffset ? ` + ${activeOffset}px` : "";
           let baseTranslate;
+          // --hero-slide-gap pushes neighbors a touch further off-screen so a
+          // strip of background shows between cards mid-swipe (breathing room).
+          // It rides the translate, not padding, so the centered card stays
+          // full-bleed and flush to the screen edge.
           if (role === "current") baseTranslate = "0%";
-          else if (role === "next") baseTranslate = "calc(100% - var(--hero-peek))";
-          else baseTranslate = "calc(-100% + var(--hero-peek))";
+          else if (role === "next") baseTranslate = "calc(100% - var(--hero-peek) + var(--hero-slide-gap, 0px))";
+          else baseTranslate = "calc(-100% + var(--hero-peek) - var(--hero-slide-gap, 0px))";
           const transform = `translateX(calc(${baseTranslate}${dragOffset}))`;
 
           const onClickAdvance =
@@ -296,15 +373,19 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
             <div
               key={item.slug}
               ref={role === "current" ? setCurrentSlideRef : undefined}
-              className={`hero-lens__slide hero-lens__slide--${role}`}
+              className={`hero-lens__slide hero-lens__slide--${role}${
+                isMobile && isDragging ? " hero-lens__slide--dragging" : ""
+              }`}
               style={{
                 transform,
                 transition: isMobile && isDragging ? "none" : undefined,
+                // Per-slide veil opacity, consumed by the ::after dim overlay.
+                ["--veil" as string]: veil,
                 // Peeks ride ABOVE the current slide so their visible 110px
                 // strip overlays the current's edge. Otherwise current's
                 // full-width image hides them.
                 zIndex: role === "current" ? 1 : 2,
-              }}
+              } as React.CSSProperties}
               aria-hidden={role !== "current"}
               role={role !== "current" ? "button" : undefined}
               aria-label={
@@ -330,7 +411,8 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
               <HeroLensSlide item={item} isCurrent={role === "current"} />
             </div>
           );
-        })}
+          });
+        })()}
 
         {total > 1 && (
           <>
@@ -351,6 +433,13 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
               <span className="hero-lens__nav-arrow" aria-hidden>›</span>
             </button>
           </>
+        )}
+
+        {showHint && (
+          <div className="hero-lens__swipe-hint" aria-hidden="true">
+            <span className="hero-lens__swipe-hint-arrows">‹ ›</span>
+            <span className="hero-lens__swipe-hint-label">swipe</span>
+          </div>
         )}
       </div>
     </section>

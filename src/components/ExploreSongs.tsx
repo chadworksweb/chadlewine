@@ -61,19 +61,22 @@ export function ExploreSongs({ songs }: ExploreSongsProps) {
             {songs.map((s, i) => {
               const offset = i - active;
               const abs = Math.abs(offset);
+              const isActive = i === active;
               const style: React.CSSProperties = {
                 transform: `translateX(${offset * 148}px) translateZ(${-abs * 160}px) rotateY(${offset * -19}deg)`,
                 zIndex: 100 - abs,
                 opacity: abs > 5 ? 0 : 1,
-                pointerEvents: abs > 5 ? "none" : "auto",
+                // The centered image isn't clickable and gets no hover state —
+                // disabling pointer events also stops the hover brightness.
+                pointerEvents: abs > 5 || isActive ? "none" : "auto",
               };
               return (
                 <button
                   type="button"
                   key={s.id}
-                  className={`coverflow__card${i === active ? " coverflow__card--active" : ""}`}
+                  className={`coverflow__card${isActive ? " coverflow__card--active" : ""}`}
                   style={style}
-                  onClick={() => setActive(i)}
+                  onClick={isActive ? undefined : () => setActive(i)}
                   aria-label={s.title}
                 >
                   {(() => {
