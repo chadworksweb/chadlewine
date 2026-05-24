@@ -5,7 +5,6 @@ import { createPublicClient, createAdminClient } from "@/lib/supabase-server";
 import { createCartCheckoutSession } from "@/lib/stripe";
 
 type Format = "mp3" | "flac" | "wav";
-const FORMATS: Format[] = ["mp3", "flac", "wav"];
 
 type CartLineInput = {
   type: "song" | "release" | "ringtone" | "merch" | "art_original";
@@ -188,52 +187,11 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // Legacy fallback: songs.price + songs.download_path_* are still
-      // present for backward compatibility.
-      const { data: song } = await supabase
-        .from("songs")
-        .select("id, title, slug, price, download_path_mp3, download_path_flac, download_path_wav, download_path, art_image_path")
-        .eq("id", raw.id)
-        .single();
-      if (!song) return Response.json({ error: "Song not found" }, { status: 404 });
-      if (!song.price) return Response.json({ error: `Song "${song.title}" has no price set` }, { status: 400 });
-
-      const availableFormats: Format[] = FORMATS.filter(
-        (f) => (song as Record<string, string | null>)[`download_path_${f}`],
+      // Songs are sold via song_skus only now (no legacy price fallback).
+      return Response.json(
+        { error: "Song pricing has changed — please re-add this item to your cart." },
+        { status: 400 },
       );
-      const hasAny = availableFormats.length > 0 || !!song.download_path;
-      if (!hasAny) {
-        return Response.json(
-          { error: `No download available for "${song.title}"` },
-          { status: 400 },
-        );
-      }
-
-      const { data: assoc } = await supabase
-        .from("release_songs")
-        .select("release:releases(title, cover_art_path)")
-        .eq("song_id", raw.id)
-        .single();
-      const album = (assoc as { album?: { title?: string; cover_art_path?: string | null } } | null)?.album;
-
-      const formatList = (availableFormats.length ? availableFormats : (["mp3"] as Format[]))
-        .map((f) => f.toUpperCase())
-        .join(" / ");
-      const desc = album?.title
-        ? `Digital download · ${formatList} · from ${album.title}`
-        : `Digital download · ${formatList}`;
-
-      resolved.push({
-        type: "song",
-        item_id: song.id,
-        sku_id: null,
-        sku_variant_id: null,
-        format: null,
-        title: song.title,
-        description: desc,
-        price: song.price,
-        cover_art_url: song.art_image_path || album?.cover_art_path || undefined,
-      });
     } else if (raw.type === "release") {
       // Releases no longer carry price/download columns. SKU is required.
       if (!raw.sku_id) {

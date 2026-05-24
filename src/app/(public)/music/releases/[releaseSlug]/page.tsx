@@ -6,7 +6,7 @@ import { ReleaseSections } from "@/components/ReleaseSections";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge, fetchAlbumBadge, rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
 import { releaseTypeLabel, releaseFormatLabel } from "@/lib/release-labels";
-import { fetchReleaseSkusForIds } from "@/lib/release-skus";
+import { fetchReleaseSkusForIds, fetchSongSkusForIds } from "@/lib/release-skus";
 
 export const revalidate = 60;
 
@@ -24,7 +24,7 @@ async function getAlbumData(releaseSlug: string) {
   // Get songs via junction
   const { data: junctions } = await supabase
     .from("release_songs")
-    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, price, status, song_summary, download_path, download_path_mp3, download_path_flac, download_path_wav, ringtone_path_m4r, ringtone_path_mp3, ringtone_price, playback_mode)")
+    .select("track_number, song:songs(id, title, slug, duration_seconds, streaming_path, status, song_summary, ringtone_path_m4r, ringtone_path_mp3, ringtone_price, playback_mode)")
     .eq("release_id", album.id)
     .order("track_number");
 
@@ -34,13 +34,8 @@ async function getAlbumData(releaseSlug: string) {
     slug: string;
     duration_seconds: number | null;
     streaming_path: string | null;
-    price: number | null;
     status: string;
     song_summary: string | null;
-    download_path: string | null;
-    download_path_mp3: string | null;
-    download_path_flac: string | null;
-    download_path_wav: string | null;
     ringtone_path_m4r: string | null;
     ringtone_path_mp3: string | null;
     ringtone_price: number | null;
@@ -56,16 +51,20 @@ async function getAlbumData(releaseSlug: string) {
   const skusByRelease = await fetchReleaseSkusForIds(supabase, [album.id]);
   const releaseSkus = skusByRelease.get(album.id) || [];
 
+  // Per-track digital song SKU drives the inline track buy button.
+  const songSkusByTrack = await fetchSongSkusForIds(
+    supabase,
+    filtered.map((j) => j.song.id),
+  );
+
   const playbackModes = await Promise.all(
     filtered.map((j) => getPlaybackMode(j.song.playback_mode ?? null)),
   );
 
   const songs = filtered.map((j, i) => {
-    const explicit = (["mp3", "flac", "wav"] as const).filter(
-      (f) => j.song[`download_path_${f}`],
+    const digitalSku = (songSkusByTrack.get(j.song.id) || []).find(
+      (s) => s.format === "digital" && (s.status === "available" || s.status === "preorder"),
     );
-    const formats: Array<"mp3" | "flac" | "wav"> =
-      explicit.length > 0 ? explicit : j.song.download_path ? ["mp3"] : [];
     const ringtoneAvailable =
       !!j.song.ringtone_price &&
       !!(j.song.ringtone_path_m4r || j.song.ringtone_path_mp3);
@@ -76,10 +75,10 @@ async function getAlbumData(releaseSlug: string) {
       track_number: j.track_number,
       duration_seconds: j.song.duration_seconds,
       streaming_path: j.song.streaming_path,
-      price: j.song.price,
+      sku_id: digitalSku?.id ?? null,
+      price: digitalSku?.price ?? null,
       song_summary: j.song.song_summary,
       playback_mode: playbackModes[i],
-      download_formats: formats,
       ringtone_available: ringtoneAvailable,
       ringtone_price: ringtoneAvailable ? j.song.ringtone_price : null,
     };
@@ -180,10 +179,10 @@ export default async function AlbumDetailPage({
           track_number: s.track_number,
           duration_seconds: s.duration_seconds,
           streaming_path: s.streaming_path,
+          sku_id: s.sku_id,
           price: s.price,
           song_summary: s.song_summary,
           playback_mode: s.playback_mode,
-          download_formats: s.download_formats,
           ringtone_available: s.ringtone_available,
           ringtone_price: s.ringtone_price,
         }))}

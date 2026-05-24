@@ -113,34 +113,7 @@ async function resolveDownloadPath(
     if (data?.[col]) return data[col];
   }
 
-  if (itemType === "song" && itemId) {
-    const { data } = await supabase
-      .from("songs")
-      .select(`${col}, download_path`)
-      .eq("id", itemId)
-      .single<Record<string, string | null>>();
-    return data?.[col] || data?.download_path || null;
-  }
-
-  if (itemType === "release" && itemId) {
-    // releases.download_path_* is GONE. Last-ditch: pick any track's
-    // download_path (mp3 only — releases never had per-format track paths).
-    if (format === "mp3") {
-      const { data: albumSongs } = await supabase
-        .from("release_songs")
-        .select("track_number, songs(download_path)")
-        .eq("release_id", itemId)
-        .order("track_number");
-      for (const as of albumSongs ?? []) {
-        const songs = (as as unknown as { songs: unknown }).songs;
-        const song = Array.isArray(songs) ? songs[0] : songs;
-        const path = (song as { download_path?: string | null } | null | undefined)
-          ?.download_path;
-        if (path) return path;
-      }
-    }
-  }
-
+  // No SKU resolved — songs/releases are SKU-only now; no legacy path fallback.
   return null;
 }
 

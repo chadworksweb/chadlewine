@@ -29,11 +29,9 @@ export async function GET(request: Request) {
     return Response.json({ email: row.email, items: [] });
   }
 
-  // Resolve titles + per-format availability. SKU rows are the source of
-  // truth for download paths post-migration; legacy songs fall back to
-  // songs.download_path_* / songs.download_path. Legacy release purchases
-  // (no release_sku_id) have no path source — links surface empty rather
-  // than 500.
+  // Resolve titles + per-format availability. SKU rows own the download
+  // paths; purchases without a SKU reference have no path source and surface
+  // empty links rather than 500.
   const songIds = purchases
     .filter((p) => p.item_type === "song")
     .map((p) => p.item_id)
@@ -61,12 +59,10 @@ export async function GET(request: Request) {
     songIds.length
       ? supabase
           .from("songs")
-          .select("id, title, slug, download_path_mp3, download_path_flac, download_path_wav, download_path")
+          .select("id, title, slug")
           .in("id", songIds)
       : Promise.resolve({ data: [] as Array<{
           id: string; title: string; slug: string;
-          download_path_mp3: string | null; download_path_flac: string | null; download_path_wav: string | null;
-          download_path: string | null;
         }> }),
     albumIds.length
       ? supabase
@@ -112,16 +108,11 @@ export async function GET(request: Request) {
       pathSource = releaseSkuMap.get(p.release_sku_id);
     } else if (p.song_sku_id) {
       pathSource = songSkuMap.get(p.song_sku_id);
-    } else if (p.item_type === "song") {
-      pathSource = rec as Record<string, string | null | undefined> | undefined;
     }
 
     const available = pathSource
       ? FORMATS.filter((f) => pathSource![`download_path_${f}`])
       : [];
-    if (!available.length && p.item_type === "song" && (rec as { download_path?: string | null } | undefined)?.download_path) {
-      available.push("mp3");
-    }
 
     const tokenBase = `/api/download/${p.id}`;
     const formatLinks: Array<{ format: FormatKey; url: string }> = p.format

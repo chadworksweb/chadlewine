@@ -22,9 +22,6 @@ interface SongProps {
   streaming_path: string | null;
   lyrics: string | null;
   instrumental: boolean;
-  /** Legacy display field only — actual purchase price flows through SKU
-   *  data. Kept null-tolerant during the SKU migration. */
-  price: number | null;
   release_date: string | null;
   song_summary: string | null;
   isrc: string | null;

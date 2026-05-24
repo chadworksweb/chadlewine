@@ -25,10 +25,12 @@ interface SongProps {
   track_number: number;
   duration_seconds: number | null;
   streaming_path: string | null;
+  // Digital song SKU for the per-track buy button (null = not individually
+  // purchasable). price is that SKU's price.
+  sku_id: string | null;
   price: number | null;
   song_summary?: string | null;
   playback_mode?: "preview" | "full";
-  download_formats?: Array<"mp3" | "flac" | "wav">;
   ringtone_available?: boolean;
   ringtone_price?: number | null;
 }
@@ -393,10 +395,9 @@ export function ReleaseDetail({
               {songs.map((song) => {
                 const isActive = playingId === song.id;
                 const hasAudio = !!song.streaming_path;
-                const downloadFormats = song.download_formats || [];
-                const canDownload = !!song.price && downloadFormats.length > 0;
+                const canDownload = !!song.sku_id && song.price !== null;
                 const inCart = canDownload
-                  ? cart.hasItem({ type: "song", id: song.id, format: null })
+                  ? cart.hasItem({ type: "song", id: song.id, format: null, sku_id: song.sku_id })
                   : false;
                 const ringtoneAvailable = !!song.ringtone_available && !!song.ringtone_price;
                 const ringtoneInCart = ringtoneAvailable
@@ -483,7 +484,7 @@ export function ReleaseDetail({
                         type="button"
                         className={`tracklist-row__action tracklist-row__action--cart${inCart ? " is-added" : ""}`}
                         onClick={() => {
-                          if (inCart || !canDownload || !song.price) return;
+                          if (inCart || !canDownload || !song.sku_id || song.price === null) return;
                           cart.add({
                             type: "song",
                             id: song.id,
@@ -491,6 +492,7 @@ export function ReleaseDetail({
                             slug: song.slug,
                             price: song.price,
                             format: null,
+                            sku_id: song.sku_id,
                             cover_art_path: album.cover_art_path,
                           });
                         }}

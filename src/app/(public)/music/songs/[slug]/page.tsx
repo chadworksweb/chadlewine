@@ -239,29 +239,7 @@ export default async function SongDetailPage({
       : fetchReleaseSkusForIds(supabase, []),
   ]);
 
-  // Prefer song_skus rows. If empty, fall back to a synthetic SKU built from
-  // the legacy song.price + download_path_* columns so existing data still
-  // sells while the schema migration is in flight.
-  let songSkus = songSkusMap.get(song.id) || [];
-  if (songSkus.length === 0) {
-    const legacyHasDownload =
-      !!(song.download_path_mp3 || song.download_path_flac || song.download_path_wav || song.download_path);
-    if (song.price && legacyHasDownload) {
-      songSkus = [
-        {
-          id: `legacy-song:${song.id}`,
-          song_id: song.id,
-          format: "digital" as const,
-          price: Number(song.price),
-          status: "available" as const,
-          stock: null,
-          display_order: 0,
-          gallery_images: [],
-          variants: [],
-        },
-      ];
-    }
-  }
+  const songSkus = songSkusMap.get(song.id) || [];
   const releaseSkus = album ? releaseSkusMap.get(album.id) || [] : [];
 
   // Build section-level Q&A pairs for JSON-LD FAQPage (format stack headings + direct answers)
@@ -305,7 +283,6 @@ export default async function SongDetailPage({
           streaming_path: song.streaming_path,
           lyrics: song.lyrics,
           instrumental: song.instrumental === true,
-          price: song.price,
           release_date: song.release_date,
           song_summary: song.song_summary,
           isrc: song.isrc,
