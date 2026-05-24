@@ -137,7 +137,9 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   // titles push the page down and short ones bring it back up. The CSS
   // height transition makes that motion smooth.
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  const [isMobile, setIsMobile] = useState(true);
+  // Default false so the server/desktop render never shows the mobile-only
+  // swipe hint; the media-query effect flips it true on phones after mount.
+  const [isMobile, setIsMobile] = useState(false);
 
   const total = items.length;
 
@@ -221,7 +223,10 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const [showHint, setShowHint] = useState(false);
 
   useEffect(() => {
-    if (!isMobile || total <= 1) return;
+    if (!isMobile || total <= 1) {
+      setShowHint(false);
+      return;
+    }
     const key = "cl_hero_swipe_hint";
     try {
       if (sessionStorage.getItem(key)) return;
