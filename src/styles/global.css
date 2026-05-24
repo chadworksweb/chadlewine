@@ -368,9 +368,13 @@ h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* Pin the rendered nav to the declared height so sticky offsets anchored
-     at --nav-height land flush against the actual nav bottom. */
-  min-height: var(--nav-height);
+  /* Lock the rendered nav to EXACTLY the declared height so sticky offsets
+     and main's padding-top (both anchored at --nav-height) land flush against
+     the actual nav bottom. Using min-height let a tall child (the 56px mobile
+     hamburger) inflate the bar to 88px while main's offset stayed at 80px,
+     tucking page content 8px under the fixed header on mobile. A fixed height
+     centers oversized children within the bar instead of growing it. */
+  height: var(--nav-height);
   box-sizing: border-box;
 }
 
@@ -733,6 +737,16 @@ h2, h3, h4, h5, h6 {
   }
   .nav-hamburger {
     display: block !important;
+    /* Flush the glyph to the container's right edge so it lines up with the
+       full-width hero's right edge (the logo glyph is already flush left).
+       Left padding stays for the tap target / spacing from the logo. */
+    padding-right: 0;
+    /* The "U+2630" glyph paints ~3px inside its advance box (right side-
+       bearing), so the button box can be flush while the visible bars float
+       short of the edge. The left logo uses block glyphs that fill their box,
+       so its ink IS flush — this negative margin pulls the bars' ink out to
+       the same content edge, making the right mirror the left. */
+    margin-right: -3px;
   }
 }
 
@@ -1189,6 +1203,59 @@ h2, h3, h4, h5, h6 {
   transform: translateY(-2px);
 }
 
+/* One-time mobile swipe affordance. Rendered only while the JS hint timer is
+   active (mobile, first homepage view per session); the fade keyframe matches
+   that ~2.6s window so it eases in, holds, and eases out before unmount. */
+.hero-lens__swipe-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  pointer-events: none;
+  text-align: center;
+  animation: hero-swipe-hint-fade 2600ms ease forwards;
+}
+
+.hero-lens__swipe-hint-arrows {
+  font-family: var(--font-ui);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 8px;
+  /* Spaced glyphs push visual center right — pad the left to recenter. */
+  padding-left: 8px;
+  color: var(--text-accent);
+  text-shadow: 0 0 14px rgba(139, 156, 247, 0.6), 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.hero-lens__swipe-hint-label {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes hero-swipe-hint-fade {
+  0% { opacity: 0; }
+  16% { opacity: 1; }
+  74% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-lens__swipe-hint {
+    /* Honor reduced-motion: hold steady, no fade pulse. */
+    animation: none;
+    opacity: 0.9;
+  }
+}
+
 /* Peek slides — hover + click to advance. Inner links are dead so the whole
    visible peek surface is one nav target. */
 .hero-lens__slide--next,
@@ -1410,8 +1477,13 @@ h2, h3, h4, h5, h6 {
     /* No peek on phones — adjacent slides sit fully off-screen, advance
        only by swipe (matches the pre-peek mobile behavior). */
     --hero-peek: 0px;
-    /* Slightly tighter gap on phones since the screen is narrower. */
-    --hero-gap: 10px;
+    /* No inter-card inset on phones: peek is 0 so only one card is ever
+       visible, and the L/R gap padding only served to separate cards during
+       the swipe transition. Keeping it left the lone visible card inset 10px
+       while the logo glyph, "Latest Songs", and every other element sit flush
+       at the container edge — so the card read as misaligned. Zero gap makes
+       the card full-bleed, flush to the same left edge as the header logo. */
+    --hero-gap: 0px;
   }
 
   .hero-lens__slide-content {

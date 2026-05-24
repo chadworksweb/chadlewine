@@ -8,19 +8,25 @@ import { FeaturedTrack } from "@/components/FeaturedTrack";
 
 const FEED_LIMIT = 10;
 
-const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Pinned to a FIXED timezone so the string is identical whether it is
+// computed on the server (Vercel = UTC) or in the visitor's browser. Using
+// the bare local-time getters (getHours/getMonth/...) makes the output
+// depend on the runtime's timezone, which produces a server/client text
+// mismatch and a React hydration crash (#418) that takes down the whole
+// client tree. Never format SSR'd dates with local-time getters.
+const STREAM_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true,
+});
 
 function formatStreamDate(iso: string): string {
-  const d = new Date(iso);
-  const month = MONTH_ABBR[d.getMonth()];
-  const day = d.getDate();
-  const year = d.getFullYear();
-  let h = d.getHours();
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12 || 12;
-  const m = String(d.getMinutes()).padStart(2, "0");
-  const s = String(d.getSeconds()).padStart(2, "0");
-  return `${month} ${day}, ${year}, ${h}:${m}:${s} ${ampm}`;
+  return STREAM_DATE_FMT.format(new Date(iso));
 }
 
 interface Song {

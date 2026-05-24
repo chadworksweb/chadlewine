@@ -253,13 +253,13 @@ uniform vec2 uHatTrailDir[30];
 void main() {
   vec4 tex = texture2D(uTexture, vUv);
 
-  // Diagnostic: if the texture sample is effectively black (uninitialized
-  // sampler or texture not yet uploaded), draw a UV gradient instead of
-  // pure black/white so the mesh is at least debuggable visually.
+  // Show the cover art as-is. (Previously, near-black pixels were replaced
+  // with a vUv color gradient as a load-time diagnostic — but that fired
+  // PER PIXEL on any dark region of a real cover, painting a rainbow wash
+  // over the dark parts of the art. Covers with dark backgrounds read as
+  // "filtered"; bright covers barely showed it, which is why it looked like
+  // it only hit some songs. Dark cover pixels now render dark, as intended.)
   vec3 base = tex.rgb;
-  if (dot(base, vec3(1.0)) < 0.02) {
-    base = vec3(vUv.x, vUv.y, 0.6);
-  }
 
   // Cheap rim term — view direction is roughly -z in view space.
   vec3 viewDir = normalize(-vViewPos);
@@ -310,20 +310,13 @@ void main() {
   // read as the same "stage lighting" family.
   color += vec3(1.0, 1.04, 1.10) * trailGlow * 0.95;
 
-  // BASS PULSE — acid color filter. NOT a spatial effect (the cube
-  // doesn't swell). Boosts saturation hard and skews the palette toward
-  // magenta + cyan on the R/B axis, pulling G down. Result: the cover
-  // art briefly reads like it got dunked in acid — same composition,
-  // intensified, hue-warped. Decays out cleanly so the cube returns to
-  // its true palette between hits.
-  if (uBassPulseAmount > 0.001) {
-    float luma = dot(color, vec3(0.299, 0.587, 0.114));
-    // Saturation amplifier — pull values away from luminance.
-    vec3 saturated = mix(vec3(luma), color, 1.0 + uBassPulseAmount * 1.8);
-    // Magenta/cyan acid lean: R + B up, G down.
-    vec3 acidWash = saturated * vec3(1.18, 0.78, 1.32);
-    color = mix(color, acidWash, min(1.0, uBassPulseAmount));
-  }
+  // BASS PULSE acid color-filter REMOVED (per request). It boosted
+  // saturation and skewed the palette magenta/cyan in time with the bass,
+  // which read on-device as a "filter" washing the cover art during
+  // playback. Only fired with real audio analysis, so it looked clean in
+  // headless/desktop testing but showed on the phone. The uniform and the
+  // bassPulseRef plumbing stay in place; the motion/lighting effects
+  // (geometry morph, rotation, snare strobe, hat trails, rim) are untouched.
 
   // SNARE STROBE — airplane wingtip flash. Tightens the corner mask
   // before lighting so the strobe reads as a small point of light at
@@ -336,7 +329,19 @@ void main() {
   vec3 strobeColor = vec3(1.0, 1.05, 1.15);
   color += strobeColor * (strobeMask * uSnareAmount * 1.4);
 
-  gl_FragColor = vec4(color, 1.0);
+  // Encode linear -> sRGB on output. The cover texture is tagged sRGB, so
+  // three.js decodes it to linear when sampled, and all the math above runs
+  // in linear space (correct for additive lighting). But this is a custom
+  // gl_FragColor, so three.js does NOT auto-apply the output color-space
+  // conversion the built-in materials get — without this encode the linear
+  // values were written straight to the (sRGB) framebuffer, crushing every
+  // cover ~4.8x darker than the raw file shown on the song page. Precise
+  // sRGB OETF so the cube faces match the flat cover pixel-for-pixel.
+  color = clamp(color, 0.0, 1.0);
+  vec3 srgb = mix(1.055 * pow(color, vec3(1.0 / 2.4)) - 0.055,
+                  color * 12.92,
+                  step(color, vec3(0.0031308)));
+  gl_FragColor = vec4(srgb, 1.0);
 }
 `;
 

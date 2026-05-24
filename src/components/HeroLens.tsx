@@ -207,6 +207,38 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const [isDragging, setIsDragging] = useState(false);
   const viewportWidthRef = useRef(0);
 
+  // One-time mobile swipe affordance: on first homepage view this session,
+  // the slides ease left to reveal more of the next peek, then settle back,
+  // while a faint "swipe" label fades in and out. Teaches the gesture once
+  // without leaving permanent chrome (the desktop nav arrows are hidden on
+  // mobile). Gated by sessionStorage so it doesn't replay on every visit.
+  const [nudgePx, setNudgePx] = useState(0);
+  const [showHint, setShowHint] = useState(false);
+
+  useEffect(() => {
+    if (!isMobile || total <= 1) return;
+    const key = "cl_hero_swipe_hint";
+    try {
+      if (sessionStorage.getItem(key)) return;
+    } catch {
+      // Private mode / storage blocked — still show the hint, just don't persist.
+    }
+    setShowHint(true);
+    const timers = [
+      window.setTimeout(() => setNudgePx(-34), 650),
+      window.setTimeout(() => setNudgePx(0), 1200),
+      window.setTimeout(() => {
+        setShowHint(false);
+        // Persist only after the hint has fully played. Writing it up-front
+        // breaks under React StrictMode's dev double-invoke: the discarded
+        // first pass would set the flag, then the real pass would skip. The
+        // off-timer is cleared on unmount, so a throwaway pass never persists.
+        try { sessionStorage.setItem(key, "1"); } catch {}
+      }, 2600),
+    ];
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [isMobile, total]);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (lockoutRef.current) return;
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -278,7 +310,11 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
           if (Math.abs(offset) > 1) return null;
           const role = offset === 0 ? "current" : offset < 0 ? "prev" : "next";
 
-          const dragOffset = isMobile && isDragging ? ` + ${dragPx}px` : "";
+          // While dragging, follow the finger; otherwise apply the one-time
+          // nudge offset (0 except during the swipe-hint animation). Both ride
+          // the same translateX so the nudge eases via the CSS transition.
+          const activeOffset = isDragging ? dragPx : nudgePx;
+          const dragOffset = isMobile && activeOffset ? ` + ${activeOffset}px` : "";
           let baseTranslate;
           if (role === "current") baseTranslate = "0%";
           else if (role === "next") baseTranslate = "calc(100% - var(--hero-peek))";
@@ -351,6 +387,13 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
               <span className="hero-lens__nav-arrow" aria-hidden>›</span>
             </button>
           </>
+        )}
+
+        {showHint && (
+          <div className="hero-lens__swipe-hint" aria-hidden="true">
+            <span className="hero-lens__swipe-hint-arrows">‹ ›</span>
+            <span className="hero-lens__swipe-hint-label">swipe</span>
+          </div>
         )}
       </div>
     </section>
