@@ -170,7 +170,7 @@ async function getSongBriefs(): Promise<SongBriefData[]> {
   const [{ data: junctions }, { data: sections }] = await Promise.all([
     supabase
       .from("release_songs")
-      .select("song_id, release:releases(title, slug)")
+      .select("song_id, release:releases(title, slug, cover_art_path, cover_art_alt)")
       .in("song_id", ids),
     supabase
       .from("song_visibility_sections")
@@ -180,7 +180,7 @@ async function getSongBriefs(): Promise<SongBriefData[]> {
       .order("display_order", { ascending: true }),
   ]);
 
-  type ReleaseLite = { title: string; slug: string };
+  type ReleaseLite = { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null };
   type JunctionRow = { song_id: string; release: ReleaseLite | ReleaseLite[] | null };
   const albumBySong: Record<string, ReleaseLite | null> = {};
   for (const j of (junctions || []) as JunctionRow[]) {
@@ -224,18 +224,22 @@ async function getSongBriefs(): Promise<SongBriefData[]> {
     if (pts.length > 0) hooksBySong[s.song_id] = pts;
   }
 
-  return songs.map((s) => ({
-    id: s.id,
-    slug: s.slug,
-    title: s.title,
-    song_summary: s.song_summary,
-    chorus: s.chorus,
-    chad_quote: s.chad_quote,
-    art_image_path: s.art_image_path,
-    art_alt: s.art_alt,
-    album: albumBySong[s.id] || null,
-    hooks: hooksBySong[s.id] || [],
-  }));
+  return songs.map((s) => {
+    const alb = albumBySong[s.id];
+    return {
+      id: s.id,
+      slug: s.slug,
+      title: s.title,
+      song_summary: s.song_summary,
+      chorus: s.chorus,
+      chad_quote: s.chad_quote,
+      // Fall back to the parent release's cover art when the song has no art.
+      art_image_path: s.art_image_path || alb?.cover_art_path || null,
+      art_alt: s.art_alt || alb?.cover_art_alt || null,
+      album: alb ? { title: alb.title, slug: alb.slug } : null,
+      hooks: hooksBySong[s.id] || [],
+    };
+  });
 }
 
 async function getHomepageMerch() {

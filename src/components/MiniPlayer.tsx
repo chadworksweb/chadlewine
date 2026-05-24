@@ -16,6 +16,10 @@ interface MiniPlayerProps {
   // Hide the in-player title link. The song-detail page sets this since the
   // page H1 already shows the title.
   hideTitle?: boolean;
+  // "row" (default): the full waveform bar. "art": the album art with the same
+  // play button + progress ring overlaid, no waveform/metadata — used for the
+  // mobile featured song.
+  variant?: "row" | "art";
 }
 
 // Seeded PRNG (mulberry32) — deterministic waveform per track
@@ -65,6 +69,26 @@ function formatDuration(seconds: number): string {
 const BAR_COUNT = 50;
 const CIRCUMFERENCE = 2 * Math.PI * 18; // r=18
 
+// Real SVG glyphs, conditionally rendered — NOT a CSS ::after with clip-path.
+// iOS Safari fails to re-render a clip-path pseudo-element when toggling back
+// to the triangle, which left the play icon missing after pause. Swapping
+// whole elements (as the sticky player does) always paints correctly.
+function PlayGlyph() {
+  return (
+    <svg className="mini-player__glyph mini-player__glyph--play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
+function PauseGlyph() {
+  return (
+    <svg className="mini-player__glyph mini-player__glyph--pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M6 4h4v16H6zm8 0h4v16h-4z" />
+    </svg>
+  );
+}
+
 export function MiniPlayer({
   songId,
   songSlug,
@@ -76,6 +100,7 @@ export function MiniPlayer({
   artImagePath,
   artAlt,
   playbackMode = "preview",
+  variant = "row",
 }: MiniPlayerProps) {
   const player = usePlayer();
   const isThis = player.isCurrent(songId);
@@ -103,26 +128,45 @@ export function MiniPlayer({
 
   const ringOffset = CIRCUMFERENCE - progress * CIRCUMFERENCE;
 
+  // The play button + progress ring, reused by both variants.
+  const playButton = (
+    <button
+      type="button"
+      className="mini-player__play-btn"
+      onClick={handleToggle}
+      aria-label={playing ? "Pause" : `Play ${playbackMode === "preview" ? "preview" : ""}`}
+    >
+      <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
+        <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
+        <circle
+          className="mini-player__ring-progress"
+          cx="20"
+          cy="20"
+          r="18"
+          style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
+        />
+      </svg>
+      <span className="mini-player__icon">{playing ? <PauseGlyph /> : <PlayGlyph />}</span>
+    </button>
+  );
+
+  if (variant === "art") {
+    return (
+      <div className={`mini-player mini-player--art ${playing ? "mini-player--active" : ""}`}>
+        <div className="mini-player__art-stage">
+          {artImagePath && (
+            // eslint-disable-next-line @next/next/no-img-element -- ready CDN URL, same as the sticky player
+            <img src={artImagePath} alt={artAlt || ""} className="mini-player__art-img" />
+          )}
+          {playButton}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`mini-player ${playing ? "mini-player--active" : ""}`}>
-      <button
-        type="button"
-        className="mini-player__play-btn"
-        onClick={handleToggle}
-        aria-label={playing ? "Pause" : `Play ${playbackMode === "preview" ? "preview" : ""}`}
-      >
-        <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
-          <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
-          <circle
-            className="mini-player__ring-progress"
-            cx="20"
-            cy="20"
-            r="18"
-            style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
-          />
-        </svg>
-        <span className="mini-player__icon" />
-      </button>
+      {playButton}
 
       <span className="mini-player__number">{trackNumber}</span>
       {!hideTitle && (

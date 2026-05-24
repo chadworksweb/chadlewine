@@ -1209,8 +1209,8 @@ h2, h3, h4, h5, h6 {
 .hero-lens__swipe-hint {
   position: absolute;
   left: 50%;
-  bottom: 14px;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 7;
   display: flex;
   flex-direction: column;
@@ -1284,7 +1284,11 @@ h2, h3, h4, h5, h6 {
   /* Sits above title-reveal__canvas (z=2) and the bar/CTA so the entire
      peek (image + bar + title text) reads as one veiled strip. */
   z-index: 5;
-  opacity: 0;
+  /* Driven by JS (HeroLens sets --veil per slide from its live distance to
+     center): 0 when centered, 1 at the peek, interpolated mid-swipe so the
+     dim fades up with position instead of snapping when the role class flips.
+     At rest current=0, peeks=1 — same as the old role-based rule. */
+  opacity: var(--veil, 0);
   background: linear-gradient(
     to right,
     rgba(8, 10, 18, 0.35) 0,
@@ -1297,9 +1301,10 @@ h2, h3, h4, h5, h6 {
   transition: opacity 1100ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.hero-lens__slide--next::after,
-.hero-lens__slide--prev::after {
-  opacity: 1;
+/* While the finger is down the veil must track 1:1 with no easing lag —
+   same reason the transform drops its transition mid-drag. */
+.hero-lens__slide--dragging::after {
+  transition: none;
 }
 
 .hero-lens__slide--next:hover::after,
@@ -1484,6 +1489,10 @@ h2, h3, h4, h5, h6 {
        at the container edge — so the card read as misaligned. Zero gap makes
        the card full-bleed, flush to the same left edge as the header logo. */
     --hero-gap: 0px;
+    /* Breathing room BETWEEN cards during a swipe, added to the neighbor
+       translate rather than as padding — so the centered card stays full-bleed
+       and edge-flush while a background strip shows between cards mid-swipe. */
+    --hero-slide-gap: 16px;
   }
 
   .hero-lens__slide-content {
@@ -1544,6 +1553,19 @@ h2, h3, h4, h5, h6 {
   height: 100%;
   object-fit: cover;
   pointer-events: none;
+}
+
+/* Ripple canvas overlays the persistent static base image. Fills the art-wrap
+   exactly so WaterRipple measures correct dims; the canvas paints opaque over
+   the base once ready, so the swap to interactive is seamless. */
+.hero-lens__ripple-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-lens__ripple-layer > div {
+  width: 100%;
+  height: 100%;
 }
 
 .cover-hero__art {
@@ -2191,6 +2213,38 @@ h2, h3, h4, h5, h6 {
   margin-top: var(--space-xs);
 }
 
+/* Featured song: desktop shows the waveform row, mobile shows the art-overlay
+   variant. Defaults here are the desktop state; the mobile media query swaps
+   them. */
+.featured-track__mobile {
+  display: none;
+}
+
+.featured-track__cta {
+  display: block;
+  margin-top: var(--space-sm);
+  padding: 15px;
+  text-align: center;
+  font-family: var(--td-font-mono, var(--font-ui));
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #06121c;
+  background: var(--td-teal);
+  border: 1px solid var(--td-teal);
+  border-radius: 6px;
+  text-decoration: none;
+  box-shadow: 0 0 16px rgba(0, 212, 170, 0.35);
+  transition: background 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
+}
+
+.featured-track__cta:hover {
+  background: var(--td-cyan, #00ffcc);
+  border-color: var(--td-cyan, #00ffcc);
+  box-shadow: 0 0 22px rgba(0, 255, 204, 0.5);
+}
+
 @media (max-width: 480px) {
   .featured-track__art-link {
     width: 72px;
@@ -2468,6 +2522,14 @@ h2, h3, h4, h5, h6 {
 
   .home-split__sidebar {
     position: static;
+  }
+
+  .featured-track__mobile {
+    display: block;
+  }
+
+  .featured-track__bar {
+    display: none;
   }
 
   .hero-lens {
@@ -6629,6 +6691,11 @@ html {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-xl);
+  /* Shared 3D stage so the cards read as standing objects turned in space,
+     not flat tiles. perspective-origin sits right-of-center so the turned
+     faces angle toward the viewer naturally. */
+  perspective: 2200px;
+  perspective-origin: 62% 42%;
 }
 
 @media (min-width: 720px) {
@@ -6649,27 +6716,180 @@ html {
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-lg);
-  border: 1px solid var(--border-medium, rgba(0, 0, 0, 0.12));
-  border-radius: 8px;
-  background: var(--bg-surface, #fff);
-  transform-origin: center bottom;
+  border-radius: 10px;
+  /* Clear etched-glass plaque body: a bright, near-clear slab tint (the dark
+     page shows through), brighter top-left where light enters. */
+  border: 1px solid rgba(190, 232, 255, 0.40);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(205, 238, 255, 0.17) 0%,
+      rgba(150, 200, 235, 0.07) 45%,
+      rgba(30, 45, 60, 0.14) 100%
+    );
+  --card-thick: 34px;
+  transform-origin: center center;
   transform-style: preserve-3d;
   will-change: transform, box-shadow;
   transition:
     transform 620ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 720ms cubic-bezier(0.16, 1, 0.3, 1) 40ms,
-    border-color 520ms cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    border-color 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Faces forward — no perspective turn, content stays crisp. The slab look
+     comes from the glass body, bevels, embedded art, and the reflection. */
+  box-shadow:
+    /* refractive bevel: bright top-left lip, cool dark bottom-right */
+    inset 2px 2px 1px rgba(255, 255, 255, 0.55),
+    inset -2px -2px 2px rgba(70, 120, 160, 0.32),
+    inset 0 0 55px rgba(180, 225, 255, 0.07),
+    /* grounding shadow so it stands on the page */
+    0 34px 54px -16px rgba(0, 0, 0, 0.62);
   cursor: pointer;
 }
 
+/* Glass side walls — real planes folded back from the front face, so the card
+   has true depth. The right + bottom walls are the ones the slight turn
+   reveals. */
+/* span.* raises specificity above the general child rule
+   (.song-brief-card > *:not(.cover-link)) which would otherwise force
+   position:relative and drop these walls into normal flow, pushing content down. */
+.song-brief-card span.song-brief-card__edge {
+  /* Side walls only read with the perspective turn, which is now removed —
+     hidden so they don't render edge-on as stray lines. */
+  display: none;
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  backface-visibility: hidden;
+}
+
+/* Right wall: brighter at the front corner (right side, near the viewer)
+   fading darker toward the back, with internal reflection streaks — reads as
+   lit, solid glass. More opaque than the face so the depth has value contrast.
+   inset highlight on the front edge crisps the corner. */
+.song-brief-card .song-brief-card__edge--right {
+  top: 0;
+  right: 0;
+  width: var(--card-thick);
+  height: 100%;
+  transform-origin: right center;
+  transform: rotateY(-90deg);
+  background: linear-gradient(
+    to left,
+    rgba(214, 240, 255, 0.55) 0%,
+    rgba(120, 175, 215, 0.34) 26%,
+    rgba(70, 120, 160, 0.42) 60%,
+    rgba(150, 200, 235, 0.34) 100%
+  );
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.65);
+  border-radius: 0 10px 10px 0;
+}
+
+/* Bottom wall: the underside — darker overall, lit only at the front-bottom
+   corner. */
+.song-brief-card .song-brief-card__edge--bottom {
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: var(--card-thick);
+  transform-origin: center bottom;
+  transform: rotateX(90deg);
+  background: linear-gradient(
+    to top,
+    rgba(150, 200, 235, 0.42) 0%,
+    rgba(45, 80, 110, 0.46) 45%,
+    rgba(20, 40, 60, 0.5) 100%
+  );
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+  border-radius: 0 0 10px 10px;
+}
+
+/* Song art embedded in the slab — sits behind the content (z:0), dimmed so the
+   text stays legible, reading as art set into the glass. div.* raises
+   specificity above the general child rule (same fix as the walls). */
+.song-brief-card div.song-brief-card__art-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.21;
+  /* Uniform scrim keeps light album art from washing out the text. */
+  box-shadow: inset 0 0 0 2000px rgba(10, 14, 22, 0.42);
+}
+
+/* Reflection beneath the slab — a flipped, blurred, faded echo of the art on a
+   virtual glossy surface, so the card reads as a standing object in space at
+   rest. Sits below the card; fades out downward. div.* raises specificity over
+   the general child rule. */
+.song-brief-card div.song-brief-card__reflection {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: calc(100% + 5px);
+  height: 42%;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 0 0 10px 10px;
+  background-size: cover;
+  background-position: center;
+  transform: scaleY(-1);
+  transform-origin: top center;
+  opacity: 0.16;
+  filter: blur(3px);
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.55) 78%, rgba(0, 0, 0, 0.7) 100%);
+  mask-image: linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.55) 78%, rgba(0, 0, 0, 0.7) 100%);
+}
+
+/* No reflection on phones — the slab is flattened there. */
+@media (max-width: 768px) {
+  .song-brief-card div.song-brief-card__reflection {
+    display: none;
+  }
+}
+
+/* Surface sheen — a diagonal glossy reflection across the glass face. Sits
+   in front of the content in 3D space (translateZ) so it reads as a top
+   surface, kept low-opacity so text stays legible. */
+.song-brief-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transform: translateZ(1px);
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(255, 255, 255, 0.16) 49%,
+    rgba(255, 255, 255, 0.04) 58%,
+    transparent 100%
+  );
+  opacity: 0.7;
+}
+
 .song-brief-card:hover {
-  transform: perspective(1200px) translate3d(0, -8px, 0) rotateX(2.4deg) scale(1.014);
-  border-color: rgba(0, 212, 255, 0.55);
+  /* Slight hover/lift off the page — no rotation. */
+  transform: translateY(-8px);
+  border-color: rgba(120, 224, 255, 0.85);
+  /* Brighter, clearer glass on hover. */
+  background:
+    linear-gradient(
+      135deg,
+      rgba(220, 244, 255, 0.24) 0%,
+      rgba(160, 210, 240, 0.10) 45%,
+      rgba(20, 35, 50, 0.16) 100%
+    );
   box-shadow:
-    0 28px 60px rgba(0, 0, 0, 0.32),
-    0 10px 24px rgba(0, 212, 255, 0.16),
-    0 1px 3px rgba(0, 0, 0, 0.18);
+    inset 2px 2px 1px rgba(255, 255, 255, 0.7),
+    inset -2px -2px 2px rgba(70, 120, 160, 0.4),
+    inset 0 0 65px rgba(180, 225, 255, 0.13),
+    0 44px 74px -16px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(0, 212, 255, 0.2);
 }
 
 .song-brief-card::after {
@@ -6699,6 +6919,7 @@ html {
   opacity: 1;
 }
 
+
 .song-brief-card__cover-link {
   position: absolute;
   inset: 0;
@@ -6720,9 +6941,66 @@ html {
   pointer-events: none;
 }
 
-/* Re-enable pointer events on the album link only. */
-.song-brief-card .song-brief-card__album {
-  pointer-events: auto;
+
+/* Real CTA link — desktop uses the whole-card hover-link + cursor tooltip, so
+   this is hidden there and only shown on mobile. Placed AFTER the child
+   pointer-events:none rule above so its pointer-events:auto wins by order. */
+.song-brief-card__cta-link {
+  display: none;
+}
+
+/* Mobile: the cursor tooltip can't read (no hover) and a whole-card tap fires
+   navigation mid-scroll. So disable the card-wide cover-link, hide the hover
+   tooltip, and make THIS CTA the only navigation target. */
+@media (max-width: 768px) {
+  .song-brief-card {
+    /* Reserve space so card text never sits under the pinned CTA. */
+    padding-bottom: calc(var(--space-lg) + 2.4rem);
+    /* Flatten the 3D turn on phones — a turned slab would push its side wall
+       off a narrow screen. Keep the glass material, drop the geometry. */
+    transform: none;
+  }
+
+  .song-brief-card__edge {
+    display: none;
+  }
+
+  /* iOS Safari renders -webkit-text-stroke far heavier than Chromium, so the
+     hollow outline title muddies/doubles on the bold display font. Render a
+     clean solid cyan fill on mobile instead. Double-class selector so it
+     outranks the base .song-brief-card__title rule that follows it in source. */
+  .song-brief-card .song-brief-card__title {
+    color: #00d4ff;
+    -webkit-text-stroke-width: 0;
+    text-stroke-width: 0;
+  }
+
+  .song-brief-card__cover-link {
+    pointer-events: none;
+  }
+
+  .song-brief-card::after {
+    content: none;
+  }
+
+  .song-brief-card .song-brief-card__cta-link {
+    display: inline-block;
+    position: absolute;
+    bottom: var(--space-md);
+    right: var(--space-md);
+    z-index: 3;
+    pointer-events: auto;
+    padding: 0.5rem 0.8rem;
+    font-family: var(--font-mono, 'Share Tech Mono', monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #0d0d1a;
+    background: rgba(0, 212, 255, 0.94);
+    border-radius: 3px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
 }
 
 .song-brief-card__header {
@@ -6785,15 +7063,21 @@ html {
 
 .song-brief-card__summary {
   margin: 0;
-  font-size: 0.9375rem;
-  line-height: 1.55;
-  color: var(--text-secondary);
+  /* Swapped to the Chad-quote's exact treatment (bold uppercase pull-quote). */
+  font-family: var(--font-ui);
+  font-size: 1.2rem;
+  line-height: 1.15;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  font-style: normal;
+  color: var(--text-primary);
 }
 
 .song-brief-card__chorus {
   white-space: pre-wrap;
   font-style: italic;
-  font-size: 0.9375rem;
+  font-size: 1.078rem;
   line-height: 1.5;
   padding: var(--space-sm) var(--space-md);
   border-left: 2px solid var(--text-accent, #000);
@@ -6809,13 +7093,14 @@ html {
 
 .song-brief-card__quote p {
   margin: 0 0 6px;
+  /* Swapped to the (former) summary treatment — lighter prose, italic. */
   font-family: var(--font-ui);
-  font-size: 1rem;
-  line-height: 1.15;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: -0.01em;
-  font-style: normal;
+  font-size: 1.0625rem;
+  line-height: 1.3;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  font-style: italic;
   color: var(--text-primary);
 }
 
@@ -11470,6 +11755,63 @@ html {
   box-shadow: 0 0 12px rgba(255, 149, 0, 0.15);
 }
 
+/* Art-overlay variant: album art with the play button + ring centered on it.
+   Reuses every .mini-player__play-btn / __ring / __icon rule below; only the
+   container layout and button size differ. */
+/* Scoped to outrank the mobile `.mini-player { height: 60px }` override —
+   without this the 60px row height clips the art and it overflows onto the
+   CTA / CL Stream below. */
+.featured-track__mobile .mini-player--art {
+  display: block;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.mini-player__art-stage {
+  position: relative;
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.mini-player__art-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.mini-player--art .mini-player__play-btn {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  width: 72px;
+  height: 72px;
+  margin: 0;
+  border-radius: 50%;
+  background: rgba(8, 10, 18, 0.55);
+}
+
+/* Enlarge the play triangle to match the bigger ring. */
+.mini-player--art .mini-player__icon::after {
+  width: 26px;
+  height: 30px;
+  margin-left: 5px;
+}
+
+.mini-player--art .mini-player__icon--playing::after {
+  width: 18px;
+  height: 24px;
+  /* Reset the play triangle's optical offset — symmetric bars center on their
+     own, and inheriting the art triangle's margin-left shifts them right. */
+  margin-left: 0;
+}
+
 /* Play button */
 
 .mini-player__play-btn {
@@ -11495,16 +11837,41 @@ html {
   z-index: 1;
 }
 
-/* Play triangle */
+/* Play/pause are now real SVG glyphs (.mini-player__glyph), conditionally
+   rendered — see MiniPlayer. The old ::after + clip-path triangle is retired
+   because iOS Safari wouldn't repaint it on toggle. */
 .mini-player__icon::after {
-  content: '';
+  content: none;
+}
+
+.mini-player__glyph {
   display: block;
-  width: 16px;
-  height: 18px;
-  background: var(--td-teal);
-  clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
-  margin-left: 3px;
-  transition: background-color 0.15s ease;
+  /* Larger than the old 16px box — the SVG triangle only fills ~half its
+     viewBox, so it needs more size to read like the former clip-path icon. */
+  width: 26px;
+  height: 26px;
+}
+
+.mini-player__glyph--play {
+  color: var(--td-teal);
+}
+
+.mini-player__glyph--pause {
+  color: var(--td-active);
+}
+
+.mini-player__play-btn:hover .mini-player__glyph--play {
+  color: var(--td-cyan, #00ffcc);
+}
+
+.mini-player__play-btn:hover .mini-player__glyph--pause {
+  color: #ffaa33;
+}
+
+/* Larger glyph for the art-overlay variant. */
+.mini-player--art .mini-player__glyph {
+  width: 42px;
+  height: 42px;
 }
 
 /* Pause bars when active. The button pauses (doesn't stop), so the icon
@@ -11513,7 +11880,7 @@ html {
    parent flex container centers naturally on x AND y, and the gradient
    stays a single property so hover doesn't accidentally wipe the second
    bar (the prior box-shadow trick collided with the hover glow rule). */
-.mini-player--active .mini-player__icon::after {
+.mini-player__icon--playing::after {
   width: 11px;
   height: 14px;
   background: linear-gradient(
@@ -11535,7 +11902,7 @@ html {
   background: var(--td-cyan);
 }
 
-.mini-player--active .mini-player__play-btn:hover .mini-player__icon::after {
+.mini-player__play-btn:hover .mini-player__icon--playing::after {
   /* Keep BOTH bars on hover — re-declare the same gradient with the hover
      color. Indicating hover via the bar tint + a soft glow filter behind
      them; box-shadow is dropped here so it can't overwrite the gradient. */
@@ -13214,7 +13581,7 @@ html {
     height: 15px;
   }
 
-  .mini-player--active .mini-player__icon::after {
+  .mini-player__icon--playing::after {
     width: 9px;
     height: 11px;
     /* Background gradient inherited from desktop rule — only size differs. */
@@ -14762,6 +15129,18 @@ html {
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: filter 300ms ease;
+}
+
+/* Brighten the hovered cover by 20% (side covers only — the active card has
+   pointer-events:none so it never hovers). */
+.coverflow__card:hover .coverflow__art {
+  filter: brightness(1.2);
+}
+
+/* The centered cover always stays at normal brightness. */
+.coverflow__card--active .coverflow__art {
+  filter: none;
 }
 
 .coverflow__art--empty {
@@ -14896,9 +15275,9 @@ html {
 
 .explore-songs__summary {
   font-family: var(--font-body, var(--font-ui));
-  color: var(--text-secondary);
-  font-size: 0.96rem;
-  line-height: 1.35;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  line-height: 1.4;
   margin: 0;
 }
 
