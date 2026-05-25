@@ -19,7 +19,6 @@ export interface SongVisibilitySection {
   content: string;
   direct_answer: string | null;
   key_points: string[];
-  data_payload: Record<string, unknown> | null;
   status: "draft" | "published";
   display_order: number;
   created_at: string;
