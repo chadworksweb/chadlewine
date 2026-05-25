@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { ReleaseDetail } from "@/components/ReleaseDetail";
 import { ReleaseSections } from "@/components/ReleaseSections";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge, fetchAlbumBadge, rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
 import { releaseTypeLabel, releaseFormatLabel } from "@/lib/release-labels";
@@ -211,6 +212,7 @@ export default async function AlbumDetailPage({
           entity_tags: Array.isArray(album.entity_tags) ? (album.entity_tags as string[]) : [],
         }}
       />
+      <YouMightAlsoLike sourceType="release" sourceId={album.id} />
       {Object.keys(songBadges).length > 0 && (
         <section className="album-rc-classifications" aria-label="Rising Compass Classifications">
           <h3 className="album-rc-classifications__title">Rising Compass Classifications</h3>

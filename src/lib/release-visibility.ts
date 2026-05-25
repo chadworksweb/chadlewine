@@ -126,27 +126,8 @@ export const RELEASE_VISIBILITY_CATEGORIES: ReleaseVisibilityCategoryDef[] = [
     kind: "data",
     default_status: "published",
   },
-  {
-    slug: "merch",
-    label: "Merch",
-    description: "Album-related products — admin picks which to feature",
-    kind: "data",
-    default_status: "published",
-  },
-  {
-    slug: "you-might-also-like",
-    label: "You Might Also Like",
-    description: "Other albums in Chad's catalog to surface here",
-    kind: "data",
-    default_status: "published",
-  },
-  {
-    slug: "related-observations",
-    label: "Related Observations",
-    description: "Observations to surface alongside this album",
-    kind: "data",
-    default_status: "published",
-  },
+  // Merch, You Might Also Like, and Related Observations were unified into the
+  // global YMAL element (related_entities + EntityPicker / YouMightAlsoLike).
 ];
 
 export type ReleaseVisibilityCategory = (typeof RELEASE_VISIBILITY_CATEGORIES)[number]["slug"];

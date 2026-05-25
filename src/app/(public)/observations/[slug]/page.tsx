@@ -9,6 +9,7 @@ import { ImageObjectJsonLd } from "@/components/ImageObjectJsonLd";
 import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ExploreStrip } from "@/components/ExploreStrip";
 
 
@@ -281,6 +282,8 @@ export default async function ObservationPage({
       </article>
 
       <SynapseDisplay sourceType="observation" sourceId={obsv.id} />
+
+      <YouMightAlsoLike sourceType="observation" sourceId={obsv.id} />
 
       <div className="obsv-celestial-anchor">
         <div className="obsv-celestial-wrap" aria-hidden="true">

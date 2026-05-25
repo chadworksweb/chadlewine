@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
-import { SongMerchSection } from "@/components/SongMerchSection";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ExploreStrip } from "@/components/ExploreStrip";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge } from "@/lib/rising-compass";
@@ -364,7 +364,7 @@ export default async function SongDetailPage({
           pending: badge.pending ?? false,
           songSlug: badge.song_slug ?? null,
         } : null}
-        merchSlot={<SongMerchSection songId={song.id} />}
+        merchSlot={<YouMightAlsoLike sourceType="song" sourceId={song.id} />}
       />
       <ExploreStrip wrap />
       {badge && album && (

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
-import { SongMerchSection } from "@/components/SongMerchSection";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 
 export const revalidate = 60;
 
@@ -93,7 +93,7 @@ export default async function SongLyricsPage({
         </Link>
       </div>
 
-      <SongMerchSection songId={song.id} />
+      <YouMightAlsoLike sourceType="song" sourceId={song.id} />
     </div>
   );
 }

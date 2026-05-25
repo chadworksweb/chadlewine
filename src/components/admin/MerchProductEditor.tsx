@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAutosave } from "@/hooks/useAutosave";
 import { MerchGalleryPanel } from "@/components/admin/MerchGalleryPanel";
 import { LinkedPrintPicker } from "@/components/admin/LinkedPrintPicker";
+import { EntityPicker } from "@/components/EntityPicker";
 
 const STATUSES = ["active", "inactive", "pending_review"] as const;
 const FULFILLMENTS = ["manual", "printify_curated"] as const;
@@ -279,6 +280,13 @@ export function MerchProductEditor({ idOrSlug }: Props) {
         value={form.linked_art_piece_id}
         onChange={(id) => set("linked_art_piece_id", id)}
       />
+
+      {isExisting && form.id && (
+        <div className="obsv-editor__field">
+          <label className="obsv-editor__label">You might also like (shown on product page)</label>
+          <EntityPicker sourceType="merch" sourceId={form.id} />
+        </div>
+      )}
 
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">

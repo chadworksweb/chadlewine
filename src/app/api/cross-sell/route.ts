@@ -21,11 +21,6 @@ interface ProductOut {
   variants: unknown;
 }
 
-function payloadIds(data_payload: unknown): string[] {
-  const ids = (data_payload as { product_ids?: string[] } | null)?.product_ids;
-  return Array.isArray(ids) ? ids : [];
-}
-
 export async function POST(request: Request) {
   if (!(await isSectionLive("merch"))) return Response.json({ products: [] });
 
@@ -62,37 +57,42 @@ export async function POST(request: Request) {
     for (const r of parents || []) releaseIds.add(r.release_id);
   }
 
-  const [relSecRes, songSecRes] = await Promise.all([
+  // Read merch entities from the unified YMAL graph (related_entities), for the
+  // cart's releases and songs. release order first, then song.
+  const [relRes, songRes] = await Promise.all([
     releaseIds.size > 0
       ? supabase
-          .from("release_visibility_sections")
-          .select("data_payload")
-          .in("release_id", Array.from(releaseIds))
-          .eq("category", "merch")
-          .eq("status", "published")
-      : Promise.resolve({ data: [] as { data_payload: unknown }[] }),
+          .from("related_entities")
+          .select("entity_id, display_order")
+          .eq("source_type", "release")
+          .eq("entity_type", "merch")
+          .in("source_id", Array.from(releaseIds))
+          .order("display_order")
+      : Promise.resolve({ data: [] as { entity_id: string }[] }),
     songIds.size > 0
       ? supabase
-          .from("song_visibility_sections")
-          .select("data_payload")
-          .in("song_id", Array.from(songIds))
-          .eq("category", "merch")
-          .eq("status", "published")
-      : Promise.resolve({ data: [] as { data_payload: unknown }[] }),
+          .from("related_entities")
+          .select("entity_id, display_order")
+          .eq("source_type", "song")
+          .eq("entity_type", "merch")
+          .in("source_id", Array.from(songIds))
+          .order("display_order")
+      : Promise.resolve({ data: [] as { entity_id: string }[] }),
   ]);
 
   // Collect candidate product ids in a stable order, dropping cart items + dupes.
   const ordered: string[] = [];
   const seen = new Set<string>();
-  const push = (ids: string[]) => {
-    for (const id of ids) {
+  const push = (rows: { entity_id: string }[]) => {
+    for (const r of rows) {
+      const id = r.entity_id;
       if (cartProductIds.has(id) || seen.has(id)) continue;
       seen.add(id);
       ordered.push(id);
     }
   };
-  for (const s of relSecRes.data || []) push(payloadIds(s.data_payload));
-  for (const s of songSecRes.data || []) push(payloadIds(s.data_payload));
+  push(relRes.data || []);
+  push(songRes.data || []);
 
   if (ordered.length === 0) return Response.json({ products: [] });
 

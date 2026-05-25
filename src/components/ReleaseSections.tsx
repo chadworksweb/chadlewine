@@ -19,7 +19,6 @@ import {
   type ReleaseVisibilitySection,
   type ReleaseArtAspect,
 } from "@/lib/release-visibility";
-import { MerchProductCard } from "@/components/MerchProductCard";
 import { AlbumSongSliderSection } from "@/components/AlbumSongSliderSection";
 import type { HeroLensItem } from "@/components/HeroLens";
 
@@ -51,23 +50,6 @@ interface AlbumLite {
   concept_statement: string | null;
   citation_summary?: string | null;
   entity_tags?: string[] | null;
-}
-
-interface ProductLite {
-  id: string;
-  slug: string | null;
-  title: string;
-  image_url: string | null;
-  image_alt: string | null;
-}
-
-interface ObservationLite {
-  id: string;
-  title: string;
-  slug: string;
-  art_image_path: string | null;
-  art_alt: string | null;
-  date_captured: string | null;
 }
 
 export async function ReleaseSections({
@@ -113,22 +95,13 @@ export async function ReleaseSections({
     })
     .filter(Boolean) as Array<SongRow & { track_number: number }>;
 
-  // Resolve all referenced ids across data sections in one pass.
+  // Resolve song ids referenced by the remaining data sections (lyrics, art).
+  // Merch / you-might-also-like / related-observations moved to the global YMAL.
   const songIdsToFetch = new Set<string>();
-  const productIdsToFetch = new Set<string>();
-  const albumIdsToFetch = new Set<string>();
-  const observationIdsToFetch = new Set<string>();
-
   for (const s of sections) {
     const def = getReleaseCategoryDef(s.category);
     if (!def || def.kind !== "data") continue;
-    type PayloadShape = {
-      song_ids?: string[];
-      product_ids?: string[];
-      release_ids?: string[];
-      observation_ids?: string[];
-      items?: { kind?: string; song_id?: string }[];
-    };
+    type PayloadShape = { song_ids?: string[]; items?: { kind?: string; song_id?: string }[] };
     const p = (s.data_payload || {}) as PayloadShape;
     if (s.category === "lyrics" && Array.isArray(p.song_ids)) {
       for (const id of p.song_ids) songIdsToFetch.add(id);
@@ -138,55 +111,18 @@ export async function ReleaseSections({
         if (item.kind === "song-art" && item.song_id) songIdsToFetch.add(item.song_id);
       }
     }
-    if (s.category === "merch" && Array.isArray(p.product_ids)) {
-      for (const id of p.product_ids) productIdsToFetch.add(id);
-    }
-    if (s.category === "you-might-also-like" && Array.isArray(p.release_ids)) {
-      for (const id of p.release_ids) albumIdsToFetch.add(id);
-    }
-    if (s.category === "related-observations" && Array.isArray(p.observation_ids)) {
-      for (const id of p.observation_ids) observationIdsToFetch.add(id);
-    }
   }
 
   // Album-songs cover most song lookups already; only fetch songs not in the album.
   const haveSongIds = new Set(albumSongs.map((s) => s.id));
   const extraSongIds = Array.from(songIdsToFetch).filter((id) => !haveSongIds.has(id));
 
-  const [
-    { data: extraSongs },
-    { data: products },
-    { data: relatedAlbums },
-    { data: observations },
-  ] = await Promise.all([
-    extraSongIds.length > 0
-      ? supabase
-          .from("songs")
-          .select("id, title, slug, lyrics, chorus, release_date, art_image_path, art_alt, song_summary, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom")
-          .in("id", extraSongIds)
-      : Promise.resolve({ data: [] as SongRow[] }),
-    productIdsToFetch.size > 0
-      ? supabase
-          .from("products")
-          .select("id, slug, title, image_url, image_alt")
-          .in("id", Array.from(productIdsToFetch))
-          .eq("status", "active")
-      : Promise.resolve({ data: [] as ProductLite[] }),
-    albumIdsToFetch.size > 0
-      ? supabase
-          .from("releases")
-          .select("id, title, slug, cover_art_path, cover_art_alt, release_date, concept_statement")
-          .in("id", Array.from(albumIdsToFetch))
-          .in("status", ["unreleased", "published"])
-      : Promise.resolve({ data: [] as AlbumLite[] }),
-    observationIdsToFetch.size > 0
-      ? supabase
-          .from("observations")
-          .select("id, title, slug, art_image_path, art_alt, date_captured")
-          .in("id", Array.from(observationIdsToFetch))
-          .eq("status", "published")
-      : Promise.resolve({ data: [] as ObservationLite[] }),
-  ]);
+  const { data: extraSongs } = extraSongIds.length > 0
+    ? await supabase
+        .from("songs")
+        .select("id, title, slug, lyrics, chorus, release_date, art_image_path, art_alt, song_summary, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom")
+        .in("id", extraSongIds)
+    : { data: [] as SongRow[] };
 
   // Build lookup maps.
   const songsById = new Map<string, SongRow & { track_number?: number }>();
@@ -194,9 +130,6 @@ export async function ReleaseSections({
   for (const s of (extraSongs || []) as SongRow[]) {
     if (!songsById.has(s.id)) songsById.set(s.id, s);
   }
-  const productsById = new Map((products || []).map((p) => [p.id, p as ProductLite]));
-  const albumsById = new Map((relatedAlbums || []).map((a) => [a.id, a as AlbumLite]));
-  const observationsById = new Map((observations || []).map((o) => [o.id, o as ObservationLite]));
 
   return (
     <>
@@ -255,12 +188,6 @@ export async function ReleaseSections({
             );
           case "video":
             return <VideoSection key={s.id} payload={s.data_payload} />;
-          case "merch":
-            return <MerchSection key={s.id} payload={s.data_payload} productsById={productsById} />;
-          case "you-might-also-like":
-            return <YouMightAlsoLikeSection key={s.id} payload={s.data_payload} albumsById={albumsById} />;
-          case "related-observations":
-            return <RelatedObservationsSection key={s.id} payload={s.data_payload} observationsById={observationsById} />;
           default:
             return null;
         }
@@ -492,87 +419,6 @@ function extractYouTubeId(url: string): string | null {
 function extractVimeoId(url: string): string | null {
   const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   return m ? m[1] : null;
-}
-
-// ─── Merch ──────────────────────────────────────────────────────────────────
-
-function MerchSection({ payload, productsById }: { payload: Record<string, unknown>; productsById: Map<string, ProductLite> }) {
-  const ids = ((payload as { product_ids?: string[] }).product_ids) || [];
-  const products = ids.map((id) => productsById.get(id)).filter(Boolean) as ProductLite[];
-  if (products.length === 0) return null;
-  return (
-    <section className="album-section album-section--merch" aria-labelledby="album-section-merch">
-      <div className="album-section__inner">
-        <h2 className="album-section__heading" id="album-section-merch">Merch</h2>
-        <div className="merch-shop__grid">
-          {products.map((p) => (
-            <MerchProductCard
-              key={p.id}
-              id={p.id}
-              slug={p.slug}
-              title={p.title}
-              image_url={p.image_url}
-              image_alt={p.image_alt}
-            />
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── You Might Also Like ────────────────────────────────────────────────────
-
-function YouMightAlsoLikeSection({ payload, albumsById }: { payload: Record<string, unknown>; albumsById: Map<string, AlbumLite> }) {
-  const ids = ((payload as { release_ids?: string[] }).release_ids) || [];
-  const items = ids.map((id) => albumsById.get(id)).filter(Boolean) as AlbumLite[];
-  if (items.length === 0) return null;
-  return (
-    <section className="album-section album-section--ymal" aria-labelledby="album-section-ymal">
-      <div className="album-section__inner">
-        <h2 className="album-section__heading" id="album-section-ymal">You Might Also Like</h2>
-        <div className="album-section__ymal-grid">
-          {items.map((a) => (
-            <Link key={a.id} href={`/music/releases/${a.slug}`} className="album-section__ymal-card">
-              {a.cover_art_path && (
-                <span className="album-section__ymal-thumb">
-                  <Image src={a.cover_art_path} alt={a.cover_art_alt || a.title} fill sizes="(max-width: 720px) 50vw, 240px" />
-                </span>
-              )}
-              <span className="album-section__ymal-title">{a.title}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Related Observations ───────────────────────────────────────────────────
-
-function RelatedObservationsSection({ payload, observationsById }: { payload: Record<string, unknown>; observationsById: Map<string, ObservationLite> }) {
-  const ids = ((payload as { observation_ids?: string[] }).observation_ids) || [];
-  const items = ids.map((id) => observationsById.get(id)).filter(Boolean) as ObservationLite[];
-  if (items.length === 0) return null;
-  return (
-    <section className="album-section album-section--obs" aria-labelledby="album-section-obs">
-      <div className="album-section__inner">
-        <h2 className="album-section__heading" id="album-section-obs">Related Observations</h2>
-        <div className="album-section__obs-grid">
-          {items.map((o) => (
-            <Link key={o.id} href={`/observations/${o.slug}`} className="album-section__obs-card">
-              {o.art_image_path && (
-                <span className="album-section__obs-thumb">
-                  <Image src={o.art_image_path} alt={o.art_alt || o.title} fill sizes="(max-width: 720px) 50vw, 240px" />
-                </span>
-              )}
-              <span className="album-section__obs-title">{o.title}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
 }
 
 // Suppress unused: RELEASE_VISIBILITY_CATEGORIES kept for future explicit ordering.

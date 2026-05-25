@@ -5,6 +5,7 @@ import { AdminEditButton } from "@/components/AdminEditButton";
 import { MerchProductDetail } from "@/components/MerchProductDetail";
 import { MerchProductJsonLd } from "@/components/MerchProductJsonLd";
 import { ExploreStrip } from "@/components/ExploreStrip";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import type { ProductVariant } from "@/components/MerchProductCard";
 import { getGalleryForProduct, type GalleryImage } from "@/lib/product-images";
 
@@ -132,6 +133,7 @@ export default async function MerchProductPage({
         linkedPrintSlug={linkedPrintSlug}
         isSuperIndividual={isSuperIndividual}
       />
+      <YouMightAlsoLike sourceType="merch" sourceId={product.id} />
       <ExploreStrip excludeMerchIds={[product.id]} wrap />
     </>
   );

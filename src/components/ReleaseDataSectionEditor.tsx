@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAutosave } from "@/hooks/useAutosave";
-import { MerchSectionPicker } from "@/components/MerchSectionPicker";
 import type {
   ReleaseVisibilitySection,
   ReleaseVisibilityCategoryDef,
@@ -100,17 +99,10 @@ function hasMeaningfulPayload(slug: string, p: Record<string, unknown>): boolean
       // null = auto (publishable). Empty array = nothing picked. Non-empty = picks.
       return ids === null || (Array.isArray(ids) && ids.length > 0);
     }
-    case "lyrics":
-    case "merch": {
-      const ids = (p as { song_ids?: string[]; product_ids?: string[] }).song_ids
-        || (p as { product_ids?: string[] }).product_ids
-        || [];
+    case "lyrics": {
+      const ids = (p as { song_ids?: string[] }).song_ids || [];
       return Array.isArray(ids) && ids.length > 0;
     }
-    case "you-might-also-like":
-      return Array.isArray((p as { release_ids?: string[] }).release_ids) && ((p as { release_ids?: string[] }).release_ids?.length ?? 0) > 0;
-    case "related-observations":
-      return Array.isArray((p as { observation_ids?: string[] }).observation_ids) && ((p as { observation_ids?: string[] }).observation_ids?.length ?? 0) > 0;
     case "art":
     case "video": {
       const items = (p as { items?: unknown[] }).items || [];
@@ -140,12 +132,6 @@ function PickerForSlug({ slug, albumId, payload, onChange }: PickerProps) {
       return <ArtPicker albumId={albumId} payload={payload} onChange={onChange} />;
     case "video":
       return <VideoPicker payload={payload} onChange={onChange} />;
-    case "merch":
-      return <MerchSectionPicker payload={payload} onChange={onChange} />;
-    case "you-might-also-like":
-      return <AlbumPicker albumId={albumId} payload={payload} onChange={onChange} />;
-    case "related-observations":
-      return <ObservationPicker payload={payload} onChange={onChange} />;
     default:
       return <pre style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{JSON.stringify(payload, null, 2)}</pre>;
   }
@@ -440,116 +426,6 @@ function VideoPicker({ payload, onChange }: { payload: Record<string, unknown>; 
         <input value={draft.poster || ""} onChange={(e) => setDraft({ ...draft, poster: e.target.value || null })} placeholder="Poster image URL (optional)" className="obsv-editor__input" style={{ fontSize: "0.75rem", gridColumn: "1 / span 2" }} />
       </div>
       <button type="button" className="admin-btn" onClick={add} disabled={!draft.title || !draft.url} style={{ fontSize: "0.75rem", marginTop: "0.5rem" }}>+ Add video</button>
-    </div>
-  );
-}
-
-// ─── Albums (You Might Also Like) ───────────────────────────────────────────
-
-interface AlbumLite { id: string; title: string; slug: string; status: string; release_date: string | null }
-
-function AlbumPicker({ albumId, payload, onChange }: { albumId: string; payload: Record<string, unknown>; onChange: (p: Record<string, unknown>) => void }) {
-  const [albums, setAlbums] = useState<AlbumLite[]>([]);
-  const picked = ((payload as { release_ids?: string[] }).release_ids) || [];
-
-  useEffect(() => {
-    fetch(`/api/admin/releases`)
-      .then((r) => r.json())
-      .then((data) => setAlbums(Array.isArray(data) ? data.filter((a: AlbumLite) => a.id !== albumId) : []))
-      .catch(() => setAlbums([]));
-  }, [albumId]);
-
-  function toggle(id: string) {
-    const set = new Set(picked);
-    if (set.has(id)) set.delete(id); else set.add(id);
-    onChange({ release_ids: Array.from(set) });
-  }
-
-  function move(idx: number, dir: -1 | 1) {
-    onChange({ release_ids: moveItem(picked, idx, dir) });
-  }
-
-  return (
-    <div>
-      <div style={headerLabel}>Picked ({picked.length})</div>
-      {picked.map((id, i) => {
-        const a = albums.find((x) => x.id === id);
-        return (
-          <div key={id} style={rowStyle}>
-            <span style={{ flex: 1, fontSize: "0.78rem" }}>{a ? a.title : id}</span>
-            <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => move(i, -1)}>↑</button>
-            <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => move(i, 1)}>↓</button>
-            <button type="button" className="admin-btn admin-btn--danger" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => toggle(id)}>✕</button>
-          </div>
-        );
-      })}
-      <div style={headerLabel}>Available</div>
-      {albums.filter((a) => !picked.includes(a.id)).map((a) => (
-        <div key={a.id} style={rowStyle}>
-          <span style={{ flex: 1, fontSize: "0.78rem" }}>{a.title}</span>
-          <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{a.status}</span>
-          <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => toggle(a.id)}>+ add</button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Observations ───────────────────────────────────────────────────────────
-
-interface ObservationLite { id: string; title: string; slug: string; status: string }
-
-function ObservationPicker({ payload, onChange }: { payload: Record<string, unknown>; onChange: (p: Record<string, unknown>) => void }) {
-  const [obs, setObs] = useState<ObservationLite[]>([]);
-  const [filter, setFilter] = useState("");
-  const picked = ((payload as { observation_ids?: string[] }).observation_ids) || [];
-
-  useEffect(() => {
-    fetch(`/api/admin/observations`)
-      .then((r) => r.json())
-      .then((data) => setObs(Array.isArray(data) ? data : []))
-      .catch(() => setObs([]));
-  }, []);
-
-  function toggle(id: string) {
-    const set = new Set(picked);
-    if (set.has(id)) set.delete(id); else set.add(id);
-    onChange({ observation_ids: Array.from(set) });
-  }
-
-  function move(idx: number, dir: -1 | 1) {
-    onChange({ observation_ids: moveItem(picked, idx, dir) });
-  }
-
-  const available = obs.filter(
-    (o) => !picked.includes(o.id) && (filter === "" || o.title.toLowerCase().includes(filter.toLowerCase())),
-  );
-
-  return (
-    <div>
-      <div style={headerLabel}>Picked ({picked.length})</div>
-      {picked.map((id, i) => {
-        const o = obs.find((x) => x.id === id);
-        return (
-          <div key={id} style={rowStyle}>
-            <span style={{ flex: 1, fontSize: "0.78rem" }}>{o ? o.title : id}</span>
-            <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => move(i, -1)}>↑</button>
-            <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => move(i, 1)}>↓</button>
-            <button type="button" className="admin-btn admin-btn--danger" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => toggle(id)}>✕</button>
-          </div>
-        );
-      })}
-      <div style={headerLabel}>Available</div>
-      <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="filter…" className="obsv-editor__input" style={{ fontSize: "0.75rem", marginBottom: "0.25rem" }} />
-      <div style={{ maxHeight: 220, overflowY: "auto" }}>
-        {available.map((o) => (
-          <div key={o.id} style={rowStyle}>
-            <span style={{ flex: 1, fontSize: "0.78rem" }}>{o.title}</span>
-            <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{o.status}</span>
-            <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => toggle(o.id)}>+ add</button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
