@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { CrossSellStrip } from "@/components/CrossSellStrip";
 
 const CART_KEY = "chadlewine_cart";
 const AUTO_CLOSE_MS = 5000;
@@ -393,6 +394,7 @@ export function CartUI() {
               })}
             </ul>
           )}
+          {items.length > 0 && <CrossSellStrip variant="drawer" />}
         </div>
 
         {items.length > 0 && (
