@@ -12,7 +12,6 @@ import { SongVisibilityChat } from "@/components/SongVisibilityChat";
 import { SongVisibilitySections, type SongVisibilitySectionsHandle } from "@/components/SongVisibilitySections";
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { CubeFaceEditor } from "@/components/CubeFaceEditor";
-import { FeaturedPicker } from "@/components/FeaturedPicker";
 import { EntityPicker } from "@/components/EntityPicker";
 import { SkuPanel } from "@/components/SkuPanel";
 
@@ -583,15 +582,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             </div>
           )}
 
-          {/* Art Pairings */}
-          {form.id && (
-            <div style={{ marginTop: "1.5rem" }}>
-              <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "0.75rem" }}>
-                Art you might like (shown on song detail page)
-              </h2>
-              <FeaturedPicker kind="art" parentRef={form.id} />
-            </div>
-          )}
 
           {/* Visibility Engine */}
           {form.id && (

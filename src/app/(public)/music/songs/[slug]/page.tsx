@@ -13,18 +13,6 @@ import { fetchReleaseSkusForIds, fetchSongSkusForIds } from "@/lib/release-skus"
 
 export const revalidate = 60;
 
-type PairedArt = {
-  id: string;
-  slug: string;
-  title: string;
-  image_path: string;
-  image_alt: string | null;
-  hero_focal_x: number | null;
-  hero_focal_y: number | null;
-  hero_zoom: number | null;
-  art_summary: string | null;
-};
-
 async function getSongData(songSlug: string) {
   const supabase = createPublicClient();
 
@@ -100,18 +88,6 @@ async function getSongData(songSlug: string) {
     .eq("status", "published")
     .order("display_order");
 
-  // Featured art (curated on song editor, shown on song page)
-  const { data: featuredArt } = await supabase
-    .from("songs_featured_art")
-    .select("position, art:art_pieces(id, slug, title, image_path, image_alt, hero_focal_x, hero_focal_y, hero_zoom, art_summary, status)")
-    .eq("song_id", song.id)
-    .order("position");
-
-  const pairedArt = ((featuredArt as { art: (PairedArt & { status: string }) | null }[] | null) || [])
-    .map((p) => p.art)
-    .filter((a): a is PairedArt & { status: string } => !!a && (a.status === "published" || a.status === "unreleased"))
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure drops `status` after filtering on it above
-    .map(({ status: _status, ...rest }) => rest);
 
   // Convert ALL visibility sections to render-ready data. Centralized in
   // renderSection so any markdown-bearing field (content, key_points,
@@ -173,7 +149,6 @@ async function getSongData(songSlug: string) {
     totalTracks: count || 0,
     expansions: expansions || [],
     visibilitySections: renderedSections,
-    pairedArt,
     connectionsSongs,
   };
 }
@@ -223,7 +198,7 @@ export default async function SongDetailPage({
   const result = await getSongData(slug);
   if (!result) notFound();
 
-  const { album, song, totalTracks, expansions, visibilitySections, pairedArt, connectionsSongs } = result;
+  const { album, song, totalTracks, expansions, visibilitySections, connectionsSongs } = result;
 
   const supabase = createPublicClient();
   const [badge, playbackMode, songSkusMap, releaseSkusMap] = await Promise.all([
@@ -320,7 +295,6 @@ export default async function SongDetailPage({
         totalTracks={totalTracks}
         expansions={expansions}
         visibilitySections={visibilitySections}
-        pairedArt={pairedArt}
         connectionsSongs={connectionsSongs}
         playbackMode={playbackMode}
         songSkus={songSkus.map((s) => ({

@@ -6,7 +6,7 @@ import { AdminEditButton } from "@/components/AdminEditButton";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
 import { ArtPieceJsonLd } from "@/components/ArtPieceJsonLd";
 import { ArtProductJsonLd } from "@/components/ArtProductJsonLd";
-import { ArtPairingsSections } from "@/components/ArtPairingsSections";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ArtLicensingSection } from "@/components/ArtLicensingSection";
 import { MuralTemplate, type MuralDetails } from "@/components/MuralTemplate";
 import { focalCropStyle } from "@/lib/focal-crop";
@@ -54,29 +54,6 @@ type ProductRow = {
   editions_sold: number;
 };
 
-type PairedSong = {
-  id: string;
-  slug: string;
-  title: string;
-  art_image_path: string | null;
-  art_alt: string | null;
-  card_focal_x: number | null;
-  card_focal_y: number | null;
-  card_zoom: number | null;
-  song_summary: string | null;
-};
-
-type PairedArt = {
-  id: string;
-  slug: string;
-  title: string;
-  image_path: string;
-  image_alt: string | null;
-  card_focal_x: number | null;
-  card_focal_y: number | null;
-  card_zoom: number | null;
-  art_summary: string | null;
-};
 
 async function getArtData(slug: string) {
   const supabase = createPublicClient();
@@ -101,26 +78,6 @@ async function getArtData(slug: string) {
     .eq("status", "published")
     .maybeSingle();
 
-  const { data: featuredSongs } = await supabase
-    .from("art_featured_songs")
-    .select("position, song:songs(id, slug, title, art_image_path, art_alt, card_focal_x, card_focal_y, card_zoom, song_summary, status)")
-    .eq("art_id", art.id)
-    .order("position");
-
-  const pairedSongs: PairedSong[] = ((featuredSongs as { song: PairedSong & { status: string } | null }[] | null) || [])
-    .map((p) => p.song)
-    .filter((s): s is PairedSong & { status: string } => !!s && (s.status === "published" || s.status === "unreleased"));
-
-  const { data: featuredArt } = await supabase
-    .from("art_featured_art")
-    .select("position, art:art_pieces!art_featured_art_related_art_id_fkey(id, slug, title, image_path, image_alt, card_focal_x, card_focal_y, card_zoom, art_summary, status)")
-    .eq("parent_art_id", art.id)
-    .order("position");
-
-  const pairedArt: PairedArt[] = ((featuredArt as { art: (PairedArt & { status: string }) | null }[] | null) || [])
-    .map((p) => p.art)
-    .filter((a): a is PairedArt & { status: string } => !!a && (a.status === "published" || a.status === "unreleased"));
-
   let formatSlug: string | null = null;
   let muralDetails: MuralDetails | null = null;
   if (art.format_id) {
@@ -138,8 +95,6 @@ async function getArtData(slug: string) {
     art: art as ArtRow,
     products: (products as ProductRow[] | null) || [],
     compositionHtml: composition?.content_html || null,
-    pairedSongs,
-    pairedArt,
     formatSlug,
     muralDetails,
     licensingHtml,
@@ -175,7 +130,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const data = await getArtData(slug);
   if (!data) notFound();
-  const { art, products, compositionHtml, pairedSongs, pairedArt, formatSlug, muralDetails, licensingHtml } = data;
+  const { art, products, compositionHtml, formatSlug, muralDetails, licensingHtml } = data;
 
   const isMural = formatSlug === "mural" && muralDetails;
   const muralLocation = isMural && muralDetails ? {
@@ -230,8 +185,6 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
           mural={muralDetails}
           products={products}
           compositionHtml={compositionHtml}
-          pairedSongs={pairedSongs}
-          pairedArt={pairedArt}
           licensingHtml={licensingHtml}
           licensingDirectAnswer={art.licensing_direct_answer}
           licensingKeyPoints={art.licensing_key_points}
@@ -300,7 +253,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
             keyPoints={art.licensing_key_points}
           />
 
-          <ArtPairingsSections pairedSongs={pairedSongs} pairedArt={pairedArt} />
+          <YouMightAlsoLike sourceType="art" sourceId={art.id} />
 
           {art.paa_pairs && art.paa_pairs.length > 0 && (
             <section className="art-detail__section art-detail__faq">

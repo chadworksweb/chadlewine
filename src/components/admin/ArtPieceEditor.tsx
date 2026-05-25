@@ -6,7 +6,7 @@ import { slugify } from "@/lib/utils";
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { ArtGalleryManager } from "@/components/ArtGalleryManager";
 import { ArtVariantsManager } from "@/components/ArtVariantsManager";
-import { FeaturedPicker } from "@/components/FeaturedPicker";
+import { EntityPicker } from "@/components/EntityPicker";
 import { MuralDetailsEditor } from "@/components/MuralDetailsEditor";
 import { MediaLibrary } from "@/components/MediaLibrary";
 
@@ -372,11 +372,12 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
           <h2 className="admin-page__section-title">Variants / Products</h2>
           <ArtVariantsManager slug={currentSlug} />
 
-          <h2 className="admin-page__section-title">Songs you might like (shown on art detail page)</h2>
-          <FeaturedPicker kind="song" parentRef={currentSlug} />
-
-          <h2 className="admin-page__section-title">Other art you might like (shown on art detail page)</h2>
-          <FeaturedPicker kind="art" parentKind="art" parentRef={currentSlug} excludeSlug={currentSlug} />
+          {(form as { id?: string }).id && (
+            <>
+              <h2 className="admin-page__section-title">You might also like (shown on art detail page)</h2>
+              <EntityPicker sourceType="art" sourceId={(form as { id: string }).id} />
+            </>
+          )}
         </>
       )}
 
