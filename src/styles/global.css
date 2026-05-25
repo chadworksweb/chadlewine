@@ -11234,6 +11234,25 @@ html {
 
 /* --- Action row: buttons + RC badge --- */
 
+/* Mini player + RC badge share one row; the player shrinks so the badge
+   fits to its right. */
+.track-detail__player-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.track-detail__player-row .mini-player {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.track-detail__player-row .track-detail__rc-badge {
+  flex-shrink: 0;
+}
+
 .track-detail__action-row,
 .product-detail__action-row {
   display: grid;
@@ -11241,6 +11260,12 @@ html {
   gap: 1.5rem;
   align-items: center;
   margin-bottom: 1.5rem;
+}
+
+/* Song template only: badge moved up beside the mini player, so the CTA
+   buttons take the whole action row. */
+.track-detail__action-row--full {
+  grid-template-columns: 1fr;
 }
 
 .track-detail__actions,
@@ -11565,7 +11590,7 @@ html {
 .track-detail__section-title,
 .product-detail__section-title {
   font-family: var(--td-font-mono);
-  font-size: 0.75rem;
+  font-size: 1.3rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--td-text-muted);
@@ -11629,6 +11654,48 @@ html {
 .product-detail__lyrics-toggle:hover {
   color: #ff00ff;
   text-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
+}
+
+/* Credits */
+
+.track-detail__credits {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.track-detail__credit {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.55rem 0.75rem;
+  border-top: 1px solid var(--td-border);
+  border-bottom: 1px solid var(--td-border);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.track-detail__credit-role {
+  font-family: var(--td-font-mono);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--td-text-muted);
+  margin: 0;
+}
+
+.track-detail__credit-name {
+  font-size: 0.9rem;
+  color: var(--td-text);
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .track-detail__credit {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
 }
 
 /* Song Summary */
@@ -12011,14 +12078,15 @@ html {
 .mini-player__wf-bg .mini-player__wf-main span {
   flex: 1;
   min-width: 0;
-  background: var(--td-border);
+  /* 20% brighter than --td-border (#3a3a5c) for the unfilled progress bars */
+  background: #46466e;
   border-radius: 1px 1px 0 0;
 }
 
 .mini-player__wf-bg .mini-player__wf-reflect span {
   flex: 1;
   min-width: 0;
-  background: var(--td-border);
+  background: #46466e;
   border-radius: 0 0 1px 1px;
 }
 
@@ -13193,6 +13261,13 @@ html {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
+  /* The whole cell toggles the expand panel */
+  cursor: pointer;
+}
+
+.tracklist-row__head:focus-visible {
+  outline: 2px solid var(--td-cyan-alt, #00d4ff);
+  outline-offset: -2px;
 }
 
 .tracklist-row__num {
@@ -13264,12 +13339,14 @@ html {
   align-items: center;
   justify-content: center;
   color: inherit;
+  /* Optical centering: the play triangle reads left-heavy inside the ring */
+  transform: translateX(1px);
 }
 
 /* Title + duration -- one click region that toggles the expand panel. */
 .tracklist-row__expand-btn {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
@@ -13289,8 +13366,9 @@ html {
 
 .tracklist-row__title {
   color: var(--td-text);
-  font-family: var(--td-font-display, "VT323", "Courier New", monospace);
-  font-size: 1.15rem;
+  /* Match the release h1 (.track-detail__title) */
+  font-family: var(--td-font-mono);
+  font-size: 1.035rem;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13300,7 +13378,7 @@ html {
   transition: color 0.15s ease;
 }
 
-.tracklist-row__expand-btn:hover .tracklist-row__title {
+.tracklist-row__head:hover .tracklist-row__title {
   color: var(--td-cyan-alt, #00d4ff);
 }
 
@@ -13379,9 +13457,14 @@ html {
 .tracklist-row__panel-inner {
   min-height: 0;
   overflow: hidden;
-  padding: 0 12px 0 60px;
+  /* Left pad aligns the summary with the title text:
+     12 (head pad) + 24 (num) + 10 (gap) + 26 (play) + 10 (gap) = 82px.
+     Right pad lands on the cart's right edge: 12 (head pad) + 20 (the two
+     trailing empty grid tracks' gaps) + 10 (cart button right inset) = 42px. */
+  padding: 0 42px 0 82px;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 10px;
   opacity: 0;
   transition: opacity 0.18s ease, padding-bottom 0.2s ease;
@@ -13394,6 +13477,7 @@ html {
 
 .tracklist-row__summary {
   margin: 0;
+  /* Spans from the title text to just before the duration/cart cluster */
   color: var(--td-text);
   font-family: var(--font-body, system-ui);
   font-size: 0.9rem;
@@ -13402,11 +13486,13 @@ html {
 }
 
 .tracklist-row__cta {
-  align-self: flex-start;
-  display: inline-flex;
+  /* Thin, full-span button below the summary */
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 6px 12px;
+  width: 100%;
+  padding: 4px 12px;
   border: 1px solid var(--td-cyan-alt, #00d4ff);
   color: var(--td-cyan-alt, #00d4ff);
   text-decoration: none;
@@ -13438,10 +13524,11 @@ html {
     padding: 8px 6px;
   }
   .tracklist-row__title {
-    font-size: 1rem;
+    font-size: 0.9rem;
   }
   .tracklist-row__panel-inner {
-    padding-left: 6px;
+    gap: 10px;
+    padding: 0 6px;
   }
 }
 
@@ -13551,6 +13638,16 @@ html {
   .track-detail__action-row,
   .product-detail__action-row {
     grid-template-columns: 1fr;
+  }
+
+  .track-detail__player-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.875rem;
+  }
+
+  .track-detail__player-row .track-detail__rc-badge {
+    justify-content: center;
   }
 
   .track-detail__actions,

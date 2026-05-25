@@ -80,6 +80,14 @@ async function getSongData(songSlug: string) {
     .order("display_order")
     .order("created_at");
 
+  // Credit lines (role + name), in display order.
+  const { data: credits } = await supabase
+    .from("song_credits")
+    .select("id, role, name")
+    .eq("song_id", song.id)
+    .order("display_order")
+    .order("created_at");
+
   // Published visibility sections
   const { data: visibilitySections } = await supabase
     .from("song_visibility_sections")
@@ -148,6 +156,7 @@ async function getSongData(songSlug: string) {
     song: { ...song, track_number: trackNumber ?? 1 },
     totalTracks: count || 0,
     expansions: expansions || [],
+    credits: credits || [],
     visibilitySections: renderedSections,
     connectionsSongs,
   };
@@ -198,7 +207,7 @@ export default async function SongDetailPage({
   const result = await getSongData(slug);
   if (!result) notFound();
 
-  const { album, song, totalTracks, expansions, visibilitySections, connectionsSongs } = result;
+  const { album, song, totalTracks, expansions, credits, visibilitySections, connectionsSongs } = result;
 
   const supabase = createPublicClient();
   const [badge, playbackMode, songSkusMap, releaseSkusMap] = await Promise.all([
@@ -294,6 +303,7 @@ export default async function SongDetailPage({
         }
         totalTracks={totalTracks}
         expansions={expansions}
+        credits={credits}
         visibilitySections={visibilitySections}
         connectionsSongs={connectionsSongs}
         playbackMode={playbackMode}
