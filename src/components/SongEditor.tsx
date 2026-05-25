@@ -13,6 +13,7 @@ import { SongVisibilitySections, type SongVisibilitySectionsHandle } from "@/com
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { CubeFaceEditor } from "@/components/CubeFaceEditor";
 import { FeaturedPicker } from "@/components/FeaturedPicker";
+import { SongMerchPanel } from "@/components/SongMerchPanel";
 import { SkuPanel } from "@/components/SkuPanel";
 
 interface ExpansionSummary {
@@ -571,6 +572,9 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               placeholder="A short quote from you about this song — appears in section 1 of the landing page."
             />
           </div>
+
+          {/* Merch */}
+          {form.id && <SongMerchPanel songId={form.id} />}
 
           {/* Art Pairings */}
           {form.id && (
