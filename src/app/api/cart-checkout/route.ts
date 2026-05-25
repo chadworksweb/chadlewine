@@ -382,14 +382,9 @@ export async function POST(request: Request) {
   const hasPhysical = resolved.some(
     (r) => r.type === "merch" || r.type === "art_original",
   );
-  const hasDigital = resolved.some(
-    (r) => r.type === "song" || r.type === "release" || r.type === "ringtone",
-  );
 
-  const successPath =
-    hasPhysical && !hasDigital
-      ? "/merch/thank-you"
-      : "/thank-you";
+  // One thank-you page for every purchase.
+  const successPath = "/thank-you";
 
   let prefillCustomerId: string | undefined;
   let prefillEmail: string | undefined;
