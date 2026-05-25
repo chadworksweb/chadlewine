@@ -66,7 +66,7 @@ async function getArtData(slug: string) {
   if (!art) return null;
 
   const { data: products } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, title, price, variant_type, variant_label, edition_size, editions_sold, image_url")
     .eq("source_art_id", art.id)
     .eq("status", "active");

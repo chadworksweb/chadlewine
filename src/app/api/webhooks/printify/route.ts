@@ -124,7 +124,7 @@ export async function POST(request: Request) {
         return Response.json({ received: true, action: "publishing_failed", error: sync.error });
       }
       const { data: row } = await supabase
-        .from("products")
+        .from("merch")
         .select("slug")
         .eq("printify_product_id", resourceId)
         .maybeSingle();

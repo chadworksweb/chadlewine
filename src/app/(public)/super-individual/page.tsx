@@ -142,7 +142,7 @@ async function fetchSuperIndividualMerch(): Promise<CarouselProduct[]> {
   if (ids.length === 0) return [];
 
   const { data: products } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, slug, title, image_url, image_alt, price, status")
     .in("id", ids)
     .eq("status", "active");

@@ -245,7 +245,7 @@ async function getSongBriefs(): Promise<SongBriefData[]> {
 async function getHomepageMerch() {
   const supabase = createPublicClient();
   const { data } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, slug, title, image_url, image_alt")
     .eq("status", "active")
     .order("created_at", { ascending: false })

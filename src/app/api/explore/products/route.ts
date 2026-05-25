@@ -124,7 +124,7 @@ export async function GET(request: Request) {
   // Products: priced merch + originals. variant_type='original' renders as kind='art'.
   {
     const q = supabase
-      .from("products")
+      .from("merch")
       .select("id, title, slug, price, image_url, image_alt, variant_type, status, created_at")
       .eq("status", "active")
       .not("image_url", "is", null)

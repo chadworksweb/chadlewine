@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 const META: Record<string, { table: string; image: string; orderBy: string }> = {
   song: { table: "songs", image: "art_image_path", orderBy: "release_date" },
   release: { table: "releases", image: "cover_art_path", orderBy: "release_date" },
-  merch: { table: "products", image: "image_url", orderBy: "created_at" },
+  merch: { table: "merch", image: "image_url", orderBy: "created_at" },
   art: { table: "art_pieces", image: "image_path", orderBy: "display_order" },
   observation: { table: "observations", image: "art_image_path", orderBy: "date_captured" },
 };

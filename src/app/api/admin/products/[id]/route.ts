@@ -7,7 +7,7 @@ async function resolveProductId(
   idOrSlug: string,
 ): Promise<string | null> {
   if (UUID_RE.test(idOrSlug)) return idOrSlug;
-  const { data } = await supabase.from("products").select("id").eq("slug", idOrSlug).maybeSingle();
+  const { data } = await supabase.from("merch").select("id").eq("slug", idOrSlug).maybeSingle();
   return data?.id ?? null;
 }
 
@@ -19,7 +19,7 @@ export async function GET(
   const supabase = createAdminClient();
   const field = UUID_RE.test(idOrSlug) ? "id" : "slug";
   const { data, error } = await supabase
-    .from("products")
+    .from("merch")
     .select("*")
     .eq(field, idOrSlug)
     .single();
@@ -45,7 +45,7 @@ export async function PUT(
   }
 
   const { data, error } = await supabase
-    .from("products")
+    .from("merch")
     .update(updates)
     .eq("id", id)
     .select()
@@ -63,7 +63,7 @@ export async function DELETE(
   const supabase = createAdminClient();
   const id = await resolveProductId(supabase, idOrSlug);
   if (!id) return Response.json({ error: "Product not found" }, { status: 404 });
-  const { error } = await supabase.from("products").delete().eq("id", id);
+  const { error } = await supabase.from("merch").delete().eq("id", id);
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true });

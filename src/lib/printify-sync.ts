@@ -166,7 +166,7 @@ export async function syncPrintifyProducts(
     const price = lowestCents / 100;
 
     const { data: existing } = await supabase
-      .from("products")
+      .from("merch")
       .select("id, tier, slug")
       .eq("printify_product_id", p.id)
       .maybeSingle();
@@ -192,7 +192,7 @@ export async function syncPrintifyProducts(
       }
 
       const { error } = await supabase
-        .from("products")
+        .from("merch")
         .update(updatePayload)
         .eq("id", existing.id);
       if (error) {
@@ -217,7 +217,7 @@ export async function syncPrintifyProducts(
       let n = 2;
       while (true) {
         const { data: clash } = await supabase
-          .from("products")
+          .from("merch")
           .select("id")
           .eq("slug", slug)
           .maybeSingle();
@@ -243,7 +243,7 @@ export async function syncPrintifyProducts(
       };
 
       const { data: insertedRows, error } = await supabase
-        .from("products")
+        .from("merch")
         .insert(insertPayload)
         .select("id")
         .single();

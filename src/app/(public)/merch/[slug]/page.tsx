@@ -38,7 +38,7 @@ async function getProduct(
   const supabase = createPublicClient();
   const isUuid = UUID_RE.test(key);
   const { data } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, slug, tier, title, description, price, fulfillment, status, variants, linked_art_piece_id, created_at")
     .eq(isUuid ? "id" : "slug", key)
     .eq("status", "active")

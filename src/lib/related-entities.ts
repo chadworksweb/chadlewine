@@ -53,7 +53,7 @@ export async function resolveEntities(
       ? (() => { const q = supabase.from("releases").select("id, slug, title, cover_art_path, cover_art_alt").in("id", idsByType.release); return all ? q : q.in("status", ["published", "unreleased"]); })()
       : Promise.resolve({ data: [] }),
     idsByType.merch.length
-      ? (() => { const q = supabase.from("products").select("id, slug, title, image_url, image_alt").in("id", idsByType.merch); return all ? q : q.eq("status", "active"); })()
+      ? (() => { const q = supabase.from("merch").select("id, slug, title, image_url, image_alt").in("id", idsByType.merch); return all ? q : q.eq("status", "active"); })()
       : Promise.resolve({ data: [] }),
     idsByType.art.length
       ? (() => { const q = supabase.from("art_pieces").select("id, slug, title, image_path, image_alt").in("id", idsByType.art); return all ? q : q.in("status", ["published", "unreleased"]); })()

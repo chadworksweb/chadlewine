@@ -70,7 +70,7 @@ export async function computeCrossSell(items: CartRef[], limit = 6): Promise<Cro
   if (ordered.length === 0) return [];
 
   const { data: products } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, slug, title, image_url, image_alt, price, variants")
     .in("id", ordered)
     .eq("status", "active");

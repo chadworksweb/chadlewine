@@ -199,7 +199,7 @@ async function fetchCuration(): Promise<SitemapEntry[]> {
 async function fetchMerch(): Promise<SitemapEntry[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
-    .from("products")
+    .from("merch")
     .select("slug, created_at, image_url")
     .eq("status", "active")
     .not("slug", "is", null);

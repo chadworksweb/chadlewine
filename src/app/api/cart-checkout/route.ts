@@ -267,7 +267,7 @@ export async function POST(request: Request) {
         return Response.json({ error: "Invalid cart item" }, { status: 400 });
       }
       const { data: product } = await supabase
-        .from("products")
+        .from("merch")
         .select("id, title, price, status, image_url, variant_type, edition_size, editions_sold, fulfillment, variants")
         .eq("id", raw.id)
         .eq("status", "active")

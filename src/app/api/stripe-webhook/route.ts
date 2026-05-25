@@ -422,7 +422,7 @@ export async function POST(request: Request) {
 
           if (line.i) {
             const { data: product } = await supabase
-              .from("products")
+              .from("merch")
               .select("title, image_url")
               .eq("id", line.i)
               .single();
@@ -551,7 +551,7 @@ export async function POST(request: Request) {
 
           if (lineType === "art_original") {
             const { data: product } = await supabase
-              .from("products")
+              .from("merch")
               .select("source_art_id")
               .eq("id", line.i)
               .single();

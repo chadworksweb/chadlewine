@@ -74,7 +74,7 @@ export async function syncDerivedProductColumns(
   const heroUrl = gallery[0]?.url || null;
   const allUrls = gallery.map((g) => g.url);
   await supabase
-    .from("products")
+    .from("merch")
     .update({ image_url: heroUrl, image_urls: allUrls })
     .eq("id", productId);
 }

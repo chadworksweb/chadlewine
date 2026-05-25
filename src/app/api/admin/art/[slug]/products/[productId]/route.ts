@@ -36,7 +36,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
 
   if ("variant_label" in updates || "title" in body) {
     const { data: current } = await supabase
-      .from("products")
+      .from("merch")
       .select("variant_type, title")
       .eq("id", productId)
       .eq("source_art_id", artId)
@@ -49,7 +49,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   }
 
   const { data, error } = await supabase
-    .from("products")
+    .from("merch")
     .update(updates)
     .eq("id", productId)
     .eq("source_art_id", artId)
@@ -68,7 +68,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   if (!artId) return Response.json({ error: "art piece not found" }, { status: 404 });
 
   const { error } = await supabase
-    .from("products")
+    .from("merch")
     .delete()
     .eq("id", productId)
     .eq("source_art_id", artId);

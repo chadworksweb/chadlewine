@@ -38,7 +38,7 @@ export async function GET(
 
   const { data: assignedProducts } = assignedIds.length
     ? await supabase
-        .from("products")
+        .from("merch")
         .select("id, slug, title, image_url, image_alt, status, fulfillment, price")
         .in("id", assignedIds)
     : { data: [] };
@@ -50,7 +50,7 @@ export async function GET(
   }));
 
   const { data: unassigned } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, slug, title, image_url, image_alt, status, fulfillment, price")
     .eq("status", "active")
     .order("created_at", { ascending: false });

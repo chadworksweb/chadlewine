@@ -83,7 +83,7 @@ export async function GET(
   }> = {};
   if (productIds.length) {
     const { data: products } = await supabase
-      .from("products")
+      .from("merch")
       .select("id, printify_product_id, fulfillment, title, image_url")
       .in("id", productIds);
     productMap = (products || []).reduce<typeof productMap>((acc, p) => {

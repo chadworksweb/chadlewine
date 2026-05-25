@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   const supabase = createAdminClient();
 
   const { data: product } = await supabase
-    .from("products")
+    .from("merch")
     .select("id")
     .eq("id", productId)
     .maybeSingle();

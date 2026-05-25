@@ -7,7 +7,7 @@ async function pickUniqueSlug(supabase: SupabaseAdmin, base: string): Promise<st
   let slug = base;
   let n = 2;
   while (true) {
-    const { data } = await supabase.from("products").select("id").eq("slug", slug).maybeSingle();
+    const { data } = await supabase.from("merch").select("id").eq("slug", slug).maybeSingle();
     if (!data) return slug;
     slug = `${base}-${n++}`;
     if (n > 50) return `${base}-${Date.now()}`;
@@ -17,7 +17,7 @@ async function pickUniqueSlug(supabase: SupabaseAdmin, base: string): Promise<st
 export async function GET() {
   const supabase = createAdminClient();
   const { data, error } = await supabase
-    .from("products")
+    .from("merch")
     .select("*")
     .order("created_at", { ascending: false });
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   const slug = await pickUniqueSlug(supabase, baseSlug);
 
   const { data, error } = await supabase
-    .from("products")
+    .from("merch")
     .insert({
       // tier retired as a category; column is now nullable (art-merch products
       // get tier set to art_print/art_original by the art-products route).

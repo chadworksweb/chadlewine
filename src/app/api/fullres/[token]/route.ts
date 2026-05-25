@@ -40,7 +40,7 @@ export async function GET(
   }
 
   const { data: product } = await supabase
-    .from("products")
+    .from("merch")
     .select("source_observation_id")
     .eq("id", purchase.item_id)
     .single();

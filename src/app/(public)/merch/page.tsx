@@ -34,7 +34,7 @@ export default async function MerchPage() {
   const supabase = createPublicClient();
 
   const productsRes = await supabase
-    .from("products")
+    .from("merch")
     .select("id, slug, title, image_url, image_alt")
     .in("fulfillment", ["manual", "printify_curated"])
     .eq("status", "active")
