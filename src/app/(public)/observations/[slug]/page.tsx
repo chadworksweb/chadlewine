@@ -9,7 +9,6 @@ import { ImageObjectJsonLd } from "@/components/ImageObjectJsonLd";
 import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
-import { MerchSection } from "@/components/MerchSection";
 import { ExploreStrip } from "@/components/ExploreStrip";
 
 
@@ -373,8 +372,6 @@ export default async function ObservationPage({
           </div>
         </section>
       )}
-
-      <MerchSection observationId={obsv.id} />
 
       {related.length > 0 && (
         <section className="related-observations">

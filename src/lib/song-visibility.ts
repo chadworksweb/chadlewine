@@ -1,16 +1,22 @@
+// Two kinds of sections, matching the release model:
+//   - "narrative" — AI-assisted prose (direct-answer / prose / key-points).
+//   - "data"      — admin curates picks of existing entities (e.g. products),
+//                   stored in data_payload jsonb; never AI-generated.
 export const VISIBILITY_CATEGORIES = [
-  { slug: "audience", label: "The Audience", description: "Who needs this song", autoGenerate: false },
-  { slug: "world", label: "The World", description: "Thematic universe", autoGenerate: false },
-  { slug: "fragments", label: "The Fragments", description: "Quotable lines & shareable content", autoGenerate: true },
-  { slug: "cultural-position", label: "The Cultural Position", description: "What this song reflects about where culture is right now", autoGenerate: true },
-  { slug: "story", label: "The Story", description: "Origin & backstory", autoGenerate: false },
-  { slug: "breakdown", label: "The Breakdown", description: "Craft & construction", autoGenerate: true },
-  { slug: "connections", label: "The Connections", description: "Catalog cross-linking", autoGenerate: true },
-  { slug: "sync-placements", label: "Sync Placements", description: "Placement scenarios — film, TV, trailer, ad, game contexts this song fits", autoGenerate: true },
-  { slug: "hooks", label: "The Hooks", description: "Door page discovery angles (internal)", autoGenerate: true },
+  { slug: "audience", label: "The Audience", description: "Who needs this song", kind: "narrative", autoGenerate: false },
+  { slug: "world", label: "The World", description: "Thematic universe", kind: "narrative", autoGenerate: false },
+  { slug: "fragments", label: "The Fragments", description: "Quotable lines & shareable content", kind: "narrative", autoGenerate: true },
+  { slug: "cultural-position", label: "The Cultural Position", description: "What this song reflects about where culture is right now", kind: "narrative", autoGenerate: true },
+  { slug: "story", label: "The Story", description: "Origin & backstory", kind: "narrative", autoGenerate: false },
+  { slug: "breakdown", label: "The Breakdown", description: "Craft & construction", kind: "narrative", autoGenerate: true },
+  { slug: "connections", label: "The Connections", description: "Catalog cross-linking", kind: "narrative", autoGenerate: true },
+  { slug: "sync-placements", label: "Sync Placements", description: "Placement scenarios — film, TV, trailer, ad, game contexts this song fits", kind: "narrative", autoGenerate: true },
+  { slug: "hooks", label: "The Hooks", description: "Door page discovery angles (internal)", kind: "narrative", autoGenerate: true },
+  { slug: "merch", label: "Merch", description: "Song-related products -- admin picks which to feature", kind: "data", autoGenerate: false },
 ] as const;
 
 export type VisibilityCategory = typeof VISIBILITY_CATEGORIES[number]["slug"];
+export type VisibilityKind = "narrative" | "data";
 
 export interface SongVisibilitySection {
   id: string;
@@ -19,6 +25,7 @@ export interface SongVisibilitySection {
   content: string;
   direct_answer: string | null;
   key_points: string[];
+  data_payload: Record<string, unknown> | null;
   status: "draft" | "published";
   display_order: number;
   created_at: string;

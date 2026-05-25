@@ -5,6 +5,7 @@ import { VISIBILITY_CATEGORIES, type SongVisibilitySection } from "@/lib/song-vi
 import { useAutosave } from "@/hooks/useAutosave";
 import { AboutSectionEditor } from "@/components/AboutSectionEditor";
 import { SongIfYouLikePanel } from "@/components/SongIfYouLikePanel";
+import { SongDataSectionEditor } from "@/components/SongDataSectionEditor";
 
 interface SectionEditorProps {
   songId: string;
@@ -230,9 +231,16 @@ export const SongVisibilitySections = forwardRef<
       });
   }, [songId]);
 
+  // Bootstrap: ensure a row exists for each "data" category (merch) so it is
+  // editable even before any picks are made. Narrative categories are left as
+  // they are (empty until generated).
   useEffect(() => {
-    fetchSections();
-  }, [fetchSections]);
+    fetch("/api/admin/song-visibility-sections/bootstrap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ song_id: songId }),
+    }).then(() => fetchSections()).catch(() => fetchSections());
+  }, [songId, fetchSections]);
 
   useImperativeHandle(ref, () => ({ refresh: fetchSections }), [fetchSections]);
 
@@ -302,6 +310,16 @@ export const SongVisibilitySections = forwardRef<
                 <span className="song-visibility__section-badge song-visibility__section-badge--empty">empty</span>
               </div>
             </div>
+          );
+        }
+        if (cat.kind === "data") {
+          return (
+            <SongDataSectionEditor
+              key={cat.slug}
+              section={existing}
+              label={cat.label}
+              onChanged={fetchSections}
+            />
           );
         }
         return (

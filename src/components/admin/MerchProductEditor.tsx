@@ -20,7 +20,6 @@ interface ProductData {
   printify_product_id: string | null;
   image_url: string | null;
   image_alt: string | null;
-  source_observation_id: string | null;
   is_catalog_item: boolean;
   linked_art_piece_id: string | null;
 }
@@ -35,7 +34,6 @@ const emptyProduct: ProductData = {
   printify_product_id: null,
   image_url: null,
   image_alt: null,
-  source_observation_id: null,
   is_catalog_item: false,
   linked_art_piece_id: null,
 };
@@ -70,7 +68,6 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           printify_product_id: d.printify_product_id ?? null,
           image_url: d.image_url ?? null,
           image_alt: d.image_alt ?? null,
-          source_observation_id: d.source_observation_id ?? null,
           is_catalog_item: !!d.is_catalog_item,
           linked_art_piece_id: d.linked_art_piece_id ?? null,
         });
@@ -90,7 +87,6 @@ export function MerchProductEditor({ idOrSlug }: Props) {
       printify_product_id: data.printify_product_id,
       image_url: data.image_url,
       image_alt: data.image_alt,
-      source_observation_id: data.source_observation_id,
       is_catalog_item: data.is_catalog_item,
       linked_art_piece_id: data.linked_art_piece_id,
     };
@@ -248,15 +244,6 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           />
         </div>
       )}
-
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Source Observation ID (optional)</label>
-        <input
-          className="obsv-editor__input obsv-editor__input--mono"
-          value={form.source_observation_id ?? ""}
-          onChange={(e) => set("source_observation_id", e.target.value || null)}
-        />
-      </div>
 
       {!isExisting && (
         <>

@@ -29,10 +29,10 @@ export async function POST(request: Request) {
   // Optional: when present, scope generation to a single category (per-section
   // regenerate). When absent, the original interview flow runs unchanged.
   const focusCategory = category
-    ? VISIBILITY_CATEGORIES.find((c) => c.slug === category) || null
+    ? VISIBILITY_CATEGORIES.find((c) => c.slug === category && c.kind === "narrative") || null
     : null;
   if (category && !focusCategory) {
-    return Response.json({ error: "unknown category" }, { status: 400 });
+    return Response.json({ error: "unknown or non-narrative category" }, { status: 400 });
   }
   // geoOnly mode: regenerate ONLY the songs.citation_summary / entity_tags /
   // chad_quote that drive the public "About / Topics & themes" section.
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
   // Build existing sections context — for verbatim categories surface every
   // collected layer so Claude can paste them, never compose them.
   const interviewCategories = new Set<string>(
-    VISIBILITY_CATEGORIES.filter((c) => !c.autoGenerate).map((c) => c.slug),
+    VISIBILITY_CATEGORIES.filter((c) => c.kind === "narrative" && !c.autoGenerate).map((c) => c.slug),
   );
   type ExistingSection = {
     category: string;
@@ -191,8 +191,10 @@ export async function POST(request: Request) {
     })
     .join("\n\n") || "None generated yet";
 
-  // Build category definitions
+  // Build category definitions (narrative only -- data categories like Merch
+  // are curated by hand, never AI-generated).
   const categoryDefs = VISIBILITY_CATEGORIES
+    .filter((c) => c.kind === "narrative")
     .map((c) => {
       const mode = VERBATIM_CATEGORIES.has(c.slug)
         ? "VERBATIM — Chad writes all three layers, you only collect and wrap"
@@ -459,7 +461,7 @@ You are emitting ONLY <visibility:${focusCategory.slug}>. ${VERBATIM_CATEGORIES.
         let match;
         while ((match = sectionRegex.exec(fullText)) !== null) {
           const [, category, rawContent] = match;
-          const validCategory = VISIBILITY_CATEGORIES.find((c) => c.slug === category);
+          const validCategory = VISIBILITY_CATEGORIES.find((c) => c.slug === category && c.kind === "narrative");
           if (!validCategory) continue;
 
           // Extract format stack layers

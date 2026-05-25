@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAutosave } from "@/hooks/useAutosave";
+import { MerchSectionPicker } from "@/components/MerchSectionPicker";
 import type {
   ReleaseVisibilitySection,
   ReleaseVisibilityCategoryDef,
@@ -140,7 +141,7 @@ function PickerForSlug({ slug, albumId, payload, onChange }: PickerProps) {
     case "video":
       return <VideoPicker payload={payload} onChange={onChange} />;
     case "merch":
-      return <MerchPicker payload={payload} onChange={onChange} />;
+      return <MerchSectionPicker payload={payload} onChange={onChange} />;
     case "you-might-also-like":
       return <AlbumPicker albumId={albumId} payload={payload} onChange={onChange} />;
     case "related-observations":
@@ -439,65 +440,6 @@ function VideoPicker({ payload, onChange }: { payload: Record<string, unknown>; 
         <input value={draft.poster || ""} onChange={(e) => setDraft({ ...draft, poster: e.target.value || null })} placeholder="Poster image URL (optional)" className="obsv-editor__input" style={{ fontSize: "0.75rem", gridColumn: "1 / span 2" }} />
       </div>
       <button type="button" className="admin-btn" onClick={add} disabled={!draft.title || !draft.url} style={{ fontSize: "0.75rem", marginTop: "0.5rem" }}>+ Add video</button>
-    </div>
-  );
-}
-
-// ─── Merch ──────────────────────────────────────────────────────────────────
-
-interface ProductLite { id: string; title: string; tier: string | null; status: string }
-
-function MerchPicker({ payload, onChange }: { payload: Record<string, unknown>; onChange: (p: Record<string, unknown>) => void }) {
-  const [products, setProducts] = useState<ProductLite[]>([]);
-  const picked = ((payload as { product_ids?: string[] }).product_ids) || [];
-  const [filter, setFilter] = useState("");
-
-  useEffect(() => {
-    fetch(`/api/admin/products`)
-      .then((r) => r.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
-      .catch(() => setProducts([]));
-  }, []);
-
-  function toggle(id: string) {
-    const set = new Set(picked);
-    if (set.has(id)) set.delete(id); else set.add(id);
-    onChange({ product_ids: Array.from(set) });
-  }
-
-  function move(idx: number, dir: -1 | 1) {
-    onChange({ product_ids: moveItem(picked, idx, dir) });
-  }
-
-  const available = products.filter(
-    (p) => !picked.includes(p.id) && (filter === "" || p.title.toLowerCase().includes(filter.toLowerCase())),
-  );
-
-  return (
-    <div>
-      <div style={headerLabel}>Picked ({picked.length})</div>
-      {picked.map((id, i) => {
-        const p = products.find((x) => x.id === id);
-        return (
-          <div key={id} style={rowStyle}>
-            <span style={{ flex: 1, fontSize: "0.78rem" }}>{p ? p.title : id}</span>
-            <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => move(i, -1)}>↑</button>
-            <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => move(i, 1)}>↓</button>
-            <button type="button" className="admin-btn admin-btn--danger" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => toggle(id)}>✕</button>
-          </div>
-        );
-      })}
-      <div style={headerLabel}>Available</div>
-      <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="filter…" className="obsv-editor__input" style={{ fontSize: "0.75rem", marginBottom: "0.25rem" }} />
-      <div style={{ maxHeight: 220, overflowY: "auto" }}>
-        {available.map((p) => (
-          <div key={p.id} style={rowStyle}>
-            <span style={{ flex: 1, fontSize: "0.78rem" }}>{p.title}</span>
-            <span style={{ fontSize: "0.7rem", color: "var(--text-tertiary)" }}>{p.status}</span>
-            <button type="button" className="admin-btn" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }} onClick={() => toggle(p.id)}>+ add</button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

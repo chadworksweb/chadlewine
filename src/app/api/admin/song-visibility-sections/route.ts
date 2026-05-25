@@ -41,6 +41,9 @@ export async function POST(request: Request) {
     song_id: body.song_id,
     category: body.category,
     content: body.content || "",
+    direct_answer: body.direct_answer ?? null,
+    key_points: body.key_points || [],
+    data_payload: body.data_payload || {},
     status: body.status || "published",
     display_order: body.display_order ?? 0,
   }).select().single();

@@ -238,7 +238,8 @@ export async function syncPrintifyProducts(
         fulfillment: "printify_curated",
         status: p.visible ? "active" : "inactive",
         last_synced_at: nowIso,
-        tier: "line",
+        // tier retired as a category (migration 20260523000000); leave null.
+        tier: null,
       };
 
       const { data: insertedRows, error } = await supabase
