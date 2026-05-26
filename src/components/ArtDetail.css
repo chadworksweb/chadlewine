@@ -162,6 +162,69 @@
   border-radius: 8px;
 }
 
+/* --- Art hero in the song-detail template --- */
+.art-detail-page {
+  padding-top: var(--space-md);
+}
+
+/* The site layout grid constrains children to the centered content track. Let
+   the cream gallery wall span the full bleed (full-start -> full-end); the inner
+   hero grid + long-form keep their own max-width + auto margins, so the content
+   stays exactly where it is while the background reaches both edges. */
+.art-detail-page.art-gallery {
+  grid-column: full-start / full-end;
+  padding-top: var(--space-lg);
+}
+
+/* The hero grid borrows .product-detail__grid (square art-col + scrolling
+   content card). Add side padding so it doesn't kiss the viewport edge. */
+.art-detail__hero-grid {
+  padding: 0 var(--space-md);
+}
+
+/* Songs/merch force a tall square row so the rich content card fills it. Art
+   often has little hero copy, which left a big empty white panel. Let the card
+   size to its content (top-aligned) while the art column keeps its square via
+   its own aspect ratio -- the space beside a short card becomes the warm wall,
+   not dead white. */
+/* Content card is vertically centered against the (square) art column while it
+   is shorter than that column; once its own content makes it the taller item it
+   defines the auto row and naturally reads top-aligned (top stays reachable). */
+.art-detail__hero-grid {
+  grid-template-rows: auto;
+  align-items: center;
+}
+.art-detail__hero-grid .product-detail__art-col {
+  aspect-ratio: 1 / 1;
+}
+.art-detail__hero-grid .product-detail__content-col {
+  height: auto;
+  overflow: visible;
+}
+
+/* Inside the content card the buy panel is already framed by the card, so drop
+   its own border/background and tighten the margins. */
+.art-detail__hero-grid .art-buy-panel {
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+/* Summary sitting in the content card reads tighter than the full-width one. */
+.art-detail__summary--hero {
+  font-size: 1rem;
+  margin: var(--space-sm) 0 0;
+}
+
+/* The art buy CTA, restyled to match the product-detail buy button weight. */
+.art-detail__hero-grid .art-buy-variant__btn {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
 .art-buy-panel--empty {
   color: var(--text-tertiary);
   font-family: var(--font-ui);
@@ -353,3 +416,16 @@
   font-size: 0.95rem;
 }
 .art-detail__licensing-points li { margin-bottom: 0.35rem; }
+
+/* In-situ / view-in-room gallery -- to-scale shots that sell the original. */
+.art-detail__in-situ {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-sm, 12px);
+}
+.art-detail__in-situ-img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  display: block;
+}

@@ -37,7 +37,12 @@ export function SlidingArtPortfolio({ items }: { items: PortfolioItem[] }) {
       setDisplayItem(active);
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = prev; };
+      // Hide the sticky header while the lightbox is open (CSS hook).
+      document.body.classList.add("art-lightbox-open");
+      return () => {
+        document.body.style.overflow = prev;
+        document.body.classList.remove("art-lightbox-open");
+      };
     }
     const t = setTimeout(() => setDisplayItem(null), 400);
     return () => clearTimeout(t);

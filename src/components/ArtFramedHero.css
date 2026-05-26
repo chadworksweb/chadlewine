@@ -1,0 +1,181 @@
+/* Art-detail hero: a framed piece levitating in the art column. No background --
+   it blends into the page. Top-aligned. A separate ground shadow counter-bobs so
+   the frame reads as floating above the floor. Sizes via container query units. */
+
+.art-frame {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Center the piece vertically in its column -- works across pieces of any
+     size/aspect since the frame sizes to the image. */
+  justify-content: center;
+  overflow: visible;
+  background: none;
+  border: none;
+  container-type: size;
+  perspective: 1300px;
+}
+
+.art-frame.is-held { cursor: grabbing; }
+
+/* Hover or tap-and-hold ANYWHERE in the column stills the motion. */
+.art-frame:hover .art-frame__floater,
+.art-frame:hover .art-frame__shadow,
+.art-frame.is-held .art-frame__floater,
+.art-frame.is-held .art-frame__shadow {
+  animation-play-state: paused;
+}
+
+.art-frame__floater {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  animation: art-frame-float 6s ease-in-out infinite;
+  will-change: transform;
+  cursor: grab;
+}
+
+@keyframes art-frame-float {
+  0%   { transform: translateY(-1.8cqmin); }
+  50%  { transform: translateY(1.8cqmin); }
+  100% { transform: translateY(-1.8cqmin); }
+}
+
+/* The frame molding. */
+.art-frame__frame {
+  --molding: 3cqmin;
+  box-sizing: border-box;
+  max-width: 78cqmin;
+  max-height: 74cqh;
+  padding: var(--molding);
+  background: linear-gradient(135deg, #2a2620 0%, #141210 45%, #0c0b09 100%);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 0.4cqmin rgba(0, 0, 0, 0.6),
+    inset 0.4cqmin 0.4cqmin 0.6cqmin rgba(255, 255, 255, 0.08),
+    inset -0.5cqmin -0.5cqmin 0.8cqmin rgba(0, 0, 0, 0.7),
+    /* tight contact shadow on the frame itself */
+    0 1.4cqmin 2cqmin rgba(0, 0, 0, 0.35);
+}
+
+/* The mat (board) around the art. */
+.art-frame__mat {
+  padding: 3.4cqmin;
+  background: linear-gradient(180deg, #f7f5ef 0%, #ebe8df 100%);
+  box-shadow: inset 0 0 1.4cqmin rgba(0, 0, 0, 0.18);
+}
+
+.art-frame__art {
+  position: relative;
+  line-height: 0;
+  overflow: hidden; /* clip the loupe zoom to the artwork window */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  cursor: zoom-in;
+  touch-action: none; /* let press-drag pan instead of scrolling on touch */
+}
+
+.art-frame__art.is-zooming { cursor: grabbing; }
+
+.art-frame__art-img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 60cqmin;
+  max-height: 60cqh;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Loupe overlay: fills the whole art column. The piece "pops out of the frame"
+   and zooms across the full real estate, panning with the cursor. Crossfades
+   in/out for an eased transition between framed and zoomed. */
+.art-frame__zoom {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--reading-bg, #f5f3ef);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.art-frame__zoom.is-active { opacity: 1; }
+
+.art-frame__zoom-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(2.2);
+  user-select: none;
+  -webkit-user-drag: none;
+  /* origin tracks the cursor each pointermove; no transition so panning is
+     direct, while the container's opacity fade eases the in/out. */
+}
+
+/* Faint glass sheen over the art. */
+.art-frame__glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    125deg,
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.02) 22%,
+    rgba(255, 255, 255, 0) 40%
+  );
+}
+
+/* Ground shadow -- a blurred ellipse tilted into the floor for perspective.
+   It counter-bobs (opposite translateY to the frame) so it stays put while the
+   frame rises and falls, and shrinks/fades as the frame lifts away. */
+.art-frame__shadow {
+  margin-top: 5cqmin;
+  width: 54cqmin;
+  height: 9cqmin;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.30) 42%,
+    rgba(0, 0, 0, 0) 72%
+  );
+  filter: blur(2.4cqmin);
+  transform-origin: center;
+  animation: art-frame-shadow 6s ease-in-out infinite;
+}
+
+@keyframes art-frame-shadow {
+  /* frame highest -> shadow farthest/smallest/faintest */
+  0%   { transform: translateY(1.8cqmin) scaleX(0.9);  opacity: 0.45; }
+  /* frame lowest -> shadow nearest/largest/darkest */
+  50%  { transform: translateY(-1.8cqmin) scaleX(1.08); opacity: 0.85; }
+  100% { transform: translateY(1.8cqmin) scaleX(0.9);  opacity: 0.45; }
+}
+
+/* Sold / Reserved corner ribbon. */
+.art-frame__ribbon {
+  position: absolute;
+  top: 3cqmin;
+  right: -9cqmin;
+  z-index: 3;
+  transform: rotate(45deg);
+  background: #e74c3c;
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 6px 12cqmin;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-frame__floater,
+  .art-frame__shadow { animation: none; }
+}

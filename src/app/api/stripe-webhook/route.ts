@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       // the SKU encodes the parent (release/song) — i is omitted on those
       // lines. Legacy lines (no sk) still carry i.
       type CartLine = {
-        t: "s" | "a" | "r" | "m" | "o";
+        t: "s" | "a" | "r" | "m" | "o" | "p";
         i?: string | null;
         sk?: string;
         v?: string;
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       // The precise printify-vs-manual split is tallied during the line loop
       // (a line's fulfilment isn't in the metadata) and written back after.
       const hasPhysicalLines = cartLines.some(
-        (l) => l.t === "m" || l.t === "o" || l.pf === 1,
+        (l) => l.t === "m" || l.t === "o" || l.t === "p" || l.pf === 1,
       );
       const hasDigitalLines = cartLines.some(
         (l) => l.t === "s" || l.t === "a" || l.t === "r",
@@ -166,6 +166,20 @@ export async function POST(request: Request) {
         .single();
 
       if (orderErr || !orderRow) {
+        // Concurrent/retried delivery: another invocation already inserted this
+        // order (unique constraint on stripe_session_id). The pre-check SELECT
+        // above is not atomic, so under Stripe's at-least-once delivery two
+        // deliveries of the slow cart handler can both pass it and race here.
+        // Treat the duplicate as a successful dedup -- returning 500 would make
+        // Stripe retry and risk a second invocation corrupting the order's
+        // line tally (e.g. the fulfilment flags).
+        if (
+          orderErr &&
+          (orderErr.code === "23505" ||
+            /duplicate key|unique constraint/i.test(orderErr.message || ""))
+        ) {
+          return Response.json({ received: true, deduped: true });
+        }
         console.error("[stripe-webhook] Failed to insert order:", orderErr?.message);
         return Response.json({ error: "Order insert failed" }, { status: 500 });
       }
@@ -281,12 +295,15 @@ export async function POST(request: Request) {
       }
       type FormatKey = "mp3" | "flac" | "wav";
       type RingtoneFormat = "m4r" | "mp3";
-      type EmailItemType = "song" | "release" | "ringtone" | "merch" | "art_original";
+      type EmailItemType = "song" | "release" | "ringtone" | "merch" | "art_original" | "art_limited_print";
       const emailItems: OrderEmailLine[] = [];
 
       for (let idx = 0; idx < cartLines.length; idx++) {
         const line = cartLines[idx];
-        const lineType: EmailItemType =
+        const isArtSkuLine = line.t === "p";
+        // "p" (art_skus line) resolves to art_original or art_limited_print once
+        // the SKU's format is fetched below; start with a safe default.
+        let lineType: EmailItemType =
           line.t === "s"
             ? "song"
             : line.t === "a"
@@ -295,7 +312,9 @@ export async function POST(request: Request) {
                 ? "ringtone"
                 : line.t === "o"
                   ? "art_original"
-                  : "merch";
+                  : line.t === "p"
+                    ? "art_original"
+                    : "merch";
         const format: FormatKey | null =
           line.f === "mp3" || line.f === "flac" || line.f === "wav" ? line.f : null;
 
@@ -310,6 +329,7 @@ export async function POST(request: Request) {
         // row. Legacy lines (no sk) keep the old item_id-based lookups.
         let resolvedReleaseSkuId: string | null = null;
         let resolvedSongSkuId: string | null = null;
+        let resolvedArtSkuId: string | null = null;
         const resolvedVariantId: string | null = line.v || null;
         let resolvedItemId: string | null = line.i || null;
 
@@ -442,6 +462,32 @@ export async function POST(request: Request) {
             itemTitle = album?.title || "Your album";
             imageUrl = album?.cover_art_path || undefined;
           }
+        } else if (isArtSkuLine) {
+          // art_skus line: original or limited print. Always hand-shipped or
+          // Printify; no downloads. Resolve the SKU to set the precise item
+          // type, fulfilment routing, and parent art piece.
+          if (line.sk) {
+            const { data: sku } = await supabase
+              .from("art_skus")
+              .select("id, art_id, format, fulfillment_method")
+              .eq("id", line.sk)
+              .single();
+            if (sku) {
+              resolvedArtSkuId = sku.id;
+              resolvedItemId = sku.art_id;
+              lineType = sku.format === "original" ? "art_original" : "art_limited_print";
+              if (sku.fulfillment_method === "printify") sawPrintifyLine = true;
+              else sawManualPhysicalLine = true;
+              const { data: art } = await supabase
+                .from("art_pieces")
+                .select("title, image_path")
+                .eq("id", sku.art_id)
+                .single();
+              itemTitle = art?.title || "Original artwork";
+              imageUrl = art?.image_path || undefined;
+            }
+          }
+          if (!itemTitle) itemTitle = "Artwork";
         } else {
           let cfg: Record<string, unknown> | null = null;
           if (lineType === "merch" && typeof line.c === "number") {
@@ -492,6 +538,7 @@ export async function POST(request: Request) {
             item_id: resolvedItemId,
             release_sku_id: resolvedReleaseSkuId,
             song_sku_id: resolvedSongSkuId,
+            art_sku_id: resolvedArtSkuId,
             sku_variant_id: resolvedVariantId,
             format,
             stripe_payment_intent_id: session.payment_intent || null,
@@ -599,12 +646,55 @@ export async function POST(request: Request) {
           }
         }
 
+        // art_skus line: tally the edition and retire the SKU when exhausted.
+        if (isArtSkuLine && resolvedArtSkuId) {
+          try {
+            const { data: sku } = await supabase
+              .from("art_skus")
+              .select("format, edition_size, editions_sold, art_id")
+              .eq("id", resolvedArtSkuId)
+              .single();
+            if (sku) {
+              const nextSold = (sku.editions_sold || 0) + 1;
+              const skuUpdate: Record<string, unknown> = { editions_sold: nextSold };
+              // Original is 1 of 1 -> always sold out. Limited -> sold out once
+              // the run is filled.
+              if (sku.format === "original" || (sku.edition_size > 0 && nextSold >= sku.edition_size)) {
+                skuUpdate.status = "sold";
+              }
+              await supabase.from("art_skus").update(skuUpdate).eq("id", resolvedArtSkuId);
+              // Mark the piece sold when its original sells.
+              if (sku.format === "original" && sku.art_id) {
+                await supabase.from("art_pieces").update({ sold: true }).eq("id", sku.art_id);
+              }
+            }
+            // Decrement option (framing/substrate) stock if tracked.
+            if (resolvedVariantId) {
+              const { data: v } = await supabase
+                .from("sku_variants")
+                .select("stock")
+                .eq("id", resolvedVariantId)
+                .single();
+              if (v && v.stock !== null && v.stock !== undefined) {
+                await supabase
+                  .from("sku_variants")
+                  .update({ stock: v.stock - 1 })
+                  .eq("id", resolvedVariantId);
+              }
+            }
+          } catch (e) {
+            console.error("[stripe-webhook] art_skus edition tally failed:", (e as Error).message);
+          }
+        }
+
         let formatLinks: Array<{ format: FormatKey | RingtoneFormat; url: string }> | undefined;
         let fulfillmentNote: string | undefined;
-        if (lineType === "merch" || lineType === "art_original") {
+        if (lineType === "merch" || lineType === "art_original" || lineType === "art_limited_print") {
           fulfillmentNote = lineType === "art_original"
             ? "We'll be in touch shortly to arrange shipping for your original."
-            : "Custom production takes 1–2 weeks. We'll email you when it ships.";
+            : lineType === "art_limited_print"
+              ? "Your signed, numbered print will be prepared and shipped shortly. We'll email tracking."
+              : "Custom production takes 1–2 weeks. We'll email you when it ships.";
         } else {
           const tokenBase = `${SITE_URL}/api/download/${purchase.id}`;
           if (lineType === "ringtone") {

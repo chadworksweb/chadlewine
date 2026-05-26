@@ -24,6 +24,13 @@
   z-index: 10;
 }
 
+/* While the lightbox is open, lift the gallery (and its modal, z-index 200)
+   above the sticky header (z-index 100) so the header sits BENEATH the
+   lightbox instead of over it -- the header doesn't move. */
+body.art-lightbox-open .sarp-gallery-container.sarp-fullscreen {
+  z-index: 150;
+}
+
 .sarp-gallery-container.sarp-fullscreen .sarp-portfolio-viewport {
   position: absolute;
   top: 0;

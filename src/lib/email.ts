@@ -54,7 +54,7 @@ function fmtDollars(n: number): string {
 
 export interface OrderEmailLine {
   title: string;
-  type: "song" | "release" | "ringtone" | "merch" | "art_original";
+  type: "song" | "release" | "ringtone" | "merch" | "art_original" | "art_limited_print";
   quantity: number;
   lineTotal: number;
   variantNote?: string;
@@ -199,7 +199,7 @@ function renderTotalsBlock(d: OrderEmailData): string {
 export function buildOrderConfirmationHtml(d: OrderEmailData): string {
   const hasDigital = d.items.some((i) => (i.formatLinks?.length ?? 0) > 0);
   const hasPhysical = d.items.some(
-    (i) => i.type === "merch" || i.type === "art_original",
+    (i) => i.type === "merch" || i.type === "art_original" || i.type === "art_limited_print",
   );
 
   const heading = hasDigital && !hasPhysical
@@ -212,8 +212,8 @@ export function buildOrderConfirmationHtml(d: OrderEmailData): string {
 
   const recoveryLine = hasDigital
     ? `<p style="font-size:12px;color:#808090;margin-top:24px;line-height:1.5;">
-        Lost the email? Recover all downloads at
-        <a href="${d.recoverUrl}" style="color:#8b9cf7;">${d.recoverUrl}</a>.
+        Save this email! Use <a href="${d.recoverUrl}" style="color:#8b9cf7;">this link</a> to recover your downloads.
+        Or better yet, <a href="${new URL("/account/register", d.recoverUrl).toString()}" style="color:#8b9cf7;">create an account</a>.
       </p>`
     : "";
 
@@ -252,7 +252,10 @@ export function buildAdminOrderNotificationHtml(d: OrderEmailData & {
       const variantLine = item.variantNote
         ? `<div style="font-size:12px;color:#808090;margin-top:2px;">${escapeHtml(item.variantNote)}</div>`
         : "";
-      const typeLabel = item.type === "art_original" ? "ART" : item.type.toUpperCase();
+      const typeLabel =
+        item.type === "art_original" || item.type === "art_limited_print"
+          ? "ART"
+          : item.type.toUpperCase();
       return `
         <tr>
           ${renderThumb(item.imageUrl)}
