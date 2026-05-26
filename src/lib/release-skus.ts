@@ -225,6 +225,114 @@ export async function fetchSongSkusForIds(
   return out;
 }
 
+// Effective digital download paths for a purchased SKU.
+export interface SkuDownloadPaths {
+  mp3: string | null;
+  flac: string | null;
+  wav: string | null;
+}
+
+const DL_FORMATS = ["mp3", "flac", "wav"] as const;
+
+async function resolveDownloadPathsForTable(
+  supabase: SupabaseClient,
+  table: "release_skus" | "song_skus",
+  parentCol: "release_id" | "song_id",
+  skuIds: string[],
+  out: Map<string, SkuDownloadPaths>,
+): Promise<void> {
+  const ids = [...new Set(skuIds)];
+  if (ids.length === 0) return;
+
+  const { data: purchased } = await supabase
+    .from(table)
+    .select(
+      `id, ${parentCol}, download_path_mp3, download_path_flac, download_path_wav`,
+    )
+    .in("id", ids);
+
+  const rows = (purchased || []) as Array<Record<string, string | null>>;
+  if (rows.length === 0) return;
+
+  // Parents needing a digital sibling: any purchased SKU missing >=1 format.
+  // Physical SKUs (vinyl/cd/cassette) carry no audio, so they all qualify;
+  // a fully-pathed digital SKU resolves to its own paths with no extra query.
+  const parentIds = [
+    ...new Set(
+      rows
+        .filter((r) => DL_FORMATS.some((f) => !r[`download_path_${f}`]))
+        .map((r) => r[parentCol])
+        .filter((v): v is string => !!v),
+    ),
+  ];
+
+  const siblingByParent = new Map<string, SkuDownloadPaths>();
+  if (parentIds.length > 0) {
+    const { data: siblings } = await supabase
+      .from(table)
+      .select(
+        `${parentCol}, download_path_mp3, download_path_flac, download_path_wav`,
+      )
+      .in(parentCol, parentIds)
+      .eq("format", "digital");
+    for (const s of (siblings || []) as Array<Record<string, string | null>>) {
+      const pid = s[parentCol];
+      if (!pid) continue;
+      siblingByParent.set(pid, {
+        mp3: s.download_path_mp3 ?? null,
+        flac: s.download_path_flac ?? null,
+        wav: s.download_path_wav ?? null,
+      });
+    }
+  }
+
+  for (const r of rows) {
+    const pid = r[parentCol];
+    const sib = pid ? siblingByParent.get(pid) : undefined;
+    out.set(r.id as string, {
+      mp3: r.download_path_mp3 ?? sib?.mp3 ?? null,
+      flac: r.download_path_flac ?? sib?.flac ?? null,
+      wav: r.download_path_wav ?? sib?.wav ?? null,
+    });
+  }
+}
+
+// Resolve effective digital download paths for purchased SKUs, keyed by SKU id.
+// A SKU's own download_path_* wins; when a format is absent (physical SKUs --
+// vinyl/cd/cassette -- carry no audio), it falls back to the sibling digital
+// SKU of the same release/song. This is what grants the included digital copy
+// on every physical purchase. Two queries per table at most.
+export async function resolveSkuDownloadPaths(
+  supabase: SupabaseClient,
+  releaseSkuIds: string[],
+  songSkuIds: string[],
+): Promise<{
+  byReleaseSku: Map<string, SkuDownloadPaths>;
+  bySongSku: Map<string, SkuDownloadPaths>;
+}> {
+  const byReleaseSku = new Map<string, SkuDownloadPaths>();
+  const bySongSku = new Map<string, SkuDownloadPaths>();
+
+  await Promise.all([
+    resolveDownloadPathsForTable(
+      supabase,
+      "release_skus",
+      "release_id",
+      releaseSkuIds,
+      byReleaseSku,
+    ),
+    resolveDownloadPathsForTable(
+      supabase,
+      "song_skus",
+      "song_id",
+      songSkuIds,
+      bySongSku,
+    ),
+  ]);
+
+  return { byReleaseSku, bySongSku };
+}
+
 // Lowest price across a SKU set (including digital). For listing cards.
 // Prefers the digital SKU if it has a price; otherwise takes the min of any
 // SKU price. Returns null when nothing is priced.

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { verifyWebhookSignature, listSessionLineItems } from "@/lib/stripe";
+import { resolveSkuDownloadPaths } from "@/lib/release-skus";
 import {
   sendEmail,
   buildOrderConfirmationHtml,
@@ -51,6 +52,9 @@ export async function POST(request: Request) {
         v?: string;
         f?: "mp3" | "flac" | "wav" | null;
         c?: number;
+        // pf = 1 marks a physical music SKU (vinyl/cd/cassette). Its line type
+        // is still "release"/"song", so it needs an explicit physical flag.
+        pf?: number;
       };
       let cartLines: CartLine[] = [];
       try {
@@ -81,14 +85,20 @@ export async function POST(request: Request) {
         }
       }
 
+      // Any physical line (merch/art OR a physical music SKU marked pf) needs
+      // admin action before fulfilment, so the order lands in pending_review.
+      // The precise printify-vs-manual split is tallied during the line loop
+      // (a line's fulfilment isn't in the metadata) and written back after.
       const hasPhysicalLines = cartLines.some(
-        (l) => l.t === "m" || l.t === "o",
+        (l) => l.t === "m" || l.t === "o" || l.pf === 1,
       );
       const hasDigitalLines = cartLines.some(
         (l) => l.t === "s" || l.t === "a" || l.t === "r",
       );
 
       const orderStatus = hasPhysicalLines ? "pending_review" : "completed";
+      let sawPrintifyLine = false;
+      let sawManualPhysicalLine = false;
 
       const sessionWithShipping = session as typeof session & {
         shipping_details?: {
@@ -146,7 +156,10 @@ export async function POST(request: Request) {
           total,
           stripe_session_id: sessionId || null,
           stripe_payment_intent_id: session.payment_intent || null,
-          has_printify_lines: hasPhysicalLines,
+          // Precise printify/manual split is tallied in the line loop below
+          // and written back via a follow-up update.
+          has_printify_lines: false,
+          has_manual_physical_lines: false,
           has_digital_lines: hasDigitalLines,
         })
         .select("id, order_number")
@@ -304,14 +317,22 @@ export async function POST(request: Request) {
           if (line.sk) {
             const { data: sku } = await supabase
               .from("song_skus")
-              .select("id, song_id, format, download_path_mp3, download_path_flac, download_path_wav, stock")
+              .select("id, song_id, format, fulfillment_method, download_path_mp3, download_path_flac, download_path_wav, stock")
               .eq("id", line.sk)
               .single();
             if (sku) {
               resolvedSongSkuId = sku.id;
               resolvedItemId = sku.song_id;
+              if (sku.format !== "digital") {
+                if (sku.fulfillment_method === "printify") sawPrintifyLine = true;
+                else sawManualPhysicalLine = true;
+              }
+              // Effective paths: own for digital, sibling digital SKU for
+              // physical (vinyl/cd/cassette) so the included digital copy ships.
+              const { bySongSku } = await resolveSkuDownloadPaths(supabase, [], [sku.id]);
+              const paths = bySongSku.get(sku.id);
               availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-                (f) => (sku as Record<string, unknown>)[`download_path_${f}`],
+                (f) => paths?.[f],
               );
               const { data: songRow } = await supabase
                 .from("songs")
@@ -378,14 +399,22 @@ export async function POST(request: Request) {
           if (line.sk) {
             const { data: sku } = await supabase
               .from("release_skus")
-              .select("id, release_id, format, download_path_mp3, download_path_flac, download_path_wav, stock")
+              .select("id, release_id, format, fulfillment_method, download_path_mp3, download_path_flac, download_path_wav, stock")
               .eq("id", line.sk)
               .single();
             if (sku) {
               resolvedReleaseSkuId = sku.id;
               resolvedItemId = sku.release_id;
+              if (sku.format !== "digital") {
+                if (sku.fulfillment_method === "printify") sawPrintifyLine = true;
+                else sawManualPhysicalLine = true;
+              }
+              // Effective paths: own for digital, sibling digital SKU for
+              // physical (vinyl/cd/cassette) so the included digital copy ships.
+              const { byReleaseSku } = await resolveSkuDownloadPaths(supabase, [sku.id], []);
+              const paths = byReleaseSku.get(sku.id);
               availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-                (f) => (sku as Record<string, unknown>)[`download_path_${f}`],
+                (f) => paths?.[f],
               );
               const { data: album } = await supabase
                 .from("releases")
@@ -423,7 +452,7 @@ export async function POST(request: Request) {
           if (line.i) {
             const { data: product } = await supabase
               .from("merch")
-              .select("title, image_url")
+              .select("title, image_url, fulfillment")
               .eq("id", line.i)
               .single();
             itemTitle = product?.title || (lineType === "art_original" ? "Original artwork" : "Merch");
@@ -431,8 +460,17 @@ export async function POST(request: Request) {
             if (cfg && typeof cfg.size === "string") {
               variantNote = `Size ${cfg.size}`;
             }
+            // art_original is always hand-shipped; merch splits by fulfilment.
+            if (lineType === "art_original") {
+              sawManualPhysicalLine = true;
+            } else if (typeof product?.fulfillment === "string" && product.fulfillment.startsWith("printify")) {
+              sawPrintifyLine = true;
+            } else {
+              sawManualPhysicalLine = true;
+            }
           } else {
             itemTitle = lineType === "art_original" ? "Original artwork" : "Merch";
+            if (lineType === "art_original") sawManualPhysicalLine = true;
           }
         }
 
@@ -594,6 +632,18 @@ export async function POST(request: Request) {
           formatLinks,
           fulfillmentNote,
         });
+      }
+
+      // Write back the precise fulfilment split now that every line's source
+      // is known. Drives the admin queue (push-to-Printify vs ship-yourself).
+      if (sawPrintifyLine || sawManualPhysicalLine) {
+        await supabase
+          .from("orders")
+          .update({
+            has_printify_lines: sawPrintifyLine,
+            has_manual_physical_lines: sawManualPhysicalLine,
+          })
+          .eq("id", orderId);
       }
 
       if (emailItems.length > 0) {

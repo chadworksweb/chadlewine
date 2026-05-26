@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import CartEmbeddedCheckout from "@/components/CartEmbeddedCheckout";
 
 const CART_KEY = "chadlewine_cart";
 
@@ -22,9 +23,26 @@ type CartItem = {
 export default function CheckoutResumePage() {
   const [error, setError] = useState<string | null>(null);
   const [emptyCart, setEmptyCart] = useState(false);
+  // Set for physical carts: Stripe embedded checkout mounts here so the buyer
+  // can enter an address and we can compute shipping. Digital-only carts skip
+  // straight to the hosted redirect.
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    // Fast path: the cart drawer already created an embedded session and
+    // stashed its secret. Mount directly (single use) -- no second API call.
+    try {
+      const stashed = sessionStorage.getItem("cl_checkout_secret");
+      if (stashed) {
+        sessionStorage.removeItem("cl_checkout_secret");
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time handoff from the cart drawer
+        setClientSecret(stashed);
+        return;
+      }
+    } catch {}
+
     let items: CartItem[] = [];
     try {
       const raw = localStorage.getItem(CART_KEY);
@@ -35,7 +53,6 @@ export default function CheckoutResumePage() {
     } catch {}
 
     if (items.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- must run on mount: load cart, POST to API, redirect or surface error
       setEmptyCart(true);
       return;
     }
@@ -63,6 +80,10 @@ export default function CheckoutResumePage() {
           window.location.href = data.url;
           return;
         }
+        if (data.client_secret) {
+          setClientSecret(data.client_secret);
+          return;
+        }
         setError(data.error || "Could not start checkout. Please try again.");
       } catch {
         if (!cancelled) setError("Could not start checkout. Please try again.");
@@ -73,6 +94,15 @@ export default function CheckoutResumePage() {
       cancelled = true;
     };
   }, []);
+
+  if (clientSecret) {
+    return (
+      <div className="page-static" style={{ maxWidth: 640, margin: "0 auto", padding: "var(--space-2xl) var(--space-md)" }}>
+        <h1 className="account-dashboard__title" style={{ marginBottom: "var(--space-lg)" }}>Checkout</h1>
+        <CartEmbeddedCheckout clientSecret={clientSecret} />
+      </div>
+    );
+  }
 
   return (
     <div className="page-static" style={{ maxWidth: 560, margin: "0 auto", padding: "var(--space-2xl) var(--space-md)" }}>

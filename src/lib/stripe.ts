@@ -70,6 +70,13 @@ export async function createCartCheckoutSession(params: {
      Stripe disallows `discounts` + `allow_promotion_codes:true` together —
      when present, the checkout's promo-code entry field is hidden. */
   discount_coupon_id?: string;
+  /** Embedded UI mode. Required for carts with physical lines: only embedded
+     checkout supports the address-driven dynamic shipping callback. When true,
+     `return_url` is used (not success_url/cancel_url), an address-collection +
+     placeholder shipping rate is attached, and the caller reads
+     `session.client_secret` instead of `session.url`. */
+  embedded?: boolean;
+  return_url?: string;
   success_url: string;
   cancel_url: string;
 }) {
@@ -115,6 +122,39 @@ export async function createCartCheckoutSession(params: {
     ? { discounts: [{ coupon: params.discount_coupon_id }] }
     : { allow_promotion_codes: true };
 
+  // Shipping collection. For embedded carts we attach a $0 placeholder rate
+  // and lock updates to server_only — the real rate is computed against the
+  // entered address at the onShippingDetailsChange callback (calculate-shipping
+  // route) and written back via updateSessionShipping().
+  const shippingParams: Partial<Stripe.Checkout.SessionCreateParams> = params.collect_shipping
+    ? {
+        shipping_address_collection: {
+          allowed_countries: ["US", "CA", "GB", "AU", "NZ", "IE"] as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
+        },
+        phone_number_collection: { enabled: true },
+        ...(params.embedded
+          ? {
+              permissions: { update_shipping_details: "server_only" },
+              shipping_options: [
+                {
+                  shipping_rate_data: {
+                    type: "fixed_amount",
+                    fixed_amount: { amount: 0, currency: "usd" },
+                    display_name: "Calculated from your address",
+                  },
+                },
+              ],
+            }
+          : {}),
+      }
+    : {};
+
+  // Embedded carts return a client_secret and redirect to return_url on
+  // completion; hosted carts return a url and use success/cancel urls.
+  const uiParams: Partial<Stripe.Checkout.SessionCreateParams> = params.embedded
+    ? { ui_mode: "embedded_page", return_url: params.return_url }
+    : { ui_mode: "hosted_page", success_url: params.success_url, cancel_url: params.cancel_url };
+
   return getStripe().checkout.sessions.create({
     mode: "payment",
     line_items: stripeLineItems,
@@ -129,17 +169,36 @@ export async function createCartCheckoutSession(params: {
       cart_items: params.cart_items_metadata,
       ...(params.extra_metadata || {}),
     },
-    ...(params.collect_shipping
-      ? {
-          shipping_address_collection: {
-            allowed_countries: ["US", "CA", "GB", "AU", "NZ", "IE"] as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
-          },
-          phone_number_collection: { enabled: true },
-        }
-      : {}),
-    success_url: params.success_url,
-    cancel_url: params.cancel_url,
+    ...shippingParams,
+    ...uiParams,
   });
+}
+
+// Server-only shipping update for embedded checkout. Called from the
+// onShippingDetailsChange handler after we compute the real rate. Writes the
+// confirmed address back onto the session and replaces the placeholder rate.
+export async function updateSessionShipping(params: {
+  sessionId: string;
+  shippingDetails: Stripe.Checkout.SessionUpdateParams.CollectedInformation.ShippingDetails;
+  amountCents: number;
+  displayName: string;
+}) {
+  return getStripe().checkout.sessions.update(params.sessionId, {
+    collected_information: { shipping_details: params.shippingDetails },
+    shipping_options: [
+      {
+        shipping_rate_data: {
+          type: "fixed_amount",
+          fixed_amount: { amount: params.amountCents, currency: "usd" },
+          display_name: params.displayName,
+        },
+      },
+    ],
+  });
+}
+
+export function retrieveSession(sessionId: string) {
+  return getStripe().checkout.sessions.retrieve(sessionId);
 }
 
 export function verifyWebhookSignature(payload: string, signature: string) {

@@ -54,6 +54,10 @@ export async function POST(request: Request) {
     price: number;
     cover_art_url?: string;
     product_config?: Record<string, unknown> | null;
+    // SKU format for release/song lines (digital | vinyl | cd | cassette).
+    // Drives physical detection -- a physical music SKU needs shipping just
+    // like merch, though its line type stays "release"/"song".
+    sku_format?: string | null;
   };
 
   const resolved: ResolvedLine[] = [];
@@ -183,6 +187,7 @@ export async function POST(request: Request) {
           description: desc,
           price: linePrice,
           cover_art_url: songRow?.art_image_path || album?.cover_art_path || undefined,
+          sku_format: sku.format,
         });
         continue;
       }
@@ -261,6 +266,7 @@ export async function POST(request: Request) {
         description: labelParts.join(" · "),
         price: linePrice,
         cover_art_url: album.cover_art_path || undefined,
+        sku_format: sku.format,
       });
     } else if (raw.type === "merch" || raw.type === "art_original") {
       if (!raw.id) {
@@ -351,6 +357,7 @@ export async function POST(request: Request) {
       v?: string;
       f?: Format | null;
       c?: number;
+      pf?: number;
     } = { t };
     if (r.sku_id) {
       line.sk = r.sku_id;
@@ -359,6 +366,16 @@ export async function POST(request: Request) {
       line.i = r.item_id;
     }
     if (r.format) line.f = r.format;
+    // Mark physical music SKUs so the webhook can route them to pending_review
+    // and tally shipping. Merch/art (t=m/o) are physical by type; digital
+    // SKUs and ringtones never set pf.
+    if (
+      (r.type === "release" || r.type === "song") &&
+      r.sku_format &&
+      r.sku_format !== "digital"
+    ) {
+      line.pf = 1;
+    }
     if (r.product_config) {
       cfgKeys[`cfg_${idx}`] = JSON.stringify(r.product_config);
       if (cfgKeys[`cfg_${idx}`].length > 480) {
@@ -380,7 +397,12 @@ export async function POST(request: Request) {
   }
 
   const hasPhysical = resolved.some(
-    (r) => r.type === "merch" || r.type === "art_original",
+    (r) =>
+      r.type === "merch" ||
+      r.type === "art_original" ||
+      ((r.type === "release" || r.type === "song") &&
+        !!r.sku_format &&
+        r.sku_format !== "digital"),
   );
 
   // One thank-you page for every purchase.
@@ -501,6 +523,11 @@ export async function POST(request: Request) {
       ...couponMetadata,
     },
     collect_shipping: hasPhysical,
+    // Physical carts need the address-driven shipping callback, which only
+    // embedded checkout supports. Digital-only carts keep the hosted redirect
+    // (faster, retains wallet/express buttons).
+    embedded: hasPhysical,
+    return_url: `${origin}${successPath}?session_id={CHECKOUT_SESSION_ID}`,
     customer: prefillCustomerId,
     customer_email: prefillCustomerId ? undefined : prefillEmail,
     discount_coupon_id: discountCouponId,
@@ -531,6 +558,14 @@ export async function POST(request: Request) {
     }
   }
 
+  // Embedded carts hand the client a client_secret to mount Stripe's checkout;
+  // hosted carts hand back a redirect url.
+  if (hasPhysical) {
+    if (!session.client_secret) {
+      return Response.json({ error: "No checkout secret" }, { status: 500 });
+    }
+    return Response.json({ client_secret: session.client_secret });
+  }
   if (!session.url) return Response.json({ error: "No checkout URL" }, { status: 500 });
   return Response.json({ url: session.url });
 }

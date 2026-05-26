@@ -210,6 +210,36 @@ export async function createOrder(payload: PrintifyOrderPayload): Promise<{ id: 
   return res.json();
 }
 
+// Printify returns per-method shipping totals in cents for the whole line-item
+// set + destination. `standard` is always present; the others vary by product
+// and country. We charge `standard` (see calculate-shipping endpoint).
+export interface PrintifyShippingCost {
+  standard: number;
+  express?: number;
+  priority?: number;
+  economy?: number;
+}
+
+// POST /shops/{id}/orders/shipping.json -- the destination-aware quote Printify
+// itself would bill us. address_to needs country + zip + region (region may be
+// "" for countries without states). Quantities matter (first-item/additional
+// rate structure is applied server-side by Printify).
+export async function getOrderShippingCost(params: {
+  line_items: PrintifyOrderLineItem[];
+  address_to: PrintifyShipping;
+}): Promise<PrintifyShippingCost> {
+  const res = await fetch(`${PRINTIFY_API}/shops/${shopId()}/orders/shipping.json`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Printify shipping error: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
 export async function sendOrderToProduction(printifyOrderId: string): Promise<void> {
   const res = await fetch(
     `${PRINTIFY_API}/shops/${shopId()}/orders/${printifyOrderId}/send_to_production.json`,

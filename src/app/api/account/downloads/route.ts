@@ -1,5 +1,6 @@
 import { getCurrentSession } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase-server";
+import { resolveSkuDownloadPaths } from "@/lib/release-skus";
 
 // Returns all digital purchases for the signed-in customer, enriched with
 // per-format download URLs (signed by /api/download/[purchaseId]). Mirrors
@@ -44,7 +45,7 @@ export async function GET() {
     .map((p) => p.song_sku_id)
     .filter((v): v is string => !!v);
 
-  const [songsRes, albumsRes, releaseSkusRes, songSkusRes] = await Promise.all([
+  const [songsRes, albumsRes, skuPaths] = await Promise.all([
     songIds.length
       ? supabase
           .from("songs")
@@ -62,49 +63,32 @@ export async function GET() {
       : Promise.resolve({ data: [] as Array<{
           id: string; title: string; slug: string; cover_art_path: string | null;
         }> }),
-    releaseSkuIds.length
-      ? supabase
-          .from("release_skus")
-          .select("id, download_path_mp3, download_path_flac, download_path_wav")
-          .in("id", releaseSkuIds)
-      : Promise.resolve({ data: [] as Array<{
-          id: string;
-          download_path_mp3: string | null; download_path_flac: string | null;
-          download_path_wav: string | null;
-        }> }),
-    songSkuIds.length
-      ? supabase
-          .from("song_skus")
-          .select("id, download_path_mp3, download_path_flac, download_path_wav")
-          .in("id", songSkuIds)
-      : Promise.resolve({ data: [] as Array<{
-          id: string;
-          download_path_mp3: string | null; download_path_flac: string | null;
-          download_path_wav: string | null;
-        }> }),
+    // Effective paths: physical SKUs fall back to the sibling digital SKU,
+    // so a vinyl/cd buyer sees the included digital copy here too.
+    resolveSkuDownloadPaths(supabase, releaseSkuIds, songSkuIds),
   ]);
 
   const songMap = new Map((songsRes.data || []).map((s) => [s.id, s]));
   const albumMap = new Map((albumsRes.data || []).map((a) => [a.id, a]));
-  const releaseSkuMap = new Map((releaseSkusRes.data || []).map((s) => [s.id, s]));
-  const songSkuMap = new Map((songSkusRes.data || []).map((s) => [s.id, s]));
+  const { byReleaseSku, bySongSku } = skuPaths;
 
   const items = purchases.map((p) => {
     const rec = p.item_type === "release"
       ? p.item_id ? albumMap.get(p.item_id) : undefined
       : p.item_id ? songMap.get(p.item_id) : undefined;
 
-    // Per-format availability comes from the SKU-attached download paths.
-    // Purchases without a SKU reference have no path source — links empty.
-    let pathSource: Record<string, string | null | undefined> | undefined;
+    // Per-format availability comes from the SKU-attached download paths
+    // (physical SKUs resolve to their digital sibling). Purchases without a
+    // SKU reference have no path source — links empty.
+    let pathSource: { mp3: string | null; flac: string | null; wav: string | null } | undefined;
     if (p.release_sku_id) {
-      pathSource = releaseSkuMap.get(p.release_sku_id);
+      pathSource = byReleaseSku.get(p.release_sku_id);
     } else if (p.song_sku_id) {
-      pathSource = songSkuMap.get(p.song_sku_id);
+      pathSource = bySongSku.get(p.song_sku_id);
     }
 
     const available: FormatKey[] = pathSource
-      ? FORMATS.filter((f) => pathSource![`download_path_${f}`])
+      ? FORMATS.filter((f) => pathSource![f])
       : [];
 
     const tokenBase = `/api/download/${p.id}`;

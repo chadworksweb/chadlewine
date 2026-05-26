@@ -14,6 +14,8 @@ export const SKU_BASE_FIELDS = [
   "download_path_wav",
   "weight_grams",
   "ships_in_days",
+  "shipping_first_cents",
+  "shipping_addl_cents",
   "printify_product_id",
   "printify_variant_id",
 ] as const;
@@ -26,6 +28,8 @@ const INTEGER_FIELDS = new Set<SkuBaseField>([
   "display_order",
   "weight_grams",
   "ships_in_days",
+  "shipping_first_cents",
+  "shipping_addl_cents",
 ]);
 const TEXT_NULLABLE_FIELDS = new Set<SkuBaseField>([
   "sku_code",

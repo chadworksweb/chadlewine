@@ -41,6 +41,8 @@ interface SkuRow {
   download_path_wav: string | null;
   weight_grams: number | null;
   ships_in_days: number | null;
+  shipping_first_cents: number | null;
+  shipping_addl_cents: number | null;
   printify_product_id: string | null;
   printify_variant_id: string | null;
   variants: VariantRow[];
@@ -69,6 +71,8 @@ function emptyDraft(parentSlug: string): DraftSku {
     download_path_wav: null,
     weight_grams: null,
     ships_in_days: null,
+    shipping_first_cents: null,
+    shipping_addl_cents: null,
     printify_product_id: null,
     printify_variant_id: null,
   };
@@ -147,6 +151,8 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
         download_path_wav: row.download_path_wav,
         weight_grams: row.weight_grams,
         ships_in_days: row.ships_in_days,
+        shipping_first_cents: row.shipping_first_cents,
+        shipping_addl_cents: row.shipping_addl_cents,
         printify_product_id: row.printify_product_id,
         printify_variant_id: row.printify_variant_id,
       }),
@@ -635,6 +641,41 @@ function SkuFormFields({
               value={row.ships_in_days ?? ""}
               onChange={(e) => onChange({ ships_in_days: e.target.value ? parseInt(e.target.value) : null })}
               onBlur={onBlurSave}
+            />
+          </div>
+        </div>
+      )}
+
+      {!isDigital && !isPrintify && (
+        <div className="obsv-editor__field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+          <div className={fieldCls}>
+            <label className={labelCls}>Shipping: first item ($)</label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              className={inputCls}
+              value={row.shipping_first_cents != null ? (row.shipping_first_cents / 100).toString() : ""}
+              onChange={(e) =>
+                onChange({ shipping_first_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })
+              }
+              onBlur={onBlurSave}
+              placeholder="e.g. 6.00"
+            />
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>Shipping: each additional ($)</label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              className={inputCls}
+              value={row.shipping_addl_cents != null ? (row.shipping_addl_cents / 100).toString() : ""}
+              onChange={(e) =>
+                onChange({ shipping_addl_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })
+              }
+              onBlur={onBlurSave}
+              placeholder="e.g. 2.00"
             />
           </div>
         </div>
