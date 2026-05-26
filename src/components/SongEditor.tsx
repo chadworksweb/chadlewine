@@ -594,6 +594,11 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             </div>
           )}
 
+          {/* Formats (SKUs) */}
+          {form.id && (
+            <SkuPanel kind="song" parentId={form.id} parentSlug={form.slug} />
+          )}
+
           {/* Visibility Engine */}
           {form.id && (
             <div style={{ marginTop: "1.5rem" }}>
@@ -873,10 +878,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               />
             </div>
           </div>
-
-          {form.id && (
-            <SkuPanel kind="song" parentId={form.id} parentSlug={form.slug} />
-          )}
 
           {/* Playback */}
           <div className="obsv-editor__panel">

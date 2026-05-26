@@ -98,6 +98,7 @@ async function fetchReleases(): Promise<SitemapEntry[]> {
     .from("releases")
     .select("slug, updated_at, cover_art_path")
     .eq("status", "published")
+    .neq("release_type", "single")
     .order("display_order");
 
   return (data ?? []).map((a) => {

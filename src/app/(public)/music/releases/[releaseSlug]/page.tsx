@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { ReleaseDetail } from "@/components/ReleaseDetail";
@@ -48,6 +48,17 @@ async function getAlbumData(releaseSlug: string) {
     (j) => j.song?.status === "published" || j.song?.status === "unreleased",
   );
 
+  // Singles are not public releases. A single-type release is an internal
+  // "this song ships standalone" declaration; the song lives on its own page
+  // (songs-are-atomic), where the canonical song_sku is sold. The release URL
+  // is a non-public artifact, so redirect it to the song page -- this makes it
+  // unreachable to humans and consolidates crawl/index signals onto the song.
+  // Covers every current single and any future single-type release.
+  if ((album as { release_type?: string | null }).release_type === "single") {
+    const songSlug = filtered[0]?.song.slug ?? null;
+    return { redirectTo: songSlug ? `/music/songs/${songSlug}` : null } as const;
+  }
+
   // Release SKUs for the format picker.
   const skusByRelease = await fetchReleaseSkusForIds(supabase, [album.id]);
   const releaseSkus = skusByRelease.get(album.id) || [];
@@ -96,6 +107,8 @@ export async function generateMetadata({
   const { releaseSlug } = await params;
   const result = await getAlbumData(releaseSlug);
   if (!result) return {};
+  // Singles redirect to the song page; never index the release URL.
+  if ("redirectTo" in result) return { robots: { index: false, follow: false } };
 
   const { album } = result;
   // citation_summary is the AI-tuned canonical answer; fall back to concept,
@@ -118,6 +131,11 @@ export default async function AlbumDetailPage({
   const { releaseSlug } = await params;
   const result = await getAlbumData(releaseSlug);
   if (!result) notFound();
+  // Singles have no public release page -- send them to their song page.
+  if ("redirectTo" in result) {
+    if (result.redirectTo) permanentRedirect(result.redirectTo);
+    notFound();
+  }
 
   const { album, songs, releaseSkus } = result;
 

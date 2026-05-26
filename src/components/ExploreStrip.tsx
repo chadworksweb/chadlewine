@@ -62,6 +62,7 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
       .from("releases")
       .select("id, slug, title, cover_art_path")
       .eq("status", "published")
+      .neq("release_type", "single")
       .not("cover_art_path", "is", null)
       .order("created_at", { ascending: false })
       .limit(40),

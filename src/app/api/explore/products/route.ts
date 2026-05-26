@@ -97,6 +97,7 @@ export async function GET(request: Request) {
       .from("releases")
       .select("id, title, slug, cover_art_path, cover_art_alt, release_type, created_at")
       .not("cover_art_path", "is", null)
+      .neq("release_type", "single")
       .in("id", sellableReleaseIds.length > 0 ? sellableReleaseIds : [""])
       .order("created_at", { ascending: false })
       .limit(PER_KIND_OVERSHOOT);
