@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getFeatureFlags, sectionForPath } from "@/lib/feature-flags";
 import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
 
 type AuthResult = {
@@ -131,24 +130,10 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Only gate public routes on production. Staging/preview and local dev show everything.
-  const isProduction = process.env.VERCEL_ENV === "production";
-  if (!isProduction) return NextResponse.next();
-
-  const flags = await getFeatureFlags();
-
-  // Root → preview until the homepage itself is launched
-  if (pathname === "/") {
-    if (flags["homepage"] === true) return NextResponse.next();
-    return NextResponse.rewrite(new URL("/preview", request.url));
-  }
-
-  // Section-scoped paths: rewrite to /preview when the section is not live
-  const section = sectionForPath(pathname);
-  if (section && flags[section] !== true) {
-    return NextResponse.rewrite(new URL("/preview", request.url));
-  }
-
+  // Feature-flag launch gating retired (2026-05-26): staging is the go-between,
+  // so whatever reaches master is live. No section hiding on production. The
+  // feature_flags table + launch-control admin remain dormant (cross-sell still
+  // reads flags). Gate by not merging to master, not by flags.
   return NextResponse.next();
 }
 

@@ -46,7 +46,7 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
 
   const [productsRes, songsRes, albumsRes, artRes] = await Promise.all([
     supabase
-      .from("products")
+      .from("merch")
       .select("id, slug, title, image_url, image_alt")
       .in("fulfillment", ["manual", "printify_curated"])
       .eq("status", "active")
@@ -62,6 +62,7 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
       .from("releases")
       .select("id, slug, title, cover_art_path")
       .eq("status", "published")
+      .neq("release_type", "single")
       .not("cover_art_path", "is", null)
       .order("created_at", { ascending: false })
       .limit(40),

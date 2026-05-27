@@ -24,6 +24,7 @@
   z-index: 10;
 }
 
+
 .sarp-gallery-container.sarp-fullscreen .sarp-portfolio-viewport {
   position: absolute;
   top: 0;
@@ -119,10 +120,27 @@
 
 .sarp-portfolio-item.is-lifted {
   z-index: 100;
-  transform: scale(1.03) translateZ(0);
+  transform: scale(1.04) translateZ(0);
   box-shadow:
-    0 10px 30px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
+    0 14px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 44px rgba(255, 255, 255, 0.28);
+}
+
+/* Commit state: chosen piece freezes and breathes a glow while the detail page
+   loads -- same mechanic as the discography cube. */
+.sarp-portfolio-item.is-loading {
+  z-index: 110;
+  transform: scale(1.05) translateZ(0);
+  animation: sarp-commit-breath 0.9s ease-in-out infinite;
+}
+@keyframes sarp-commit-breath {
+  0%, 100% {
+    box-shadow: 0 0 22px 2px rgba(0, 212, 255, 0.5), 0 0 0 1px rgba(0, 212, 255, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 48px 8px rgba(0, 212, 255, 0.95), 0 0 0 1px rgba(0, 212, 255, 0.95);
+  }
 }
 
 .sarp-portfolio-item.is-focused {
@@ -453,3 +471,4 @@
     top: 0; left: 0; width: 100%; height: 100%;
   }
 }
+

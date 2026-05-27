@@ -13,6 +13,15 @@ export function Nav({
   const navItems = items;
   const pathname = usePathname();
   const [hidden, setHidden] = useState(false);
+  // The art (gallery) template wants minimal chrome. The auto-hide threshold is
+  // lowered there (read via a ref inside the scroll handler), and a pill does a
+  // one-shot smooth scroll to exactly tuck the header away for full-bleed art --
+  // after which normal sticky behavior (show on scroll-up / at top) resumes.
+  // Art DETAIL pages only (/art/[slug]) -- not the /art index or /art/murals
+  // index, which are their own immersive/list layouts.
+  const onArt =
+    (pathname?.startsWith("/art/") ?? false) && pathname !== "/art/murals";
+  const onArtRef = useRef(onArt);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
@@ -38,22 +47,37 @@ export function Nav({
     };
   }, [pathname]);
 
+  useEffect(() => { onArtRef.current = onArt; }, [onArt]);
+
   useEffect(() => {
     // Pages can opt to keep the nav visible past 200px by tagging an
     // element with `data-nav-keep-until` — auto-hide only kicks in once
-    // the user scrolls past that element's bottom.
+    // the user scrolls past that element's bottom. On the art template the
+    // threshold drops near the header height so a small scroll (or the pill's
+    // one-shot scroll) tucks it away, and scroll-up brings it back.
     function onScroll() {
       const y = window.scrollY;
       const keepUntil = document.querySelector<HTMLElement>("[data-nav-keep-until]");
-      const threshold = keepUntil
-        ? y + keepUntil.getBoundingClientRect().bottom
-        : 200;
+      const threshold = onArtRef.current
+        ? 40
+        : keepUntil
+          ? y + keepUntil.getBoundingClientRect().bottom
+          : 200;
       setHidden(y > threshold && y > lastScroll.current);
       lastScroll.current = y;
     }
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Pill: one-shot smooth scroll to tuck the header away and bring the gallery
+  // flush to the top. The scroll handler hides the header as it passes the
+  // (lowered) art threshold; normal sticky behavior governs afterward.
+  function collapseHeader() {
+    const nav =
+      parseInt(getComputedStyle(document.documentElement).getPropertyValue("--nav-height"), 10) || 80;
+    window.scrollTo({ top: nav, behavior: "smooth" });
+  }
 
   // Reset overlay state on route change — adjusts during render only when
   // pathname changes (React docs' "adjusting state on prop change" pattern,
@@ -169,6 +193,24 @@ export function Nav({
             </Link>
           )}
         </div>
+
+        {onArt && (
+          <button
+            type="button"
+            onClick={collapseHeader}
+            className="site-nav__hide"
+            aria-label="Hide header for full-screen view"
+            title="Tuck the header away"
+          >
+            <svg className="site-nav__hide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M6 14.5 12 8.5l6 6" />
+            </svg>
+            <span className="site-nav__hide-label">Hide</span>
+            <svg className="site-nav__hide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M6 14.5 12 8.5l6 6" />
+            </svg>
+          </button>
+        )}
 
         <button
           onClick={() => setMenuOpen(!menuOpen)}

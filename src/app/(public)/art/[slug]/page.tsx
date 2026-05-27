@@ -4,12 +4,13 @@ import Image from "next/image";
 import { createPublicClient } from "@/lib/supabase-server";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
+import { ArtSkuBuyPanel, type ArtSku } from "@/components/ArtSkuBuyPanel";
+import { ArtFramedHero } from "@/components/ArtFramedHero";
 import { ArtPieceJsonLd } from "@/components/ArtPieceJsonLd";
 import { ArtProductJsonLd } from "@/components/ArtProductJsonLd";
-import { ArtPairingsSections } from "@/components/ArtPairingsSections";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ArtLicensingSection } from "@/components/ArtLicensingSection";
 import { MuralTemplate, type MuralDetails } from "@/components/MuralTemplate";
-import { focalCropStyle } from "@/lib/focal-crop";
 import { markdownToHtml } from "@/lib/markdown";
 
 export const revalidate = 60;
@@ -39,6 +40,7 @@ type ArtRow = {
   status: string;
   format_id: string | null;
   gallery_paths: string[] | null;
+  in_situ_paths: string[] | null;
   licensing_direct_answer: string | null;
   licensing_content: string | null;
   licensing_key_points: string[] | null;
@@ -54,29 +56,6 @@ type ProductRow = {
   editions_sold: number;
 };
 
-type PairedSong = {
-  id: string;
-  slug: string;
-  title: string;
-  art_image_path: string | null;
-  art_alt: string | null;
-  card_focal_x: number | null;
-  card_focal_y: number | null;
-  card_zoom: number | null;
-  song_summary: string | null;
-};
-
-type PairedArt = {
-  id: string;
-  slug: string;
-  title: string;
-  image_path: string;
-  image_alt: string | null;
-  card_focal_x: number | null;
-  card_focal_y: number | null;
-  card_zoom: number | null;
-  art_summary: string | null;
-};
 
 async function getArtData(slug: string) {
   const supabase = createPublicClient();
@@ -89,10 +68,53 @@ async function getArtData(slug: string) {
   if (!art) return null;
 
   const { data: products } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, title, price, variant_type, variant_label, edition_size, editions_sold, image_url")
     .eq("source_art_id", art.id)
     .eq("status", "active");
+
+  // art_skus -- the first-class commerce layer (original + limited prints).
+  // Public RLS exposes only sellable rows; variants come nested.
+  const { data: artSkusRaw } = await supabase
+    .from("art_skus")
+    .select(
+      "id, format, sale_mode, price, status, edition_size, editions_sold, coa_enabled, display_order, " +
+        "variants:sku_variants(id, label, price_delta, status, stock, display_order)",
+    )
+    .eq("art_id", art.id)
+    .order("display_order");
+
+  type RawArtSku = {
+    id: string;
+    format: "original" | "limited_print";
+    sale_mode: "buy_now" | "inquire";
+    price: number | null;
+    status: string;
+    edition_size: number;
+    editions_sold: number;
+    coa_enabled: boolean;
+    variants: { id: string; label: string; price_delta: number; status: string; stock: number | null; display_order: number }[] | null;
+  };
+  const artSkus: ArtSku[] = ((artSkusRaw || []) as unknown as RawArtSku[]).map((s) => ({
+    id: s.id,
+    format: s.format,
+    sale_mode: s.sale_mode,
+    price: s.price,
+    status: s.status,
+    edition_size: s.edition_size,
+    editions_sold: s.editions_sold,
+    coa_enabled: s.coa_enabled,
+    variants: (Array.isArray(s.variants) ? s.variants : [])
+      .slice()
+      .sort((a: { display_order: number }, b: { display_order: number }) => a.display_order - b.display_order)
+      .map((v: { id: string; label: string; price_delta: number; status: string; stock: number | null }) => ({
+        id: v.id,
+        label: v.label,
+        price_delta: v.price_delta,
+        status: v.status,
+        stock: v.stock,
+      })),
+  }));
 
   const { data: composition } = await supabase
     .from("art_composition")
@@ -100,26 +122,6 @@ async function getArtData(slug: string) {
     .eq("art_id", art.id)
     .eq("status", "published")
     .maybeSingle();
-
-  const { data: featuredSongs } = await supabase
-    .from("art_featured_songs")
-    .select("position, song:songs(id, slug, title, art_image_path, art_alt, card_focal_x, card_focal_y, card_zoom, song_summary, status)")
-    .eq("art_id", art.id)
-    .order("position");
-
-  const pairedSongs: PairedSong[] = ((featuredSongs as { song: PairedSong & { status: string } | null }[] | null) || [])
-    .map((p) => p.song)
-    .filter((s): s is PairedSong & { status: string } => !!s && (s.status === "published" || s.status === "unreleased"));
-
-  const { data: featuredArt } = await supabase
-    .from("art_featured_art")
-    .select("position, art:art_pieces!art_featured_art_related_art_id_fkey(id, slug, title, image_path, image_alt, card_focal_x, card_focal_y, card_zoom, art_summary, status)")
-    .eq("parent_art_id", art.id)
-    .order("position");
-
-  const pairedArt: PairedArt[] = ((featuredArt as { art: (PairedArt & { status: string }) | null }[] | null) || [])
-    .map((p) => p.art)
-    .filter((a): a is PairedArt & { status: string } => !!a && (a.status === "published" || a.status === "unreleased"));
 
   let formatSlug: string | null = null;
   let muralDetails: MuralDetails | null = null;
@@ -137,9 +139,8 @@ async function getArtData(slug: string) {
   return {
     art: art as ArtRow,
     products: (products as ProductRow[] | null) || [],
+    artSkus,
     compositionHtml: composition?.content_html || null,
-    pairedSongs,
-    pairedArt,
     formatSlug,
     muralDetails,
     licensingHtml,
@@ -175,7 +176,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const data = await getArtData(slug);
   if (!data) notFound();
-  const { art, products, compositionHtml, pairedSongs, pairedArt, formatSlug, muralDetails, licensingHtml } = data;
+  const { art, products, artSkus, compositionHtml, formatSlug, muralDetails, licensingHtml } = data;
 
   const isMural = formatSlug === "mural" && muralDetails;
   const muralLocation = isMural && muralDetails ? {
@@ -230,8 +231,6 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
           mural={muralDetails}
           products={products}
           compositionHtml={compositionHtml}
-          pairedSongs={pairedSongs}
-          pairedArt={pairedArt}
           licensingHtml={licensingHtml}
           licensingDirectAnswer={art.licensing_direct_answer}
           licensingKeyPoints={art.licensing_key_points}
@@ -240,38 +239,66 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
     );
   }
 
-  const metaParts = [art.medium, art.dimensions, art.year_created ? String(art.year_created) : null].filter(Boolean) as string[];
+  const metaCells = [
+    art.medium ? { label: "Medium", value: art.medium } : null,
+    art.dimensions ? { label: "Dimensions", value: art.dimensions } : null,
+    art.year_created ? { label: "Year", value: String(art.year_created) } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  // Ribbon on the cube when the original is gone.
+  const originalSku = artSkus.find((s) => s.format === "original");
+  const cubeRibbon =
+    originalSku?.status === "sold" ? "Sold" : originalSku?.status === "reserved" ? "Reserved" : null;
 
   return (
     <>
       {jsonLd}
       <AdminEditButton href={`/admin/art/${art.slug}`} />
-      <article className="art-detail">
-        <div className="art-detail__hero">
-          <Image
-            src={art.image_path}
-            alt={art.image_alt || art.title}
-            width={2000}
-            height={2000}
-            priority
-            sizes="(max-width: 1024px) 100vw, 1200px"
-            className="art-detail__hero-img"
-            style={focalCropStyle(art.hero_focal_x, art.hero_focal_y, art.hero_zoom)}
-          />
+      <div className="art-detail-page art-gallery">
+        {/* Hero: cube on the left, buy/info on the right -- song-detail template. */}
+        <div className="product-detail__grid art-detail__hero-grid">
+          <div className="product-detail__art-col">
+            <ArtFramedHero
+              imagePath={art.image_path}
+              imageAlt={art.image_alt}
+              title={art.title}
+              galleryPaths={art.gallery_paths}
+              ribbon={cubeRibbon}
+            />
+          </div>
+
+          <div className="product-detail__content-col">
+            <h1 className="product-detail__title">{art.title}</h1>
+
+            {metaCells.length > 0 && (
+              <div className="product-detail__info-bar" data-cols={metaCells.length}>
+                {metaCells.map((c) => (
+                  <div key={c.label} className="product-detail__info-cell">
+                    <span className="product-detail__info-label">{c.label}</span>
+                    <span className="product-detail__info-value">{c.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {art.art_summary && <p className="art-detail__summary art-detail__summary--hero">{art.art_summary}</p>}
+
+            {artSkus.length > 0 ? (
+              <ArtSkuBuyPanel
+                artId={art.id}
+                artTitle={art.title}
+                artSlug={art.slug}
+                coverImage={art.image_path}
+                skus={artSkus}
+              />
+            ) : (
+              <ArtBuyPanel products={products} artTitle={art.title} />
+            )}
+          </div>
         </div>
 
+        <div className="art-detail">
         <div className="art-detail__body">
-          <h1 className="art-detail__title">{art.title}</h1>
-          {metaParts.length > 0 && (
-            <div className="art-detail__meta">
-              {metaParts.map((m, i) => <span key={i}>{m}</span>)}
-            </div>
-          )}
-
-          {art.art_summary && <p className="art-detail__summary">{art.art_summary}</p>}
-
-          <ArtBuyPanel products={products} artTitle={art.title} />
-
           {art.chad_quote && (
             <blockquote className="art-detail__quote">
               <p>{art.chad_quote}</p>
@@ -283,6 +310,25 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
             <section className="art-detail__section">
               <h2>About</h2>
               <p>{art.description}</p>
+            </section>
+          )}
+
+          {art.in_situ_paths && art.in_situ_paths.length > 0 && (
+            <section className="art-detail__section">
+              <h2>In the room</h2>
+              <div className="art-detail__in-situ">
+                {art.in_situ_paths.map((src, i) => (
+                  <Image
+                    key={i}
+                    src={src}
+                    alt={`${art.title} shown to scale in a room`}
+                    width={1400}
+                    height={1000}
+                    sizes="(max-width: 1024px) 100vw, 800px"
+                    className="art-detail__in-situ-img"
+                  />
+                ))}
+              </div>
             </section>
           )}
 
@@ -300,7 +346,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
             keyPoints={art.licensing_key_points}
           />
 
-          <ArtPairingsSections pairedSongs={pairedSongs} pairedArt={pairedArt} />
+          <YouMightAlsoLike sourceType="art" sourceId={art.id} />
 
           {art.paa_pairs && art.paa_pairs.length > 0 && (
             <section className="art-detail__section art-detail__faq">
@@ -314,7 +360,8 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
             </section>
           )}
         </div>
-      </article>
+        </div>
+      </div>
     </>
   );
 }

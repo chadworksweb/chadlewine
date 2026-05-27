@@ -74,7 +74,7 @@ export async function syncDerivedProductColumns(
   const heroUrl = gallery[0]?.url || null;
   const allUrls = gallery.map((g) => g.url);
   await supabase
-    .from("products")
+    .from("merch")
     .update({ image_url: heroUrl, image_urls: allUrls })
     .eq("id", productId);
 }
@@ -115,6 +115,14 @@ export async function applyPrintifyImagesToGallery(
     if (k) byKey.set(k, row);
   }
 
+  // Printify can return several mockups that share the same (variant_ids,
+  // position) key — e.g. multiple angles/lifestyle shots tagged identically,
+  // common on AOP products. The unique index allows only one row per key, so
+  // collapse duplicates within this payload: keep the first occurrence, skip
+  // the rest. Without this the second same-key image throws a duplicate-key
+  // error and aborts the loop, leaving the gallery partial.
+  const insertedKeysThisRun = new Set<string>();
+
   // Track which existing rows were seen in the upstream payload so we can
   // hide the rest. is_hidden=true rows stay untouched (firewall).
   const seenIds = new Set<string>();
@@ -153,6 +161,10 @@ export async function applyPrintifyImagesToGallery(
         if (error) throw error;
         updated++;
       }
+    } else if (insertedKeysThisRun.has(k)) {
+      // Duplicate key already inserted from this same payload — the unique
+      // index permits only one row per key, so skip the redundant mockup.
+      continue;
     } else {
       const { error } = await supabase.from("product_images").insert({
         product_id: productId,
@@ -164,6 +176,7 @@ export async function applyPrintifyImagesToGallery(
         needs_review: true,
       });
       if (error) throw error;
+      insertedKeysThisRun.add(k);
       inserted++;
     }
   }

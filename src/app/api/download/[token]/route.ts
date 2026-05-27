@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { getMediaConfig } from "@/lib/media-config";
 import { signBunnyUrl } from "@/lib/bunny-token";
+import { resolveSkuDownloadPaths } from "@/lib/release-skus";
 
 // GET /api/download/[token]
 // token = purchases.id. Re-resolves the current song/album download path by
@@ -86,31 +87,26 @@ async function streamAsAttachment(
 
 async function resolveDownloadPath(
   supabase: ReturnType<typeof createAdminClient>,
-  itemType: string,
-  itemId: string | null,
   releaseSkuId: string | null,
   songSkuId: string | null,
   format: Format,
 ): Promise<string | null> {
-  const col = `download_path_${format}` as const;
-
   // SKU-first lookup. Post-migration commerce writes release_sku_id /
-  // song_sku_id on every purchase; SKU rows own the download paths.
-  if (releaseSkuId) {
-    const { data } = await supabase
-      .from("release_skus")
-      .select(col)
-      .eq("id", releaseSkuId)
-      .single<Record<string, string | null>>();
-    if (data?.[col]) return data[col];
-  }
-  if (songSkuId) {
-    const { data } = await supabase
-      .from("song_skus")
-      .select(col)
-      .eq("id", songSkuId)
-      .single<Record<string, string | null>>();
-    if (data?.[col]) return data[col];
+  // song_sku_id on every purchase; SKU rows own the download paths. For a
+  // physical SKU (vinyl/cd/cassette), resolveSkuDownloadPaths falls back to
+  // the sibling digital SKU so the included digital copy resolves here too.
+  if (releaseSkuId || songSkuId) {
+    const { byReleaseSku, bySongSku } = await resolveSkuDownloadPaths(
+      supabase,
+      releaseSkuId ? [releaseSkuId] : [],
+      songSkuId ? [songSkuId] : [],
+    );
+    const paths = releaseSkuId
+      ? byReleaseSku.get(releaseSkuId)
+      : songSkuId
+        ? bySongSku.get(songSkuId)
+        : undefined;
+    return paths?.[format] ?? null;
   }
 
   // No SKU resolved — songs/releases are SKU-only now; no legacy path fallback.
@@ -181,8 +177,6 @@ export async function GET(
 
   const pathOrUrl = await resolveDownloadPath(
     supabase,
-    purchase.item_type,
-    purchase.item_id,
     purchase.release_sku_id || null,
     purchase.song_sku_id || null,
     format,

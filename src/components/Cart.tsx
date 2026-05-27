@@ -10,12 +10,15 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { CrossSellStrip } from "@/components/CrossSellStrip";
 
 const CART_KEY = "chadlewine_cart";
 const AUTO_CLOSE_MS = 5000;
 
 export type CartItem = {
-  type: "song" | "release" | "ringtone" | "merch" | "art_original";
+  // "art" = art_skus-backed line (original or limited print, sku_id required).
+  // "art_original" is the legacy merch-backed original.
+  type: "song" | "release" | "ringtone" | "merch" | "art_original" | "art";
   id: string;
   title: string;
   slug: string;
@@ -296,7 +299,17 @@ export function CartUI() {
       });
       const data = await res.json();
       if (data.url) {
+        // Digital-only cart -> hosted Stripe Checkout redirect.
         window.location.href = data.url;
+        return;
+      }
+      if (data.client_secret) {
+        // Physical cart -> embedded checkout on /checkout (needs an address
+        // for shipping). Hand the secret to that page via sessionStorage.
+        try {
+          sessionStorage.setItem("cl_checkout_secret", data.client_secret);
+        } catch {}
+        window.location.href = "/checkout";
         return;
       }
       setError(data.error || "Could not start checkout. Please try again.");
@@ -393,6 +406,7 @@ export function CartUI() {
               })}
             </ul>
           )}
+          {items.length > 0 && <CrossSellStrip variant="drawer" />}
         </div>
 
         {items.length > 0 && (

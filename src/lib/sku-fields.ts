@@ -14,6 +14,15 @@ export const SKU_BASE_FIELDS = [
   "download_path_wav",
   "weight_grams",
   "ships_in_days",
+  "shipping_first_cents",
+  "shipping_addl_cents",
+  "shipping_ca_first_cents",
+  "shipping_ca_addl_cents",
+  "shipping_uk_first_cents",
+  "shipping_uk_addl_cents",
+  "shipping_row_first_cents",
+  "shipping_row_addl_cents",
+  "free_shipping_exempt",
   "printify_product_id",
   "printify_variant_id",
 ] as const;
@@ -26,7 +35,16 @@ const INTEGER_FIELDS = new Set<SkuBaseField>([
   "display_order",
   "weight_grams",
   "ships_in_days",
+  "shipping_first_cents",
+  "shipping_addl_cents",
+  "shipping_ca_first_cents",
+  "shipping_ca_addl_cents",
+  "shipping_uk_first_cents",
+  "shipping_uk_addl_cents",
+  "shipping_row_first_cents",
+  "shipping_row_addl_cents",
 ]);
+const BOOLEAN_FIELDS = new Set<SkuBaseField>(["free_shipping_exempt"]);
 const TEXT_NULLABLE_FIELDS = new Set<SkuBaseField>([
   "sku_code",
   "download_path_mp3",
@@ -61,6 +79,10 @@ export function pickSkuFields(body: Record<string, unknown>): {
       }
       if (f === "display_order") {
         updates[f] = 0;
+        continue;
+      }
+      if (BOOLEAN_FIELDS.has(f)) {
+        updates[f] = false;
         continue;
       }
       updates[f] = null;
@@ -100,6 +122,10 @@ export function pickSkuFields(body: Record<string, unknown>): {
           : parseInt(String(raw), 10);
       if (!isFinite(n)) return { updates, error: `${f} must be an integer` };
       updates[f] = n;
+      continue;
+    }
+    if (BOOLEAN_FIELDS.has(f)) {
+      updates[f] = raw === true || raw === "true" || raw === 1 || raw === "1";
       continue;
     }
     if (TEXT_NULLABLE_FIELDS.has(f)) {

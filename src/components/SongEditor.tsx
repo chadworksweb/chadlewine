@@ -12,7 +12,8 @@ import { SongVisibilityChat } from "@/components/SongVisibilityChat";
 import { SongVisibilitySections, type SongVisibilitySectionsHandle } from "@/components/SongVisibilitySections";
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { CubeFaceEditor } from "@/components/CubeFaceEditor";
-import { FeaturedPicker } from "@/components/FeaturedPicker";
+import { EntityPicker } from "@/components/EntityPicker";
+import { CreditsEditor } from "@/components/CreditsEditor";
 import { SkuPanel } from "@/components/SkuPanel";
 
 interface ExpansionSummary {
@@ -572,14 +573,30 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             />
           </div>
 
-          {/* Art Pairings */}
+          {/* You Might Also Like */}
           {form.id && (
             <div style={{ marginTop: "1.5rem" }}>
               <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "0.75rem" }}>
-                Art you might like (shown on song detail page)
+                You might also like (shown on song detail page)
               </h2>
-              <FeaturedPicker kind="art" parentRef={form.id} />
+              <EntityPicker sourceType="song" sourceId={form.id} />
             </div>
+          )}
+
+
+          {/* Credits (shown on song detail page, after lyrics) */}
+          {form.id && (
+            <div style={{ marginTop: "1.5rem" }}>
+              <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "0.75rem" }}>
+                Credits (shown on song detail page)
+              </h2>
+              <CreditsEditor songId={form.id} />
+            </div>
+          )}
+
+          {/* Formats (SKUs) */}
+          {form.id && (
+            <SkuPanel kind="song" parentId={form.id} parentSlug={form.slug} />
           )}
 
           {/* Visibility Engine */}
@@ -861,10 +878,6 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               />
             </div>
           </div>
-
-          {form.id && (
-            <SkuPanel kind="song" parentId={form.id} parentSlug={form.slug} />
-          )}
 
           {/* Playback */}
           <div className="obsv-editor__panel">

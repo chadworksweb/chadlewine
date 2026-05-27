@@ -8,9 +8,12 @@ export async function POST(request: Request) {
 
   const releaseSkuId = body.release_sku_id || null;
   const songSkuId = body.song_sku_id || null;
-  if (!releaseSkuId === !songSkuId) {
+  const artSkuId = body.art_sku_id || null;
+  const parentCount =
+    Number(!!releaseSkuId) + Number(!!songSkuId) + Number(!!artSkuId);
+  if (parentCount !== 1) {
     return Response.json(
-      { error: "exactly one of release_sku_id or song_sku_id is required" },
+      { error: "exactly one of release_sku_id, song_sku_id, or art_sku_id is required" },
       { status: 400 },
     );
   }
@@ -27,6 +30,7 @@ export async function POST(request: Request) {
     ...updates,
     release_sku_id: releaseSkuId,
     song_sku_id: songSkuId,
+    art_sku_id: artSkuId,
   };
 
   const { data, error } = await supabase

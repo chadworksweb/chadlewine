@@ -25,6 +25,7 @@ interface TagOption {
 
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { MediaLibrary } from "@/components/MediaLibrary";
+import { EntityPicker } from "@/components/EntityPicker";
 import { GeoPanel } from "@/components/GeoPanel";
 import { RelatedMusicPanel } from "@/components/RelatedMusicPanel";
 import { TaxonomyPicker } from "@/components/TaxonomyPicker";
@@ -508,6 +509,13 @@ export function ObservationEditor({
               placeholder="The contradiction — feeds Tension fragment"
             />
           </div>
+
+          {form.id && (
+            <div style={{ marginTop: "1.5rem" }}>
+              <h3 className="obsv-editor__panel-title">You might also like (shown on observation page)</h3>
+              <EntityPicker sourceType="observation" sourceId={form.id} />
+            </div>
+          )}
 
         </div>
 

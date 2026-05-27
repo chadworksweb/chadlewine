@@ -6,7 +6,8 @@ import { slugify } from "@/lib/utils";
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { ArtGalleryManager } from "@/components/ArtGalleryManager";
 import { ArtVariantsManager } from "@/components/ArtVariantsManager";
-import { FeaturedPicker } from "@/components/FeaturedPicker";
+import { ArtSkuPanel } from "@/components/admin/ArtSkuPanel";
+import { EntityPicker } from "@/components/EntityPicker";
 import { MuralDetailsEditor } from "@/components/MuralDetailsEditor";
 import { MediaLibrary } from "@/components/MediaLibrary";
 
@@ -300,6 +301,13 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
           onChange={(next) => set({ gallery_paths: next })}
         />
       </div>
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">In-situ / on-the-wall shots (sell the scale -- the piece hung in a real room)</label>
+        <ArtGalleryManager
+          paths={jsonArray("in_situ_paths")}
+          onChange={(next) => set({ in_situ_paths: next })}
+        />
+      </div>
 
       <h2 className="admin-page__section-title">Meta</h2>
       <div className="obsv-editor__field">
@@ -369,14 +377,22 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
 
       {isExisting && (
         <>
-          <h2 className="admin-page__section-title">Variants / Products</h2>
-          <ArtVariantsManager slug={currentSlug} />
+          <h2 className="admin-page__section-title">Editions &amp; pricing</h2>
+          <ArtSkuPanel slug={currentSlug} />
 
-          <h2 className="admin-page__section-title">Songs you might like (shown on art detail page)</h2>
-          <FeaturedPicker kind="song" parentRef={currentSlug} />
+          <details style={{ marginTop: "var(--space-md)" }}>
+            <summary style={{ cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "var(--text-tertiary)" }}>
+              Legacy merch-linked variants (being phased out)
+            </summary>
+            <ArtVariantsManager slug={currentSlug} />
+          </details>
 
-          <h2 className="admin-page__section-title">Other art you might like (shown on art detail page)</h2>
-          <FeaturedPicker kind="art" parentKind="art" parentRef={currentSlug} excludeSlug={currentSlug} />
+          {(form as { id?: string }).id && (
+            <>
+              <h2 className="admin-page__section-title">You might also like (shown on art detail page)</h2>
+              <EntityPicker sourceType="art" sourceId={(form as { id: string }).id} />
+            </>
+          )}
         </>
       )}
 
@@ -460,6 +476,7 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
 const SAVE_FIELDS = [
   "title", "slug", "medium", "image_path", "image_alt", "description",
   "display_order", "status", "dimensions", "year_created", "gallery_paths",
+  "in_situ_paths",
   "art_summary", "chad_quote", "format_id",
   "hero_focal_x", "hero_focal_y", "hero_zoom",
   "card_focal_x", "card_focal_y", "card_zoom",

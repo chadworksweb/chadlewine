@@ -6,7 +6,6 @@ import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { SocialShare } from "@/components/SocialShare";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
-import { MeditationMerchSection } from "@/components/MeditationMerchSection";
 
 export const revalidate = 60;
 
@@ -125,8 +124,6 @@ export default async function MeditationPermalinkPage({
       </article>
 
       <SynapseDisplay sourceType="meditation" sourceId={id} />
-
-      <MeditationMerchSection meditationId={id} />
 
       <SocialShare
         url={`https://chadlewine.com/meditations/${id}`}

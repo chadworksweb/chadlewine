@@ -54,7 +54,7 @@ function fmtDollars(n: number): string {
 
 export interface OrderEmailLine {
   title: string;
-  type: "song" | "release" | "ringtone" | "merch" | "art_original";
+  type: "song" | "release" | "ringtone" | "merch" | "art_original" | "art_limited_print";
   quantity: number;
   lineTotal: number;
   variantNote?: string;
@@ -199,7 +199,7 @@ function renderTotalsBlock(d: OrderEmailData): string {
 export function buildOrderConfirmationHtml(d: OrderEmailData): string {
   const hasDigital = d.items.some((i) => (i.formatLinks?.length ?? 0) > 0);
   const hasPhysical = d.items.some(
-    (i) => i.type === "merch" || i.type === "art_original",
+    (i) => i.type === "merch" || i.type === "art_original" || i.type === "art_limited_print",
   );
 
   const heading = hasDigital && !hasPhysical
@@ -212,8 +212,8 @@ export function buildOrderConfirmationHtml(d: OrderEmailData): string {
 
   const recoveryLine = hasDigital
     ? `<p style="font-size:12px;color:#808090;margin-top:24px;line-height:1.5;">
-        Lost the email? Recover all downloads at
-        <a href="${d.recoverUrl}" style="color:#8b9cf7;">${d.recoverUrl}</a>.
+        Save this email! Use <a href="${d.recoverUrl}" style="color:#8b9cf7;">this link</a> to recover your downloads.
+        Or better yet, <a href="${new URL("/account/register", d.recoverUrl).toString()}" style="color:#8b9cf7;">create an account</a>.
       </p>`
     : "";
 
@@ -252,7 +252,10 @@ export function buildAdminOrderNotificationHtml(d: OrderEmailData & {
       const variantLine = item.variantNote
         ? `<div style="font-size:12px;color:#808090;margin-top:2px;">${escapeHtml(item.variantNote)}</div>`
         : "";
-      const typeLabel = item.type === "art_original" ? "ART" : item.type.toUpperCase();
+      const typeLabel =
+        item.type === "art_original" || item.type === "art_limited_print"
+          ? "ART"
+          : item.type.toUpperCase();
       return `
         <tr>
           ${renderThumb(item.imageUrl)}
@@ -337,10 +340,21 @@ export function buildRecoveryEmailHtml(params: { verifyUrl: string }): string {
   return shell(inner, "You received this because someone requested download recovery at chadlewine.com");
 }
 
-export function buildMemberCouponEmailHtml(params: {
+/* Generic coupon email. Renders the eyebrow / headline / intro copy supplied
+   by the caller, the code block, an expiry line, a "Shop now" CTA, and an
+   optional how-to-redeem footer. Reused by every coupon funnel (member
+   thank-you, inquiry-form lead magnet, ...) so the look stays consistent. */
+export function buildCouponEmailHtml(params: {
   code: string;
   percentOff: number;
   expiresAt: Date;
+  eyebrow: string;
+  headline: string;
+  intro: string;
+  redeemNote: string;
+  footerNote: string;
+  ctaUrl?: string;
+  ctaLabel?: string;
 }): string {
   const expiresText = params.expiresAt.toLocaleString("en-US", {
     weekday: "short",
@@ -352,14 +366,13 @@ export function buildMemberCouponEmailHtml(params: {
     timeZone: "America/New_York",
     timeZoneName: "short",
   });
-  const shopUrl = `${SITE_URL}/music`;
+  const shopUrl = params.ctaUrl || `${SITE_URL}/music`;
+  const ctaLabel = params.ctaLabel || "Shop now";
   const inner = `
-    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em; color: #8b9cf7; margin-bottom: 8px;">Coupon claimed</p>
-    <h1 style="font-size: 26px; font-weight: 600; margin: 0 0 12px; color: #e0e0e8;">${params.percentOff}% off your next order</h1>
+    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em; color: #8b9cf7; margin-bottom: 8px;">${escapeHtml(params.eyebrow)}</p>
+    <h1 style="font-size: 26px; font-weight: 600; margin: 0 0 12px; color: #e0e0e8;">${escapeHtml(params.headline)}</h1>
     <p style="font-size: 16px; color: #a0a0b0; line-height: 1.55; margin: 0 0 24px;">
-      Thanks for being a member. Use it on all music in your cart, or
-      one merch item &mdash; whichever saves more. One use, expires in
-      seven days.
+      ${params.intro}
     </p>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px;">
       <tr>
@@ -373,17 +386,36 @@ export function buildMemberCouponEmailHtml(params: {
       <tr>
         <td bgcolor="#8b9cf7" style="border-radius: 4px; padding: 12px 28px;">
           <a href="${shopUrl}" style="color: #0a0a14; text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block;">
-            <span style="color: #0a0a14;">Shop now</span>
+            <span style="color: #0a0a14;">${escapeHtml(ctaLabel)}</span>
           </a>
         </td>
       </tr>
     </table>
     <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.55;">
-      It's saved to your account. Add items to your cart, then toggle on
-      "Apply your member coupon" right above the checkout button.
+      ${params.redeemNote}
     </p>
   `;
-  return shell(inner, "You received this because you claimed a member coupon at chadlewine<span style=\"color:inherit;\">.</span>com");
+  return shell(inner, params.footerNote);
+}
+
+export function buildMemberCouponEmailHtml(params: {
+  code: string;
+  percentOff: number;
+  expiresAt: Date;
+}): string {
+  return buildCouponEmailHtml({
+    code: params.code,
+    percentOff: params.percentOff,
+    expiresAt: params.expiresAt,
+    eyebrow: "Coupon claimed",
+    headline: `${params.percentOff}% off your next order`,
+    intro:
+      "Thanks for being a member. Use it on all music in your cart, or one merch item &mdash; whichever saves more. One use, expires in seven days.",
+    redeemNote:
+      'It\'s saved to your account. Add items to your cart, then toggle on "Apply your member coupon" right above the checkout button.',
+    footerNote:
+      'You received this because you claimed a member coupon at chadlewine<span style="color:inherit;">.</span>com',
+  });
 }
 
 export function buildObservationEmailHtml(observation: {

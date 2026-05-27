@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAutosave } from "@/hooks/useAutosave";
 import { MerchGalleryPanel } from "@/components/admin/MerchGalleryPanel";
 import { LinkedPrintPicker } from "@/components/admin/LinkedPrintPicker";
+import { EntityPicker } from "@/components/EntityPicker";
 
 const STATUSES = ["active", "inactive", "pending_review"] as const;
 const FULFILLMENTS = ["manual", "printify_curated"] as const;
@@ -20,9 +21,17 @@ interface ProductData {
   printify_product_id: string | null;
   image_url: string | null;
   image_alt: string | null;
-  source_observation_id: string | null;
   is_catalog_item: boolean;
   linked_art_piece_id: string | null;
+  shipping_first_cents: number | null;
+  shipping_addl_cents: number | null;
+  shipping_ca_first_cents: number | null;
+  shipping_ca_addl_cents: number | null;
+  shipping_uk_first_cents: number | null;
+  shipping_uk_addl_cents: number | null;
+  shipping_row_first_cents: number | null;
+  shipping_row_addl_cents: number | null;
+  free_shipping_exempt: boolean;
 }
 
 const emptyProduct: ProductData = {
@@ -35,9 +44,17 @@ const emptyProduct: ProductData = {
   printify_product_id: null,
   image_url: null,
   image_alt: null,
-  source_observation_id: null,
   is_catalog_item: false,
   linked_art_piece_id: null,
+  shipping_first_cents: null,
+  shipping_addl_cents: null,
+  shipping_ca_first_cents: null,
+  shipping_ca_addl_cents: null,
+  shipping_uk_first_cents: null,
+  shipping_uk_addl_cents: null,
+  shipping_row_first_cents: null,
+  shipping_row_addl_cents: null,
+  free_shipping_exempt: false,
 };
 
 interface Props {
@@ -70,9 +87,17 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           printify_product_id: d.printify_product_id ?? null,
           image_url: d.image_url ?? null,
           image_alt: d.image_alt ?? null,
-          source_observation_id: d.source_observation_id ?? null,
           is_catalog_item: !!d.is_catalog_item,
           linked_art_piece_id: d.linked_art_piece_id ?? null,
+          shipping_first_cents: d.shipping_first_cents ?? null,
+          shipping_addl_cents: d.shipping_addl_cents ?? null,
+          shipping_ca_first_cents: d.shipping_ca_first_cents ?? null,
+          shipping_ca_addl_cents: d.shipping_ca_addl_cents ?? null,
+          shipping_uk_first_cents: d.shipping_uk_first_cents ?? null,
+          shipping_uk_addl_cents: d.shipping_uk_addl_cents ?? null,
+          shipping_row_first_cents: d.shipping_row_first_cents ?? null,
+          shipping_row_addl_cents: d.shipping_row_addl_cents ?? null,
+          free_shipping_exempt: !!d.free_shipping_exempt,
         });
       })
       .catch(() => setError("Not found"));
@@ -90,9 +115,17 @@ export function MerchProductEditor({ idOrSlug }: Props) {
       printify_product_id: data.printify_product_id,
       image_url: data.image_url,
       image_alt: data.image_alt,
-      source_observation_id: data.source_observation_id,
       is_catalog_item: data.is_catalog_item,
       linked_art_piece_id: data.linked_art_piece_id,
+      shipping_first_cents: data.shipping_first_cents,
+      shipping_addl_cents: data.shipping_addl_cents,
+      shipping_ca_first_cents: data.shipping_ca_first_cents,
+      shipping_ca_addl_cents: data.shipping_ca_addl_cents,
+      shipping_uk_first_cents: data.shipping_uk_first_cents,
+      shipping_uk_addl_cents: data.shipping_uk_addl_cents,
+      shipping_row_first_cents: data.shipping_row_first_cents,
+      shipping_row_addl_cents: data.shipping_row_addl_cents,
+      free_shipping_exempt: data.free_shipping_exempt,
     };
   }, []);
 
@@ -249,14 +282,55 @@ export function MerchProductEditor({ idOrSlug }: Props) {
         </div>
       )}
 
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Source Observation ID (optional)</label>
-        <input
-          className="obsv-editor__input obsv-editor__input--mono"
-          value={form.source_observation_id ?? ""}
-          onChange={(e) => set("source_observation_id", e.target.value || null)}
-        />
-      </div>
+      {form.fulfillment === "manual" && (
+        <div className="obsv-editor__field">
+          <label className="obsv-editor__label">
+            Manual shipping rates ($ &mdash; first item / each additional, by zone)
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <input className="obsv-editor__input" type="number" min={0} step="0.01"
+              value={form.shipping_first_cents != null ? (form.shipping_first_cents / 100).toString() : ""}
+              onChange={(e) => set("shipping_first_cents", e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+              placeholder="US: first (e.g. 6.00)" />
+            <input className="obsv-editor__input" type="number" min={0} step="0.01"
+              value={form.shipping_addl_cents != null ? (form.shipping_addl_cents / 100).toString() : ""}
+              onChange={(e) => set("shipping_addl_cents", e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+              placeholder="US: each additional (e.g. 2.00)" />
+            <input className="obsv-editor__input" type="number" min={0} step="0.01"
+              value={form.shipping_ca_first_cents != null ? (form.shipping_ca_first_cents / 100).toString() : ""}
+              onChange={(e) => set("shipping_ca_first_cents", e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+              placeholder="Canada: first" />
+            <input className="obsv-editor__input" type="number" min={0} step="0.01"
+              value={form.shipping_ca_addl_cents != null ? (form.shipping_ca_addl_cents / 100).toString() : ""}
+              onChange={(e) => set("shipping_ca_addl_cents", e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+              placeholder="Canada: each additional" />
+            <input className="obsv-editor__input" type="number" min={0} step="0.01"
+              value={form.shipping_uk_first_cents != null ? (form.shipping_uk_first_cents / 100).toString() : ""}
+              onChange={(e) => set("shipping_uk_first_cents", e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+              placeholder="UK: first" />
+            <input className="obsv-editor__input" type="number" min={0} step="0.01"
+              value={form.shipping_uk_addl_cents != null ? (form.shipping_uk_addl_cents / 100).toString() : ""}
+              onChange={(e) => set("shipping_uk_addl_cents", e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+              placeholder="UK: each additional" />
+            <input className="obsv-editor__input" type="number" min={0} step="0.01"
+              value={form.shipping_row_first_cents != null ? (form.shipping_row_first_cents / 100).toString() : ""}
+              onChange={(e) => set("shipping_row_first_cents", e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+              placeholder="Rest of world: first" />
+            <input className="obsv-editor__input" type="number" min={0} step="0.01"
+              value={form.shipping_row_addl_cents != null ? (form.shipping_row_addl_cents / 100).toString() : ""}
+              onChange={(e) => set("shipping_row_addl_cents", e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+              placeholder="Rest of world: each additional" />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={form.free_shipping_exempt}
+              onChange={(e) => set("free_shipping_exempt", e.target.checked)}
+            />
+            <span>Always charge shipping (exclude from the free-US-shipping threshold)</span>
+          </label>
+        </div>
+      )}
 
       {!isExisting && (
         <>
@@ -292,6 +366,13 @@ export function MerchProductEditor({ idOrSlug }: Props) {
         value={form.linked_art_piece_id}
         onChange={(id) => set("linked_art_piece_id", id)}
       />
+
+      {isExisting && form.id && (
+        <div className="obsv-editor__field">
+          <label className="obsv-editor__label">You might also like (shown on product page)</label>
+          <EntityPicker sourceType="merch" sourceId={form.id} />
+        </div>
+      )}
 
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">

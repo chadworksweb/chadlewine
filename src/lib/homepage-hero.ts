@@ -84,7 +84,7 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
       ? supabase.from("releases").select("id, slug, title, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom").in("id", idsByType.release)
       : Promise.resolve({ data: [] }),
     idsByType.merch.length
-      ? supabase.from("products").select("id, slug, title, image_url, image_alt").in("id", idsByType.merch)
+      ? supabase.from("merch").select("id, slug, title, image_url, image_alt").in("id", idsByType.merch)
       : Promise.resolve({ data: [] }),
     idsByType.observation.length
       ? supabase.from("observations").select("id, slug, title, art_image_path, art_alt").in("id", idsByType.observation)

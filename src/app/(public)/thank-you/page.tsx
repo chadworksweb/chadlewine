@@ -5,6 +5,7 @@ import posthog from "posthog-js";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ExploreGrid, type ExploreGridItem } from "@/components/ExploreGrid";
+import { PostPurchaseCrossSell } from "@/components/PostPurchaseCrossSell";
 
 type EligibilityState =
   | { status: "loading" }
@@ -159,7 +160,7 @@ function MemberCouponOffer({
   const returnUrl =
     typeof window !== "undefined"
       ? `${window.location.pathname}${window.location.search}`
-      : `/music/purchase/cart-thank-you?session_id=${sessionId}`;
+      : `/thank-you?session_id=${sessionId}`;
 
   if (eligibility.status === "guest") {
     return (
@@ -392,8 +393,9 @@ function CartThankYouContent() {
             <div className="cart-thank-you__greeting">
               <h1 className="page-static__title">Thank You</h1>
               <p className="cart-thank-you__greeting-line">
-                Your purchase is confirmed. Download links are on their way to
-                your email.
+                Your order is confirmed. A receipt is on its way to your email,
+                with download links for anything digital, and tracking
+                for anything we ship.
               </p>
             </div>
             <div className="cart-thank-you__coupon-col">
@@ -405,6 +407,8 @@ function CartThankYouContent() {
               )}
             </div>
           </div>
+
+          {sessionId && <PostPurchaseCrossSell sessionId={sessionId} />}
 
           {couponResolved && <ThankYouExplore />}
         </div>

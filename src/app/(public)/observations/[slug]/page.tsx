@@ -9,7 +9,7 @@ import { ImageObjectJsonLd } from "@/components/ImageObjectJsonLd";
 import { formatDate } from "@/lib/utils";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { SynapseDisplay } from "@/components/SynapseDisplay";
-import { MerchSection } from "@/components/MerchSection";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ExploreStrip } from "@/components/ExploreStrip";
 
 
@@ -283,6 +283,8 @@ export default async function ObservationPage({
 
       <SynapseDisplay sourceType="observation" sourceId={obsv.id} />
 
+      <YouMightAlsoLike sourceType="observation" sourceId={obsv.id} />
+
       <div className="obsv-celestial-anchor">
         <div className="obsv-celestial-wrap" aria-hidden="true">
           <svg className="obsv-celestial" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
@@ -373,8 +375,6 @@ export default async function ObservationPage({
           </div>
         </section>
       )}
-
-      <MerchSection observationId={obsv.id} />
 
       {related.length > 0 && (
         <section className="related-observations">

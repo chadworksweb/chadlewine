@@ -20,6 +20,7 @@ const adminNav: NavItem[] = [
       { href: "/admin/launch-control", label: "Launch Control" },
       { href: "/admin/voice-profile", label: "Voice Profile" },
       { href: "/admin/seo", label: "SEO" },
+      { href: "/admin/songwriting", label: "Songwriting Grid" },
       { href: "/admin/redirects", label: "Redirects" },
       { href: "/admin/arc", label: "Arc — Overview" },
       { href: "/admin/arc/capture", label: "Arc — Capture" },
@@ -50,6 +51,7 @@ const adminNav: NavItem[] = [
       { href: "/admin/cl-stream", label: "Curation — CL Stream" },
     ],
   },
+  { href: "/admin/inquiries", label: "Inquiries" },
   { href: "/admin/art", label: "Art" },
   {
     href: "/admin/merch",

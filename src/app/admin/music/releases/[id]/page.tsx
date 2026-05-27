@@ -9,6 +9,7 @@ import { MediaLibrary } from "@/components/MediaLibrary";
 import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { ReleaseVisibilityChat } from "@/components/ReleaseVisibilityChat";
 import { ReleaseVisibilitySections, type ReleaseVisibilitySectionsHandle } from "@/components/ReleaseVisibilitySections";
+import { EntityPicker } from "@/components/EntityPicker";
 import { CubeFaceEditor } from "@/components/CubeFaceEditor";
 import { SkuPanel } from "@/components/SkuPanel";
 import { RELEASE_TYPE_OPTIONS } from "@/lib/release-labels";
@@ -208,6 +209,15 @@ export default function EditAlbumPage() {
               <div style={{ marginTop: "1rem" }}>
                 <ReleaseVisibilitySections ref={sectionsRef} albumId={form.id} />
               </div>
+            </div>
+          )}
+
+          {form.id && (
+            <div style={{ marginTop: "1.5rem" }}>
+              <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)", marginBottom: "0.75rem" }}>
+                You might also like (shown on release page)
+              </h2>
+              <EntityPicker sourceType="release" sourceId={form.id} />
             </div>
           )}
         </div>

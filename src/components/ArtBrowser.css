@@ -1,0 +1,45 @@
+/* Layout-swap button shared by both art views. */
+.art-view-toggle {
+  position: fixed;
+  z-index: 120;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.art-view-toggle:hover {
+  background: var(--text-accent, #8b9cf7);
+  border-color: var(--text-accent, #8b9cf7);
+  color: #000;
+}
+.art-view-toggle svg { width: 20px; height: 20px; display: block; }
+
+/* Immersive: tuck the button inside the slider's 50px bezel frame. */
+.art-view-toggle--slide {
+  top: calc(var(--nav-height, 80px) + 66px);
+  right: 66px;
+}
+/* Grid: normal page corner. */
+.art-view-toggle--grid {
+  top: calc(var(--nav-height, 80px) + 16px);
+  right: 20px;
+}
+
+/* Cross-fade the incoming view (the two mechanisms can't share elements, so a
+   fade is the honest transition). */
+.art-browser__view {
+  animation: art-view-in 0.4s ease;
+}
+@keyframes art-view-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

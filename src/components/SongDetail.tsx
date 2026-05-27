@@ -12,6 +12,7 @@ import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
 import { ExploreGrid } from "@/components/ExploreGrid";
 import { FitText } from "@/components/FitText";
+import { creditRoleLabel } from "@/lib/song-credits";
 
 interface SongProps {
   id: string;
@@ -95,6 +96,12 @@ interface VisibilitySectionProps {
   keyPointsHtml: string[];
 }
 
+interface CreditProps {
+  id: string;
+  role: string;
+  name: string;
+}
+
 interface ConnectionsSongProps {
   id: string;
   slug: string;
@@ -158,6 +165,7 @@ export function SongDetail({
   album,
   totalTracks,
   expansions = [],
+  credits = [],
   visibilitySections = [],
   badge,
   playbackMode = "preview",
@@ -173,6 +181,7 @@ export function SongDetail({
   album: AlbumProps | null;
   totalTracks: number;
   expansions?: ExpansionProps[];
+  credits?: CreditProps[];
   visibilitySections?: VisibilitySectionProps[];
   badge?: BadgeProps | null;
   playbackMode?: "preview" | "full";
@@ -292,24 +301,81 @@ export function SongDetail({
             ))}
           </div>
 
-          {/* Mini player */}
-          {song.streaming_path && (
-            <MiniPlayer
-              songId={song.id}
-              songSlug={song.slug}
-              streamingUrl={song.streaming_path}
-              trackNumber={song.track_number}
-              trackTitle={song.title}
-              durationSeconds={song.duration_seconds ?? 0}
-              artImagePath={coverArtPath}
-              artAlt={coverArtAlt}
-              playbackMode={playbackMode}
-              hideTitle
-            />
+          {/* Mini player + Rising Compass badge (badge sits to the right,
+              shrinking the player to fit) */}
+          {(song.streaming_path || badge) && (
+            <div className="track-detail__player-row">
+              {song.streaming_path && (
+                <MiniPlayer
+                  songId={song.id}
+                  songSlug={song.slug}
+                  streamingUrl={song.streaming_path}
+                  trackNumber={song.track_number}
+                  trackTitle={song.title}
+                  durationSeconds={song.duration_seconds ?? 0}
+                  artImagePath={coverArtPath}
+                  artAlt={coverArtAlt}
+                  playbackMode={playbackMode}
+                  hideTitle
+                />
+              )}
+              {badge && (
+                <div className="track-detail__rc-badge">
+                  {badge.pending && (
+                    <span
+                      className="track-detail__rc-pending-stamp"
+                      aria-label="Pending recalibration"
+                      title="This score is being contested — a recalibration is pending review."
+                    >
+                      PENDING
+                    </span>
+                  )}
+                  <a
+                    href={badge.songSlug ? `https://risingcompass.net/songs/${encodeURIComponent(badge.songSlug)}` : "https://risingcompass.net"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="track-detail__rc-compass-link"
+                  >
+                    <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
+                  </a>
+                  <div className="track-detail__rc-data">
+                    <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
+                      {badge.tierLabel}
+                    </span>
+                    <div className="track-detail__rc-charge-row">
+                      <span className="track-detail__rc-charge">
+                        {badge.charge > 0 ? "+" : ""}{badge.charge}
+                      </span>
+                      {badge.chargeSummary && (
+                        <div className="track-detail__rc-summary-wrap">
+                          <button
+                            type="button"
+                            className="track-detail__rc-summary-btn"
+                            onClick={() => setSummaryOpen((v) => !v)}
+                            aria-label="Read charge summary"
+                            title="Charge summary"
+                          >
+                            &#x1F4AC;
+                          </button>
+                          {summaryOpen && (
+                            <div className="track-detail__rc-summary-tooltip">
+                              <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
+                              {badge.contaminated && badge.contaminationNote && (
+                                <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* Action row: buttons + badge */}
-          <div className="track-detail__action-row">
+          {/* Action row: CTA buttons (full width) */}
+          <div className="track-detail__action-row track-detail__action-row--full">
             <div className="track-detail__actions">
               {songSkus.length > 0 && (
                 <FormatShowcase
@@ -355,59 +421,6 @@ export function SongDetail({
                 </button>
               )}
             </div>
-
-            {badge && (
-              <div className="track-detail__rc-badge">
-                {badge.pending && (
-                  <span
-                    className="track-detail__rc-pending-stamp"
-                    aria-label="Pending recalibration"
-                    title="This score is being contested — a recalibration is pending review."
-                  >
-                    PENDING
-                  </span>
-                )}
-                <a
-                  href={badge.songSlug ? `https://risingcompass.net/songs/${encodeURIComponent(badge.songSlug)}` : "https://risingcompass.net"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="track-detail__rc-compass-link"
-                >
-                  <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
-                </a>
-                <div className="track-detail__rc-data">
-                  <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
-                    {badge.tierLabel}
-                  </span>
-                  <div className="track-detail__rc-charge-row">
-                    <span className="track-detail__rc-charge">
-                      {badge.charge > 0 ? "+" : ""}{badge.charge}
-                    </span>
-                    {badge.chargeSummary && (
-                      <div className="track-detail__rc-summary-wrap">
-                        <button
-                          type="button"
-                          className="track-detail__rc-summary-btn"
-                          onClick={() => setSummaryOpen((v) => !v)}
-                          aria-label="Read charge summary"
-                          title="Charge summary"
-                        >
-                          &#x1F4AC;
-                        </button>
-                        {summaryOpen && (
-                          <div className="track-detail__rc-summary-tooltip">
-                            <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
-                            {badge.contaminated && badge.contaminationNote && (
-                              <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Collapsible album-format carousel -- expanded by the "Choose
@@ -464,6 +477,21 @@ export function SongDetail({
               <div className="track-detail__summary-text">
                 {song.song_summary}
               </div>
+            </div>
+          )}
+
+          {/* Credits */}
+          {credits.length > 0 && (
+            <div className="track-detail__section">
+              <h3 className="track-detail__section-title">Credits</h3>
+              <dl className="track-detail__credits">
+                {credits.map((c) => (
+                  <div key={c.id} className="track-detail__credit">
+                    <dt className="track-detail__credit-role">{creditRoleLabel(c.role)}</dt>
+                    <dd className="track-detail__credit-name">{c.name}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           )}
 

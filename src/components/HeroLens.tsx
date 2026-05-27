@@ -213,6 +213,10 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const [dragPx, setDragPx] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const viewportWidthRef = useRef(0);
+  // Mirrored into state so the render path can read the drag-normalization
+  // width without touching a ref during render (the ref stays for use inside
+  // the touch handlers).
+  const [viewportWidth, setViewportWidth] = useState(0);
 
   // One-time mobile swipe affordance: on first homepage view this session,
   // the slides ease left to reveal more of the next peek, then settle back,
@@ -252,7 +256,9 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (lockoutRef.current) return;
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    viewportWidthRef.current = viewportRef.current?.offsetWidth || window.innerWidth;
+    const vw0 = viewportRef.current?.offsetWidth || window.innerWidth;
+    viewportWidthRef.current = vw0;
+    setViewportWidth(vw0);
     gestureAxis.current = null;
     setDragPx(0);
     setIsDragging(false);
@@ -325,7 +331,7 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
           // width, clamped to one slide of travel. Derived from dragPx so it
           // tracks the finger live AND rides the release-settle frames (dragPx
           // stays set until the post-advance reset). 0 on desktop / at rest.
-          const vw = viewportWidthRef.current || 1;
+          const vw = viewportWidth || 1;
           const dragFrac = isMobile ? Math.max(-1, Math.min(1, dragPx / vw)) : 0;
           return items.map((item, i) => {
           // Shortest signed distance modulo total — so item N-1 reads as

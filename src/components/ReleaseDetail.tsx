@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/components/Cart";
+import { usePlayer } from "@/components/PlayerContext";
 import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
 import type { SkuGalleryImage } from "@/lib/release-skus";
 
@@ -75,9 +76,6 @@ function CompassIcon({ charge, tierHex }: { charge: number; tierHex: string }) {
   );
 }
 
-const PREVIEW_START = 13;
-const PREVIEW_DURATION = 30;
-const FADE_DURATION = 2;
 const PLAY_RING_RADIUS = 12;
 const PLAY_RING_CIRCUMFERENCE = 2 * Math.PI * PLAY_RING_RADIUS;
 
@@ -92,8 +90,7 @@ export function ReleaseDetail({
   badge?: AlbumBadgeProps | null;
   skus?: FormatShowcaseSku[];
 }) {
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const player = usePlayer();
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeGallery, setActiveGallery] = useState<SkuGalleryImage[]>([]);
@@ -128,101 +125,32 @@ export function ReleaseDetail({
     setActiveGalleryUrl(imgs[0]?.url ?? null);
   }, []);
   const cart = useCart();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const rafRef = useRef<number>(0);
 
   const year = album.release_date
     ? new Date(album.release_date).getFullYear()
     : null;
 
-  const stopPlayback = useCallback(() => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
-    }
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    setPlayingId(null);
-    setProgress(0);
-  }, []);
-
-  useEffect(() => {
-    return () => { stopPlayback(); };
-  }, [stopPlayback]);
-
-  // Track which song is playing in full-mode so tick() can scope its math
-  // to that song's duration instead of the preview window.
-  const fullPlayRef = useRef<{ duration: number } | null>(null);
-
-  function tick() {
-    const audio = audioRef.current;
-    if (!audio || audio.paused) return;
-    const fp = fullPlayRef.current;
-    if (fp && fp.duration > 0) {
-      const pct = Math.max(0, Math.min(1, audio.currentTime / fp.duration));
-      setProgress(pct);
-      if (audio.ended) {
-        stopPlayback();
-        return;
-      }
-    } else {
-      const elapsed = audio.currentTime - PREVIEW_START;
-      const pct = Math.max(0, Math.min(1, elapsed / PREVIEW_DURATION));
-      setProgress(pct);
-      const remaining = PREVIEW_DURATION - elapsed;
-      if (remaining <= FADE_DURATION) {
-        audio.volume = Math.max(0, remaining / FADE_DURATION);
-      }
-      if (elapsed >= PREVIEW_DURATION) {
-        stopPlayback();
-        return;
-      }
-    }
-    rafRef.current = requestAnimationFrame(tick);
-  }
-
+  // Playback is delegated to the shared PlayerContext (same engine as the
+  // mini player + sticky player) so only one track plays at a time across the
+  // whole app and the sticky bar reflects album-page playback. Pause/resume
+  // are real pauses, not stop-and-restart.
   function handlePlay(song: SongProps) {
-    if (playingId === song.id) {
-      stopPlayback();
+    if (!song.streaming_path) return;
+    if (player.isCurrent(song.id)) {
+      if (player.playing) player.pause();
+      else player.resume();
       return;
     }
-    if (!song.streaming_path) return;
-
-    stopPlayback();
-    const audio = new Audio(song.streaming_path);
-    audioRef.current = audio;
-    const isFullPlay = song.playback_mode === "full";
-    fullPlayRef.current = isFullPlay
-      ? { duration: song.duration_seconds ?? 0 }
-      : null;
-
-    if (isFullPlay) {
-      audio.currentTime = 0;
-      audio.volume = 1;
-    } else {
-      audio.currentTime = PREVIEW_START;
-      audio.volume = 0;
-    }
-
-    audio.addEventListener("canplay", () => {
-      audio.play().then(() => {
-        setPlayingId(song.id);
-        if (!isFullPlay) {
-          let vol = 0;
-          const fadeIn = setInterval(() => {
-            vol += 0.05;
-            if (vol >= 1) { audio.volume = 1; clearInterval(fadeIn); }
-            else { audio.volume = vol; }
-          }, FADE_DURATION * 1000 / 20);
-        }
-        rafRef.current = requestAnimationFrame(tick);
-      });
-    }, { once: true });
-
-    audio.addEventListener("ended", () => { stopPlayback(); }, { once: true });
-    audio.addEventListener("error", () => { stopPlayback(); }, { once: true });
-    audio.load();
+    player.play({
+      id: song.id,
+      slug: song.slug,
+      title: song.title,
+      streamingUrl: song.streaming_path,
+      durationSeconds: song.duration_seconds ?? 0,
+      artImagePath: album.cover_art_path,
+      artAlt: album.cover_art_alt,
+      playbackMode: song.playback_mode ?? "preview",
+    });
   }
 
   const hasMultipleFormats = skus.length > 1;
@@ -393,7 +321,9 @@ export function ReleaseDetail({
           {songs.length > 0 && (
             <ol className="album-detail__tracklist">
               {songs.map((song) => {
-                const isActive = playingId === song.id;
+                const isActive = player.isCurrent(song.id);
+                const isPlaying = isActive && player.playing;
+                const rowProgress = isActive ? player.progress : 0;
                 const hasAudio = !!song.streaming_path;
                 const canDownload = !!song.sku_id && song.price !== null;
                 const inCart = canDownload
@@ -411,16 +341,29 @@ export function ReleaseDetail({
                     key={song.id}
                     className={`tracklist-row${isActive ? " tracklist-row--active" : ""}${!hasAudio ? " tracklist-row--no-audio" : ""}${isExpanded ? " tracklist-row--expanded" : ""}`}
                   >
-                    <div className="tracklist-row__head">
+                    <div
+                      className="tracklist-row__head"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-controls={panelId}
+                      onClick={() => setExpandedId((prev) => (prev === song.id ? null : song.id))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setExpandedId((prev) => (prev === song.id ? null : song.id));
+                        }
+                      }}
+                    >
                       <span className="tracklist-row__num">
                         {String(song.track_number).padStart(2, "0")}
                       </span>
                       <button
                         type="button"
                         className="tracklist-row__play-btn"
-                        onClick={hasAudio ? () => handlePlay(song) : undefined}
+                        onClick={hasAudio ? (e) => { e.stopPropagation(); handlePlay(song); } : undefined}
                         disabled={!hasAudio}
-                        aria-label={isActive ? "Stop preview" : `Play ${song.title} preview`}
+                        aria-label={isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
                       >
                         <svg
                           className="tracklist-row__play-ring"
@@ -447,43 +390,37 @@ export function ReleaseDetail({
                             strokeLinecap="round"
                             strokeDasharray={PLAY_RING_CIRCUMFERENCE}
                             strokeDashoffset={
-                              PLAY_RING_CIRCUMFERENCE *
-                              (1 - (isActive ? progress : 0))
+                              PLAY_RING_CIRCUMFERENCE * (1 - rowProgress)
                             }
                             transform="rotate(-90 13 13)"
                           />
                         </svg>
                         <span className="tracklist-row__play-icon" aria-hidden="true">
-                          {isActive ? (
-                            <svg width="8" height="8" viewBox="0 0 10 10" fill="currentColor">
+                          {isPlaying ? (
+                            <svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor">
                               <rect x="0" y="0" width="3" height="10" />
                               <rect x="7" y="0" width="3" height="10" />
                             </svg>
                           ) : (
-                            <svg width="8" height="9" viewBox="0 0 10 11" fill="currentColor">
+                            <svg width="7" height="8" viewBox="0 0 10 11" fill="currentColor">
                               <polygon points="0,0 10,5.5 0,11" />
                             </svg>
                           )}
                         </span>
                       </button>
 
-                      <button
-                        type="button"
-                        className="tracklist-row__expand-btn"
-                        onClick={() => setExpandedId((prev) => (prev === song.id ? null : song.id))}
-                        aria-expanded={isExpanded}
-                        aria-controls={panelId}
-                      >
+                      <span className="tracklist-row__expand-btn">
                         <span className="tracklist-row__title">{song.title}</span>
                         <span className="tracklist-row__duration">
                           {song.duration_seconds ? formatDuration(song.duration_seconds) : "--"}
                         </span>
-                      </button>
+                      </span>
 
                       <button
                         type="button"
                         className={`tracklist-row__action tracklist-row__action--cart${inCart ? " is-added" : ""}`}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (inCart || !canDownload || !song.sku_id || song.price === null) return;
                           cart.add({
                             type: "song",
@@ -557,7 +494,8 @@ export function ReleaseDetail({
                         <button
                           type="button"
                           className={`tracklist-row__action${ringtoneInCart ? " is-added" : ""}`}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (ringtoneInCart || !song.ringtone_price) return;
                             cart.add({
                               type: "ringtone",

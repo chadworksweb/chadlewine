@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
-import { SongMerchSection } from "@/components/SongMerchSection";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ExploreStrip } from "@/components/ExploreStrip";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge } from "@/lib/rising-compass";
@@ -12,18 +12,6 @@ import { getSingleSongIds } from "@/lib/song-singles";
 import { fetchReleaseSkusForIds, fetchSongSkusForIds } from "@/lib/release-skus";
 
 export const revalidate = 60;
-
-type PairedArt = {
-  id: string;
-  slug: string;
-  title: string;
-  image_path: string;
-  image_alt: string | null;
-  hero_focal_x: number | null;
-  hero_focal_y: number | null;
-  hero_zoom: number | null;
-  art_summary: string | null;
-};
 
 async function getSongData(songSlug: string) {
   const supabase = createPublicClient();
@@ -92,6 +80,14 @@ async function getSongData(songSlug: string) {
     .order("display_order")
     .order("created_at");
 
+  // Credit lines (role + name), in display order.
+  const { data: credits } = await supabase
+    .from("song_credits")
+    .select("id, role, name")
+    .eq("song_id", song.id)
+    .order("display_order")
+    .order("created_at");
+
   // Published visibility sections
   const { data: visibilitySections } = await supabase
     .from("song_visibility_sections")
@@ -100,18 +96,6 @@ async function getSongData(songSlug: string) {
     .eq("status", "published")
     .order("display_order");
 
-  // Featured art (curated on song editor, shown on song page)
-  const { data: featuredArt } = await supabase
-    .from("songs_featured_art")
-    .select("position, art:art_pieces(id, slug, title, image_path, image_alt, hero_focal_x, hero_focal_y, hero_zoom, art_summary, status)")
-    .eq("song_id", song.id)
-    .order("position");
-
-  const pairedArt = ((featuredArt as { art: (PairedArt & { status: string }) | null }[] | null) || [])
-    .map((p) => p.art)
-    .filter((a): a is PairedArt & { status: string } => !!a && (a.status === "published" || a.status === "unreleased"))
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure drops `status` after filtering on it above
-    .map(({ status: _status, ...rest }) => rest);
 
   // Convert ALL visibility sections to render-ready data. Centralized in
   // renderSection so any markdown-bearing field (content, key_points,
@@ -172,8 +156,8 @@ async function getSongData(songSlug: string) {
     song: { ...song, track_number: trackNumber ?? 1 },
     totalTracks: count || 0,
     expansions: expansions || [],
+    credits: credits || [],
     visibilitySections: renderedSections,
-    pairedArt,
     connectionsSongs,
   };
 }
@@ -223,7 +207,7 @@ export default async function SongDetailPage({
   const result = await getSongData(slug);
   if (!result) notFound();
 
-  const { album, song, totalTracks, expansions, visibilitySections, pairedArt, connectionsSongs } = result;
+  const { album, song, totalTracks, expansions, credits, visibilitySections, connectionsSongs } = result;
 
   const supabase = createPublicClient();
   const [badge, playbackMode, songSkusMap, releaseSkusMap] = await Promise.all([
@@ -319,8 +303,8 @@ export default async function SongDetailPage({
         }
         totalTracks={totalTracks}
         expansions={expansions}
+        credits={credits}
         visibilitySections={visibilitySections}
-        pairedArt={pairedArt}
         connectionsSongs={connectionsSongs}
         playbackMode={playbackMode}
         songSkus={songSkus.map((s) => ({
@@ -364,7 +348,7 @@ export default async function SongDetailPage({
           pending: badge.pending ?? false,
           songSlug: badge.song_slug ?? null,
         } : null}
-        merchSlot={<SongMerchSection songId={song.id} />}
+        merchSlot={<YouMightAlsoLike sourceType="song" sourceId={song.id} />}
       />
       <ExploreStrip wrap />
       {badge && album && (

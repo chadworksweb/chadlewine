@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   if (artErr || !art) return Response.json({ error: "art piece not found" }, { status: 404 });
 
   const { data, error } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, tier, title, description, price, status, variant_type, variant_label, edition_size, editions_sold, image_url, image_alt, fulfillment, source_art_id, created_at")
     .eq("source_art_id", art.id)
     .order("variant_type", { ascending: true })
@@ -56,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const productTitle = titleParts.join(" — ");
 
   const { data: product, error } = await supabase
-    .from("products")
+    .from("merch")
     .insert({
       tier: variantType === "original" ? "art_original" : "art_print",
       fulfillment: "manual",

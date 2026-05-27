@@ -7,7 +7,7 @@ async function resolveProductId(
   idOrSlug: string,
 ): Promise<string | null> {
   if (UUID_RE.test(idOrSlug)) return idOrSlug;
-  const { data } = await supabase.from("products").select("id").eq("slug", idOrSlug).maybeSingle();
+  const { data } = await supabase.from("merch").select("id").eq("slug", idOrSlug).maybeSingle();
   return data?.id ?? null;
 }
 
@@ -19,7 +19,7 @@ export async function GET(
   const supabase = createAdminClient();
   const field = UUID_RE.test(idOrSlug) ? "id" : "slug";
   const { data, error } = await supabase
-    .from("products")
+    .from("merch")
     .select("*")
     .eq(field, idOrSlug)
     .single();
@@ -39,13 +39,13 @@ export async function PUT(
   const body = await request.json();
 
   const updates: Record<string, unknown> = {};
-  const fields = ["fulfillment", "title", "slug", "description", "source_observation_id", "printify_product_id", "price", "status", "is_catalog_item", "image_url", "image_alt", "linked_art_piece_id"];
+  const fields = ["fulfillment", "title", "slug", "description", "printify_product_id", "price", "status", "is_catalog_item", "image_url", "image_alt", "linked_art_piece_id", "shipping_first_cents", "shipping_addl_cents", "shipping_ca_first_cents", "shipping_ca_addl_cents", "shipping_uk_first_cents", "shipping_uk_addl_cents", "shipping_row_first_cents", "shipping_row_addl_cents", "free_shipping_exempt"];
   for (const f of fields) {
     if (f in body) updates[f] = body[f];
   }
 
   const { data, error } = await supabase
-    .from("products")
+    .from("merch")
     .update(updates)
     .eq("id", id)
     .select()
@@ -63,7 +63,7 @@ export async function DELETE(
   const supabase = createAdminClient();
   const id = await resolveProductId(supabase, idOrSlug);
   if (!id) return Response.json({ error: "Product not found" }, { status: 404 });
-  const { error } = await supabase.from("products").delete().eq("id", id);
+  const { error } = await supabase.from("merch").delete().eq("id", id);
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true });

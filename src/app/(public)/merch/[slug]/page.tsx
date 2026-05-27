@@ -5,6 +5,7 @@ import { AdminEditButton } from "@/components/AdminEditButton";
 import { MerchProductDetail } from "@/components/MerchProductDetail";
 import { MerchProductJsonLd } from "@/components/MerchProductJsonLd";
 import { ExploreStrip } from "@/components/ExploreStrip";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import type { ProductVariant } from "@/components/MerchProductCard";
 import { getGalleryForProduct, type GalleryImage } from "@/lib/product-images";
 
@@ -37,7 +38,7 @@ async function getProduct(
   const supabase = createPublicClient();
   const isUuid = UUID_RE.test(key);
   const { data } = await supabase
-    .from("products")
+    .from("merch")
     .select("id, slug, tier, title, description, price, fulfillment, status, variants, linked_art_piece_id, created_at")
     .eq(isUuid ? "id" : "slug", key)
     .eq("status", "active")
@@ -132,6 +133,7 @@ export default async function MerchProductPage({
         linkedPrintSlug={linkedPrintSlug}
         isSuperIndividual={isSuperIndividual}
       />
+      <YouMightAlsoLike sourceType="merch" sourceId={product.id} />
       <ExploreStrip excludeMerchIds={[product.id]} wrap />
     </>
   );

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
-import { ArtPairingsSections, type PairedSong, type PairedArt } from "@/components/ArtPairingsSections";
+import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ArtLicensingSection } from "@/components/ArtLicensingSection";
 import { focalCropStyle } from "@/lib/focal-crop";
 
@@ -27,6 +27,7 @@ export type MuralDetails = {
 };
 
 type ArtRow = {
+  id: string;
   slug: string;
   title: string;
   image_path: string;
@@ -91,8 +92,6 @@ export function MuralTemplate({
   mural,
   products,
   compositionHtml,
-  pairedSongs,
-  pairedArt,
   licensingHtml = null,
   licensingDirectAnswer = null,
   licensingKeyPoints = null,
@@ -101,8 +100,6 @@ export function MuralTemplate({
   mural: MuralDetails;
   products: ProductRow[];
   compositionHtml: string | null;
-  pairedSongs: PairedSong[];
-  pairedArt: PairedArt[];
   licensingHtml?: string | null;
   licensingDirectAnswer?: string | null;
   licensingKeyPoints?: string[] | null;
@@ -221,7 +218,7 @@ export function MuralTemplate({
           </section>
         )}
 
-        <ArtPairingsSections pairedSongs={pairedSongs} pairedArt={pairedArt} />
+        <YouMightAlsoLike sourceType="art" sourceId={art.id} />
 
         {art.paa_pairs && art.paa_pairs.length > 0 && (
           <section className="art-detail__section art-detail__faq">

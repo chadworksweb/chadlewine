@@ -47,8 +47,8 @@ interface SongRow {
 interface ReleaseJoinRow {
   song_id: string;
   release:
-    | { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null }
-    | { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null }[]
+    | { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null; release_type: string | null }
+    | { title: string; slug: string; cover_art_path: string | null; cover_art_alt: string | null; release_type: string | null }[]
     | null;
 }
 
@@ -80,6 +80,7 @@ export default async function MusicHubPage() {
         "id, title, slug, release_date, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom",
       )
       .eq("status", "published")
+      .neq("release_type", "single")
       .order("release_date", { ascending: false })
       .limit(HERO_ALBUM_LIMIT),
     supabase
@@ -120,6 +121,7 @@ export default async function MusicHubPage() {
         "id, title, slug, release_date, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom",
       )
       .eq("status", "published")
+      .neq("release_type", "single")
       .eq("id", selectedId)
       .limit(1);
     select = ((pickedRows || [])[0] || null) as AlbumRow | null;
@@ -134,6 +136,7 @@ export default async function MusicHubPage() {
     .from("releases")
     .select("id, cover_art_path")
     .eq("status", "published")
+    .neq("release_type", "single")
     .not("cover_art_path", "is", null)
     .order("release_date", { ascending: false })
     .limit(4);
@@ -149,13 +152,15 @@ export default async function MusicHubPage() {
   if (songIds.length > 0) {
     const { data: junctions } = await supabase
       .from("release_songs")
-      .select("song_id, release:releases(title, slug, cover_art_path, cover_art_alt)")
+      .select("song_id, release:releases(title, slug, cover_art_path, cover_art_alt, release_type)")
       .in("song_id", songIds);
 
     albumBySong = {};
     for (const j of (junctions || []) as ReleaseJoinRow[]) {
       const alb = Array.isArray(j.release) ? j.release[0] : j.release;
-      if (alb && !albumBySong[j.song_id]) {
+      // Skip single-type releases: a single's song has no public "album", so
+      // it must not surface a "from [release]" link to the redirected page.
+      if (alb && alb.release_type !== "single" && !albumBySong[j.song_id]) {
         albumBySong[j.song_id] = alb;
       }
     }

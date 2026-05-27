@@ -15,7 +15,7 @@ export default function AdminArtPage() {
 
   return (
     <div className="admin-page">
-      <div className="admin-page__header"><h1 className="admin-page__title">Art Portfolio</h1><Link href="/admin/art/new" className="admin-btn admin-btn--primary">New Piece</Link></div>
+      <div className="admin-page__header"><h1 className="admin-page__title">Art Portfolio</h1><div style={{ display: "flex", gap: 8 }}><Link href="/admin/art/inquiries" className="admin-btn">Inquiries</Link><Link href="/admin/art/new" className="admin-btn admin-btn--primary">New Piece</Link></div></div>
       <div className="admin-stats">
         <div className="admin-stats__card"><span className="admin-stats__value">{pieces.length}</span><span className="admin-stats__label">Total</span></div>
         <div className="admin-stats__card"><span className="admin-stats__value">{pieces.filter(p => p.status === "published").length}</span><span className="admin-stats__label">Published</span></div>
