@@ -755,31 +755,62 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
             })()}
 
             {/* Life events — vertical branches rising from spine; titles
-                surface via hover chip + detail panel. */}
+                surface via hover chip + detail panel.
+
+                Collision handling (render-only, never mutates stored dates):
+                events sharing the exact same date_start — chiefly the
+                documentary placeholders all pinned to Jan-1 of their year — are
+                fanned FORWARD across the year so each stays reachable. The fan
+                width tracks zoom (tight when zoomed out, spreading to most of a
+                year's width when there's room), and heights vary so the dots
+                scatter in 2D. Distinct real dates form groups of one => zero
+                offset, so this self-dissolves as real dates get added. */}
             {layers.lifeEvents && (() => {
-              const events = data.lifeEvents
-                .map((ev, i) => ({ ev, i, x: dateToX(ev.date_start) }))
-                .filter((e): e is { ev: ArcLifeEvent; i: number; x: number } => e.x != null)
-                .sort((a, b) => a.x - b.x);
-              return events.map(({ ev, i, x }) => {
-                const branchHeight = clamp(scalePattern(EVENT_HEIGHT_PATTERN[i % EVENT_HEIGHT_PATTERN.length]));
-                const isSelected = selectedItem?.type === "event" && selectedItem.data.id === ev.id;
-                return (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    className={`arc-radiant__branch arc-radiant__branch--event${isSelected ? " is-selected" : ""}`}
-                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
-                    onClick={(e) => selectNode({ type: "event", data: ev }, e)}
-                    onPointerEnter={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
-                    onPointerMove={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
-                    onPointerLeave={() => setHover(null)}
-                  >
-                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
-                    <span className="arc-radiant__branch-dot arc-radiant__branch-dot--event" />
-                  </button>
-                );
-              });
+              const placed = data.lifeEvents
+                .map((ev) => ({ ev, x: dateToX(ev.date_start) }))
+                .filter((e): e is { ev: ArcLifeEvent; x: number } => e.x != null);
+
+              const groups = new Map<string, { ev: ArcLifeEvent; x: number }[]>();
+              for (const e of placed) {
+                const key = e.ev.date_start ?? `_${e.x}`;
+                const arr = groups.get(key) ?? [];
+                arr.push(e);
+                groups.set(key, arr);
+              }
+
+              const nodes: React.ReactNode[] = [];
+              let hi = 0; // running index so fanned heights stay varied
+              for (const members of groups.values()) {
+                const n = members.length;
+                // Fan stays within one year (placeholders are Jan-1, so spreading
+                // forward never implies a prior-year date) and adapts to zoom.
+                const spread = n > 1 ? Math.min(pxPerYear * 0.92, (n - 1) * 14) : 0;
+                members
+                  .slice()
+                  .sort((a, b) => a.ev.title.localeCompare(b.ev.title))
+                  .forEach(({ ev, x }, k) => {
+                    const fx = x + (n > 1 ? (k * spread) / (n - 1) : 0);
+                    const branchHeight = clamp(scalePattern(EVENT_HEIGHT_PATTERN[(hi + k) % EVENT_HEIGHT_PATTERN.length]));
+                    const isSelected = selectedItem?.type === "event" && selectedItem.data.id === ev.id;
+                    nodes.push(
+                      <button
+                        key={ev.id}
+                        type="button"
+                        className={`arc-radiant__branch arc-radiant__branch--event${isSelected ? " is-selected" : ""}`}
+                        style={{ left: fx, bottom: SPINE_RESERVED_PX, height: branchHeight }}
+                        onClick={(e) => selectNode({ type: "event", data: ev }, e)}
+                        onPointerEnter={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
+                        onPointerMove={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
+                        onPointerLeave={() => setHover(null)}
+                      >
+                        <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
+                        <span className="arc-radiant__branch-dot arc-radiant__branch-dot--event" />
+                      </button>,
+                    );
+                  });
+                hi += n;
+              }
+              return nodes;
             })()}
           </div>
         </div>
