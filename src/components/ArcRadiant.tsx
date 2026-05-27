@@ -23,6 +23,11 @@ export type ArcRelease = {
   slug: string;
   title: string;
   release_date: string | null;
+  // Aggregate Compass charge for the release (mean of its track charges) and
+  // the RC tier that charge falls in. Computed server-side. null when no track
+  // on the release is calibrated.
+  charge: number | null;
+  tier: string | null;
 };
 
 export type ArcEra = {
@@ -245,7 +250,12 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const lastPinchDistRef = useRef<number | null>(null);
 
-  const chargeByYear = useMemo(() => buildChargeByYear(data.songs, yearStart, yearEnd), [data.songs, yearStart, yearEnd]);
+  // Compass trajectory mirrors RC's artist trajectory: one point per dated,
+  // charged RELEASE (not per song), connected chronologically.
+  const chargeTrajectory = useMemo(
+    () => buildReleaseTrajectory(data.albums, yearStart, yearEnd),
+    [data.albums, yearStart, yearEnd]
+  );
 
   // Pre-sort eras by kind + date, fill in missing date_end values from the
   // NEXT same-kind era's date_start (or today if last). Most release eras come
@@ -393,6 +403,94 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     pendingScrollRef.current = null;
   }, [totalWidth]);
 
+  // Click-an-era-to-frame: animate zoom + pan so the era spans the viewport
+  // with a little padding each side. Reuses pendingScrollRef so each frame's
+  // scroll is applied AFTER React commits the new width (no maxScroll clamp
+  // race). Anchors the era's start at the same pad offset across the zoom so it
+  // reads as zooming into the era rather than sliding.
+  const focusAnimRef = useRef<number | null>(null);
+  useEffect(() => () => { if (focusAnimRef.current) cancelAnimationFrame(focusAnimRef.current); }, []);
+
+  function focusEra(startDate: string, endDate: string) {
+    const el = canvasRef.current;
+    if (!el) return;
+    const startYf = dateToYearFloat(startDate);
+    const endYf = dateToYearFloat(endDate);
+    const eraSpan = Math.max(0.08, endYf - startYf); // years; floor avoids div-by-0
+    const PAD = 0.08; // viewport fraction of breathing room on each side
+
+    let zT = (yearSpan * (1 - 2 * PAD)) / eraSpan;
+    zT = Math.max(ZOOM_MIN, Math.min(zoomMax, zT));
+    const z0 = zoomLevel;
+
+    // Scroll that puts the era's start PAD in from the left at zoom z.
+    const scrollForZoom = (z: number) =>
+      (startYf - yearStart) * ((baseWidth * z) / yearSpan) - PAD * viewportWidth;
+
+    if (focusAnimRef.current) cancelAnimationFrame(focusAnimRef.current);
+
+    // Already at target zoom (era re-clicked) — just pan; the totalWidth effect
+    // won't fire, so set scrollLeft directly.
+    if (Math.abs(zT - z0) < 1e-4) {
+      const maxScroll = Math.max(0, totalWidth - el.clientWidth);
+      const next = Math.max(0, Math.min(maxScroll, scrollForZoom(zT)));
+      el.scrollLeft = next;
+      setScrollLeft(next);
+      return;
+    }
+
+    const dur = 340;
+    const t0 = performance.now();
+    const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / dur);
+      const z = z0 + (zT - z0) * ease(t);
+      pendingScrollRef.current = scrollForZoom(z);
+      setZoomLevel(z);
+      focusAnimRef.current = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    focusAnimRef.current = requestAnimationFrame(step);
+  }
+
+  // Live mirrors so the (once-bound, non-passive) wheel listener always reads
+  // current zoom without re-binding every render.
+  const zoomLevelRef = useRef(zoomLevel);
+  zoomLevelRef.current = zoomLevel;
+  const zoomMaxRef = useRef(zoomMax);
+  zoomMaxRef.current = zoomMax;
+
+  // Ctrl/Cmd + scroll = cursor-anchored zoom when the pointer is over the arc
+  // viewport (trackpad pinch also arrives here with ctrlKey set). Plain scroll
+  // is left untouched. Non-passive so we can preventDefault the browser's own
+  // page zoom and use pendingScrollRef to keep the date under the cursor fixed.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (!el) return;
+      e.preventDefault();
+      const vw = el.clientWidth;
+      const z0 = zoomLevelRef.current;
+      let dy = e.deltaY;
+      if (e.deltaMode === 1) dy *= 16;        // lines -> px
+      else if (e.deltaMode === 2) dy *= vw;   // pages -> viewport
+      const z1 = Math.max(ZOOM_MIN, Math.min(zoomMaxRef.current, z0 * Math.exp(-dy * 0.0015)));
+      if (Math.abs(z1 - z0) < 1e-6) return;
+      if (focusAnimRef.current) {
+        cancelAnimationFrame(focusAnimRef.current);
+        focusAnimRef.current = null;
+      }
+      const cursorX = e.clientX - el.getBoundingClientRect().left;
+      const total0 = vw * z0;
+      const frac = total0 > 0 ? (el.scrollLeft + cursorX) / total0 : 0;
+      pendingScrollRef.current = frac * (vw * z1) - cursorX;
+      setZoomLevel(z1);
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   return (
     <div className={`arc-radiant${isFullscreen ? " arc-radiant--fullscreen" : ""}`} ref={setRootEl}>
       <div className="arc-radiant__upper">
@@ -539,6 +637,17 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                   key={era.id}
                   className={`arc-radiant__era arc-radiant__era--${era.kind}`}
                   style={{ left: x1, width, bottom: bottomOffset, height: ERA_ROW_HEIGHT }}
+                  role="button"
+                  tabIndex={0}
+                  title={`Zoom to ${era.title}`}
+                  aria-label={`Zoom to era: ${era.title}`}
+                  onClick={() => focusEra(era.date_start, effectiveEnd)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      focusEra(era.date_start, effectiveEnd);
+                    }
+                  }}
                 >
                   {showLabel && (
                     <span className="arc-radiant__era-label">{era.title}</span>
@@ -547,34 +656,74 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               );
             })}
 
-            {/* Compass charge — horizontal SVG ribbon. y=0 is centerline,
-                positive charge bulges UP, negative bulges DOWN (here, since
-                only top half is visible, negative just dips toward the spine). */}
-            {layers.compass && chargeByYear.length > 1 && (
+            {/* Compass charge — horizontal SVG ribbon bounded to the band ABOVE
+                the era lanes (bottom = ERA_ZONE_TOP), so the full charge range
+                (+100 at y=10 .. -100 at y=90) maps into that region and the area
+                wash never bleeds over the life/release era lanes below. */}
+            {layers.compass && chargeTrajectory.length > 1 && (
               <svg
                 className="arc-radiant__layer arc-radiant__layer--compass"
                 preserveAspectRatio="none"
                 viewBox="0 0 100 100"
                 style={{
                   width: totalWidth,
-                  height: branchTop,
-                  bottom: SPINE_RESERVED_PX,
+                  height: branchTop - ERA_ZONE_TOP,
+                  bottom: ERA_ZONE_TOP,
                 }}
               >
                 <defs>
-                  {/* Top of curve = violet (high charge), bottom = red (low),
-                      matching the RC aggregate chart's tier gradient. */}
-                  <linearGradient id="charge-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  {/* Tier gradient copied from RC's traj-grad. userSpaceOnUse +
+                      fixed y (charge +100 at y=10, -100 at y=90) so the color
+                      reflects ABSOLUTE charge, not the curve's local extent. */}
+                  <linearGradient id="charge-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="10" x2="0" y2="90">
                     <stop offset="0%"   stopColor="#aa54ff" />
                     <stop offset="25%"  stopColor="#3388ff" />
                     <stop offset="50%"  stopColor="#33cc55" />
                     <stop offset="75%"  stopColor="#ffbb33" />
                     <stop offset="100%" stopColor="#ff3333" />
                   </linearGradient>
+                  {/* Area fill under the line — RC's traj-area-grad: low-opacity
+                      tier wash that fades through near-transparent at neutral. */}
+                  <linearGradient id="charge-area-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="10" x2="0" y2="90">
+                    <stop offset="0%"   stopColor="#aa54ff" stopOpacity="0.2" />
+                    <stop offset="50%"  stopColor="#33cc55" stopOpacity="0.05" />
+                    <stop offset="100%" stopColor="#ff3333" stopOpacity="0.2" />
+                  </linearGradient>
                 </defs>
-                <ChargePath data={chargeByYear} yearStart={yearStart} yearSpan={yearSpan} />
+                <ChargePath data={chargeTrajectory} yearStart={yearStart} yearSpan={yearSpan} />
               </svg>
             )}
+
+            {/* Compass hover points — invisible hit targets at each release's
+                charge vertex on the trajectory. The drawn line stays clean; on
+                hover a small tier-colored dot surfaces (RC's hover-dot) plus the
+                shared hover chip, and clicking opens the same release detail. */}
+            {layers.compass && (() => {
+              const compassH = branchTop - ERA_ZONE_TOP;
+              return data.albums
+                .filter((a) => a.release_date != null && a.charge != null)
+                .map((a) => {
+                  const x = dateToX(a.release_date);
+                  if (x == null) return null;
+                  // Mirror ChargePath: y_vb = 50 - charge/100*40, so the vertex's
+                  // height above the band bottom is (0.5 + 0.4*charge/100).
+                  const pointBottom = ERA_ZONE_TOP + (0.5 + 0.4 * (a.charge! / 100)) * compassH;
+                  const isSelected = selectedItem?.type === "release" && selectedItem.data.id === a.id;
+                  return (
+                    <button
+                      key={`cp-${a.id}`}
+                      type="button"
+                      className={`arc-radiant__charge-point${isSelected ? " is-selected" : ""}`}
+                      style={{ left: x, bottom: pointBottom, ["--pt-color" as string]: TIER_COLORS[a.tier ?? "green"] }}
+                      onClick={(e) => selectNode({ type: "release", data: a }, e)}
+                      onPointerEnter={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
+                      onPointerMove={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
+                      onPointerLeave={() => setHover(null)}
+                      aria-label={a.title}
+                    />
+                  );
+                });
+            })()}
 
             {/* Albums — same CD icon as singles (slightly larger), placed at
                 the album's release_date. No on-canvas labels; title surfaces
@@ -754,34 +903,51 @@ function KeySwatch({ layer }: { layer: LayerKey }) {
 // ---------- Charge path subcomponent ----------
 
 function ChargePath({ data, yearStart, yearSpan }: {
-  data: { year: number; charge: number; n: number }[];
+  data: ReleasePoint[];
   yearStart: number;
   yearSpan: number;
 }) {
-  // x = position along timeline (0..100), y = charge mapped to height
-  // (positive charge rises from spine: charge=+100 → y=10, charge=-100 → y=90).
+  // x = position along timeline (0..100) at the exact release date, y = charge
+  // mapped to height (charge=+100 → y=10, 0 → y=50, -100 → y=90). One release
+  // per vertex. Straight segments + area fill + grid, copied from RC's
+  // renderTrajectoryChart — no bezier smoothing, no per-point dots.
   const points = data.map((d) => ({
-    x: ((d.year - yearStart) / yearSpan) * 100,
+    x: ((dateToYearFloat(d.date) - yearStart) / yearSpan) * 100,
     y: 50 - (d.charge / 100) * 40,
   }));
   if (points.length < 2) return null;
 
-  let dPath = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    const cx = (prev.x + curr.x) / 2;
-    const cy = (prev.y + curr.y) / 2;
-    dPath += ` Q ${prev.x} ${prev.y}, ${cx} ${cy}`;
-  }
-  dPath += ` T ${points[points.length - 1].x} ${points[points.length - 1].y}`;
+  const linePath = points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+    .join(" ");
+  // Area drops from the line to the horizon (bottom of the band) and back.
+  const first = points[0];
+  const last = points[points.length - 1];
+  const areaPath = `${linePath} L ${last.x.toFixed(2)} 100 L ${first.x.toFixed(2)} 100 Z`;
+
+  // Charge reference lines: +100 / +50 / 0 / -50 / -100.
+  const gridLines = [10, 30, 50, 70, 90];
 
   return (
     <>
-      <path d={dPath} stroke="url(#charge-gradient)" strokeWidth={1.2} fill="none" vectorEffect="non-scaling-stroke" />
-      {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={0.6} fill="#fff" stroke="url(#charge-gradient)" strokeWidth={0.4} vectorEffect="non-scaling-stroke" />
+      {gridLines.map((y) => (
+        <line
+          key={y}
+          className="arc-radiant__charge-grid"
+          x1={first.x}
+          y1={y}
+          x2={last.x}
+          y2={y}
+          vectorEffect="non-scaling-stroke"
+        />
       ))}
+      <path className="arc-radiant__charge-area" d={areaPath} fill="url(#charge-area-gradient)" />
+      <path
+        className="arc-radiant__charge-line"
+        d={linePath}
+        stroke="url(#charge-gradient)"
+        vectorEffect="non-scaling-stroke"
+      />
     </>
   );
 }
@@ -1155,19 +1321,26 @@ function ArcRadiantModal({
 
 // ---------- Aggregation ----------
 
-function buildChargeByYear(songs: ArcSong[], yearStart: number, yearEnd: number) {
-  const buckets: Record<number, { sum: number; n: number }> = {};
-  for (const s of songs) {
-    if (s.rc_charge == null || s.instrumental) continue;
-    const date = s.release_date ?? s.write_date;
-    if (!date) continue;
-    const year = parseInt(date.slice(0, 4), 10);
-    if (year < yearStart || year > yearEnd) continue;
-    const b = buckets[year] ?? (buckets[year] = { sum: 0, n: 0 });
-    b.sum += s.rc_charge;
-    b.n += 1;
-  }
-  return Object.entries(buckets)
-    .map(([y, b]) => ({ year: parseInt(y, 10), charge: b.sum / b.n, n: b.n }))
-    .sort((a, b) => a.year - b.year);
+type ReleasePoint = { date: string; charge: number; tier: string; title: string; id: string };
+
+// Fractional year for a YYYY-MM-DD date, matching dateToX's mapping so compass
+// points line up horizontally with the release CDs.
+function dateToYearFloat(d: string): number {
+  const [y, m = "1", day = "1"] = d.split("-");
+  return parseInt(y, 10) + (parseInt(m, 10) - 1) / 12 + (parseInt(day, 10) - 1) / 365;
+}
+
+// One trajectory point per dated, charged release, sorted chronologically.
+// Releases with no release_date are off the timeline; releases with no charged
+// track have no point. Mirrors RC's /artists/{slug}/trajectory.
+function buildReleaseTrajectory(releases: ArcRelease[], yearStart: number, yearEnd: number): ReleasePoint[] {
+  return releases
+    .filter((r): r is ArcRelease & { release_date: string; charge: number; tier: string } =>
+      r.release_date != null && r.charge != null && r.tier != null)
+    .filter((r) => {
+      const year = parseInt(r.release_date.slice(0, 4), 10);
+      return year >= yearStart && year <= yearEnd;
+    })
+    .map((r) => ({ date: r.release_date, charge: r.charge, tier: r.tier, title: r.title, id: r.id }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }

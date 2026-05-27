@@ -18,10 +18,21 @@ export async function generateMetadata(): Promise<Metadata> {
   return mergeMetadata("/radiant-arc", DEFAULT_METADATA);
 }
 
+// Rising Compass tier bands, keyed by charge_value (-100..+100). Mirrors
+// backend TIER_RANGES in rising-compass calibrator.py so the arc's per-release
+// colors match RC exactly.
+function tierForCharge(charge: number): string {
+  if (charge >= 75) return "violet";
+  if (charge >= 25) return "blue";
+  if (charge >= -24) return "green";
+  if (charge >= -74) return "orange";
+  return "red";
+}
+
 async function getArcData(): Promise<ArcInitialData> {
   const supabase = createPublicClient();
 
-  const [songsRes, albumsRes, erasRes, lifeEventsRes] = await Promise.all([
+  const [songsRes, albumsRes, erasRes, lifeEventsRes, releaseSongsRes] = await Promise.all([
     supabase
       .from("songs")
       .select("id, slug, title, release_date, write_date, song_state, status, instrumental, rc_charge, rc_tier")
@@ -38,12 +49,43 @@ async function getArcData(): Promise<ArcInitialData> {
       .from("life_events")
       .select("id, slug, title, date_start, date_end, body_html")
       .eq("status", "published"),
+    supabase
+      .from("release_songs")
+      .select("release_id, song_id"),
   ]);
 
   const songs = (songsRes.data ?? []) as ArcInitialData["songs"];
   const albums = (albumsRes.data ?? []) as ArcInitialData["albums"];
   const eras = (erasRes.data ?? []) as ArcInitialData["eras"];
   const lifeEvents = (lifeEventsRes.data ?? []) as ArcInitialData["lifeEvents"];
+
+  // Per-release charge = mean of its non-instrumental, calibrated track charges
+  // (RC's compute_release_charge). Each release is one trajectory point; the
+  // compass curve plots releases, not songs. Duplicates across compilations are
+  // intentional -- a release is a release.
+  const chargeBySongId = new Map<string, number>();
+  for (const s of songs) {
+    if (!s.instrumental && s.rc_charge != null) chargeBySongId.set(s.id, s.rc_charge);
+  }
+  const chargesByRelease = new Map<string, number[]>();
+  for (const link of releaseSongsRes.data ?? []) {
+    const c = chargeBySongId.get(link.song_id);
+    if (c == null) continue;
+    const arr = chargesByRelease.get(link.release_id) ?? [];
+    arr.push(c);
+    chargesByRelease.set(link.release_id, arr);
+  }
+  for (const a of albums) {
+    const charges = chargesByRelease.get(a.id);
+    if (charges && charges.length) {
+      const mean = charges.reduce((sum, c) => sum + c, 0) / charges.length;
+      a.charge = Math.round(mean);
+      a.tier = tierForCharge(mean);
+    } else {
+      a.charge = null;
+      a.tier = null;
+    }
+  }
 
   const dateYears: number[] = [];
   for (const s of songs) {

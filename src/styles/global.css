@@ -17802,6 +17802,63 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   left: 0;
 }
 
+/* Compass trajectory styles copied from Rising Compass (renderTrajectoryChart
+   + .trajectory-* in rc main.css): thin rounded gradient line, a low-opacity
+   area wash under it, and faint charge reference lines. No per-release dots --
+   RC keeps the static chart clean and surfaces points on hover. */
+.arc-radiant__charge-line {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.arc-radiant__charge-area {
+  opacity: 0.15;
+}
+
+.arc-radiant__charge-grid {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+
+/* Invisible hover hit-target sitting on each release's charge vertex. Centered
+   on (left:x, bottom:pointBottom). The line itself draws no dots; this surfaces
+   one in the release's tier color on hover. */
+.arc-radiant__charge-point {
+  position: absolute;
+  z-index: 4;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 50%;
+  transform: translate(-50%, 50%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.arc-radiant__charge-point::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--pt-color, #fff);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.arc-radiant__charge-point:hover::after,
+.arc-radiant__charge-point:focus-visible::after,
+.arc-radiant__charge-point.is-selected::after {
+  opacity: 1;
+}
+
 /* Eras as soft horizontal halos rising from the spine. Life kind hugs the
    centerline; release kind floats just above. No hard borders — the band
    fades upward like radiated light. */
@@ -17810,10 +17867,20 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   z-index: 1;
   padding: 0 10px;
   font-family: var(--font-ui);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   border-radius: 0;
   display: flex;
   align-items: center;
+  transition: filter 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* Click an era to zoom it to fill the viewport — hover/focus brighten the band
+   so the affordance reads. */
+.arc-radiant__era:hover,
+.arc-radiant__era:focus-visible {
+  filter: brightness(1.35);
+  outline: none;
 }
 
 /* Life eras shift to a cool cyan/teal hue — fundamentally opposite the warm
