@@ -1264,6 +1264,57 @@ body.art-immersive main ~ * {
 /* One-time mobile swipe affordance. Rendered only while the JS hint timer is
    active (mobile, first homepage view per session); the fade keyframe matches
    that ~2.6s window so it eases in, holds, and eases out before unmount. */
+/* Desktop cursor hint: faint rings that ripple outward around the cursor while
+   it's over the hero, signalling an interactive surface. A 0-size point at the
+   cursor; its pseudo-elements are the staggered rings + a small core dot. */
+.hero-lens__cursor-hint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  will-change: transform;
+}
+.hero-lens__cursor-hint.is-on {
+  opacity: 1;
+}
+.hero-lens__cursor-hint::before,
+.hero-lens__cursor-hint::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(139, 156, 247, 0.45);
+  animation: hero-cursor-ripple 3s ease-out infinite;
+}
+.hero-lens__cursor-hint::after {
+  animation-delay: 1.5s;
+}
+@keyframes hero-cursor-ripple {
+  0% { transform: scale(0.5); opacity: 0; }
+  12% { opacity: 0.6; }
+  38% { transform: scale(1.2); opacity: 0; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-lens__cursor-hint::before,
+  .hero-lens__cursor-hint::after {
+    animation: none;
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  .hero-lens__cursor-hint::after { display: none; }
+}
+
 .hero-lens__swipe-hint {
   position: absolute;
   left: 50%;
@@ -19629,12 +19680,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .sw-toggle__body { padding-bottom: 0.5rem; }
 
 /* Partnership footnote */
-.sw-footnote-ref { color: var(--text-accent); }
+.sw-footnote-ref { color: #ffffff; }
 .sw-footnote {
   margin-top: var(--space-xl, 2.5rem);
-  padding-top: var(--space-md, 1rem);
-  border-top: 1px solid rgba(228, 228, 236, 0.14);
-  max-width: 62ch;
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
