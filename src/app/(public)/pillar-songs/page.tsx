@@ -34,17 +34,34 @@ interface SongRow {
 
 interface PillarEntry extends SongRow {
   note: string | null;
+  glitch: number;
 }
 
 async function getPillarSongs(): Promise<PillarEntry[]> {
   const supabase = createPublicClient();
 
-  const { data: rows } = await supabase
+  // Tolerate a not-yet-migrated glitch_id column: fall back to ordering-based
+  // glitch ids so the shrine still renders.
+  let rows: { song_id: string; note: string | null; glitch_id: number }[] = [];
+  const withGlitch = await supabase
     .from("pillar_songs")
-    .select("song_id, position, note")
+    .select("song_id, position, note, glitch_id")
     .order("position", { ascending: true });
+  if (withGlitch.error) {
+    const base = await supabase
+      .from("pillar_songs")
+      .select("song_id, position, note")
+      .order("position", { ascending: true });
+    rows = (base.data || []).map((r, i) => ({ song_id: r.song_id, note: r.note, glitch_id: i + 1 }));
+  } else {
+    rows = (withGlitch.data || []).map((r) => ({
+      song_id: r.song_id,
+      note: r.note,
+      glitch_id: (r.glitch_id as number) ?? 1,
+    }));
+  }
 
-  const ids = (rows || []).map((r) => r.song_id);
+  const ids = rows.map((r) => r.song_id);
   if (ids.length === 0) return [];
 
   const { data: songs } = await supabase
@@ -58,7 +75,7 @@ async function getPillarSongs(): Promise<PillarEntry[]> {
     .map((r) => {
       const song = byId.get(r.song_id);
       if (!song) return null;
-      return { ...song, note: r.note as string | null };
+      return { ...song, note: r.note as string | null, glitch: (r.glitch_id as number) ?? 1 };
     })
     .filter((x): x is PillarEntry => x !== null);
 }
@@ -111,6 +128,7 @@ export default async function PillarSongsPage() {
             line: s.note || s.chad_quote || s.song_summary,
             art: s.art_image_path,
             alt: s.art_alt,
+            glitch: s.glitch,
           }))}
         />
       )}

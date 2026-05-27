@@ -16,13 +16,34 @@ interface SongRow {
 export async function GET() {
   const supabase = createAdminClient();
 
-  const { data: rows, error } = await supabase
+  // Tolerate a not-yet-migrated glitch_id column.
+  let rows: { song_id: string; position: number; note: string | null; glitch_id: number }[] = [];
+  const withGlitch = await supabase
     .from("pillar_songs")
-    .select("song_id, position, note")
+    .select("song_id, position, note, glitch_id")
     .order("position", { ascending: true });
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (withGlitch.error) {
+    const base = await supabase
+      .from("pillar_songs")
+      .select("song_id, position, note")
+      .order("position", { ascending: true });
+    if (base.error) return Response.json({ error: base.error.message }, { status: 500 });
+    rows = (base.data || []).map((r, i) => ({
+      song_id: r.song_id,
+      position: r.position,
+      note: r.note,
+      glitch_id: i + 1,
+    }));
+  } else {
+    rows = (withGlitch.data || []).map((r) => ({
+      song_id: r.song_id,
+      position: r.position,
+      note: r.note,
+      glitch_id: (r.glitch_id as number) ?? 1,
+    }));
+  }
 
-  const memberIds = (rows || []).map((r) => r.song_id);
+  const memberIds = rows.map((r) => r.song_id);
 
   const { data: memberSongs } = memberIds.length
     ? await supabase
@@ -36,9 +57,16 @@ export async function GET() {
     .map((r) => {
       const song = byId.get(r.song_id);
       if (!song) return null;
-      return { ...song, position: r.position, note: r.note as string | null };
+      return {
+        ...song,
+        position: r.position,
+        note: r.note as string | null,
+        glitch_id: (r.glitch_id as number) ?? 1,
+      };
     })
-    .filter((x): x is SongRow & { position: number; note: string | null } => x !== null);
+    .filter(
+      (x): x is SongRow & { position: number; note: string | null; glitch_id: number } => x !== null
+    );
 
   const { data: published } = await supabase
     .from("songs")
@@ -69,9 +97,18 @@ export async function POST(request: Request) {
     .maybeSingle();
   const nextPosition = (maxRow?.position ?? -1) + 1;
 
+  // Assign the next glitch id so every new pillar gets its own glitch.
+  const { data: maxGlitch } = await supabase
+    .from("pillar_songs")
+    .select("glitch_id")
+    .order("glitch_id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextGlitch = (maxGlitch?.glitch_id ?? 0) + 1;
+
   const { error } = await supabase
     .from("pillar_songs")
-    .insert({ song_id: songId, position: nextPosition });
+    .insert({ song_id: songId, position: nextPosition, glitch_id: nextGlitch });
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true });
 }
@@ -108,7 +145,8 @@ export async function PUT(request: Request) {
   return Response.json({ ok: true });
 }
 
-// PATCH: edit the per-song note. Body: { song_id, note }.
+// PATCH: edit a row. Body: { song_id, note? , glitch_id? }. Only provided
+// fields are updated.
 export async function PATCH(request: Request) {
   const supabase = createAdminClient();
   const body = await request.json();
@@ -116,12 +154,23 @@ export async function PATCH(request: Request) {
   if (!songId || typeof songId !== "string") {
     return Response.json({ error: "song_id required" }, { status: 400 });
   }
-  const note = typeof body.note === "string" ? body.note.trim() || null : null;
 
-  const { error } = await supabase
-    .from("pillar_songs")
-    .update({ note })
-    .eq("song_id", songId);
+  const update: { note?: string | null; glitch_id?: number } = {};
+  if ("note" in body) {
+    update.note = typeof body.note === "string" ? body.note.trim() || null : null;
+  }
+  if ("glitch_id" in body) {
+    const g = Math.round(Number(body.glitch_id));
+    if (!Number.isFinite(g) || g < 1) {
+      return Response.json({ error: "glitch_id must be a positive integer" }, { status: 400 });
+    }
+    update.glitch_id = g;
+  }
+  if (Object.keys(update).length === 0) {
+    return Response.json({ error: "nothing to update" }, { status: 400 });
+  }
+
+  const { error } = await supabase.from("pillar_songs").update(update).eq("song_id", songId);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true });
 }

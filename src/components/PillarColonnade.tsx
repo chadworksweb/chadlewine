@@ -10,6 +10,7 @@ export interface PillarSongView {
   line: string | null;
   art: string | null;
   alt: string | null;
+  glitch: number;
 }
 
 // Each pillar is GPU-built from its song's cover art: the image is fragmented
@@ -37,6 +38,8 @@ uniform float uHasTex;
 uniform float uSeed;
 uniform vec2 uCells;
 uniform float uAspect;
+uniform float uHoverTime;
+uniform float uGlitchId;
 #define TAU 6.28318530718
 
 float rand(float n){ return fract(sin(n * 12.9898 + uSeed * 7.13) * 43758.5453); }
@@ -52,6 +55,39 @@ float hwFn(float y){
   if (y > 0.955) hw = 0.45;   // abacus slab
   if (y < 0.045) hw = 0.47;   // plinth slab
   return hw;
+}
+
+// Glitch displacement styles. style 0-3 are the four base archetypes; sd (the
+// glitch id) seeds variation so every pillar's glitch is its own. Returns a uv
+// delta to add to the art sampling coords. amt scales by the pulse envelope.
+vec2 glitchShift(float style, float amt, float yy, float xx, float sd, float t){
+  vec2 d = vec2(0.0);
+  if (amt <= 0.0) return d;
+  if (style < 0.5) {
+    // 0 — horizontal slices (datamosh).
+    float band = floor((1.0 - yy) * (20.0 + mod(sd, 9.0)));
+    float r = fract(sin(band * 45.3 + sd * 7.7) * 43758.5453);
+    d.x = (r - 0.5) * 0.16 * amt * step(0.55, r);
+  } else if (style < 1.5) {
+    // 1 — diagonal shear (shifts both axes).
+    float band = floor(((1.0 - yy) * 1.4 + xx) * (15.0 + mod(sd, 6.0)));
+    float r = fract(sin(band * 27.3 + sd * 5.1) * 23197.0);
+    float s = (r - 0.5) * 0.18 * amt * step(0.45, r);
+    d.x = s; d.y = s * 0.7;
+  } else if (style < 2.5) {
+    // 2 — block mosaic (2D blocks jump on both axes).
+    vec2 bc = floor(vec2(xx, 1.0 - yy) * (7.0 + mod(sd, 5.0)));
+    float r = fract(sin(dot(bc, vec2(41.3, 13.7)) + sd * 3.3) * 9173.0);
+    float r2 = fract(sin(dot(bc, vec2(11.1, 47.7)) + sd * 1.7) * 6131.0);
+    float on = step(0.62, r);
+    d.x = (r - 0.5) * 0.22 * amt * on;
+    d.y = (r2 - 0.5) * 0.16 * amt * on;
+  } else {
+    // 3 — wave shred (smooth sine ripple + slow vertical wobble).
+    d.x = sin((1.0 - yy) * (16.0 + mod(sd, 7.0)) + t * 8.0 + sd) * 0.06 * amt;
+    d.y = sin((1.0 - yy) * 7.0 + sd) * 0.02 * amt;
+  }
+  return d;
 }
 
 void main(){
@@ -83,19 +119,45 @@ void main(){
   // the column and sparks intermittently, like a live wire / sparking chip. ---
   float gAmt = 0.0;
   if (uHover > 0.001) {
-    float tt = uTime;
-    float slot = floor(tt * 2.04);                               // ~15% slower cadence
-    float fire = step(0.9, fract(sin(slot * 91.7 + uSeed * 13.0) * 43758.5453)); // sparser
-    float burst = fire * (0.55 + 0.45 * sin(tt * 110.0));        // a spark every several seconds
-    // Travelling scanline: slower, and only on every other cycle (skip one).
-    float swCycle = floor(tt * 0.3);
-    float swOn = mod(swCycle, 2.0);
-    float sweep = swOn * smoothstep(0.08, 0.0, abs((1.0 - y) - fract(tt * 0.3)));
-    gAmt = uHover * clamp(burst * 0.9 + sweep * 0.5, 0.0, 1.0);
-    // Jump random horizontal bands sideways (datamosh slices).
-    float band = floor((1.0 - y) * 26.0);
-    float br = fract(sin(band * 45.3 + slot * 7.7 + uSeed) * 43758.5453);
-    auv.x = fract(auv.x + (br - 0.5) * 0.14 * gAmt * step(0.55, br));
+    float tt = uTime;            // continuous, for the shimmer
+    float ht = uHoverTime;       // seconds since this column's hover began
+
+    // Scanline: starts ON hover, 1/3 down the column (phase offset), then loops
+    // continuously top-to-bottom with no gap — the instant it hits the bottom it
+    // restarts at the top, so it is never not visible.
+    float swPhase = ht * 0.62 + 0.333;
+    float sweep = smoothstep(0.08, 0.0, abs((1.0 - y) - fract(swPhase)));
+
+    // Glitch sequence begins 1.5s after hover, then repeats on a steady cadence
+    // so there is always another. period = seconds between pulses.
+    float gt = ht - 1.5;
+    float gActive = step(0.0, gt);
+    float period = 3.0;
+    float n = floor(gt / period);                 // pulse index 0,1,2,...
+    float within = gt - n * period;               // seconds into this pulse
+    float dur = 0.62;
+    float lnm = within / dur;
+    float envMain = min(smoothstep(0.0, 0.22, lnm), 1.0 - smoothstep(0.78, 1.0, lnm))
+                  * step(within, dur) * gActive;
+    float burst = envMain * (0.85 + 0.15 * sin(tt * 70.0));
+
+    // Every 3rd pulse: a diagonal glitch fires right after the main one.
+    float isDouble = step(1.5, mod(n, 3.0)) * (1.0 - step(2.5, mod(n, 3.0)));
+    float pt2 = within - dur - 0.05;
+    float dur2 = 0.5;
+    float lnd = pt2 / dur2;
+    float diag = min(smoothstep(0.0, 0.16, lnd), 1.0 - smoothstep(0.84, 1.0, lnd))
+               * step(0.0, pt2) * step(pt2, dur2) * isDouble * gActive;
+
+    gAmt = uHover * clamp(burst * 0.9 + sweep * 0.5 + diag * 0.9, 0.0, 1.0);
+
+    // This column's assigned glitch: base archetype + per-id variation. The
+    // main pulse uses the column's style; the every-3rd follow-up uses the
+    // next style for contrast.
+    float baseStyle = mod(uGlitchId - 1.0, 4.0);
+    vec2 gd = glitchShift(baseStyle, uHover * envMain, y, vUv.x, uGlitchId, tt);
+    gd += glitchShift(mod(baseStyle + 1.0, 4.0), uHover * diag, y, vUv.x, uGlitchId + 13.0, tt);
+    auv = fract(auv + gd);
   }
 
   vec2 puv = (floor(auv * cells) + 0.5) / cells;
@@ -261,6 +323,8 @@ export function PillarColonnade({ songs }: { songs: PillarSongView[] }) {
       seed: gl.getUniformLocation(program, "uSeed"),
       cells: gl.getUniformLocation(program, "uCells"),
       aspect: gl.getUniformLocation(program, "uAspect"),
+      hoverTime: gl.getUniformLocation(program, "uHoverTime"),
+      glitchId: gl.getUniformLocation(program, "uGlitchId"),
     };
     gl.uniform2f(u.cells, 16.0, 46.0);
 
@@ -289,6 +353,10 @@ export function PillarColonnade({ songs }: { songs: PillarSongView[] }) {
       };
       img.src = s.art;
     });
+
+    // Per-column hover-start time (-1 = not hovering), so the glitch/scanline
+    // cadence is relative to when the cursor lands, not the global clock.
+    const hoverStart = new Array(songs.length).fill(-1);
 
     type Rect = { x: number; y: number; w: number; h: number };
     let rects: Rect[] = [];
@@ -329,11 +397,15 @@ export function PillarColonnade({ songs }: { songs: PillarSongView[] }) {
       hot = idx;
       hotRef.current = idx;
     }
-    function onMove(e: PointerEvent) {
+    // Last known cursor position (viewport coords) + whether it's inside the
+    // colonnade, so we can re-run the hit-test on scroll — the cursor stays put
+    // while the columns move under it, and hover must follow.
+    let lastX = -1, lastY = -1, inside = false;
+    function evaluateAt(clientX: number, clientY: number) {
       if (!container) return;
       const cb = container.getBoundingClientRect();
-      const px = e.clientX - cb.left;
-      const py = e.clientY - cb.top;
+      const px = clientX - cb.left;
+      const py = clientY - cb.top;
       let found = -1;
       for (let i = 0; i < rects.length; i++) {
         const r = rects[i];
@@ -350,9 +422,17 @@ export function PillarColonnade({ songs }: { songs: PillarSongView[] }) {
       }
       setHot(found);
     }
-    function onLeave() { setHot(-1); }
+    function onMove(e: PointerEvent) {
+      inside = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      evaluateAt(lastX, lastY);
+    }
+    function onLeave() { inside = false; setHot(-1); }
+    function onScroll() { if (inside) evaluateAt(lastX, lastY); }
     container.addEventListener("pointermove", onMove);
     container.addEventListener("pointerleave", onLeave);
+    window.addEventListener("scroll", onScroll, { passive: true });
 
     let raf = 0;
     const start = performance.now();
@@ -373,6 +453,10 @@ export function PillarColonnade({ songs }: { songs: PillarSongView[] }) {
         const r = rects[i];
         if (!r || r.w === 0) continue;
         cur[i] += (hov[i] - cur[i]) * 0.12;
+        // Track hover-start so glitch/scanline timing is relative to hover.
+        if (hov[i] > 0.5) { if (hoverStart[i] < 0) hoverStart[i] = t; }
+        else { hoverStart[i] = -1; }
+        const hoverTime = hoverStart[i] >= 0 ? t - hoverStart[i] : 0;
         const x = Math.round(r.x * dpr);
         const w = Math.round(r.w * dpr);
         const h = Math.round(r.h * dpr);
@@ -382,6 +466,8 @@ export function PillarColonnade({ songs }: { songs: PillarSongView[] }) {
         gl.uniform1f(u.hover, cur[i]);
         gl.uniform1f(u.seed, i * 1.618);
         gl.uniform1f(u.aspect, w / h);
+        gl.uniform1f(u.hoverTime, hoverTime);
+        gl.uniform1f(u.glitchId, songs[i].glitch || 1);
         const tex = textures[i];
         gl.uniform1f(u.hasTex, tex ? 1 : 0);
         if (tex) {
@@ -405,6 +491,7 @@ export function PillarColonnade({ songs }: { songs: PillarSongView[] }) {
       ro.disconnect();
       container.removeEventListener("pointermove", onMove);
       container.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("scroll", onScroll);
       document.removeEventListener("visibilitychange", onVis);
       container.classList.remove("is-gl");
     };

@@ -11,7 +11,12 @@ interface PillarSong {
   art_image_path: string | null;
   position?: number;
   note?: string | null;
+  glitch_id?: number;
 }
+
+const GLITCH_STYLES = ["Horizontal slice", "Diagonal shear", "Block mosaic", "Wave shred"];
+const glitchLabel = (id: number) => `Glitch ${String(id).padStart(3, "0")}`;
+const glitchStyleName = (id: number) => GLITCH_STYLES[(id - 1) % 4];
 
 export default function AdminPillarSongsPage() {
   const [inList, setInList] = useState<PillarSong[]>([]);
@@ -76,6 +81,16 @@ export default function AdminPillarSongsPage() {
       body: JSON.stringify({ song_id: songId, note }),
     });
     if (!res.ok) setError("Failed to save note");
+  }
+
+  async function saveGlitch(songId: string, glitchId: number) {
+    setInList((prev) => prev.map((p) => (p.id === songId ? { ...p, glitch_id: glitchId } : p)));
+    const res = await fetch("/api/admin/pillar-songs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ song_id: songId, glitch_id: glitchId }),
+    });
+    if (!res.ok) setError("Failed to save glitch");
   }
 
   function move(idx: number, dir: -1 | 1) {
@@ -172,6 +187,24 @@ export default function AdminPillarSongsPage() {
                 )}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, marginBottom: 4 }}>{s.title}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-ui)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                      <span style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.04em" }}>
+                        {glitchLabel(s.glitch_id ?? 1)}
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={s.glitch_id ?? 1}
+                        onChange={(e) => { const v = Math.max(1, Math.round(Number(e.target.value) || 1)); void saveGlitch(s.id, v); }}
+                        className="admin-meta-form__input"
+                        style={{ width: 64, fontFamily: "var(--font-ui)", fontSize: "0.8rem" }}
+                      />
+                    </label>
+                    <span style={{ fontFamily: "var(--font-ui)", fontSize: "0.72rem", color: "var(--text-tertiary)" }}>
+                      {glitchStyleName(s.glitch_id ?? 1)}
+                    </span>
+                  </div>
                   <textarea
                     defaultValue={s.note ?? ""}
                     placeholder="Why this one matters (optional)"
