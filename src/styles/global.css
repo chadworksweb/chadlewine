@@ -23846,3 +23846,184 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 @media (hover: none) {
   .sw-song-card__play { opacity: 1; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   PILLAR SONGS — the shrine (/pillar-songs).
+   A reverent, hand-ordered altar of Chad's own songs. The page wrapper
+   falls into main's centered content track on its own; inner blocks set
+   their own focused widths. No visible rank numbers — order is felt, not
+   counted. Entries alternate art/text sides to give the column a flowing,
+   processional rhythm rather than a flat list.
+   ───────────────────────────────────────────────────────────────────── */
+.page-pillar-songs {
+  padding-block: clamp(2.5rem, 6vw, 6rem) clamp(4rem, 10vw, 9rem);
+}
+
+.pillar-hero {
+  text-align: center;
+  margin: 0 auto clamp(3rem, 8vw, 7rem);
+  max-width: 46rem;
+}
+.pillar-hero__eyebrow {
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0 0 1rem;
+}
+.pillar-hero__title {
+  font-family: var(--font-body);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  margin: 0 0 1.25rem;
+  color: var(--text-primary);
+}
+.pillar-hero__sub {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+  margin: 0 auto;
+  max-width: 38rem;
+}
+
+.pillar-empty {
+  text-align: center;
+  font-family: var(--font-body);
+  color: var(--text-tertiary);
+  padding: 4rem 0;
+}
+
+/* The colonnade: each pillar is GPU-built from its song's own cover art —
+   fragmented and distorted into a fluted column, then run through an LCD
+   dot-matrix shader (see components/PillarColonnade.tsx). The WebGL canvas
+   overlays the grid and draws each column locked to its DOM cell; the cells
+   themselves are transparent and only carry the title/link. A CSS art-column
+   fallback shows if WebGL is unavailable. */
+.pillar-colonnade {
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  /* Tight columns, generous rows. */
+  gap: clamp(2.75rem, 5.5vw, 6rem) clamp(0.5rem, 1.6vw, 1.5rem);
+  /* Full-bleed: break out of the centered content track to span the viewport. */
+  width: 100vw;
+  max-width: none;
+  margin-inline: calc(50% - 50vw);
+  padding: 0 clamp(1rem, 4vw, 4rem) 1.5rem;
+  border-bottom: 1px solid rgba(236, 232, 222, 0.18);
+}
+
+.pillar-colonnade__lcd {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pillar-col {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  min-height: clamp(20rem, 32vw, 34rem);
+  padding: 0;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  /* Pointer only appears when the cursor is on the column silhouette (is-hot);
+     the side wedges and title plate read as non-interactive. */
+  cursor: default;
+}
+.pillar-col.is-hot { cursor: pointer; }
+
+/* CSS-only fallback: the art clipped into a column silhouette, hard-pixelated.
+   Hidden once WebGL takes over (.is-gl). */
+.pillar-col__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--art);
+  background-size: cover;
+  background-position: center;
+  image-rendering: pixelated;
+  opacity: 0.9;
+  clip-path: polygon(
+    50% 0%, 88% 0%, 88% 6%, 80% 10%, 64% 16%, 64% 84%, 80% 90%, 92% 94%, 92% 100%,
+    8% 100%, 8% 94%, 20% 90%, 36% 84%, 36% 16%, 20% 10%, 12% 6%, 12% 0%
+  );
+  filter: saturate(0.7) brightness(0.7) contrast(1.1);
+}
+.is-gl .pillar-col__fallback { display: none; }
+
+/* Title plate sits at the foot of the column — an inscription on the base. */
+.pillar-col__plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+  padding: clamp(0.6rem, 1.5vw, 1rem) 0.4rem;
+  background: linear-gradient(
+    to top,
+    rgba(8, 8, 12, 0.82) 0%,
+    rgba(8, 8, 12, 0.55) 60%,
+    rgba(8, 8, 12, 0) 100%
+  );
+}
+
+.pillar-col__title {
+  font-family: var(--font-body);
+  font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  color: #f3f0e8;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+.pillar-col__note {
+  font-family: var(--font-body);
+  font-size: clamp(0.68rem, 1vw, 0.8rem);
+  line-height: 1.4;
+  color: rgba(236, 232, 222, 0.66);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 90%;
+}
+.pillar-col__cta {
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #aeb6e6;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.pillar-col.is-hot .pillar-col__cta,
+.pillar-col:focus-visible .pillar-col__cta {
+  opacity: 0.9;
+  transform: translateY(0);
+}
+
+/* 4 across on big screens, 3 on laptop (base), 2 on tablet, 1 on mobile. */
+@media (min-width: 1500px) {
+  .pillar-colonnade { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 760px) {
+  .pillar-colonnade { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 460px) {
+  .pillar-colonnade { grid-template-columns: 1fr; }
+  .pillar-col { min-height: clamp(22rem, 80vw, 30rem); }
+}

@@ -11,6 +11,7 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
     children: [
       { href: "/discography", label: "Discography" },
       { href: "/music/songs", label: "Songs" },
+      { href: "/pillar-songs", label: "Pillar Songs" },
       { href: "/lyrics", label: "Lyrics" },
       { href: "/curation", label: "Curation" },
       { href: "/songwriting", label: "Songwriting" },
