@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
-import { SlidingArtPortfolio } from "@/components/SlidingArtPortfolio";
+import { ArtBrowser } from "@/components/ArtBrowser";
 import type { PortfolioItem } from "@/lib/sliding-portfolio";
 
 export const revalidate = 60;
@@ -25,13 +25,21 @@ type ArtRow = {
   dimensions: string | null;
   year_created: number | null;
   gallery_paths: string[] | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
 };
 
 export default async function ArtPage() {
   const supabase = createPublicClient();
   const { data: pieces } = await supabase
     .from("art_pieces")
-    .select("id, slug, title, image_path, medium, dimensions, year_created, gallery_paths")
+    .select(
+      "id, slug, title, image_path, medium, dimensions, year_created, gallery_paths, " +
+        "card_focal_x, card_focal_y, card_zoom, hero_focal_x, hero_focal_y",
+    )
     .in("status", ["unreleased", "published"])
     .order("display_order");
 
@@ -50,8 +58,13 @@ export default async function ArtPage() {
       gallery: [p.image_path, ...extras],
       meta: meta.line1 || meta.line2 || meta.line3 ? meta : undefined,
       sold: false,
+      // Card focal point, falling back to the hero focal (backfilled from the
+      // piece's original focal point).
+      focalX: p.card_focal_x ?? p.hero_focal_x,
+      focalY: p.card_focal_y ?? p.hero_focal_y,
+      zoom: p.card_zoom,
     };
   });
 
-  return <SlidingArtPortfolio items={items} />;
+  return <ArtBrowser items={items} />;
 }

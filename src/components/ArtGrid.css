@@ -1,0 +1,78 @@
+/* Traditional art grid -- mirrors the merch/discography entity grid: square
+   thumbnail + title below, 4 across, normal page flow + scroll. */
+.art-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-lg, 32px);
+  /* No L/R padding -- the layout grid's content track provides the side
+     gutters (same as .merch-shop__grid). Vertical spacing is margin, matching
+     the merch convention. */
+  margin: var(--space-lg, 32px) 0 var(--space-2xl, 64px);
+}
+
+.art-grid__card {
+  display: block;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.art-grid__img-wrap {
+  position: relative;
+  margin-bottom: var(--space-sm, 12px);
+  overflow: hidden; /* clip the focal-zoom transform */
+  border-radius: 4px;
+}
+
+.art-grid__img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.art-grid__card:hover .art-grid__img {
+  filter: brightness(1.06);
+  transform: translateY(-2px);
+}
+
+.art-grid__title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  margin: 0 0 2px;
+  line-height: 1.25;
+}
+
+.art-grid__meta {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.art-grid__sold {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 3px;
+}
+
+@media (max-width: 1024px) {
+  .art-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .art-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md, 16px);
+  }
+}

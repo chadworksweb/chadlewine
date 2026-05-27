@@ -13,6 +13,11 @@ export interface PortfolioItem {
   meta?: PortfolioItemMeta;
   sold?: boolean;
   aspectRatio?: number;
+  // Card focal point (0-100) + zoom for cropped thumbnails, same treatment as
+  // song / release cover art. Null = centered.
+  focalX?: number | null;
+  focalY?: number | null;
+  zoom?: number | null;
 }
 
 export interface PortfolioConfig {
@@ -28,6 +33,7 @@ export class SlidingPortfolio {
   private viewport!: HTMLElement;
   private grid!: HTMLElement;
   private cursor: HTMLElement | null = null;
+  private tooltip: HTMLElement | null = null;
   private gyroIndicator: HTMLElement | null = null;
   private gyroDot: HTMLElement | null = null;
 
@@ -93,6 +99,7 @@ export class SlidingPortfolio {
     for (const remove of this.listeners) remove();
     this.listeners = [];
     if (this.cursor?.parentNode) this.cursor.parentNode.removeChild(this.cursor);
+    if (this.tooltip?.parentNode) this.tooltip.parentNode.removeChild(this.tooltip);
     if (this.gyroIndicator?.parentNode) this.gyroIndicator.parentNode.removeChild(this.gyroIndicator);
     this.container.style.cursor = "";
   }
@@ -140,6 +147,15 @@ export class SlidingPortfolio {
     cursor.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8" opacity="0.3"/><circle cx="12" cy="12" r="3"/></svg>`;
     this.container.appendChild(cursor);
     this.cursor = cursor;
+
+    // Site-standard cursor tooltip (.cursor-tooltip), shown with the hovered
+    // piece's title.
+    const tip = document.createElement("div");
+    tip.className = "cursor-tooltip sarp-piece-tooltip";
+    tip.style.position = "fixed";
+    tip.style.display = "none";
+    this.container.appendChild(tip);
+    this.tooltip = tip;
   }
 
   private createGyroIndicator() {
@@ -311,6 +327,14 @@ export class SlidingPortfolio {
       img.src = item.main;
       img.alt = item.title;
       img.loading = placedCount < 20 ? "eager" : "lazy";
+      // Focal-point crop (matches song/release cover art on cropped thumbnails).
+      if (item.focalX != null || item.focalY != null) {
+        img.style.objectPosition = `${item.focalX ?? 50}% ${item.focalY ?? 50}%`;
+      }
+      if (item.zoom && item.zoom > 1) {
+        img.style.transform = `scale(${item.zoom})`;
+        img.style.transformOrigin = `${item.focalX ?? 50}% ${item.focalY ?? 50}%`;
+      }
 
       const aspectRatio = item.aspectRatio || 1.5;
       itemDiv.style.paddingBottom = (100 / aspectRatio) + "%";
@@ -435,6 +459,13 @@ export class SlidingPortfolio {
     }
     this.state.hoveredItem = item;
     item.classList.add("is-lifted");
+
+    const idx = parseInt(item.dataset.index || "", 10);
+    const title = !isNaN(idx) ? this.items[idx]?.title : "";
+    if (this.tooltip && title) {
+      this.tooltip.textContent = title;
+      this.tooltip.style.display = "";
+    }
   }
 
   private handleItemLeave(e: MouseEvent) {
@@ -443,6 +474,7 @@ export class SlidingPortfolio {
     if (item.contains(e.relatedTarget as Node)) return;
     item.classList.remove("is-lifted");
     if (this.state.hoveredItem === item) this.state.hoveredItem = null;
+    if (this.tooltip) this.tooltip.style.display = "none";
   }
 
   private handleTouchSelect(e: MouseEvent) {
@@ -472,6 +504,19 @@ export class SlidingPortfolio {
       this.state.selectedMobileItem.classList.remove("is-focused");
       this.state.selectedMobileItem = null;
     }
+    if (this.tooltip) this.tooltip.style.display = "none";
+
+    // Commit mechanic (like the discography cube): freeze the drift and pulse-
+    // glow the chosen piece while the detail page loads.
+    this.state.paused = true;
+    this.state.targetVelX = 0;
+    this.state.targetVelY = 0;
+    this.state.velX = 0;
+    this.state.velY = 0;
+    if (this.cursor) this.cursor.style.display = "none";
+    item.classList.remove("is-lifted");
+    item.classList.add("is-loading");
+
     this.onItemClick(itemData, index);
   }
 
@@ -495,6 +540,10 @@ export class SlidingPortfolio {
         this.state.displayCursorX += (this.state.cursorX - this.state.displayCursorX) * this.state.cursorDamping;
         this.state.displayCursorY += (this.state.cursorY - this.state.displayCursorY) * this.state.cursorDamping;
         this.cursor.style.transform = `translate(${this.state.displayCursorX}px, ${this.state.displayCursorY}px)`;
+      }
+      if (this.tooltip && this.tooltip.style.display !== "none") {
+        this.tooltip.style.left = (this.state.cursorX + 18) + "px";
+        this.tooltip.style.top = (this.state.cursorY + 18) + "px";
       }
       if (!this.state.paused) {
         this.state.velX += (this.state.targetVelX - this.state.velX) * this.state.acceleration;

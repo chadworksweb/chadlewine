@@ -17,7 +17,10 @@ export function Nav({
   // lowered there (read via a ref inside the scroll handler), and a pill does a
   // one-shot smooth scroll to exactly tuck the header away for full-bleed art --
   // after which normal sticky behavior (show on scroll-up / at top) resumes.
-  const onArt = pathname?.startsWith("/art") ?? false;
+  // Art DETAIL pages only (/art/[slug]) -- not the /art index or /art/murals
+  // index, which are their own immersive/list layouts.
+  const onArt =
+    (pathname?.startsWith("/art/") ?? false) && pathname !== "/art/murals";
   const onArtRef = useRef(onArt);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
