@@ -133,6 +133,8 @@ const ALBUM_HEIGHT_PATTERN = [320, 285, 345, 305, 260, 330];
 // top of each other.
 const EVENT_HEIGHT_PATTERN = [135, 195, 160, 220, 145, 205, 175, 225, 140, 200, 180];
 
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 // ---------- Component ----------
 
 export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialData; proseAvailable?: boolean }) {
@@ -619,6 +621,72 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               })}
             </div>
 
+            {/* Month / mid-month ticks — surface only when zoomed in far enough
+                that a month is wide enough to read, giving the fanned events and
+                trajectory a finer time reference than the year grid. Labels and
+                mid-month ticks gate on progressively deeper zoom. */}
+            {(() => {
+              const monthPx = pxPerYear / 12;
+              if (monthPx < 14) return null;
+              const showMonthLabel = monthPx >= 46;
+              const showMid = monthPx >= 60;
+              const years = Array.from({ length: yearSpan + 1 }, (_, i) => yearStart + i);
+              return (
+                <div className="arc-radiant__months" aria-hidden="true">
+                  {years.flatMap((year) =>
+                    Array.from({ length: 12 }, (_, mi) => mi + 1).flatMap((month) => {
+                      const mm = String(month).padStart(2, "0");
+                      const out: React.ReactNode[] = [];
+                      // Skip January's start tick — the year tick already marks it.
+                      if (month !== 1) {
+                        const x = dateToX(`${year}-${mm}-01`);
+                        if (x != null) {
+                          out.push(
+                            <div
+                              key={`m-${year}-${month}`}
+                              className="arc-radiant__month-tick"
+                              style={{ left: x, bottom: 0, height: SPINE_RESERVED_PX - 6 }}
+                            >
+                              {showMonthLabel && (
+                                <span className="arc-radiant__month-label">{MONTH_ABBR[month - 1]}</span>
+                              )}
+                            </div>,
+                          );
+                        }
+                      }
+                      if (showMid) {
+                        const xMid = dateToX(`${year}-${mm}-15`);
+                        if (xMid != null) {
+                          out.push(
+                            <div
+                              key={`mid-${year}-${month}`}
+                              className="arc-radiant__month-tick arc-radiant__month-tick--mid"
+                              style={{ left: xMid, bottom: 0, height: SPINE_RESERVED_PX - 16 }}
+                            />,
+                          );
+                        }
+                      }
+                      return out;
+                    }),
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* "Now" line — a subtle vertical marker at today's date. */}
+            {(() => {
+              const nowX = dateToX(new Date().toISOString().slice(0, 10));
+              if (nowX == null) return null;
+              return (
+                <div
+                  className="arc-radiant__now-line"
+                  style={{ left: nowX, bottom: SPINE_RESERVED_PX, height: branchTop - SPINE_RESERVED_PX }}
+                >
+                  <span className="arc-radiant__now-label">Now</span>
+                </div>
+              );
+            })()}
+
             {/* Eras: horizontal segments. Life eras share one lane in the
                 lower band, release eras share one in the upper. Overlap is
                 communicated by the translucent fills blending naturally. */}
@@ -1015,6 +1083,15 @@ function ArcOverviewLocator({
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<LocatorDrag | null>(null);
   const [isActive, setIsActive] = useState(false);
+  const [trackW, setTrackW] = useState(0);
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const measure = () => setTrackW(el.getBoundingClientRect().width);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   // Map canvas scroll/zoom → visible year window.
   const safeTotal = Math.max(1, totalWidth);
@@ -1039,6 +1116,14 @@ function ArcOverviewLocator({
   const withMonth = span < 5;
   const startLabel = formatYear(visibleStartYear, "start", withMonth);
   const endLabel = formatYear(visibleEndYear, "end", withMonth);
+  // Start/end labels sit at the window's inner edges when there's room. When the
+  // window is too narrow to hold both without colliding (ss25-27), flip them to
+  // the OUTSIDE of the window — start to its left, end to its right — so they
+  // never overlap. Threshold errs generous (outside never overlaps; inside is
+  // only used when clearly wide). At full zoom-out the window fills the track,
+  // so it stays inside and the labels can't fall off the track edges.
+  const windowPx = (widthPct / 100) * trackW;
+  const labelsOutside = trackW > 0 && windowPx < 160;
 
   // Convert visible-year window → (zoomLevel, scrollLeft) and dispatch.
   // Minimum visible span is 1 year (max zoom level).
@@ -1222,10 +1307,10 @@ function ArcOverviewLocator({
         data-handle="pan"
         style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
       >
-        <span className="arc-radiant__overview-year arc-radiant__overview-year--left">
+        <span className={`arc-radiant__overview-year arc-radiant__overview-year--left${labelsOutside ? " is-outside" : ""}`}>
           {startLabel}
         </span>
-        <span className="arc-radiant__overview-year arc-radiant__overview-year--right">
+        <span className={`arc-radiant__overview-year arc-radiant__overview-year--right${labelsOutside ? " is-outside" : ""}`}>
           {endLabel}
         </span>
         <div
@@ -1238,7 +1323,6 @@ function ArcOverviewLocator({
           data-handle="right"
           aria-label="Drag to set end year"
         />
-        <div className="arc-radiant__overview-grip" aria-hidden="true" />
       </div>
     </div>
   );

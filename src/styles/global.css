@@ -17170,11 +17170,24 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   white-space: nowrap;
   z-index: 2;
 }
+/* Inside the window edges when there's room. */
 .arc-radiant__overview-year--left {
   left: 4px;
 }
 .arc-radiant__overview-year--right {
   right: 4px;
+}
+/* Narrow window: flip the labels to the OUTSIDE of the window so they can't
+   collide — start label hangs off the left edge, end label off the right. */
+.arc-radiant__overview-year--left.is-outside {
+  left: auto;
+  right: calc(100% + 6px);
+  text-align: right;
+}
+.arc-radiant__overview-year--right.is-outside {
+  right: auto;
+  left: calc(100% + 6px);
+  text-align: left;
 }
 .arc-radiant__overview-viewport:active {
   cursor: grabbing;
@@ -17718,6 +17731,65 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   color: rgba(247, 231, 167, 0.65);
   background: transparent;
   padding: 0 2px;
+  white-space: nowrap;
+}
+
+/* Month + mid-month ticks: same gold language as year ticks but fainter and
+   shorter, so they read as a finer subdivision and never compete with years. */
+.arc-radiant__months {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.arc-radiant__month-tick {
+  position: absolute;
+  width: 1px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(212, 161, 58, 0.06) 70%,
+    rgba(212, 161, 58, 0.03) 100%);
+}
+
+.arc-radiant__month-tick--mid {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(212, 161, 58, 0.035) 100%);
+}
+
+.arc-radiant__month-label {
+  position: absolute;
+  bottom: 4px;
+  left: 3px;
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: rgba(247, 231, 167, 0.42);
+  white-space: nowrap;
+}
+
+/* "Now" line — a quiet vertical marker at today's date, distinct from the gold
+   grid (cool white) so it reads as a live reference, not a tick. */
+.arc-radiant__now-line {
+  position: absolute;
+  width: 1px;
+  background: linear-gradient(180deg,
+    rgba(220, 240, 255, 0.45) 0%,
+    rgba(220, 240, 255, 0.16) 70%,
+    rgba(220, 240, 255, 0) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.arc-radiant__now-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(220, 240, 255, 0.6);
   white-space: nowrap;
 }
 

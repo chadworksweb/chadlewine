@@ -105,7 +105,9 @@ async function getArcData(): Promise<ArcInitialData> {
 
   const currentYear = new Date().getFullYear();
   const yearStart = dateYears.length ? Math.min(...dateYears) : 1989;
-  const yearEnd = Math.max(currentYear, dateYears.length ? Math.max(...dateYears) : currentYear);
+  // End a year past "now" so today's date (and the Now line) always sits inside
+  // the canvas with a little future runway, rather than on the clipped edge.
+  const yearEnd = Math.max(currentYear + 1, dateYears.length ? Math.max(...dateYears) : currentYear + 1);
 
   return { songs, albums, eras, lifeEvents, yearRange: [yearStart, yearEnd] };
 }
