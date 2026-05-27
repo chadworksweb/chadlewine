@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { ArcRadiant, type ArcInitialData } from "@/components/ArcRadiant";
+import { RadiantArcHeader } from "@/components/RadiantArcHeader";
 
 export const revalidate = 60;
 
@@ -117,10 +118,7 @@ export default async function RadiantArcPage() {
 
   return (
     <article id="page-radiant-arc" className="page-radiant-arc">
-      <header className="page-radiant-arc__header">
-        <h1 className="page-radiant-arc__title">Chad Lewine&rsquo;s Radiant Arc</h1>
-        <h2 className="page-radiant-arc__subtitle">Visualization of a Lifetime Unfolding Through Art</h2>
-      </header>
+      <RadiantArcHeader />
       <ArcRadiant data={data} />
     </article>
   );

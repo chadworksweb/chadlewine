@@ -143,6 +143,8 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     music: true, lifeEvents: true, lifeEras: true, releaseEras: true, compass: true,
   });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  // Gentle initial-load CTA that frames the music-dense years. Dismissible.
+  const [showSkipCta, setShowSkipCta] = useState<boolean>(true);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   // Pixel position of the click that opened the modal, relative to the
   // outer .arc-radiant container. Drives both the radial-gradient "hole"
@@ -493,6 +495,89 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  // ---- Shareable view links ----
+  // A ?view=<startYear>,<endYear> param (year-fractions, so it's viewport
+  // independent) frames the arc to a date range. We DON'T mutate the address
+  // bar as the user pans/zooms — instead the Key column has a "Copy link to
+  // this view" button. But an opened/pasted link still restores its framing.
+  const restoredRef = useRef(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Restore once — but only after the canvas width is actually measured, so the
+  // scroll maths use the real width rather than the 1200 default.
+  useEffect(() => {
+    if (restoredRef.current) return;
+    const el = canvasRef.current;
+    if (!el || Math.abs(el.clientWidth - viewportWidth) > 1) return;
+    restoredRef.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get("view");
+    if (!v) return;
+
+    // Strip ?view from the address bar so it never persists. A reload loads the
+    // default view (a hard refresh is clean); only an actual navigation to a
+    // shared link restores the framing — then we still strip it so the next
+    // refresh is clean.
+    const stripUrl = () => {
+      params.delete("view");
+      const qs = params.toString();
+      window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    };
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    if (nav?.type === "reload") { stripUrl(); return; }
+
+    const [s, e] = v.split(",").map(Number);
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) { stripUrl(); return; }
+    // Arrived via a shared framing — the skip-to-music nudge isn't relevant.
+    setShowSkipCta(false);
+    const z = Math.max(ZOOM_MIN, Math.min(zoomMax, yearSpan / (e - s)));
+    const newTotal = baseWidth * z;
+    const scroll = (s - yearStart) * (newTotal / yearSpan);
+    if (Math.abs(z - zoomLevel) < 1e-6) {
+      const maxScroll = Math.max(0, newTotal - el.clientWidth);
+      el.scrollLeft = Math.max(0, Math.min(maxScroll, scroll));
+      setScrollLeft(el.scrollLeft);
+    } else {
+      pendingScrollRef.current = scroll;
+      setZoomLevel(z);
+    }
+    stripUrl();
+  }, [viewportWidth, baseWidth, yearSpan, yearStart, zoomMax, zoomLevel]);
+
+  async function copyViewLink() {
+    const safeTotal = Math.max(1, totalWidth);
+    const startYf = yearStart + (scrollLeft / safeTotal) * yearSpan;
+    const endYf = startYf + (viewportWidth / safeTotal) * yearSpan;
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", `${startYf.toFixed(3)},${endYf.toFixed(3)}`);
+    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Fallback for non-secure contexts without the async clipboard API.
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch { /* give up silently */ }
+      document.body.removeChild(ta);
+    }
+    setLinkCopied(true);
+    window.setTimeout(() => setLinkCopied(false), 1600);
+  }
+
+  // Frame the music-dense stretch: from the earliest dated release to today.
+  function skipToMusic() {
+    setShowSkipCta(false);
+    const firstRelease = data.albums
+      .map((a) => a.release_date)
+      .filter((d): d is string => !!d)
+      .sort()[0];
+    if (firstRelease) focusEra(firstRelease, new Date().toISOString().slice(0, 10));
+  }
+
   return (
     <div className={`arc-radiant${isFullscreen ? " arc-radiant--fullscreen" : ""}`} ref={setRootEl}>
       <div className="arc-radiant__upper">
@@ -514,6 +599,24 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               <span className="arc-radiant__key-label">{LAYER_LABELS[k]}</span>
             </label>
           ))}
+          <button
+            type="button"
+            className={`arc-radiant__copy-link${linkCopied ? " is-copied" : ""}`}
+            onClick={copyViewLink}
+            title="Copy a link that opens the arc framed exactly as you see it now"
+          >
+            <svg className="arc-radiant__copy-link-icon" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+              <path
+                d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>{linkCopied ? "Link copied" : "Copy link to this view"}</span>
+          </button>
         </aside>
 
         <div className="arc-radiant__main">
@@ -707,9 +810,11 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                   style={{ left: x1, width, bottom: bottomOffset, height: ERA_ROW_HEIGHT }}
                   role="button"
                   tabIndex={0}
-                  title={`Zoom to ${era.title}`}
                   aria-label={`Zoom to era: ${era.title}`}
                   onClick={() => focusEra(era.date_start, effectiveEnd)}
+                  onPointerEnter={(e) => setHover({ title: `${era.title} (${era.date_start.slice(0, 4)}-${effectiveEnd.slice(0, 4)})`, x: e.clientX, y: e.clientY })}
+                  onPointerMove={(e) => setHover({ title: `${era.title} (${era.date_start.slice(0, 4)}-${effectiveEnd.slice(0, 4)})`, x: e.clientX, y: e.clientY })}
+                  onPointerLeave={() => setHover(null)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
@@ -882,6 +987,31 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
             })()}
           </div>
         </div>
+        {showSkipCta && (
+          <div className="arc-radiant__skip-cta" role="note">
+            <button
+              type="button"
+              className="arc-radiant__skip-cta-go"
+              onClick={skipToMusic}
+            >
+              <span>Skip to the music</span>
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                <path d="M3 8h9M9 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="arc-radiant__skip-cta-close"
+              onClick={() => setShowSkipCta(false)}
+              aria-label="Dismiss"
+              title="Dismiss"
+            >
+              <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+                <path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        )}
         </div>
       </div>
 

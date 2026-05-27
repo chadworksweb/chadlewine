@@ -16891,7 +16891,59 @@ body.cart-open {
   padding-bottom: var(--space-2xl, 4rem);
 }
 .page-radiant-arc__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
   padding: var(--space-lg) 0 var(--space-md);
+  transition: padding 320ms ease;
+}
+/* Collapsed: title text animates to zero height (grid-rows 1fr -> 0fr animates
+   to the real content height) and fades out, and the bar shrinks to just the
+   toggle — so the arc viewport rises to fill a laptop screen without scrolling. */
+.page-radiant-arc__header.is-collapsed {
+  padding: var(--space-xs) 0;
+}
+.page-radiant-arc__header-text {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 320ms ease, opacity 240ms ease;
+}
+.page-radiant-arc__header-text-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.page-radiant-arc__header.is-collapsed .page-radiant-arc__header-text {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.page-radiant-arc__title-toggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.4em;
+  padding: 5px 10px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid rgba(212, 161, 58, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.page-radiant-arc__header.is-collapsed .page-radiant-arc__title-toggle {
+  margin-top: 0;
+  margin-left: auto;
+}
+.page-radiant-arc__title-toggle:hover {
+  color: var(--arc-gold-bright);
+  border-color: rgba(247, 200, 74, 0.55);
+  background: rgba(247, 200, 74, 0.08);
 }
 .page-radiant-arc__title {
   font-family: var(--font-display, var(--font-ui));
@@ -17283,6 +17335,84 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Floating "skip to the music" nudge on first load. Gently fades in and bobs,
+   over the empty sky above the early (sparse) years; dismissible via the X. */
+.arc-radiant__skip-cta {
+  position: absolute;
+  top: 24%;
+  /* Over the sparse early years near the start of the timeline (not centered),
+     so it reads as a nudge forward from the beginning. */
+  left: 22%;
+  z-index: 5;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid rgba(247, 200, 74, 0.4);
+  /* Solid-ish fill instead of backdrop-filter: animating transform on a
+     backdrop-blurred element re-rasterizes every frame and steps pixel-by-pixel.
+     will-change promotes it to its own GPU layer so the bob interpolates
+     smoothly (subpixel). */
+  background: rgba(18, 13, 5, 0.94);
+  border-radius: 999px;
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.45), 0 0 18px rgba(247, 200, 74, 0.12);
+  overflow: hidden;
+  opacity: 0;
+  transform: translate3d(-50%, 0, 0);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  animation:
+    arc-skip-in 600ms ease-out 350ms forwards,
+    arc-skip-bob 3.8s ease-in-out 950ms infinite;
+}
+
+/* Fade-in animates OPACITY ONLY. The bob owns TRANSFORM. Keeping the two on
+   separate properties stops them fighting over `transform` every frame (the
+   source of the gentle flicker). translate3d keeps it on one GPU layer. */
+@keyframes arc-skip-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes arc-skip-bob {
+  0%, 100% { transform: translate3d(-50%, 0, 0); }
+  50%      { transform: translate3d(-50%, -4px, 0); }
+}
+
+.arc-radiant__skip-cta-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  color: var(--arc-gold-bright);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+.arc-radiant__skip-cta-go:hover {
+  background: rgba(247, 200, 74, 0.12);
+}
+
+.arc-radiant__skip-cta-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  padding: 0;
+  color: var(--arc-gold-pale);
+  background: transparent;
+  border: 0;
+  border-left: 1px solid rgba(247, 200, 74, 0.25);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.arc-radiant__skip-cta-close:hover {
+  background: rgba(247, 200, 74, 0.12);
+  color: var(--arc-gold-bright);
 }
 
 /* Key panel — pinned to the left column, anchored at the bottom of the
@@ -17332,6 +17462,58 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 
 .arc-radiant__key-row.is-off .arc-radiant__key-swatch {
   filter: grayscale(0.6);
+}
+
+/* "Copy link to this view" — sits under the layer toggles in the Key column. */
+.arc-radiant__copy-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: var(--space-sm);
+  width: 100%;
+  padding: 7px 8px;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-align: left;
+  color: var(--arc-gold-pale);
+  background: rgba(247, 200, 74, 0.06);
+  border: 1px solid rgba(212, 161, 58, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.arc-radiant__copy-link:hover {
+  background: rgba(247, 200, 74, 0.14);
+  border-color: rgba(247, 200, 74, 0.55);
+  color: var(--arc-gold-bright);
+}
+
+.arc-radiant__copy-link-icon {
+  flex-shrink: 0;
+}
+
+/* On copy: snap bright, then ease back to the resting style over ~1.5s. The
+   is-copied class is held for 1600ms (matches the animation), so it ends at the
+   normal style with no jump when the class is removed. */
+.arc-radiant__copy-link.is-copied {
+  animation: arc-copy-flash 1500ms ease-out;
+}
+
+@keyframes arc-copy-flash {
+  0% {
+    background: rgba(247, 200, 74, 0.32);
+    border-color: rgba(247, 231, 167, 0.95);
+    color: var(--arc-gold-bright);
+    box-shadow: 0 0 14px rgba(247, 200, 74, 0.55);
+  }
+  100% {
+    background: rgba(247, 200, 74, 0.06);
+    border-color: rgba(212, 161, 58, 0.3);
+    color: var(--arc-gold-pale);
+    box-shadow: 0 0 0 rgba(247, 200, 74, 0);
+  }
 }
 
 .arc-radiant__key-row:hover {
