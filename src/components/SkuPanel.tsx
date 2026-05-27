@@ -43,6 +43,13 @@ interface SkuRow {
   ships_in_days: number | null;
   shipping_first_cents: number | null;
   shipping_addl_cents: number | null;
+  shipping_ca_first_cents: number | null;
+  shipping_ca_addl_cents: number | null;
+  shipping_uk_first_cents: number | null;
+  shipping_uk_addl_cents: number | null;
+  shipping_row_first_cents: number | null;
+  shipping_row_addl_cents: number | null;
+  free_shipping_exempt: boolean;
   printify_product_id: string | null;
   printify_variant_id: string | null;
   variants: VariantRow[];
@@ -73,6 +80,13 @@ function emptyDraft(parentSlug: string): DraftSku {
     ships_in_days: null,
     shipping_first_cents: null,
     shipping_addl_cents: null,
+    shipping_ca_first_cents: null,
+    shipping_ca_addl_cents: null,
+    shipping_uk_first_cents: null,
+    shipping_uk_addl_cents: null,
+    shipping_row_first_cents: null,
+    shipping_row_addl_cents: null,
+    free_shipping_exempt: false,
     printify_product_id: null,
     printify_variant_id: null,
   };
@@ -153,6 +167,13 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
         ships_in_days: row.ships_in_days,
         shipping_first_cents: row.shipping_first_cents,
         shipping_addl_cents: row.shipping_addl_cents,
+        shipping_ca_first_cents: row.shipping_ca_first_cents,
+        shipping_ca_addl_cents: row.shipping_ca_addl_cents,
+        shipping_uk_first_cents: row.shipping_uk_first_cents,
+        shipping_uk_addl_cents: row.shipping_uk_addl_cents,
+        shipping_row_first_cents: row.shipping_row_first_cents,
+        shipping_row_addl_cents: row.shipping_row_addl_cents,
+        free_shipping_exempt: row.free_shipping_exempt,
         printify_product_id: row.printify_product_id,
         printify_variant_id: row.printify_variant_id,
       }),
@@ -647,37 +668,79 @@ function SkuFormFields({
       )}
 
       {!isDigital && !isPrintify && (
-        <div className="obsv-editor__field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-          <div className={fieldCls}>
-            <label className={labelCls}>Shipping: first item ($)</label>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              className={inputCls}
-              value={row.shipping_first_cents != null ? (row.shipping_first_cents / 100).toString() : ""}
-              onChange={(e) =>
-                onChange({ shipping_first_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })
-              }
-              onBlur={onBlurSave}
-              placeholder="e.g. 6.00"
-            />
+        <div style={{ marginTop: 8 }}>
+          <div className={labelCls} style={{ marginBottom: 4 }}>
+            Shipping rates by zone (first item / each additional)
           </div>
-          <div className={fieldCls}>
-            <label className={labelCls}>Shipping: each additional ($)</label>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              className={inputCls}
-              value={row.shipping_addl_cents != null ? (row.shipping_addl_cents / 100).toString() : ""}
-              onChange={(e) =>
-                onChange({ shipping_addl_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })
-              }
-              onBlur={onBlurSave}
-              placeholder="e.g. 2.00"
-            />
+          <div className="obsv-editor__field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div className={fieldCls}>
+              <label className={labelCls}>US: first item ($)</label>
+              <input type="number" min={0} step="0.01" className={inputCls}
+                value={row.shipping_first_cents != null ? (row.shipping_first_cents / 100).toString() : ""}
+                onChange={(e) => onChange({ shipping_first_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                onBlur={onBlurSave} placeholder="e.g. 7.00" />
+            </div>
+            <div className={fieldCls}>
+              <label className={labelCls}>US: each additional ($)</label>
+              <input type="number" min={0} step="0.01" className={inputCls}
+                value={row.shipping_addl_cents != null ? (row.shipping_addl_cents / 100).toString() : ""}
+                onChange={(e) => onChange({ shipping_addl_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                onBlur={onBlurSave} placeholder="e.g. 2.50" />
+            </div>
+            <div className={fieldCls}>
+              <label className={labelCls}>Canada: first item ($)</label>
+              <input type="number" min={0} step="0.01" className={inputCls}
+                value={row.shipping_ca_first_cents != null ? (row.shipping_ca_first_cents / 100).toString() : ""}
+                onChange={(e) => onChange({ shipping_ca_first_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                onBlur={onBlurSave} placeholder="e.g. 24.00" />
+            </div>
+            <div className={fieldCls}>
+              <label className={labelCls}>Canada: each additional ($)</label>
+              <input type="number" min={0} step="0.01" className={inputCls}
+                value={row.shipping_ca_addl_cents != null ? (row.shipping_ca_addl_cents / 100).toString() : ""}
+                onChange={(e) => onChange({ shipping_ca_addl_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                onBlur={onBlurSave} placeholder="e.g. 10.00" />
+            </div>
+            <div className={fieldCls}>
+              <label className={labelCls}>UK: first item ($)</label>
+              <input type="number" min={0} step="0.01" className={inputCls}
+                value={row.shipping_uk_first_cents != null ? (row.shipping_uk_first_cents / 100).toString() : ""}
+                onChange={(e) => onChange({ shipping_uk_first_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                onBlur={onBlurSave} placeholder="e.g. 15.00" />
+            </div>
+            <div className={fieldCls}>
+              <label className={labelCls}>UK: each additional ($)</label>
+              <input type="number" min={0} step="0.01" className={inputCls}
+                value={row.shipping_uk_addl_cents != null ? (row.shipping_uk_addl_cents / 100).toString() : ""}
+                onChange={(e) => onChange({ shipping_uk_addl_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                onBlur={onBlurSave} placeholder="e.g. 5.00" />
+            </div>
+            <div className={fieldCls}>
+              <label className={labelCls}>Rest of world: first item ($)</label>
+              <input type="number" min={0} step="0.01" className={inputCls}
+                value={row.shipping_row_first_cents != null ? (row.shipping_row_first_cents / 100).toString() : ""}
+                onChange={(e) => onChange({ shipping_row_first_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                onBlur={onBlurSave} placeholder="e.g. 24.00" />
+            </div>
+            <div className={fieldCls}>
+              <label className={labelCls}>Rest of world: each additional ($)</label>
+              <input type="number" min={0} step="0.01" className={inputCls}
+                value={row.shipping_row_addl_cents != null ? (row.shipping_row_addl_cents / 100).toString() : ""}
+                onChange={(e) => onChange({ shipping_row_addl_cents: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })}
+                onBlur={onBlurSave} placeholder="e.g. 12.00" />
+            </div>
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!row.free_shipping_exempt}
+              onChange={(e) => onChange({ free_shipping_exempt: e.target.checked })}
+              onBlur={onBlurSave}
+            />
+            <span className={labelCls} style={{ margin: 0 }}>
+              Always charge shipping (exclude from the free-US-shipping threshold) -- e.g. drop-shipped from overseas
+            </span>
+          </label>
         </div>
       )}
 

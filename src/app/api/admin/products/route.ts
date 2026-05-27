@@ -51,6 +51,15 @@ export async function POST(request: Request) {
       status: body.status || "active",
       is_catalog_item: body.is_catalog_item ?? false,
       linked_art_piece_id: body.linked_art_piece_id || null,
+      shipping_first_cents: body.shipping_first_cents ?? null,
+      shipping_addl_cents: body.shipping_addl_cents ?? null,
+      shipping_ca_first_cents: body.shipping_ca_first_cents ?? null,
+      shipping_ca_addl_cents: body.shipping_ca_addl_cents ?? null,
+      shipping_uk_first_cents: body.shipping_uk_first_cents ?? null,
+      shipping_uk_addl_cents: body.shipping_uk_addl_cents ?? null,
+      shipping_row_first_cents: body.shipping_row_first_cents ?? null,
+      shipping_row_addl_cents: body.shipping_row_addl_cents ?? null,
+      free_shipping_exempt: body.free_shipping_exempt ?? false,
     })
     .select()
     .single();

@@ -18,6 +18,8 @@ interface SongCardData {
   status: string;
   is_single: boolean;
   release_date: string | null;
+  effective_release_date: string | null;
+  track_no: number | null;
   created_at: string;
   art_image_path: string | null;
   art_alt: string | null;
@@ -47,9 +49,26 @@ interface SongsExplorerProps {
   allTopics: Topic[];
 }
 
-function songDate(s: SongCardData): number {
-  const d = s.release_date || s.created_at;
-  return d ? new Date(d).getTime() : 0;
+// A song's effective date: its own release_date (singles), else its associated
+// release's date (album/EP/comp tracks). Null = "forthcoming" (no date yet) —
+// these are deliberately floated to the top of the newest view, not buried.
+function songDate(s: SongCardData): number | null {
+  const d = s.release_date || s.effective_release_date;
+  return d ? new Date(d).getTime() : null;
+}
+
+// Tiebreak for songs sharing a date (and for the whole undated/forthcoming
+// group): tracklisting order first, then alphabetical for anything with no
+// track number.
+function byTrackThenTitle(a: SongCardData, b: SongCardData): number {
+  if (a.track_no != null && b.track_no != null) {
+    if (a.track_no !== b.track_no) return a.track_no - b.track_no;
+  } else if (a.track_no != null) {
+    return -1; // tracked songs before untracked
+  } else if (b.track_no != null) {
+    return 1;
+  }
+  return a.title.localeCompare(b.title);
 }
 
 // Focal data is calibrated against the song's own art. When art falls back
@@ -133,10 +152,30 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
     const sorted = [...filtered];
     switch (sortMode) {
       case "newest":
-        sorted.sort((a, b) => songDate(b) - songDate(a));
+        // Forthcoming (undated) on top, then dated newest-first; ties (and the
+        // forthcoming group) ordered by tracklisting, then alpha.
+        sorted.sort((a, b) => {
+          const da = songDate(a);
+          const db = songDate(b);
+          if (da == null && db == null) return byTrackThenTitle(a, b);
+          if (da == null) return -1;
+          if (db == null) return 1;
+          if (da !== db) return db - da;
+          return byTrackThenTitle(a, b);
+        });
         break;
       case "oldest":
-        sorted.sort((a, b) => songDate(a) - songDate(b));
+        // Dated oldest-first; undated/forthcoming sink to the bottom. Same
+        // tracklisting-then-alpha tiebreak.
+        sorted.sort((a, b) => {
+          const da = songDate(a);
+          const db = songDate(b);
+          if (da == null && db == null) return byTrackThenTitle(a, b);
+          if (da == null) return 1;
+          if (db == null) return -1;
+          if (da !== db) return da - db;
+          return byTrackThenTitle(a, b);
+        });
         break;
       case "az":
         sorted.sort((a, b) => a.title.localeCompare(b.title));
@@ -263,10 +302,13 @@ function SongRow({
   const cardStyle = artOwn
     ? focalCropStyle(song.card_focal_x, song.card_focal_y, song.card_zoom)
     : undefined;
+  // Forthcoming: no effective release date (on a not-yet-dated release) and not
+  // a single — flagged with colored row cells + a glowing badge.
+  const forthcoming = songDate(song) === null && !song.is_single;
   return (
     <>
       <tr
-        className={`songs-explorer__row${isOpen ? " is-open" : ""}`}
+        className={`songs-explorer__row${isOpen ? " is-open" : ""}${forthcoming ? " is-forthcoming" : ""}`}
         onClick={onToggle}
         role="button"
         aria-expanded={isOpen}
@@ -303,17 +345,17 @@ function SongRow({
           {song.album ? (
             <>
               {song.album.title}
-              {song.album.status !== "published" && (
-                <span className="songs-explorer__row-forthcoming"> · Forthcoming</span>
-              )}
               {song.is_single && (
                 <span className="songs-explorer__row-single-badge"> · Single</span>
               )}
             </>
           ) : song.is_single ? (
             <em>Single</em>
-          ) : (
+          ) : forthcoming ? null : (
             <span className="songs-explorer__row-muted">—</span>
+          )}
+          {forthcoming && (
+            <span className="songs-explorer__row-forthcoming">Forthcoming</span>
           )}
         </td>
         <td className="songs-explorer__td">

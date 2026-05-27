@@ -213,13 +213,16 @@ export async function listSessionLineItems(sessionId: string) {
   return getStripe().checkout.sessions.listLineItems(sessionId, { limit: 25 });
 }
 
-/** Create a single-use 20%-off Stripe Coupon + Promotion Code that expires
-   `daysValid` days from now. Returns the promotion code (the human-typed
-   string) plus both Stripe identifiers for our member_coupons row. */
-export async function createMemberPromoCode(params: {
+/** Create a single-use percent-off Stripe Coupon + Promotion Code that expires
+   `daysValid` days from now. Returns the promotion code (the string the buyer
+   types into Stripe's promo field at checkout) plus both Stripe identifiers for
+   our member_coupons row. `source` is stamped into Stripe metadata so grants
+   from different funnels (cart thank-you, inquiry form, ...) stay traceable. */
+export async function createStorePromoCode(params: {
   audienceId: string;
   percentOff: number;
   daysValid: number;
+  source: string;
 }): Promise<{
   code: string;
   stripeCouponId: string;
@@ -230,20 +233,21 @@ export async function createMemberPromoCode(params: {
   const redeemBy = Math.floor(expiresAt.getTime() / 1000);
 
   const stripe = getStripe();
+  const metadata = { audience_id: params.audienceId, source: params.source };
 
   const coupon = await stripe.coupons.create({
     percent_off: params.percentOff,
     duration: "once",
     redeem_by: redeemBy,
     max_redemptions: 1,
-    metadata: { audience_id: params.audienceId, source: "cart_thankyou_offer" },
+    metadata,
   });
 
   const promotionCode = await stripe.promotionCodes.create({
     promotion: { type: "coupon", coupon: coupon.id },
     expires_at: redeemBy,
     max_redemptions: 1,
-    metadata: { audience_id: params.audienceId, source: "cart_thankyou_offer" },
+    metadata,
   });
 
   return {

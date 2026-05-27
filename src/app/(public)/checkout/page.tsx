@@ -97,7 +97,7 @@ export default function CheckoutResumePage() {
 
   if (clientSecret) {
     return (
-      <div className="page-static" style={{ maxWidth: 640, margin: "0 auto", padding: "var(--space-2xl) var(--space-md)" }}>
+      <div className="page-static">
         <h1 className="account-dashboard__title" style={{ marginBottom: "var(--space-lg)" }}>Checkout</h1>
         <CartEmbeddedCheckout clientSecret={clientSecret} />
       </div>

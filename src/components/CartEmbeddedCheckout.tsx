@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import {
   EmbeddedCheckoutProvider,
@@ -45,8 +46,36 @@ async function onShippingDetailsChange(event: {
 }
 
 export default function CartEmbeddedCheckout({ clientSecret }: { clientSecret: string }) {
+  // Stripe's embedded checkout autofocuses its first field on mount, which
+  // scrolls the iframe into view and jumps the page down past our heading.
+  // Hold the page at the top for a short window after mount so it loads
+  // normally -- but release immediately if the buyer scrolls themselves.
+  useEffect(() => {
+    let raf = 0;
+    let active = true;
+    const start = Date.now();
+    const release = () => {
+      active = false;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("wheel", release);
+      window.removeEventListener("touchmove", release);
+      window.removeEventListener("keydown", release);
+    };
+    const pin = () => {
+      if (!active) return;
+      if (window.scrollY !== 0) window.scrollTo(0, 0);
+      if (Date.now() - start < 1500) raf = requestAnimationFrame(pin);
+      else release();
+    };
+    window.addEventListener("wheel", release, { passive: true });
+    window.addEventListener("touchmove", release, { passive: true });
+    window.addEventListener("keydown", release);
+    raf = requestAnimationFrame(pin);
+    return release;
+  }, []);
+
   return (
-    <div id="cl-embedded-checkout">
+    <div id="cl-embedded-checkout" style={{ padding: "var(--space-2xl) 0" }}>
       <EmbeddedCheckoutProvider
         stripe={getStripe()}
         options={{ clientSecret, onShippingDetailsChange }}

@@ -393,8 +393,8 @@ function CartThankYouContent() {
             <div className="cart-thank-you__greeting">
               <h1 className="page-static__title">Thank You</h1>
               <p className="cart-thank-you__greeting-line">
-                Your order is confirmed. A receipt is on its way to your email
-                &mdash; with download links for anything digital, and tracking
+                Your order is confirmed. A receipt is on its way to your email,
+                with download links for anything digital, and tracking
                 for anything we ship.
               </p>
             </div>

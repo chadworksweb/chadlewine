@@ -30,6 +30,8 @@ export interface SongCardData {
   status: string;
   is_single: boolean;
   release_date: string | null;
+  effective_release_date: string | null;
+  track_no: number | null;
   created_at: string;
   art_image_path: string | null;
   art_alt: string | null;
@@ -63,7 +65,7 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
   const [junctionsRes, topicLinksRes, allTopicsRes, singleIdsSet] = await Promise.all([
     supabase
       .from("release_songs")
-      .select("song_id, release:releases(title, slug, status, cover_art_path, cover_art_alt, release_type)")
+      .select("song_id, track_number, release:releases(title, slug, status, cover_art_path, cover_art_alt, release_type, release_date)")
       .in("song_id", songIds),
     supabase
       .from("song_topics")
@@ -83,21 +85,64 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
     cover_art_path: string | null;
     cover_art_alt: string | null;
     release_type: string | null;
+    release_date: string | null;
   };
-  type JunctionRow = { song_id: string; release: ReleaseLite | ReleaseLite[] | null };
-  const albumBySong: Record<string, AlbumRef | null> = {};
+  type JunctionRow = { song_id: string; track_number: number | null; release: ReleaseLite | ReleaseLite[] | null };
+  type RelInfo = { rel: ReleaseLite; track: number | null };
+
+  // Gather every release each song appears on, then derive its display album,
+  // date, and track number deterministically below.
+  const relsBySong: Record<string, RelInfo[]> = {};
   for (const j of (junctionsRes.data || []) as JunctionRow[]) {
-    const alb = Array.isArray(j.release) ? j.release[0] : j.release;
-    if (!alb || alb.release_type === "single") continue;
-    if (!albumBySong[j.song_id]) {
-      albumBySong[j.song_id] = {
-        title: alb.title,
-        slug: alb.slug,
-        status: alb.status,
-        cover_art_path: alb.cover_art_path,
-        cover_art_alt: alb.cover_art_alt,
-      };
+    const rel = Array.isArray(j.release) ? j.release[0] : j.release;
+    if (!rel) continue;
+    (relsBySong[j.song_id] ||= []).push({ rel, track: j.track_number ?? null });
+  }
+
+  const albumBySong: Record<string, AlbumRef | null> = {};
+  // Track number on the song's display album — the tiebreak when songs share a
+  // date (or are all undated/forthcoming): tracklisting order, else alpha.
+  const trackNoBySong: Record<string, number | null> = {};
+  // The song's effective date (earliest studio release; compilation only as a
+  // last resort) — so a demo re-collected onto an old comp doesn't drag the
+  // song back to the comp's year when it has a real album home.
+  const releaseDateBySong: Record<string, string> = {};
+
+  const isComp = (t: string | null) => t === "compilation";
+  const byDateAsc = (a: RelInfo, b: RelInfo) =>
+    (a.rel.release_date || "9999").localeCompare(b.rel.release_date || "9999");
+  const earliestDate = (list: RelInfo[]): string | null => {
+    let d: string | null = null;
+    for (const { rel } of list) {
+      if (rel.release_date && (!d || rel.release_date < d)) d = rel.release_date;
     }
+    return d;
+  };
+
+  for (const [songId, list] of Object.entries(relsBySong)) {
+    // Display album + track: prefer a studio release (album/EP) over a
+    // compilation; never a single. Comps stand in only for comp-only songs.
+    const studio = list
+      .filter((r) => r.rel.release_type !== "single" && !isComp(r.rel.release_type))
+      .sort(byDateAsc);
+    const comps = list.filter((r) => isComp(r.rel.release_type)).sort(byDateAsc);
+    const chosen = studio[0] || comps[0] || null;
+    if (chosen) {
+      albumBySong[songId] = {
+        title: chosen.rel.title,
+        slug: chosen.rel.slug,
+        status: chosen.rel.status,
+        cover_art_path: chosen.rel.cover_art_path,
+        cover_art_alt: chosen.rel.cover_art_alt,
+      };
+      trackNoBySong[songId] = chosen.track;
+    }
+
+    // Date: earliest among non-compilation releases (album/EP/single); fall
+    // back to compilation dates only for comp-only songs.
+    const nonComp = list.filter((r) => !isComp(r.rel.release_type));
+    const d = earliestDate(nonComp.length ? nonComp : list);
+    if (d) releaseDateBySong[songId] = d;
   }
 
   type TopicLite = { id: string; label: string; slug: string };
@@ -120,6 +165,8 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
     status: s.status,
     is_single: singleIdsSet.has(s.id),
     release_date: s.release_date,
+    effective_release_date: releaseDateBySong[s.id] || null,
+    track_no: trackNoBySong[s.id] ?? null,
     created_at: s.created_at,
     art_image_path: s.art_image_path,
     art_alt: s.art_alt,
@@ -149,10 +196,7 @@ export default async function MusicSongsPage() {
     <div className="songs-explorer">
       <div className="songs-explorer__inner site-contain">
         <header className="songs-explorer__header">
-          <h1 className="songs-explorer__title">Songs</h1>
-          <p className="songs-explorer__lede">
-            Every song as a peer. Filter by topic, sort any way — this is the whole body of work, flat.
-          </p>
+          <h1 className="songs-explorer__title">Chad Lewine Songs</h1>
         </header>
 
         <SongsExplorer songs={songs} allTopics={allTopics} />

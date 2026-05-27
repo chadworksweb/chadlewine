@@ -66,7 +66,10 @@ export async function POST(request: Request) {
   };
 
   const supabase = createAdminClient();
-  const quote = await calculateCartShipping(supabase, cartLines, address, cfgMetadata);
+  // amount_subtotal is the line-item total (pre-shipping/discount) in cents --
+  // the basis for the free-US-shipping threshold.
+  const subtotalCents = session.amount_subtotal ?? 0;
+  const quote = await calculateCartShipping(supabase, cartLines, address, cfgMetadata, subtotalCents);
 
   if (quote.printifyError) {
     // Never silently ship Printify goods for free. Ask the buyer to retry
