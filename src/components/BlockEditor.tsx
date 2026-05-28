@@ -154,14 +154,9 @@ export function BlockEditor({ blocks, onChange }: BlockEditorProps) {
     >
       <div className="block-editor">
         <aside className="block-editor__palette">
-          <h3 className="block-editor__palette-title">Blocks</h3>
           {BLOCK_TYPES.map((t) => (
             <PaletteItem key={t} blockType={t} />
           ))}
-          <p className="block-editor__palette-hint">
-            Drag onto the canvas, or drop between blocks. Click any block to
-            edit it in place.
-          </p>
         </aside>
 
         <div
@@ -235,10 +230,11 @@ function PaletteItem({ blockType }: { blockType: EmailBlock["type"] }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      title={BLOCK_LABELS[blockType]}
+      aria-label={BLOCK_LABELS[blockType]}
       className={`block-editor__palette-item${isDragging ? " block-editor__palette-item--dragging" : ""}`}
     >
       <span className="block-editor__palette-icon">{BLOCK_ICONS[blockType]}</span>
-      <span>{BLOCK_LABELS[blockType]}</span>
     </button>
   );
 }

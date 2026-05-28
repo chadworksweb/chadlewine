@@ -15,7 +15,7 @@ export async function GET(
   const { data, error } = await supabase
     .from("campaign_sends")
     .select(
-      "id, email, status, is_test, resend_id, error, sent_at, delivered_at, opened_at, last_opened_at, open_count, clicked_at, last_clicked_at, click_count, bounced_at, bounce_reason, complained_at"
+      "id, audience_id, email, status, is_test, resend_id, error, sent_at, delivered_at, opened_at, last_opened_at, open_count, clicked_at, last_clicked_at, click_count, bounced_at, bounce_reason, bounce_type, complained_at"
     )
     .eq("campaign_id", id)
     .order("sent_at", { ascending: true, nullsFirst: false });

@@ -77,6 +77,17 @@ export async function POST(request: Request) {
   const data = event.data as Record<string, unknown>;
   const clickInfo = (data.click ?? {}) as Record<string, unknown>;
   const bounceInfo = (data.bounce ?? {}) as Record<string, unknown>;
+  // Resend marks bounces "Permanent" (hard) or "Transient" (soft). Soft bounces
+  // are temporary (full mailbox, server down) and must NOT unsubscribe anyone;
+  // only hard/undetermined bounces trigger the scrub.
+  const bounceTypeRaw =
+    typeof bounceInfo.type === "string" ? (bounceInfo.type as string).toLowerCase() : "";
+  const bounceIsSoft = bounceTypeRaw.includes("transient") || bounceTypeRaw === "soft";
+  const bounceFlag = bounceIsSoft
+    ? "soft"
+    : bounceTypeRaw.includes("permanent") || bounceTypeRaw === "hard"
+      ? "hard"
+      : "undetermined";
   const url = typeof clickInfo.link === "string" ? (clickInfo.link as string) : null;
   const userAgent =
     typeof clickInfo.userAgent === "string"
@@ -170,14 +181,15 @@ export async function POST(request: Request) {
       case "bounced":
         updates.bounced_at = now;
         updates.status = "bounced";
+        updates.bounce_type = bounceFlag;
         updates.bounce_reason =
           (typeof bounceInfo.message === "string" ? (bounceInfo.message as string) : null) ||
           (typeof bounceInfo.subType === "string" ? (bounceInfo.subType as string) : null) ||
           null;
         if (sendRow.campaign_id) await bumpCampaign(sendRow.campaign_id, "bounce_count");
-        // Hard bounces — flip the subscriber to unsubscribed to protect
-        // sender reputation. We treat any bounce conservatively.
-        if (sendRow.subscriber_id) {
+        // Only hard/undetermined bounces unsubscribe (protect sender
+        // reputation). Soft (transient) bounces are temporary -- keep them.
+        if (!bounceIsSoft && sendRow.subscriber_id) {
           await supabase
             .from("subscribers")
             .update({
@@ -246,8 +258,9 @@ export async function POST(request: Request) {
             },
           });
         }
-        // Hard remove on bounce/complaint at the audience level too.
-        if (eventType === "bounced" || eventType === "complained") {
+        // Hard remove on complaint, or on a hard/undetermined bounce -- never
+        // on a soft (transient) bounce.
+        if (eventType === "complained" || (eventType === "bounced" && !bounceIsSoft)) {
           await setSubscriberStatus(sendRow.audience_id, "unsubscribed");
         }
       } catch (e) {

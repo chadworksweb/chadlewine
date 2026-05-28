@@ -21,7 +21,7 @@ export async function POST(
   const supabase = createAdminClient();
   const { data: campaign, error: cErr } = await supabase
     .from("campaigns")
-    .select("status, subject, body_html")
+    .select("status, subject, body_html, body_blocks")
     .eq("id", id)
     .single();
   if (cErr || !campaign) {
@@ -33,7 +33,13 @@ export async function POST(
       { status: 409 }
     );
   }
-  if (!campaign.subject.trim() || !campaign.body_html.trim()) {
+  // Content lives in body_blocks (the block editor never writes body_html);
+  // sendCampaign re-renders from blocks. Accept either so block-only campaigns
+  // aren't falsely rejected.
+  const hasBody =
+    (Array.isArray(campaign.body_blocks) && campaign.body_blocks.length > 0) ||
+    (campaign.body_html ?? "").trim().length > 0;
+  if (!campaign.subject.trim() || !hasBody) {
     return Response.json(
       { error: "Subject and body must both be filled before sending." },
       { status: 400 }

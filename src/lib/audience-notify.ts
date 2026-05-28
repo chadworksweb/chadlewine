@@ -104,6 +104,10 @@ export async function notifyTierChange(
   previousTier: MemberTier
 ): Promise<void> {
   if (previousTier === ctx.tier) return; // safety — no-op if no actual change
+  // No admin notification when a member unsubscribes (per preference). Covers
+  // the token-unsubscribe path and the bounce/complaint auto-unsubscribe.
+  // Resubscribes and tier-ups still notify.
+  if (ctx.tier === "unsubscribed") return;
   try {
     await sendEmail({
       to: ADMIN_INBOX,

@@ -31,6 +31,13 @@ export const SYNC_SEND_AUDIENCE_LIMIT = 500;
 /** Resend's batch endpoint accepts up to 100 emails per call. */
 export const RESEND_BATCH_SIZE = 100;
 
+/** Resend rate-limits to 5 requests/second. We render+send one email per
+   request, so pace at PACE_BATCH requests then wait PACE_MS -- staying safely
+   under the limit (sending the whole batch in parallel triggers 429s). */
+const PACE_BATCH = 4;
+const PACE_MS = 1100;
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
 /** Sender postal address rendered in the campaign-email footer (CAN-SPAM
    requires a valid physical address in every commercial email). Swap to
    a real street or PO Box once one is provisioned. */
@@ -214,6 +221,33 @@ async function sendChunk(
   );
 }
 
+/** Sends to `rows` paced under Resend's 5/sec limit (PACE_BATCH per ~PACE_MS),
+   invoking `onResult` for each recipient so the caller can persist status. */
+async function sendPaced(
+  campaign: CampaignRow,
+  globals: GlobalsRow,
+  rows: AudienceRow[],
+  onResult: (r: {
+    row: AudienceRow;
+    resendId?: string;
+    error?: string;
+  }) => Promise<void>,
+): Promise<SendResult> {
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < rows.length; i += PACE_BATCH) {
+    const batch = rows.slice(i, i + PACE_BATCH);
+    const results = await sendChunk(campaign, globals, batch);
+    for (const r of results) {
+      if (r.error) failed++;
+      else sent++;
+      await onResult(r);
+    }
+    if (i + PACE_BATCH < rows.length) await sleep(PACE_MS);
+  }
+  return { sent, failed };
+}
+
 export interface SendResult {
   sent: number;
   failed: number;
@@ -272,35 +306,26 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
   }));
   await supabase.from("campaign_sends").insert(queuedRows);
 
-  // 4. Chunk + send.
-  let sent = 0;
-  let failed = 0;
-  for (let i = 0; i < audience.length; i += RESEND_BATCH_SIZE) {
-    const chunk = audience.slice(i, i + RESEND_BATCH_SIZE);
-    const results = await sendChunk(campaign, globals, chunk);
-
-    for (const r of results) {
-      if (r.error) {
-        failed++;
-        await supabase
-          .from("campaign_sends")
-          .update({ status: "failed", error: r.error })
-          .eq("campaign_id", campaignId)
-          .eq("audience_id", r.row.id);
-      } else {
-        sent++;
-        await supabase
-          .from("campaign_sends")
-          .update({
-            status: "sent",
-            resend_id: r.resendId,
-            sent_at: new Date().toISOString(),
-          })
-          .eq("campaign_id", campaignId)
-          .eq("audience_id", r.row.id);
-      }
+  // 4. Send, paced under Resend's 5/sec limit.
+  const { sent, failed } = await sendPaced(campaign, globals, audience, async (r) => {
+    if (r.error) {
+      await supabase
+        .from("campaign_sends")
+        .update({ status: "failed", error: r.error })
+        .eq("campaign_id", campaignId)
+        .eq("audience_id", r.row.id);
+    } else {
+      await supabase
+        .from("campaign_sends")
+        .update({
+          status: "sent",
+          resend_id: r.resendId,
+          sent_at: new Date().toISOString(),
+        })
+        .eq("campaign_id", campaignId)
+        .eq("audience_id", r.row.id);
     }
-  }
+  });
 
   // 5. Finalize.
   await supabase
@@ -315,6 +340,92 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
     .eq("id", campaignId);
 
   return { sent, failed };
+}
+
+/** Re-sends a campaign to only the recipients whose previous send failed
+   (e.g. after a rate-limit wave). Never re-sends to anyone already sent.
+   Paced under Resend's limit; recomputes the campaign's counts afterward. */
+export async function resendCampaignFailures(
+  campaignId: string,
+): Promise<SendResult> {
+  const supabase = createAdminClient();
+
+  const { data: campaign, error: cErr } = await supabase
+    .from("campaigns")
+    .select(
+      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, status",
+    )
+    .eq("id", campaignId)
+    .single();
+  if (cErr || !campaign) throw new Error("Campaign not found.");
+
+  // Recipients whose real (non-test) send failed.
+  const { data: failedSends } = await supabase
+    .from("campaign_sends")
+    .select("audience_id")
+    .eq("campaign_id", campaignId)
+    .eq("is_test", false)
+    .eq("status", "failed");
+  const failedIds = new Set(
+    (failedSends || []).map((s) => s.audience_id as string),
+  );
+  if (failedIds.size === 0) return { sent: 0, failed: 0 };
+
+  const globals = await loadGlobals(supabase);
+  // Reuse the audience filter to recover first_name + unsubscribe_token, then
+  // narrow to the failed recipients (skips anyone since unsubscribed).
+  const audience = await fetchAudience(
+    supabase,
+    (campaign as CampaignRow).audience_filter,
+  );
+  const targets = audience.filter((a) => failedIds.has(a.id));
+  if (targets.length === 0) return { sent: 0, failed: 0 };
+
+  const result = await sendPaced(
+    campaign as CampaignRow,
+    globals,
+    targets,
+    async (r) => {
+      if (r.error) {
+        await supabase
+          .from("campaign_sends")
+          .update({ status: "failed", error: r.error })
+          .eq("campaign_id", campaignId)
+          .eq("audience_id", r.row.id);
+      } else {
+        await supabase
+          .from("campaign_sends")
+          .update({
+            status: "sent",
+            resend_id: r.resendId,
+            sent_at: new Date().toISOString(),
+            error: null,
+          })
+          .eq("campaign_id", campaignId)
+          .eq("audience_id", r.row.id);
+      }
+    },
+  );
+
+  // Recompute counts from the source of truth (campaign_sends).
+  const { data: rows } = await supabase
+    .from("campaign_sends")
+    .select("status")
+    .eq("campaign_id", campaignId)
+    .eq("is_test", false);
+  const failedNow = (rows || []).filter((r) => r.status === "failed").length;
+  const sentNow = (rows || []).length - failedNow;
+  await supabase
+    .from("campaigns")
+    .update({
+      sent_count: sentNow,
+      failed_count: failedNow,
+      status: sentNow > 0 ? "sent" : "failed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", campaignId);
+
+  return result;
 }
 
 /** Sends a single test email to an arbitrary address. Logs to
