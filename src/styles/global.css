@@ -5553,6 +5553,9 @@ html {
   gap: var(--space-xs);
   margin-top: var(--space-xs);
 }
+.campaign-editor__rates--cols3 {
+  grid-template-columns: repeat(3, 1fr);
+}
 .campaign-editor__rate {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -5588,6 +5591,42 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-xs);
   color: var(--text-tertiary);
+}
+/* Scrollable results panel with a pinned, sortable header row. */
+.campaign-sends--scroll {
+  max-height: 600px;
+  overflow: auto;
+}
+.campaign-sends__th {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-surface, #eae8e3);
+}
+.campaign-sends__th:hover { color: var(--text-accent); }
+/* Hard / soft bounce flag chips. */
+.campaign-sends__bounce {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+.campaign-sends__bounce--hard {
+  background: rgba(220, 38, 38, 0.14);
+  color: #dc2626;
+}
+.campaign-sends__bounce--soft {
+  background: rgba(217, 119, 6, 0.16);
+  color: #b45309;
 }
 
 /* Audience filter editor */
@@ -23451,7 +23490,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    ============================================================ */
 .block-editor {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  /* Skinny icon-only block rail (~1/5) so the canvas gets the room to show the
+     email "sheet" at true inbox width. */
+  grid-template-columns: 1fr 4fr;
   gap: var(--space-md);
   align-items: start;
   min-height: 560px;
@@ -23487,8 +23528,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .block-editor__palette-item {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px 8px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 4px;
@@ -23539,7 +23581,8 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .block-editor__sheet {
   max-width: 600px;
   margin: 0 auto;
-  padding: 28px 30px;
+  /* 20px sides -> 560px content area, matching the real email column width. */
+  padding: 28px 20px;
   background: #0a0a14;            /* matches the email body background */
   border-radius: 8px;
   box-shadow: 0 8px 40px rgba(0,0,0,0.35);

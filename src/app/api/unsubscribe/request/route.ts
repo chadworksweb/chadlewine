@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase-server";
-import { sendEmail } from "@/lib/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -44,32 +43,7 @@ export async function POST(request: Request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  // Fire-and-forget notification to Chad. Failure here doesn't break the
-  // public flow — the row is already in the queue for admin review.
-  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "chad@chadworks.co";
-  void sendEmail({
-    to: adminEmail,
-    subject: `Unsubscribe request: ${email}`,
-    html: `
-      <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 540px; margin: 0 auto; padding: 32px 20px; color: #e0e0e8; background: #0a0a14;">
-        <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#8b9cf7;margin:0 0 8px;">Unsubscribe request</p>
-        <h1 style="font-size:20px;font-weight:600;margin:0 0 16px;">${email}</h1>
-        ${
-          reason
-            ? `<p style="font-size:14px;color:#a0a0b0;margin:0 0 12px;">Reason: ${reason.replace(/[<>&]/g, "")}</p>`
-            : ""
-        }
-        ${
-          sourcePage
-            ? `<p style="font-size:12px;color:#808090;margin:0 0 12px;">Source: ${sourcePage.replace(/[<>&]/g, "")}</p>`
-            : ""
-        }
-        <p style="font-size:13px;color:#a0a0b0;margin:24px 0 0;">
-          Review and process at <a href="https://chadlewine.com/admin/subscribers" style="color:#8b9cf7;">chadlewine.com/admin/subscribers</a>
-        </p>
-      </div>
-    `,
-  });
-
+  // No admin email notification (per preference) -- the request is queued in
+  // unsubscribe_requests for review at /admin/subscribers.
   return Response.json({ ok: true });
 }
