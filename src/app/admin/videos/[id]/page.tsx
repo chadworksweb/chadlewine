@@ -2,6 +2,20 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+// timestamptz (ISO) <-> the value a datetime-local input expects (local time).
+function toLocalInput(iso: unknown): string {
+  if (typeof iso !== "string" || !iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromLocalInput(val: string): string | null {
+  if (!val) return null;
+  const d = new Date(val);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export default function EditVideoPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
@@ -37,6 +51,7 @@ export default function EditVideoPage() {
       <div className="obsv-editor__field"><label className="obsv-editor__label">Description</label><textarea className="obsv-editor__input" value={(form.description as string) || ""} onChange={e => setForm({...form, description: e.target.value})} rows={3} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label"><input type="checkbox" checked={!!form.is_featured} onChange={e => setForm({...form, is_featured: e.target.checked})} style={{ marginRight: 8 }} />Featured</label></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Status</label><select className="obsv-editor__input" value={(form.status as string) || "draft"} onChange={e => setForm({...form, status: e.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></div>
+      <div className="obsv-editor__field"><label className="obsv-editor__label">Publish date</label><input type="datetime-local" className="obsv-editor__input" value={toLocalInput(form.published_at)} onChange={e => setForm({...form, published_at: fromLocalInput(e.target.value)})} /><p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "4px 0 0" }}>Controls newest/oldest sort order on the public page.</p></div>
     </div>
   );
 }

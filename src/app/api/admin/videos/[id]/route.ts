@@ -26,10 +26,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const id = await resolveVideoId(supabase, idOrSlug);
   if (!id) return Response.json({ error: "Video not found" }, { status: 404 });
   const body = await request.json();
-  const fields = ["title", "slug", "category_id", "stream_id", "embed_url", "thumbnail_path", "description", "duration_seconds", "is_featured", "status"];
+  const fields = ["title", "slug", "category_id", "stream_id", "embed_url", "thumbnail_path", "description", "duration_seconds", "is_featured", "status", "published_at"];
   const updates: Record<string, unknown> = {};
   for (const f of fields) { if (f in body) updates[f] = body[f]; }
-  if (body.status === "published") {
+  // Auto-stamp the publish date the first time a video is published, but only
+  // when the caller didn't supply one explicitly (the editor can set it).
+  if (body.status === "published" && !("published_at" in body)) {
     const { data: existing } = await supabase.from("videos").select("published_at").eq("id", id).single();
     if (!existing?.published_at) updates.published_at = new Date().toISOString();
   }

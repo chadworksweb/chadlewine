@@ -9,7 +9,7 @@ export const MANAGED_PAGES: ManagedPage[] = [
   { route: "/radiant-arc", label: "Radiant Arc" },
   { route: "/foundations", label: "Foundations (index)" },
   { route: "/art", label: "Art" },
-  { route: "/video", label: "Video" },
+  { route: "/music-videos", label: "Music Videos" },
   { route: "/chad-rising", label: "Chad Rising" },
   { route: "/chad-d", label: "Chad D" },
   { route: "/honeychrome", label: "HoneyChrome" },
