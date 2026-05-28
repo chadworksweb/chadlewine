@@ -36,9 +36,12 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [generatingAlt, setGeneratingAlt] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(10);
+  const [visibleCount, setVisibleCount] = useState(20);
+  const [selectedNames, setSelectedNames] = useState<Set<string>>(new Set());
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 20;
 
   async function generateAlt() {
     if (!selected) return;
@@ -105,8 +108,40 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
       // eslint-disable-next-line react-hooks/set-state-in-effect -- load images when modal opens
       fetchImages();
       setSelected(null);
+      setSelectedNames(new Set());
+      setConfirmingBulkDelete(false);
     }
   }, [open, fetchImages]);
+
+  function toggleSelect(name: string) {
+    setConfirmingBulkDelete(false);
+    setSelectedNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  async function bulkDelete() {
+    if (selectedNames.size === 0) return;
+    setBulkDeleting(true);
+    const targets = images.filter((img) => selectedNames.has(img.name));
+    await Promise.all(
+      targets.map((img) =>
+        fetch("/api/admin/media", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: img.name, zone: img.zone }),
+        }),
+      ),
+    );
+    if (selected && selectedNames.has(selected.name)) setSelected(null);
+    setSelectedNames(new Set());
+    setConfirmingBulkDelete(false);
+    setBulkDeleting(false);
+    fetchImages();
+  }
 
   function selectImage(img: MediaImage) {
     setSelected(img);
@@ -265,6 +300,53 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
 
             {error && <p className="media-modal__error">{error}</p>}
 
+            {selectedNames.size > 0 && (
+              <div className="media-modal__bulkbar">
+                <span className="media-modal__bulkcount">
+                  {selectedNames.size} selected
+                </span>
+                <button
+                  type="button"
+                  className="media-modal__bulk-clear"
+                  onClick={() => {
+                    setSelectedNames(new Set());
+                    setConfirmingBulkDelete(false);
+                  }}
+                >
+                  Clear
+                </button>
+                {confirmingBulkDelete ? (
+                  <span className="media-modal__bulk-confirm">
+                    <span>Delete {selectedNames.size}?</span>
+                    <button
+                      type="button"
+                      className="media-modal__bulk-delete"
+                      onClick={bulkDelete}
+                      disabled={bulkDeleting}
+                    >
+                      {bulkDeleting ? "Deleting…" : "Yes, delete"}
+                    </button>
+                    <button
+                      type="button"
+                      className="media-modal__bulk-cancel"
+                      onClick={() => setConfirmingBulkDelete(false)}
+                      disabled={bulkDeleting}
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="media-modal__bulk-delete"
+                    onClick={() => setConfirmingBulkDelete(true)}
+                  >
+                    Delete selected
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="media-modal__grid">
               {loading && <p className="media-modal__loading">Loading...</p>}
               {!loading && images.length === 0 && (
@@ -276,9 +358,17 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
               {visibleImages.map((img) => (
                 <div
                   key={img.name}
-                  className={`media-modal__item${selected?.name === img.name ? " media-modal__item--selected" : ""}`}
+                  className={`media-modal__item${selected?.name === img.name ? " media-modal__item--selected" : ""}${selectedNames.has(img.name) ? " media-modal__item--checked" : ""}`}
                   onClick={() => selectImage(img)}
                 >
+                  <input
+                    type="checkbox"
+                    className="media-modal__check"
+                    checked={selectedNames.has(img.name)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleSelect(img.name)}
+                    aria-label={`Select ${img.name}`}
+                  />
                   {/* eslint-disable-next-line @next/next/no-img-element -- admin-only library tile */}
                   <img src={img.url} alt={img.alt_text || img.name} className="media-modal__thumb" loading="lazy" />
                 </div>

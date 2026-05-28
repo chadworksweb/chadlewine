@@ -120,15 +120,22 @@ export async function GET() {
 
   const keyOf = (f: ListedFile) => fileKey(f.pullHost, f.name);
   const keys = allFiles.map(keyOf);
-  const filenamesForMeta = allFiles.map((f) => f.name);
 
+  // Fetch the whole (small) media_meta table rather than filtering by an .in()
+  // of every filename: with hundreds of files that filter builds a request URL
+  // long enough to fail outright ("fetch failed"), which is what silently
+  // blanked all alt/title once the library grew. Mapping locally is cheap.
   const [metaResult, pillarMap] = await Promise.all([
-    supabase
-      .from("media_meta")
-      .select("filename, alt_text, title")
-      .in("filename", filenamesForMeta),
+    supabase.from("media_meta").select("filename, alt_text, title"),
     buildPillarMap(supabase, keys),
   ]);
+
+  // Log a metadata read failure instead of swallowing it silently (which is how
+  // a missing service_role GRANT hid itself -- alt_text/title came back blank
+  // with no signal). Don't fail the whole listing; metadata is secondary.
+  if (metaResult.error) {
+    console.error("media_meta read failed:", metaResult.error.message);
+  }
 
   const metaMap = new Map<string, { alt_text: string; title: string }>();
   metaResult.data?.forEach((m) => metaMap.set(m.filename, m));

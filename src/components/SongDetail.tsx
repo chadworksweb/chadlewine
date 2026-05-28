@@ -176,6 +176,7 @@ export function SongDetail({
   songSkus = [],
   releaseSkus = [],
   merchSlot = null,
+  renderConfig = null,
 }: {
   song: SongProps;
   album: AlbumProps | null;
@@ -192,6 +193,8 @@ export function SongDetail({
   pairedArt?: PairedArtProps[];
   connectionsSongs?: ConnectionsSongProps[];
   merchSlot?: React.ReactNode;
+  /** Effective render-lever config for the cube (see librosa-levers.ts). */
+  renderConfig?: Record<string, number> | null;
 }) {
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [openExpansions, setOpenExpansions] = useState<Set<string>>(new Set());
@@ -281,6 +284,7 @@ export function SongDetail({
             bassSynthEnvelope={song.bass_synth_envelope ?? null}
             bassSynthEnvelopeHz={song.bass_synth_envelope_hz ?? null}
             bassSynthPitch={song.bass_synth_pitch ?? null}
+            renderConfig={renderConfig}
           />
         </div>
 

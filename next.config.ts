@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // A stray package-lock.json in C:\Users\chad made Next infer the home folder
+  // as the workspace root, so its file tracer/watcher crawled all of Dropbox,
+  // Local Sites, OneDrive, AppData -- grinding dev to a halt. Pin the root to
+  // this project so only the app tree is watched.
+  outputFileTracingRoot: path.join(__dirname),
   allowedDevOrigins: ["10.0.0.181"],
   experimental: {
     // proxy.ts buffers request bodies in memory; default 10MB cap cuts off

@@ -314,6 +314,21 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
     []
   );
 
+  // Desktop-only cursor ripple hint: a faint ring that follows the cursor over
+  // the hero to signal it's an interactive surface. Position is written
+  // straight to the node so mouse moves don't re-render the slides.
+  const cursorHintRef = useRef<HTMLDivElement>(null);
+  const [cursorHintOn, setCursorHintOn] = useState(false);
+  const handleHeroMouseMove = useCallback((e: React.MouseEvent) => {
+    const vp = viewportRef.current;
+    const el = cursorHintRef.current;
+    if (!vp || !el) return;
+    const r = vp.getBoundingClientRect();
+    el.style.transform = `translate(${e.clientX - r.left}px, ${e.clientY - r.top}px)`;
+    setCursorHintOn(true); // no-op re-render once already true
+  }, []);
+  const handleHeroMouseLeave = useCallback(() => setCursorHintOn(false), []);
+
   if (total === 0) return null;
 
   return (
@@ -325,6 +340,8 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
         onTouchStart={isMobile ? handleTouchStart : undefined}
         onTouchMove={isMobile ? handleTouchMove : undefined}
         onTouchEnd={isMobile ? handleTouchEnd : undefined}
+        onMouseMove={!isMobile ? handleHeroMouseMove : undefined}
+        onMouseLeave={!isMobile ? handleHeroMouseLeave : undefined}
       >
         {(() => {
           // How far the slides are dragged from rest, as a fraction of viewport
@@ -444,6 +461,14 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
               <span className="hero-lens__nav-arrow" aria-hidden>›</span>
             </button>
           </>
+        )}
+
+        {!isMobile && total > 1 && (
+          <div
+            ref={cursorHintRef}
+            className={`hero-lens__cursor-hint${cursorHintOn ? " is-on" : ""}`}
+            aria-hidden="true"
+          />
         )}
 
         {showHint && (

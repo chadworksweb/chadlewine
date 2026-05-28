@@ -32,11 +32,11 @@ export function MerchProductCard({ id, slug, title, image_url, image_alt, href: 
           />
         </Link>
       )}
-      <h3 className="merch-shop__card-title">
+      <h2 className="merch-shop__card-title">
         <Link href={href} className="merch-shop__card-title-link">
           {title}
         </Link>
-      </h3>
+      </h2>
     </div>
   );
 }

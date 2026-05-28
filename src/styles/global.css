@@ -569,6 +569,9 @@ body.art-immersive main ~ * {
   gap: 3px;
   overflow: hidden;
   width: max-content;
+  /* All dropdowns share a floor equal to the widest current child
+     ("Super Individual" ~141px) so they read as a uniform width. */
+  min-width: 9rem;
 }
 
 .nav-links__sub-item {
@@ -1264,6 +1267,57 @@ body.art-immersive main ~ * {
 /* One-time mobile swipe affordance. Rendered only while the JS hint timer is
    active (mobile, first homepage view per session); the fade keyframe matches
    that ~2.6s window so it eases in, holds, and eases out before unmount. */
+/* Desktop cursor hint: faint rings that ripple outward around the cursor while
+   it's over the hero, signalling an interactive surface. A 0-size point at the
+   cursor; its pseudo-elements are the staggered rings + a small core dot. */
+.hero-lens__cursor-hint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  will-change: transform;
+}
+.hero-lens__cursor-hint.is-on {
+  opacity: 1;
+}
+.hero-lens__cursor-hint::before,
+.hero-lens__cursor-hint::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(139, 156, 247, 0.45);
+  animation: hero-cursor-ripple 3s ease-out infinite;
+}
+.hero-lens__cursor-hint::after {
+  animation-delay: 1.5s;
+}
+@keyframes hero-cursor-ripple {
+  0% { transform: scale(0.5); opacity: 0; }
+  12% { opacity: 0.6; }
+  38% { transform: scale(1.2); opacity: 0; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-lens__cursor-hint::before,
+  .hero-lens__cursor-hint::after {
+    animation: none;
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  .hero-lens__cursor-hint::after { display: none; }
+}
+
 .hero-lens__swipe-hint {
   position: absolute;
   left: 50%;
@@ -4754,6 +4808,12 @@ html {
 
 .admin-btn:hover { opacity: 0.9; }
 .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Square-ish icon-only button (e.g. copy link). */
+.admin-btn--icon {
+  padding: var(--space-xs);
+  justify-content: center;
+  min-width: 34px;
+}
 
 .admin-btn--primary {
   background: var(--text-accent);
@@ -5017,6 +5077,54 @@ html {
   color: #9333ea;
   background: rgba(147, 51, 234, 0.1);
 }
+
+/* Published/Hidden toggle switch (admin video list). */
+.admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.admin-toggle:disabled { opacity: 0.5; cursor: default; }
+.admin-toggle__track {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-medium);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.admin-toggle__knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.admin-toggle.is-on .admin-toggle__track {
+  background: rgba(22, 163, 74, 0.2);
+  border-color: #16a34a;
+}
+.admin-toggle.is-on .admin-toggle__knob {
+  transform: translateX(18px);
+  background: #16a34a;
+}
+.admin-toggle__label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+.admin-toggle.is-on .admin-toggle__label { color: #16a34a; }
 
 .admin-status--trash {
   color: #dc2626;
@@ -7836,8 +7944,8 @@ html {
   color: #1a1a1a;
   border-radius: 10px;
   width: 100%;
-  max-width: 1000px;
-  max-height: 85vh;
+  max-width: 1280px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -7929,7 +8037,14 @@ html {
   overflow-y: auto;
   padding: var(--space-md) var(--space-lg) var(--space-lg);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  /* Fixed row track. This grid is a definite-height scroll container, and in
+     that context a grid item's aspect-ratio height does NOT feed auto
+     row-track sizing -- the track collapses to ~half the cell and every row
+     overlaps the one below (the "piled up" bug). A fixed track sizes the cell
+     directly and removes the aspect-ratio dependency. Same pattern as
+     .album-section__art-grid. */
+  grid-auto-rows: 120px;
   gap: var(--space-md);
   align-content: start;
 }
@@ -7946,11 +8061,15 @@ html {
 
 .media-modal__item {
   position: relative;
-  aspect-ratio: 1;
+  /* Height comes from the grid's fixed grid-auto-rows, not aspect-ratio --
+     see .media-modal__grid. The item stretches to fill the row track. */
   border-radius: 6px;
   overflow: hidden;
-  border: 2px solid transparent;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  /* Contrast surface so transparent-webp thumbs (bg-removed merch) read as
+     separate cells instead of bleeding into one continuous wall. */
+  background: var(--bg-elevated, #1a1a1a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.10));
+  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
   cursor: pointer;
 }
 
@@ -7962,10 +8081,68 @@ html {
   border-color: #3a4ed0;
   box-shadow: 0 0 0 2px rgba(58, 78, 208, 0.3);
 }
+.media-modal__item--checked {
+  border-color: #3a4ed0;
+  box-shadow: 0 0 0 2px rgba(58, 78, 208, 0.45);
+}
+.media-modal__check {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #3a4ed0;
+}
+.media-modal__bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 var(--space-lg) var(--space-sm);
+  padding: 8px 12px;
+  background: rgba(58, 78, 208, 0.1);
+  border: 1px solid rgba(58, 78, 208, 0.35);
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+.media-modal__bulkcount { font-weight: 600; }
+.media-modal__bulk-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.media-modal__bulk-clear,
+.media-modal__bulk-cancel {
+  background: transparent;
+  border: 1px solid var(--border-subtle, #333);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.media-modal__bulk-delete {
+  margin-left: auto;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.5);
+  color: #ff6b6b;
+  border-radius: 4px;
+  padding: 3px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.media-modal__bulk-confirm .media-modal__bulk-delete { margin-left: 0; }
+.media-modal__bulk-delete:disabled,
+.media-modal__bulk-cancel:disabled { opacity: 0.5; cursor: default; }
 
 .media-modal__thumb {
   width: 100%;
-  aspect-ratio: 1;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
@@ -8158,7 +8335,7 @@ html {
 .media-page__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: var(--space-md);
+  gap: var(--space-lg);
 }
 
 .media-page__item {
@@ -8166,7 +8343,11 @@ html {
   aspect-ratio: 1;
   border-radius: 6px;
   overflow: hidden;
-  border: 2px solid transparent;
+  /* Contrast surface so transparent-webp thumbs (the bg-removed merch) don't
+     bleed into each other. Without this, neighbouring tee silhouettes blur
+     together into a single vertical pile. */
+  background: var(--bg-elevated, #1a1a1a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-out);
 }
@@ -9196,12 +9377,370 @@ html {
   max-width: 560px;
 }
 
+/* Admin: drag-and-drop reorder grid mimicking the public /merch storefront
+   so the admin sees what the user sees when re-sequencing tiles. */
+.merch-order__grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-md);
+}
+
+@media (max-width: 900px) {
+  .merch-order__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .merch-order__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.merch-order__tile {
+  position: relative;
+  background: var(--bg-elevated, #1a1a1a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.10));
+  border-radius: 6px;
+  padding: var(--space-sm);
+  cursor: grab;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, 6px);
+}
+
+.merch-order__tile:active {
+  cursor: grabbing;
+}
+
+.merch-order__tile--over {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 2px rgba(139, 156, 247, 0.35);
+}
+
+.merch-order__pos {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 3px;
+}
+
+.merch-order__thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: var(--bg-elevated, #1a1a1a);
+  display: block;
+  pointer-events: none;
+}
+
+.merch-order__thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+
+.merch-order__title {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-primary);
+  line-height: 1.25;
+  pointer-events: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Shop controls: filter chips on the left, sort dropdown on the right.
+   A WebGL canvas (.merch-shop__backdrop) sits behind, painted with a random
+   release cover under LCD-pixel/posterize/scanline treatment. */
+.merch-shop__controls {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: #0a0d12;
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+}
+
+.merch-shop__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Scrim over the cover-art backdrop so chips/sort stay legible. */
+.merch-shop__controls::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.merch-shop__chips,
+.merch-shop__sort {
+  position: relative;
+  z-index: 2;
+}
+
+.merch-shop__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Chips and sort mirror the song-topic style (songs-explorer): outlined,
+   uppercase, accent-fill when selected. */
+.merch-shop__chip {
+  position: relative;
+  overflow: hidden;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.90);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+/* Continuous electric scanline sweep on hover -- mirrors the pillar shader's
+   never-not-visible sweep (top-to-bottom, restarts when it hits the bottom).
+   Same pillar palette (purple front, white core, amber trail) but faded down,
+   with an opacity blink layered on top so it reads as live signal rather than
+   a clean laser. */
+.merch-shop__chip::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -4px;
+  height: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(139, 156, 247, 0.32) 30%,
+    rgba(255, 255, 255, 0.42) 50%,
+    rgba(255, 180, 40, 0.28) 70%,
+    transparent 100%
+  );
+  filter: blur(0.5px);
+  z-index: 1;
+}
+
+.merch-shop__chip:hover {
+  color: #ffffff;
+  border-color: var(--text-accent);
+  background: rgba(139, 156, 247, 0.22);
+  /* Glitch pulse cadence -- a brief chromatic burst at the start of each
+     loop, then quiet. Same rhythm as the pillar shader (burst then rest). */
+  animation: merch-chip-pulse 2s ease-in-out infinite;
+}
+
+.merch-shop__chip:hover::before {
+  opacity: 1;
+  animation:
+    merch-chip-scan 1.4s linear infinite,
+    merch-chip-blink 0.5s steps(1, end) infinite;
+}
+
+/* Held: faster scan + heavier, more frequent chromatic bursts with x/y jitter,
+   the simplified scaled-down version of the pillar's diagonal follow-up. */
+.merch-shop__chip:active {
+  animation: merch-chip-pulse-hold 0.55s steps(4, end) infinite;
+}
+
+.merch-shop__chip:active::before {
+  animation:
+    merch-chip-scan 0.7s linear infinite,
+    merch-chip-blink 0.18s steps(1, end) infinite;
+}
+
+.merch-shop__chip.is-active {
+  background: var(--text-accent);
+  border-color: var(--text-accent);
+  color: var(--bg-primary, #000);
+  font-weight: 700;
+}
+
+@keyframes merch-chip-scan {
+  0%   { top: -4px; }
+  100% { top: calc(100% + 2px); }
+}
+
+/* Irregular flicker -- steps() snap so it reads as power blinking, not a
+   smooth pulse. Mostly dim, occasional brighter beat, occasional drop-out. */
+@keyframes merch-chip-blink {
+  0%   { opacity: 0.55; }
+  12%  { opacity: 0.85; }
+  24%  { opacity: 0.20; }
+  36%  { opacity: 0.65; }
+  48%  { opacity: 0.0; }
+  60%  { opacity: 0.40; }
+  72%  { opacity: 0.95; }
+  84%  { opacity: 0.30; }
+  100% { opacity: 0.55; }
+}
+
+@keyframes merch-chip-pulse {
+  0% {
+    filter:
+      drop-shadow(2.5px 0 0 rgba(139, 156, 247, 0.80))
+      drop-shadow(-2.5px 0 0 rgba(255, 180, 40, 0.65));
+    transform: translateX(-1px) skewX(-1.5deg);
+  }
+  6% {
+    filter:
+      drop-shadow(1px 0 0 rgba(139, 156, 247, 0.60))
+      drop-shadow(-1px 0 0 rgba(255, 180, 40, 0.45));
+    transform: translateX(1px) skewX(1deg);
+  }
+  14% {
+    filter: drop-shadow(0 0 0 transparent);
+    transform: none;
+  }
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+    transform: none;
+  }
+}
+
+@keyframes merch-chip-pulse-hold {
+  0% {
+    filter:
+      drop-shadow(4px 0 0 rgba(139, 156, 247, 0.90))
+      drop-shadow(-4px 0 0 rgba(255, 180, 40, 0.78));
+    transform: translate(-2px, 1px) skewX(-2deg);
+  }
+  25% {
+    filter:
+      drop-shadow(-3px -1px 0 rgba(139, 156, 247, 0.85))
+      drop-shadow(3px 1px 0 rgba(255, 180, 40, 0.72));
+    transform: translate(1px, -1px) skewX(1.5deg);
+  }
+  50% {
+    filter:
+      drop-shadow(2px 0 0 rgba(139, 156, 247, 0.70))
+      drop-shadow(-2px 0 0 rgba(255, 180, 40, 0.55));
+    transform: translate(0, 1px) skewX(-1deg);
+  }
+  75% {
+    filter:
+      drop-shadow(-4px 1px 0 rgba(139, 156, 247, 0.90))
+      drop-shadow(4px -1px 0 rgba(255, 180, 40, 0.78));
+    transform: translate(-1px, 0) skewX(2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .merch-shop__chip:hover,
+  .merch-shop__chip:active,
+  .merch-shop__chip:hover::before,
+  .merch-shop__chip:active::before {
+    animation: none;
+    filter: none;
+    transform: none;
+    opacity: 0;
+  }
+}
+
+.merch-shop__sort {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+}
+
+.merch-shop__sort-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--text-tertiary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.merch-shop__sort-select {
+  padding: 6px 12px;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
 /* Shop grid — mirrors .discography-grid (without the cube radiant), 3-up */
 .merch-shop__grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-lg);
   margin-bottom: var(--space-2xl);
+}
+
+/* Filter/sort transition: each card glitches in (chromatic split + skew +
+   fade) when typeFilter or sort changes. Staggered per-card via JS. */
+@keyframes merch-card-glitch-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) skewX(-2deg);
+    filter:
+      drop-shadow(4px 0 0 rgba(139, 156, 247, 0.55))
+      drop-shadow(-4px 0 0 rgba(255, 180, 40, 0.45))
+      blur(0.6px);
+  }
+  35% {
+    opacity: 0.45;
+    transform: translateY(5px) skewX(-1deg);
+    filter:
+      drop-shadow(2px 0 0 rgba(139, 156, 247, 0.45))
+      drop-shadow(-2px 0 0 rgba(255, 180, 40, 0.35))
+      blur(0.3px);
+  }
+  70% {
+    opacity: 0.92;
+    transform: translateY(1px) skewX(0);
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .merch-shop__grid .merch-shop__card {
+    animation: none !important;
+  }
 }
 
 .merch-shop__card {
@@ -9358,6 +9897,20 @@ html {
   50%  { transform: translateX(3px); }
   75%  { transform: translateX(-1px); }
   100% { transform: translateX(0); }
+}
+
+/* Scoped overrides for the public /merch grid: smaller centered title, more
+   breathing room between rows. The base .merch-shop__card-title (used by
+   ExploreStrip, connections, etc.) keeps its existing 2-col layout below. */
+.page-merch .merch-shop__card-title {
+  font-size: 1.33rem;
+  grid-template-columns: 1fr;
+  text-align: center;
+  justify-items: center;
+}
+
+.page-merch .merch-shop__grid {
+  row-gap: var(--space-3xl, 4rem);
 }
 
 .merch-shop__card-title {
@@ -10253,121 +10806,6 @@ html {
 @media (max-width: 480px) {
   .lb__reader { padding: var(--space-md); }
   .lb__lyrics-body { font-size: 0.88rem; line-height: 1.7; }
-}
-
-/* --- TVP (The Video Player) --- */
-
-.tvp {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xl);
-}
-
-/* Active player — full width, big */
-.tvp__player { margin-bottom: var(--space-lg); }
-
-.tvp__iframe {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: none;
-  border-radius: 12px;
-  background: #000;
-}
-
-.tvp__no-source {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-elevated);
-  border-radius: 12px;
-  color: var(--text-tertiary);
-  font-family: var(--font-ui);
-  font-size: var(--text-lg);
-}
-
-.tvp__active-title {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 600;
-  margin-top: var(--space-lg);
-  color: var(--text-primary);
-}
-
-.tvp__active-desc {
-  font-size: var(--text-body);
-  color: var(--text-secondary);
-  margin-top: var(--space-xs);
-  line-height: var(--leading-body);
-}
-
-/* Category filter pills */
-.tvp__categories {
-  display: flex;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
-.tvp__cat-btn {
-  font-family: var(--font-ui);
-  font-size: var(--text-sm);
-  padding: 8px 20px;
-  background: none;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: border-color var(--duration-fast), color var(--duration-fast);
-}
-.tvp__cat-btn:hover { border-color: var(--border-medium); color: var(--text-primary); }
-.tvp__cat-btn--active { border-color: var(--text-accent); color: var(--text-accent); }
-
-/* Video grid — big thumbnails */
-.tvp__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-lg);
-}
-
-.tvp__card {
-  background: none;
-  border: 2px solid transparent;
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-  display: flex;
-  flex-direction: column;
-  transition: border-color var(--duration-base) var(--ease-out);
-}
-.tvp__card:hover { border-color: var(--border-medium); }
-
-.tvp__thumb {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-}
-
-.tvp__card-title {
-  font-family: var(--font-ui);
-  font-size: var(--text-body);
-  font-weight: 600;
-  padding: var(--space-md) var(--space-sm) var(--space-xs);
-  color: var(--text-primary);
-}
-
-.tvp__card-dur {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text-tertiary);
-  padding: 0 var(--space-sm) var(--space-md);
-}
-
-@media (max-width: 768px) {
-  .tvp__grid { grid-template-columns: 1fr; }
-  .tvp__active-title { font-size: var(--text-lg); }
 }
 
 /* --- Art Gallery --- */
@@ -16891,7 +17329,59 @@ body.cart-open {
   padding-bottom: var(--space-2xl, 4rem);
 }
 .page-radiant-arc__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
   padding: var(--space-lg) 0 var(--space-md);
+  transition: padding 320ms ease;
+}
+/* Collapsed: title text animates to zero height (grid-rows 1fr -> 0fr animates
+   to the real content height) and fades out, and the bar shrinks to just the
+   toggle — so the arc viewport rises to fill a laptop screen without scrolling. */
+.page-radiant-arc__header.is-collapsed {
+  padding: var(--space-xs) 0;
+}
+.page-radiant-arc__header-text {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 320ms ease, opacity 240ms ease;
+}
+.page-radiant-arc__header-text-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.page-radiant-arc__header.is-collapsed .page-radiant-arc__header-text {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.page-radiant-arc__title-toggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.4em;
+  padding: 5px 10px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid rgba(212, 161, 58, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.page-radiant-arc__header.is-collapsed .page-radiant-arc__title-toggle {
+  margin-top: 0;
+  margin-left: auto;
+}
+.page-radiant-arc__title-toggle:hover {
+  color: var(--arc-gold-bright);
+  border-color: rgba(247, 200, 74, 0.55);
+  background: rgba(247, 200, 74, 0.08);
 }
 .page-radiant-arc__title {
   font-family: var(--font-display, var(--font-ui));
@@ -17170,11 +17660,24 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   white-space: nowrap;
   z-index: 2;
 }
+/* Inside the window edges when there's room. */
 .arc-radiant__overview-year--left {
   left: 4px;
 }
 .arc-radiant__overview-year--right {
   right: 4px;
+}
+/* Narrow window: flip the labels to the OUTSIDE of the window so they can't
+   collide — start label hangs off the left edge, end label off the right. */
+.arc-radiant__overview-year--left.is-outside {
+  left: auto;
+  right: calc(100% + 6px);
+  text-align: right;
+}
+.arc-radiant__overview-year--right.is-outside {
+  right: auto;
+  left: calc(100% + 6px);
+  text-align: left;
 }
 .arc-radiant__overview-viewport:active {
   cursor: grabbing;
@@ -17270,6 +17773,84 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Floating "skip to the music" nudge on first load. Gently fades in and bobs,
+   over the empty sky above the early (sparse) years; dismissible via the X. */
+.arc-radiant__skip-cta {
+  position: absolute;
+  top: 24%;
+  /* Over the sparse early years near the start of the timeline (not centered),
+     so it reads as a nudge forward from the beginning. */
+  left: 22%;
+  z-index: 5;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid rgba(247, 200, 74, 0.4);
+  /* Solid-ish fill instead of backdrop-filter: animating transform on a
+     backdrop-blurred element re-rasterizes every frame and steps pixel-by-pixel.
+     will-change promotes it to its own GPU layer so the bob interpolates
+     smoothly (subpixel). */
+  background: rgba(18, 13, 5, 0.94);
+  border-radius: 999px;
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.45), 0 0 18px rgba(247, 200, 74, 0.12);
+  overflow: hidden;
+  opacity: 0;
+  transform: translate3d(-50%, 0, 0);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  animation:
+    arc-skip-in 600ms ease-out 350ms forwards,
+    arc-skip-bob 3.8s ease-in-out 950ms infinite;
+}
+
+/* Fade-in animates OPACITY ONLY. The bob owns TRANSFORM. Keeping the two on
+   separate properties stops them fighting over `transform` every frame (the
+   source of the gentle flicker). translate3d keeps it on one GPU layer. */
+@keyframes arc-skip-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes arc-skip-bob {
+  0%, 100% { transform: translate3d(-50%, 0, 0); }
+  50%      { transform: translate3d(-50%, -4px, 0); }
+}
+
+.arc-radiant__skip-cta-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  color: var(--arc-gold-bright);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+.arc-radiant__skip-cta-go:hover {
+  background: rgba(247, 200, 74, 0.12);
+}
+
+.arc-radiant__skip-cta-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  padding: 0;
+  color: var(--arc-gold-pale);
+  background: transparent;
+  border: 0;
+  border-left: 1px solid rgba(247, 200, 74, 0.25);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.arc-radiant__skip-cta-close:hover {
+  background: rgba(247, 200, 74, 0.12);
+  color: var(--arc-gold-bright);
 }
 
 /* Key panel — pinned to the left column, anchored at the bottom of the
@@ -17319,6 +17900,58 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 
 .arc-radiant__key-row.is-off .arc-radiant__key-swatch {
   filter: grayscale(0.6);
+}
+
+/* "Copy link to this view" — sits under the layer toggles in the Key column. */
+.arc-radiant__copy-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: var(--space-sm);
+  width: 100%;
+  padding: 7px 8px;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-align: left;
+  color: var(--arc-gold-pale);
+  background: rgba(247, 200, 74, 0.06);
+  border: 1px solid rgba(212, 161, 58, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.arc-radiant__copy-link:hover {
+  background: rgba(247, 200, 74, 0.14);
+  border-color: rgba(247, 200, 74, 0.55);
+  color: var(--arc-gold-bright);
+}
+
+.arc-radiant__copy-link-icon {
+  flex-shrink: 0;
+}
+
+/* On copy: snap bright, then ease back to the resting style over ~1.5s. The
+   is-copied class is held for 1600ms (matches the animation), so it ends at the
+   normal style with no jump when the class is removed. */
+.arc-radiant__copy-link.is-copied {
+  animation: arc-copy-flash 1500ms ease-out;
+}
+
+@keyframes arc-copy-flash {
+  0% {
+    background: rgba(247, 200, 74, 0.32);
+    border-color: rgba(247, 231, 167, 0.95);
+    color: var(--arc-gold-bright);
+    box-shadow: 0 0 14px rgba(247, 200, 74, 0.55);
+  }
+  100% {
+    background: rgba(247, 200, 74, 0.06);
+    border-color: rgba(212, 161, 58, 0.3);
+    color: var(--arc-gold-pale);
+    box-shadow: 0 0 0 rgba(247, 200, 74, 0);
+  }
 }
 
 .arc-radiant__key-row:hover {
@@ -17721,6 +18354,65 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   white-space: nowrap;
 }
 
+/* Month + mid-month ticks: same gold language as year ticks but fainter and
+   shorter, so they read as a finer subdivision and never compete with years. */
+.arc-radiant__months {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.arc-radiant__month-tick {
+  position: absolute;
+  width: 1px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(212, 161, 58, 0.06) 70%,
+    rgba(212, 161, 58, 0.03) 100%);
+}
+
+.arc-radiant__month-tick--mid {
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(212, 161, 58, 0.035) 100%);
+}
+
+.arc-radiant__month-label {
+  position: absolute;
+  bottom: 4px;
+  left: 3px;
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: rgba(247, 231, 167, 0.42);
+  white-space: nowrap;
+}
+
+/* "Now" line — a quiet vertical marker at today's date, distinct from the gold
+   grid (cool white) so it reads as a live reference, not a tick. */
+.arc-radiant__now-line {
+  position: absolute;
+  width: 1px;
+  background: linear-gradient(180deg,
+    rgba(220, 240, 255, 0.45) 0%,
+    rgba(220, 240, 255, 0.16) 70%,
+    rgba(220, 240, 255, 0) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.arc-radiant__now-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(220, 240, 255, 0.6);
+  white-space: nowrap;
+}
+
 /* Collapsed pre-catalog band — sits at the LEFT, clickable to expand */
 .arc-radiant__pre-band {
   position: absolute;
@@ -17802,6 +18494,63 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   left: 0;
 }
 
+/* Compass trajectory styles copied from Rising Compass (renderTrajectoryChart
+   + .trajectory-* in rc main.css): thin rounded gradient line, a low-opacity
+   area wash under it, and faint charge reference lines. No per-release dots --
+   RC keeps the static chart clean and surfaces points on hover. */
+.arc-radiant__charge-line {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.arc-radiant__charge-area {
+  opacity: 0.15;
+}
+
+.arc-radiant__charge-grid {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+
+/* Invisible hover hit-target sitting on each release's charge vertex. Centered
+   on (left:x, bottom:pointBottom). The line itself draws no dots; this surfaces
+   one in the release's tier color on hover. */
+.arc-radiant__charge-point {
+  position: absolute;
+  z-index: 4;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 50%;
+  transform: translate(-50%, 50%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.arc-radiant__charge-point::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--pt-color, #fff);
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.arc-radiant__charge-point:hover::after,
+.arc-radiant__charge-point:focus-visible::after,
+.arc-radiant__charge-point.is-selected::after {
+  opacity: 1;
+}
+
 /* Eras as soft horizontal halos rising from the spine. Life kind hugs the
    centerline; release kind floats just above. No hard borders — the band
    fades upward like radiated light. */
@@ -17810,10 +18559,20 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   z-index: 1;
   padding: 0 10px;
   font-family: var(--font-ui);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   border-radius: 0;
   display: flex;
   align-items: center;
+  transition: filter 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* Click an era to zoom it to fill the viewport — hover/focus brighten the band
+   so the affordance reads. */
+.arc-radiant__era:hover,
+.arc-radiant__era:focus-visible {
+  filter: brightness(1.35);
+  outline: none;
 }
 
 /* Life eras shift to a cool cyan/teal hue — fundamentally opposite the warm
@@ -19308,12 +20067,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .sw-toggle__body { padding-bottom: 0.5rem; }
 
 /* Partnership footnote */
-.sw-footnote-ref { color: var(--text-accent); }
+.sw-footnote-ref { color: #ffffff; }
 .sw-footnote {
   margin-top: var(--space-xl, 2.5rem);
-  padding-top: var(--space-md, 1rem);
-  border-top: 1px solid rgba(228, 228, 236, 0.14);
-  max-width: 62ch;
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
@@ -22695,10 +23451,19 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    ============================================================ */
 .block-editor {
   display: grid;
-  grid-template-columns: 200px 1fr 320px;
+  grid-template-columns: 200px 1fr;
   gap: var(--space-md);
   align-items: start;
   min-height: 560px;
+
+  /* The editor panels are intentionally dark (they mirror the email canvas),
+     but they sit inside the light admin content area which redefines the text
+     vars to dark ink. Re-scope the site's dark-theme text colors here so every
+     var(--text-*) reference below resolves to legible light-on-dark again. */
+  --text-primary: #e4e4ec;
+  --text-secondary: rgba(228, 228, 236, 0.72);
+  --text-tertiary: rgba(228, 228, 236, 0.5);
+  --text-accent: #8b9cf7;
 }
 .block-editor__palette {
   position: sticky;
@@ -22761,241 +23526,409 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   color: var(--text-tertiary);
   line-height: 1.4;
 }
+/* Mailchimp-style inline WYSIWYG canvas: a centered email "sheet" rendered in
+   the real send-time styles and edited in place. The dark theme mirrors the
+   actual email (src/lib/email-blocks.ts) -- what you see is what sends. */
 .block-editor__canvas {
-  min-height: 400px;
-  padding: var(--space-md);
-  background: #0d0d18;
+  min-height: 460px;
+  padding: var(--space-lg) var(--space-md);
+  background: #050509;
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 6px;
 }
+.block-editor__sheet {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 28px 30px;
+  background: #0a0a14;            /* matches the email body background */
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+}
 .block-editor__empty {
-  padding: 60px 20px;
+  padding: 64px 20px;
   text-align: center;
-  color: var(--text-tertiary);
+  color: rgba(228,228,236,0.4);
   font-family: var(--font-ui, sans-serif);
   font-size: 13px;
 }
 .block-editor__slot {
-  height: 12px;
+  height: 8px;
   border-radius: 3px;
   transition: background 120ms, height 120ms;
 }
 .block-editor__slot--over {
-  height: 36px;
-  background: rgba(139,156,247,0.3);
+  height: 34px;
+  background: rgba(139,156,247,0.28);
   border: 1px dashed rgba(139,156,247,0.6);
 }
-.block-editor__block {
+
+/* --- Block frame --- */
+.be-block {
   position: relative;
-  display: grid;
-  grid-template-columns: 24px 1fr 28px;
-  align-items: stretch;
-  gap: 8px;
-  padding: 12px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px;
   cursor: pointer;
+  transition: border-color 120ms, background 120ms;
 }
-.block-editor__block:hover { border-color: rgba(139,156,247,0.4); }
-.block-editor__block--selected {
-  border-color: #8b9cf7;
-  background: rgba(139,156,247,0.06);
+.be-block:hover { border-color: rgba(139,156,247,0.28); }
+.be-block--selected {
+  border-color: rgba(139,156,247,0.6);
+  background: rgba(139,156,247,0.05);
+  cursor: default;
 }
-.block-editor__block-grip {
-  display: flex;
+.be-block__tools {
+  position: absolute;
+  top: -11px;
+  right: 6px;
+  display: none;
+  gap: 2px;
+  z-index: 3;
+}
+.be-block:hover .be-block__tools,
+.be-block--selected .be-block__tools { display: flex; }
+.be-block__grip,
+.be-block__del {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-tertiary);
+  width: 22px;
+  height: 22px;
+  background: #1c1c28;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 4px;
+  color: rgba(228,228,236,0.7);
+  font-size: 13px;
+  line-height: 1;
   cursor: grab;
-  user-select: none;
-  font-size: 14px;
+  padding: 0;
   touch-action: none;
 }
-.block-editor__block-preview {
-  min-width: 0;
-  overflow: hidden;
-  word-break: break-word;
+.be-block__del { cursor: pointer; font-size: 16px; }
+.be-block__del:hover {
+  background: rgba(255,80,80,0.22);
+  border-color: rgba(255,80,80,0.5);
+  color: #ff9090;
 }
-.block-editor__block-delete {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 0;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  border-radius: 3px;
-}
-.block-editor__block-delete:hover {
-  background: rgba(255,80,80,0.18);
-  color: #ff8080;
-}
-.block-editor__preview-heading {
-  font-family: var(--font-ui, sans-serif);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary, #e0e0e8);
-  line-height: 1.3;
-}
-.block-editor__preview-paragraph {
-  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  font-size: 14px;
-  color: var(--text-secondary, #a0a0b0);
-  line-height: 1.5;
-}
-.block-editor__preview-paragraph--eyebrow {
+.be-block__warn {
+  margin: 6px 0 0;
   font-family: var(--font-ui, sans-serif);
   font-size: 11px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #8b9cf7;
+  color: #ffb37a;
 }
-.block-editor__preview-paragraph--small { font-size: 12px; }
-.block-editor__preview-paragraph--large { font-size: 16px; color: var(--text-primary); }
-.block-editor__preview-paragraph a { color: #8b9cf7; }
-.block-editor__preview-image {
-  max-width: 100%;
-  height: auto;
-  border-radius: 4px;
-}
-.block-editor__preview-image-placeholder {
-  padding: 30px;
-  background: rgba(255,255,255,0.04);
-  border: 1px dashed rgba(255,255,255,0.18);
-  border-radius: 4px;
-  text-align: center;
-  color: var(--text-tertiary);
-  font-family: var(--font-ui, sans-serif);
-  font-size: 12px;
-}
-.block-editor__preview-button-wrap {
+
+/* --- Floating contextual toolbar --- */
+.be-toolbar {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 4;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #16161f;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  white-space: nowrap;
 }
-.block-editor__preview-button {
-  display: inline-block;
-  padding: 6px 14px;
+.be-tb__group { display: inline-flex; gap: 2px; }
+.be-tb__btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: rgba(228,228,236,0.85);
+  font-family: var(--font-ui, sans-serif);
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1;
+}
+.be-tb__btn:hover { background: rgba(139,156,247,0.18); border-color: rgba(139,156,247,0.4); }
+.be-tb__btn--on {
+  background: rgba(139,156,247,0.25);
+  border-color: rgba(139,156,247,0.6);
+  color: #cdd5ff;
+}
+.be-tb__sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255,255,255,0.14);
+  margin: 0 2px;
+}
+.be-tb__select,
+.be-tb__input {
+  height: 26px;
+  background: #0d0d18;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 4px;
+  color: rgba(228,228,236,0.9);
+  font-family: var(--font-ui, sans-serif);
+  font-size: 12px;
+  padding: 0 6px;
+}
+.be-tb__input { min-width: 220px; }
+
+/* --- Live editables: mirror the real email output styles --- */
+.be-heading,
+.be-para,
+.be-button { outline: none; }
+.be-align--left { text-align: left; }
+.be-align--center { text-align: center; }
+.be-align--right { text-align: right; }
+
+.be-heading {
+  font-family: var(--font-ui, sans-serif);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #e0e0e8;
+  margin: 0 0 16px;
+}
+.be-heading--l1 { font-size: 28px; }
+.be-heading--l2 { font-size: 22px; }
+.be-heading--l3 { font-size: 18px; }
+
+.be-para {
+  margin: 0 0 16px;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+  color: #f0f0f5;
+  line-height: 1.65;
+}
+.be-para--eyebrow {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8b9cf7;
+  line-height: 1.4;
+}
+.be-para--small {
+  font-family: var(--font-ui, sans-serif);
+  font-size: 12px;
+  color: #808090;
+  line-height: 1.6;
+}
+.be-para--large { font-size: 20px; color: #e0e0e8; line-height: 1.55; }
+.be-para strong { font-weight: 700; }
+.be-para a { color: #b6c2ff; text-decoration: underline; }
+
+.be-button-wrap { margin: 8px 0 20px; }
+.be-button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   background: #8b9cf7;
   color: #ffffff;
   border-radius: 4px;
+  padding: 14px 24px;
   font-family: var(--font-ui, sans-serif);
-  font-size: 12px;
   font-weight: 600;
-}
-.block-editor__preview-button-url {
-  font-family: var(--font-ui, sans-serif);
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-.block-editor__preview-separator {
-  padding: 14px 0;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   text-align: center;
-  border-top: 1px dashed rgba(255,255,255,0.18);
-  border-bottom: 1px dashed rgba(255,255,255,0.18);
-  color: var(--text-tertiary);
-  font-family: var(--font-ui, sans-serif);
-  font-size: 11px;
+  cursor: text;
 }
-.block-editor__placeholder {
-  color: var(--text-tertiary);
-  font-style: italic;
-}
-.block-editor__inspector {
-  position: sticky;
-  top: var(--space-md);
-  padding: var(--space-md);
-  background: var(--surface-1, #13131c);
-  border: 1px solid rgba(255,255,255,0.08);
+
+.be-image { margin: 0 auto 18px; }
+.be-image__img { display: block; width: 100%; height: auto; border-radius: 6px; }
+.be-image__drop {
+  display: block;
+  width: 100%;
+  padding: 40px 20px;
+  background: rgba(255,255,255,0.03);
+  border: 1px dashed rgba(255,255,255,0.2);
   border-radius: 6px;
+  color: rgba(228,228,236,0.5);
+  font-family: var(--font-ui, sans-serif);
+  font-size: 13px;
+  cursor: pointer;
 }
-.block-editor__inspector-empty {
-  color: var(--text-tertiary);
+.be-image__drop:hover { border-color: rgba(139,156,247,0.5); color: rgba(228,228,236,0.75); }
+
+.be-sep {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.be-sep__line { width: 100%; border-top: 1px solid #3a4ed0; }
+.be-sep__label {
+  position: absolute;
+  padding: 1px 8px;
+  background: #0a0a14;
+  color: rgba(228,228,236,0.7);
+  font-family: var(--font-ui, sans-serif);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* --- Attached settings for non-text blocks (image, separator) --- */
+.be-fields {
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  display: grid;
+  gap: 8px;
+}
+.be-fields__row { display: flex; gap: 8px; align-items: flex-end; }
+.be-fields__btn {
+  height: 34px;
+  padding: 0 14px;
+  background: rgba(139,156,247,0.16);
+  border: 1px solid rgba(139,156,247,0.4);
+  border-radius: 4px;
+  color: #cdd5ff;
   font-family: var(--font-ui, sans-serif);
   font-size: 12px;
-  text-align: center;
-  padding: 30px 0;
+  cursor: pointer;
+  white-space: nowrap;
 }
-.block-editor__inspector-title {
+.be-fields__btn:disabled { opacity: 0.5; cursor: default; }
+.be-field { display: grid; gap: 3px; }
+.be-field--grow { flex: 1; min-width: 0; }
+.be-field__label {
   font-family: var(--font-ui, sans-serif);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin: 0 0 12px;
-}
-.block-editor__label {
-  display: block;
-  font-family: var(--font-ui, sans-serif);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin: 10px 0 4px;
+  color: rgba(228,228,236,0.5);
 }
-.block-editor__input,
-.block-editor__textarea {
+.be-field__input {
   width: 100%;
-  padding: 8px 10px;
+  height: 34px;
+  padding: 0 10px;
   background: #0d0d18;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.14);
   border-radius: 4px;
-  color: var(--text-primary, #e0e0e8);
+  color: rgba(228,228,236,0.9);
   font-family: var(--font-ui, sans-serif);
   font-size: 13px;
   box-sizing: border-box;
 }
-.block-editor__textarea {
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  resize: vertical;
+.be-field__input--num { width: 80px; }
+.be-field__range { width: 100%; accent-color: #8b9cf7; }
+
+/* Placeholder for empty editables (only when not focused). */
+.be-heading[data-empty="true"]:not(:focus)::before,
+.be-para[data-empty="true"]:not(:focus)::before,
+.be-button[data-empty="true"]:not(:focus)::before {
+  content: attr(data-placeholder);
+  color: rgba(228,228,236,0.3);
+  pointer-events: none;
 }
-.block-editor__hint {
-  margin: 6px 0 0;
-  font-family: var(--font-ui, sans-serif);
-  font-size: 11px;
-  color: var(--text-tertiary);
-  line-height: 1.4;
-}
-.block-editor__hint code {
-  background: rgba(139,156,247,0.12);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 10px;
-}
-.block-editor__align {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 4px;
-}
-.block-editor__align-btn {
-  padding: 6px 8px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-tertiary);
-  font-family: var(--font-ui, sans-serif);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border-radius: 3px;
-  cursor: pointer;
-}
-.block-editor__align-btn--on {
-  background: rgba(139,156,247,0.15);
-  border-color: rgba(139,156,247,0.5);
-  color: #8b9cf7;
-}
-.block-editor__inspector-delete {
-  margin-top: var(--space-md);
+.be-button[data-empty="true"]:not(:focus)::before { color: rgba(255,255,255,0.7); }
+
+/* ============================================================
+   LinkSearchInput -- URL box that also searches site content.
+   Shared by the rich text editor link tooltip and the campaign
+   block editor toolbar. Dropdown stays light (readable over both
+   the light admin tooltip and the dark email toolbar).
+   ============================================================ */
+.linksearch { position: relative; flex: 1; min-width: 220px; }
+.linksearch__input {
   width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 10px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 4px;
+  color: #1a1a1a;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 13px;
 }
+.linksearch__input:focus { outline: 0; border-color: #3a4ed0; }
+.be-toolbar .linksearch { min-width: 240px; }
+.be-toolbar .linksearch__input {
+  height: 26px;
+  background: #0d0d18;
+  border-color: rgba(255,255,255,0.14);
+  color: rgba(228,228,236,0.9);
+}
+.linksearch__results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.28);
+}
+.linksearch__results li { margin: 0; }
+.linksearch__result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+}
+.linksearch__result:hover:not(:disabled) { background: rgba(58,78,208,0.1); }
+.linksearch__result:disabled { opacity: 0.5; cursor: default; }
+.linksearch__thumb {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #e6e6ee;
+}
+.linksearch__thumb--empty { background: #e6e6ee; }
+.linksearch__title {
+  flex: 1;
+  min-width: 0;
+  color: #1a1a1a;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.linksearch__badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  background: #ececf4;
+  border-radius: 999px;
+  color: #6c6c80;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.linksearch__note {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-radius: 6px;
+  color: #6c6c80;
+  font-family: var(--font-ui, sans-serif);
+  font-size: 12px;
+}
+.be-linkbar { display: flex; align-items: center; gap: 4px; min-width: 280px; }
+
 .block-editor__drag-overlay {
   display: inline-flex;
   align-items: center;
@@ -23024,6 +23957,10 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-decoration: none;
   color: var(--text-primary);
   transition: border-color 120ms, transform 120ms;
+}
+.template-list__card--default {
+  border-color: var(--text-accent);
+  background: rgba(58, 78, 208, 0.06);
 }
 .template-list__card:hover {
   border-color: var(--text-accent);
@@ -23123,8 +24060,7 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   .block-editor {
     grid-template-columns: 1fr;
   }
-  .block-editor__palette,
-  .block-editor__inspector {
+  .block-editor__palette {
     position: static;
   }
 }
@@ -23524,4 +24460,765 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    show it on the song-voice cards by default there. */
 @media (hover: none) {
   .sw-song-card__play { opacity: 1; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   PILLAR SONGS — the shrine (/pillar-songs).
+   A reverent, hand-ordered altar of Chad's own songs. The page wrapper
+   falls into main's centered content track on its own; inner blocks set
+   their own focused widths. No visible rank numbers — order is felt, not
+   counted. Entries alternate art/text sides to give the column a flowing,
+   processional rhythm rather than a flat list.
+   ───────────────────────────────────────────────────────────────────── */
+.page-pillar-songs {
+  padding-block: clamp(2.5rem, 6vw, 6rem) clamp(4rem, 10vw, 9rem);
+}
+
+.pillar-hero {
+  text-align: center;
+  margin: 0 auto clamp(3rem, 8vw, 7rem);
+  max-width: 46rem;
+}
+.pillar-hero__eyebrow {
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin: 0 0 1rem;
+}
+.pillar-hero__title {
+  font-family: var(--font-body);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  margin: 0 0 1.25rem;
+  color: var(--text-primary);
+}
+.pillar-hero__sub {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+  margin: 0 auto;
+  max-width: 38rem;
+}
+
+.pillar-empty {
+  text-align: center;
+  font-family: var(--font-body);
+  color: var(--text-tertiary);
+  padding: 4rem 0;
+}
+
+/* The colonnade: each pillar is GPU-built from its song's own cover art —
+   fragmented and distorted into a fluted column, then run through an LCD
+   dot-matrix shader (see components/PillarColonnade.tsx). The WebGL canvas
+   overlays the grid and draws each column locked to its DOM cell; the cells
+   themselves are transparent and only carry the title/link. A CSS art-column
+   fallback shows if WebGL is unavailable. */
+.pillar-colonnade {
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  /* Tight columns, generous rows. */
+  gap: clamp(2.75rem, 5.5vw, 6rem) clamp(0.5rem, 1.6vw, 1.5rem);
+  /* Full-bleed: break out of the centered content track to span the viewport. */
+  width: 100vw;
+  max-width: none;
+  margin-inline: calc(50% - 50vw);
+  padding: 0 clamp(1rem, 4vw, 4rem) 1.5rem;
+  border-bottom: 1px solid rgba(236, 232, 222, 0.18);
+}
+
+.pillar-colonnade__lcd {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pillar-col {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  min-height: clamp(20rem, 32vw, 34rem);
+  padding: 0;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  /* Pointer only appears when the cursor is on the column silhouette (is-hot);
+     the side wedges and title plate read as non-interactive. */
+  cursor: default;
+}
+.pillar-col.is-hot { cursor: pointer; }
+
+/* CSS-only fallback: the art clipped into a column silhouette, hard-pixelated.
+   Hidden once WebGL takes over (.is-gl). */
+.pillar-col__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--art);
+  background-size: cover;
+  background-position: center;
+  image-rendering: pixelated;
+  opacity: 0.9;
+  clip-path: polygon(
+    50% 0%, 88% 0%, 88% 6%, 80% 10%, 64% 16%, 64% 84%, 80% 90%, 92% 94%, 92% 100%,
+    8% 100%, 8% 94%, 20% 90%, 36% 84%, 36% 16%, 20% 10%, 12% 6%, 12% 0%
+  );
+  filter: saturate(0.7) brightness(0.7) contrast(1.1);
+}
+.is-gl .pillar-col__fallback { display: none; }
+
+/* Title plate sits at the foot of the column — an inscription on the base. */
+.pillar-col__plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+  padding: clamp(0.6rem, 1.5vw, 1rem) 0.4rem;
+  background: linear-gradient(
+    to top,
+    rgba(8, 8, 12, 0.82) 0%,
+    rgba(8, 8, 12, 0.55) 60%,
+    rgba(8, 8, 12, 0) 100%
+  );
+}
+
+.pillar-col__title {
+  font-family: var(--font-body);
+  font-size: clamp(0.9rem, 1.5vw, 1.2rem);
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  color: #f3f0e8;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+.pillar-col__note {
+  font-family: var(--font-body);
+  font-size: clamp(0.68rem, 1vw, 0.8rem);
+  line-height: 1.4;
+  color: rgba(236, 232, 222, 0.66);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 90%;
+}
+.pillar-col__cta {
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #aeb6e6;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.pillar-col.is-hot .pillar-col__cta,
+.pillar-col:focus-visible .pillar-col__cta {
+  opacity: 0.9;
+  transform: translateY(0);
+}
+
+/* 4 across on big screens, 3 on laptop (base), 2 on tablet, 1 on mobile. */
+@media (min-width: 1500px) {
+  .pillar-colonnade { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 760px) {
+  .pillar-colonnade { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 460px) {
+  .pillar-colonnade { grid-template-columns: 1fr; }
+  .pillar-col { min-height: clamp(22rem, 80vw, 30rem); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   THE PANTHEON  (/music-videos)
+   A restrained classical temple frames one video at a time. A pediment
+   crowns it, two fluted columns flank the naos (the screen), and the
+   stylobate beneath doubles as the VCR transport deck. The register
+   echoes pillar-songs: stone + LCD, monumental and quiet, the CRT only a
+   subtle scanline glow. The video is the relic enshrined within.
+   Player logic: components/PantheonStage.tsx + VideoPantheon.tsx.
+   ───────────────────────────────────────────────────────────────────── */
+.page-video {
+  padding-block: clamp(1.5rem, 3vw, 2.75rem) clamp(4rem, 10vw, 9rem);
+}
+
+.pantheon-hero {
+  text-align: center;
+  margin: 0 auto clamp(1rem, 2.5vw, 1.75rem);
+  max-width: 46rem;
+}
+.pantheon-hero__title {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--text-primary);
+}
+.pantheon-empty {
+  text-align: center;
+  font-family: var(--font-body);
+  color: var(--text-tertiary);
+  padding: 4rem 0;
+}
+
+/* ---- The temple ---------------------------------------------------------- */
+.pantheon {
+  --stone: #d9d4c6;
+  --stone-dim: #a39d8c;
+  --stone-deep: #2a2823;
+  --naos-bg: #05050a;
+  --gilt: #aeb6e6;
+  /* Vertical-fit budget: the naos (16:9 screen) height is capped by viewport
+     height, leaving room for the pediment, deck, and a compact hero. The whole
+     temple width is then DERIVED from that height, so the stage fits a laptop
+     screen without scrolling. --col-w / --gap feed both the grid and the calc. */
+  /* Height budget so the pediment + video screen fit the viewport together.
+     The deck is now an overlay drawer, so it no longer adds vertical height;
+     reserve room for the nav + compact hero + pediment, the screen takes the
+     rest. */
+  --naos-h: min(56vh, calc(100vh - 15rem));
+  --col-w: clamp(24px, 4vw, 52px);
+  --gap: clamp(0.4rem, 1.2vw, 1rem);
+  width: calc(var(--naos-h) * 16 / 9 + 2 * (var(--col-w) + var(--gap)));
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Pediment: a low triangular crown over the entablature. */
+.pantheon__pediment {
+  position: relative;
+  height: clamp(2rem, 4vh, 3.5rem);
+  margin: 0 auto;
+  width: 100%;
+  background:
+    linear-gradient(180deg, rgba(217, 212, 198, 0.16), rgba(217, 212, 198, 0.05));
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.pantheon__pediment-relief {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 0;
+  height: 38%;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(217, 212, 198, 0.22) 0 2px,
+    transparent 2px 9px
+  );
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+/* Entablature bar + colonnade row: [column] [naos] [column]. */
+.pantheon__colonnade {
+  display: grid;
+  grid-template-columns: var(--col-w) 1fr var(--col-w);
+  align-items: stretch;
+  gap: var(--gap);
+  border-top: 2px solid rgba(217, 212, 198, 0.28);
+  padding-top: clamp(0.4rem, 1vh, 1rem);
+}
+
+/* Fluted columns: shading gradient over a flute repeat, with a cap + base
+   slab via the pseudo-elements. */
+.pantheon__column {
+  position: relative;
+  border-radius: 2px;
+  background:
+    linear-gradient(90deg,
+      rgba(0, 0, 0, 0.42) 0%,
+      rgba(217, 212, 198, 0.10) 22%,
+      rgba(217, 212, 198, 0.16) 50%,
+      rgba(217, 212, 198, 0.10) 78%,
+      rgba(0, 0, 0, 0.42) 100%),
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.05) 0 3px,
+      rgba(0, 0, 0, 0.22) 3px 7px);
+  box-shadow: inset 0 0 0 1px rgba(217, 212, 198, 0.12);
+}
+.pantheon__column::before,
+.pantheon__column::after {
+  content: "";
+  position: absolute;
+  left: -14%;
+  right: -14%;
+  height: clamp(8px, 1.2vw, 14px);
+  background: linear-gradient(180deg, rgba(217, 212, 198, 0.30), rgba(0, 0, 0, 0.35));
+  border-radius: 2px;
+}
+.pantheon__column::before { top: 0; }     /* capital */
+.pantheon__column::after { bottom: 0; }    /* base */
+
+/* The naos: the inner sanctum holding the screen. */
+.pantheon__naos {
+  position: relative;
+  outline: none;
+}
+.pantheon__naos:focus-visible {
+  box-shadow: 0 0 0 2px var(--gilt);
+  border-radius: 4px;
+}
+
+.pantheon__screen {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  overflow: hidden;
+  background: var(--naos-bg);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 0 0 1px rgba(217, 212, 198, 0.18),
+    inset 0 0 70px rgba(0, 0, 0, 0.7),
+    0 24px 60px -24px rgba(0, 0, 0, 0.8);
+}
+.pantheon__screen:fullscreen {
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pantheon__video,
+.pantheon__embed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--naos-bg);
+}
+.pantheon__video { object-fit: contain; cursor: pointer; }
+
+/* CRT / scanline overlay -- subtle by default, on via .is-crt. */
+.pantheon__crt {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.pantheon.is-crt .pantheon__crt { opacity: 1; }
+.pantheon__crt::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.16) 0 1px,
+    transparent 1px 3px
+  );
+  mix-blend-mode: multiply;
+}
+.pantheon__crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 120% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.5) 100%);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.45);
+}
+
+/* NO SIGNAL / poster placeholder. The poster layer itself is non-interactive
+   so only the play circle reacts to the cursor; clicks elsewhere fall through
+   to the <video> beneath (which also toggles play). */
+.pantheon__placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background-color: var(--naos-bg);
+  background-size: cover;
+  background-position: center;
+  color: var(--stone);
+}
+.pantheon__placeholder-veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 5, 10, 0.35), rgba(5, 5, 10, 0.72));
+}
+.pantheon__signal {
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--stone-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+.pantheon__signal small {
+  font-size: var(--text-xs);
+  letter-spacing: 0.2em;
+  color: var(--text-tertiary);
+}
+.pantheon__bigplay {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(64px, 9vw, 96px);
+  height: clamp(64px, 9vw, 96px);
+  border: 0;
+  border-radius: 50%;
+  color: var(--stone);
+  background: rgba(8, 8, 14, 0.45);
+  box-shadow: inset 0 0 0 1.5px rgba(217, 212, 198, 0.45);
+  /* Only the circle is interactive (placeholder is pointer-events:none). */
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+.pantheon__bigplay:hover {
+  transform: scale(1.06);
+  background: rgba(8, 8, 14, 0.65);
+  box-shadow: inset 0 0 0 1.5px var(--gilt), 0 0 32px -6px var(--gilt);
+}
+
+/* ---- Drawer: the VCR transport, sliding up from the screen's bottom edge --- */
+.pantheon__drawer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  padding: clamp(0.7rem, 1.4vw, 1.05rem) clamp(0.8rem, 2vw, 1.4rem) clamp(0.6rem, 1.2vw, 0.9rem);
+  background: linear-gradient(
+    to top,
+    rgba(5, 5, 10, 0.94) 0%,
+    rgba(5, 5, 10, 0.7) 55%,
+    rgba(5, 5, 10, 0) 100%
+  );
+  transform: translateY(110%);
+  opacity: 0;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+}
+/* Reveal on hover/focus, and whenever the video is not actively playing. */
+.pantheon__screen:hover .pantheon__drawer,
+.pantheon__naos:focus-within .pantheon__drawer,
+.pantheon:not(.is-playing) .pantheon__drawer {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.pantheon__seek {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(217, 212, 198, 0.14);
+  cursor: pointer;
+  touch-action: none;
+}
+.pantheon__seek-buffer,
+.pantheon__seek-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: 4px;
+}
+.pantheon__seek-buffer { background: rgba(217, 212, 198, 0.18); }
+.pantheon__seek-fill { background: linear-gradient(90deg, var(--gilt), #cdd2f3); }
+.pantheon__seek-head {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #f3f2ff;
+  box-shadow: 0 0 10px -1px var(--gilt);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.pantheon__transport {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 1.5vw, 1rem);
+  margin-top: 0.7rem;
+}
+.pantheon__btn {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(217, 212, 198, 0.2);
+  background: rgba(217, 212, 198, 0.06);
+  color: var(--stone);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.pantheon__btn:hover:not(:disabled) {
+  border-color: var(--gilt);
+  color: #fff;
+  background: rgba(174, 182, 230, 0.12);
+}
+.pantheon__btn:disabled { opacity: 0.4; cursor: default; }
+.pantheon__btn--play { width: 42px; height: 42px; }
+.pantheon__btn--sm { width: 34px; height: 34px; }
+
+.pantheon__clock {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--stone-dim);
+  letter-spacing: 0.04em;
+  display: flex;
+  gap: 0.35rem;
+}
+.pantheon__clock-sep { opacity: 0.45; }
+
+.pantheon__deck-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pantheon__chip {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid rgba(217, 212, 198, 0.2);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.pantheon__chip.is-on { color: var(--gilt); border-color: var(--gilt); }
+
+/* ---- Plaque: the dedication beneath the stage ---------------------------- */
+.pantheon__plaque {
+  text-align: center;
+  margin: clamp(1.4rem, 3vw, 2.4rem) auto 0;
+  /* No cap here -- the title/meta shouldn't wrap before they fill the width.
+     The description keeps its own reading width below. */
+  max-width: min(72rem, 92vw);
+}
+.pantheon__plaque-title {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  margin: 0 0 0.5rem;
+}
+.pantheon__plaque-meta {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-tertiary);
+  margin: 0 0 0.9rem;
+}
+.pantheon__plaque-actions { margin: 0 0 1rem; }
+.pantheon__plaque-share {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  padding: 0.5rem 1.1rem;
+  border-radius: 4px;
+  border: 1px solid rgba(217, 212, 198, 0.24);
+  background: transparent;
+  color: var(--stone);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.pantheon__plaque-share:hover { border-color: var(--gilt); color: #fff; }
+.pantheon__plaque-desc {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-relaxed, 1.7);
+  color: var(--text-secondary);
+  margin: 0 auto;
+  max-width: 44rem;
+}
+
+/* ---- The collection: votive tablets at the temple steps ------------------ */
+.video-pantheon__library {
+  max-width: 72rem;
+  margin: clamp(3.5rem, 8vw, 7rem) auto 0;
+}
+.video-pantheon__library-title {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.26em;
+  color: var(--text-tertiary);
+  margin: 0 0 clamp(1.2rem, 2.5vw, 1.8rem);
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(217, 212, 198, 0.16);
+}
+
+/* Two-column collection: a left sidebar (sort + categories) beside the grid. */
+.video-pantheon__library-body {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) 1fr;
+  gap: clamp(1.5rem, 3vw, 2.75rem);
+  align-items: start;
+}
+.video-pantheon__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  position: sticky;
+  top: var(--sticky-top, 5rem);
+}
+
+/* Sort control -- top of the sidebar. */
+.video-pantheon__sort { display: flex; flex-direction: column; gap: 0.4rem; }
+.video-pantheon__sort-label,
+.video-pantheon__filters-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-tertiary);
+}
+.video-pantheon__sort-select {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+}
+
+/* Category filter list. */
+.video-pantheon__filters { display: flex; flex-direction: column; align-items: stretch; gap: 0.15rem; }
+.video-pantheon__filters-title { margin-bottom: 0.45rem; }
+.video-pantheon__filter {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  letter-spacing: 0.02em;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.video-pantheon__filter:hover { color: var(--text-primary); background: var(--bg-glass); }
+.video-pantheon__filter.is-active {
+  color: var(--text-accent);
+  border-left-color: var(--gilt, #aeb6e6);
+  background: var(--bg-glass);
+}
+
+.video-pantheon__shelf {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(1.1rem, 2.4vw, 1.8rem);
+}
+.video-pantheon__tablet {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.video-pantheon__tablet-frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px rgba(217, 212, 198, 0.14);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.video-pantheon__tablet:hover .video-pantheon__tablet-frame {
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 1px rgba(217, 212, 198, 0.3), 0 16px 36px -20px rgba(0, 0, 0, 0.8);
+}
+.video-pantheon__tablet.is-enshrined .video-pantheon__tablet-frame {
+  box-shadow: inset 0 0 0 2px var(--gilt), 0 0 28px -10px var(--gilt);
+}
+.video-pantheon__tablet-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.video-pantheon__tablet-blank {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, rgba(217,212,198,0.05) 0 3px, transparent 3px 7px);
+}
+.video-pantheon__tablet-dur {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(5, 5, 10, 0.78);
+  color: var(--stone, #d9d4c6);
+}
+.video-pantheon__tablet-title {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+.video-pantheon__tablet.is-enshrined .video-pantheon__tablet-title { color: var(--text-accent); }
+
+/* ---- Responsive: drop the columns on narrow screens; let the naos breathe. */
+@media (max-width: 720px) {
+  .pantheon__colonnade { grid-template-columns: 1fr; }
+  .pantheon__column { display: none; }
+  .pantheon__transport { flex-wrap: wrap; }
+}
+
+/* Collection: stack the sidebar above the grid; filters go horizontal. */
+@media (max-width: 860px) {
+  .video-pantheon__library-body { grid-template-columns: 1fr; gap: 1.25rem; }
+  .video-pantheon__sidebar {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem 1.5rem;
+  }
+  .video-pantheon__filters { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+  .video-pantheon__filters-title { width: 100%; margin-bottom: 0; }
+  .video-pantheon__filter {
+    border-left: 0;
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    padding: 0.35rem 0.8rem;
+  }
+  .video-pantheon__filter.is-active { border-color: var(--gilt, #aeb6e6); }
+  .video-pantheon__shelf { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 520px) {
+  .video-pantheon__shelf { grid-template-columns: 1fr; }
 }

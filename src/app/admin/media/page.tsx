@@ -87,7 +87,15 @@ export default function AdminMediaPage() {
   const [uploadZone, setUploadZone] = useState<Zone>("site-image");
   const [uploadFolder, setUploadFolder] = useState<string>("");
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(20);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [lastFilterKey, setLastFilterKey] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const PAGE_SIZE = 20;
+
+  const keyOf = (img: MediaImage) => `${img.zone}::${img.name}`;
 
   useEffect(() => {
     const t = setTimeout(() => setSearchTerm(searchInput.trim().toLowerCase()), 250);
@@ -145,6 +153,16 @@ export default function AdminMediaPage() {
     }
     return true;
   });
+
+  // Render only a page at a time. Reset the window whenever the filter/search
+  // changes (guarded set-during-render -- React's documented pattern).
+  const filterKey = `${searchTerm}|${zoneFilter ?? ""}|${folderFilter ?? ""}|${pillarFilter ?? ""}`;
+  if (filterKey !== lastFilterKey) {
+    setLastFilterKey(filterKey);
+    setVisibleCount(PAGE_SIZE);
+  }
+  const shownImages = visibleImages.slice(0, visibleCount);
+  const hasMore = visibleImages.length > shownImages.length;
 
   async function copyValue(key: string, value: string) {
     try {
@@ -248,6 +266,36 @@ export default function AdminMediaPage() {
       body: JSON.stringify({ name: img.name, zone: img.zone }),
     });
     if (selected?.name === img.name && selected?.zone === img.zone) setSelected(null);
+    fetchImages();
+  }
+
+  function toggleSelect(key: string) {
+    setConfirmingBulkDelete(false);
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function bulkDelete() {
+    if (selectedKeys.size === 0) return;
+    setBulkDeleting(true);
+    const targets = images.filter((img) => selectedKeys.has(keyOf(img)));
+    await Promise.all(
+      targets.map((img) =>
+        fetch("/api/admin/media", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: img.name, zone: img.zone }),
+        }),
+      ),
+    );
+    if (selected && selectedKeys.has(keyOf(selected))) setSelected(null);
+    setSelectedKeys(new Set());
+    setConfirmingBulkDelete(false);
+    setBulkDeleting(false);
     fetchImages();
   }
 
@@ -462,20 +510,102 @@ export default function AdminMediaPage() {
 
       {error && <p className="obsv-editor__error">{error}</p>}
 
+      {selectedKeys.size > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 8,
+            padding: "8px 12px",
+            background: "rgba(58,78,208,0.1)",
+            border: "1px solid rgba(58,78,208,0.35)",
+            borderRadius: 6,
+            fontFamily: "var(--font-ui)",
+            fontSize: "0.8125rem",
+            color: "var(--text-primary)",
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>{selectedKeys.size} selected</span>
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => {
+              setSelectedKeys(new Set());
+              setConfirmingBulkDelete(false);
+            }}
+          >
+            Clear
+          </button>
+          {confirmingBulkDelete ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+              <span>Delete {selectedKeys.size}?</span>
+              <button
+                type="button"
+                className="admin-btn admin-btn--danger"
+                onClick={bulkDelete}
+                disabled={bulkDeleting}
+              >
+                {bulkDeleting ? "Deleting…" : "Yes, delete"}
+              </button>
+              <button
+                type="button"
+                className="admin-btn"
+                onClick={() => setConfirmingBulkDelete(false)}
+                disabled={bulkDeleting}
+              >
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="admin-btn admin-btn--danger"
+              style={{ marginLeft: "auto" }}
+              onClick={() => setConfirmingBulkDelete(true)}
+            >
+              Delete selected
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="media-page__layout">
         <div className="media-page__grid">
           {loading && <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>Loading...</p>}
           {!loading && images.length === 0 && <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>No images uploaded yet.</p>}
           {!loading && images.length > 0 && visibleImages.length === 0 && <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)" }}>No matches.</p>}
-          {visibleImages.map((img) => {
+          {shownImages.map((img) => {
             const isSelected = selected?.name === img.name && selected?.zone === img.zone;
+            const isChecked = selectedKeys.has(keyOf(img));
             return (
               <div
                 key={`${img.zone}::${img.name}`}
                 className={`media-page__item${isSelected ? " media-page__item--selected" : ""}`}
                 onClick={() => selectImage(img)}
-                style={{ position: "relative" }}
+                style={{
+                  position: "relative",
+                  boxShadow: isChecked ? "0 0 0 2px rgba(58,78,208,0.6)" : undefined,
+                  borderColor: isChecked ? "#3a4ed0" : undefined,
+                }}
               >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleSelect(keyOf(img))}
+                  aria-label={`Select ${img.name}`}
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    zIndex: 2,
+                    width: 18,
+                    height: 18,
+                    cursor: "pointer",
+                    accentColor: "#3a4ed0",
+                  }}
+                />
                 {/* eslint-disable-next-line @next/next/no-img-element -- admin-only thumbnail; dynamic source from blob/Bunny */}
                 <img src={img.url} alt={img.alt_text || img.name} className="media-page__thumb" />
                 <span
@@ -500,6 +630,20 @@ export default function AdminMediaPage() {
               </div>
             );
           })}
+          {hasMore && (
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "var(--space-md)" }}>
+              <button
+                type="button"
+                className="admin-btn"
+                onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              >
+                Load {Math.min(PAGE_SIZE, visibleImages.length - shownImages.length)} more
+                <span style={{ color: "var(--text-tertiary)", marginLeft: 6 }}>
+                  · showing {shownImages.length} of {visibleImages.length}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         {selected && (

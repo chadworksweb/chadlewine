@@ -75,9 +75,12 @@ export function newBlock(type: EmailBlock["type"]): EmailBlock {
     case "paragraph":
       return { id, type: "paragraph", html: "Your paragraph text. <strong>Bold</strong> and <a href=\"#\">links</a> work." };
     case "image":
-      return { id, type: "image", src: "", alt: "", max_width: 520 };
+      // 600 >= the 560 email content width, so new images render full-width by
+      // default (capped by the column). Shrink via the Max width field when you
+      // want a smaller/centered image (e.g. a logo).
+      return { id, type: "image", src: "", alt: "", max_width: 600 };
     case "button":
-      return { id, type: "button", label: "Click here", url: "https://chadlewine.com", align: "left" };
+      return { id, type: "button", label: "Click here", url: "https://chadlewine.com", align: "center" };
     case "separator":
       return { id, type: "separator", height: 50 };
   }
@@ -117,7 +120,7 @@ const FONT_UI = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue'
 const SIZE_STYLES: Record<BlockSize, string> = {
   eyebrow: `font-family:${FONT_UI};font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#8b9cf7;line-height:1.4;`,
   small: `font-family:${FONT_UI};font-size:12px;color:#808090;line-height:1.6;`,
-  normal: `font-family:${FONT_SERIF};font-size:17px;color:#a0a0b0;line-height:1.65;`,
+  normal: `font-family:${FONT_SERIF};font-size:17px;color:#f0f0f5;line-height:1.65;`,
   large: `font-family:${FONT_SERIF};font-size:20px;color:#e0e0e8;line-height:1.55;`,
 };
 
@@ -128,9 +131,21 @@ function renderHeading(b: HeadingBlock, vars: EmailVars): string {
   return `<h${b.level} style="font-family:${FONT_UI};font-size:${sizePx}px;font-weight:500;letter-spacing:-0.02em;line-height:1.2;color:#e0e0e8;text-align:${align};margin:0 0 16px;">${text}</h${b.level}>`;
 }
 
+// Email clients disagree on default link styling, so pin paragraph links to
+// the accent color + underline. Matches the editor's .be-para a rendering, so
+// what you see in the builder is what sends. Skips anchors that already carry
+// an inline style.
+function styleLinks(html: string): string {
+  return html.replace(/<a\b([^>]*)>/gi, (m, attrs) =>
+    /\bstyle=/i.test(attrs)
+      ? m
+      : `<a${attrs} style="color:#b6c2ff;text-decoration:underline;">`,
+  );
+}
+
 function renderParagraph(b: ParagraphBlock, vars: EmailVars): string {
   const size = b.size || "normal";
-  const html = substituteVars(b.html, vars);
+  const html = styleLinks(substituteVars(b.html, vars));
   const align = b.align || "left";
   const marginBottom = size === "eyebrow" ? "10px" : size === "small" ? "12px" : "20px";
   return `<p style="${SIZE_STYLES[size]}text-align:${align};margin:0 0 ${marginBottom};">${html}</p>`;
@@ -140,22 +155,25 @@ function renderImage(b: ImageBlock, vars: EmailVars): string {
   const src = substituteVars(b.src, vars);
   const href = b.href ? substituteVars(b.href, vars) : "";
   const w = b.max_width || 520;
-  const img = `<img src="${src}" alt="${escapeAttr(b.alt)}" width="${w}" style="display:block;width:100%;max-width:${w}px;height:auto;border:0;border-radius:6px;" />`;
+  const img = `<img src="${src}" alt="${escapeAttr(b.alt)}" width="${w}" style="display:block;width:100%;max-width:${w}px;height:auto;border:0;border-radius:6px;margin:0 auto;" />`;
   const inner = href ? `<a href="${href}" style="display:block;">${img}</a>` : img;
-  return `<div style="margin:0 0 24px;">${inner}</div>`;
+  return `<div style="margin:0 0 24px;text-align:center;">${inner}</div>`;
 }
 
 function renderButton(b: ButtonBlock, vars: EmailVars): string {
   const label = substituteVars(b.label, vars);
   const url = substituteVars(b.url, vars);
-  const align = b.align || "left";
-  const tableAlign = align === "center" ? "center" : align === "right" ? "right" : "left";
-  // Bulletproof table-button (Gmail strips bg+padding from raw <a>).
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="${tableAlign}" style="margin:8px 0 24px;"><tr><td bgcolor="#8b9cf7" style="background:#8b9cf7;border-radius:4px;padding:14px 32px;"><a href="${url}" style="text-decoration:none;color:#ffffff;font-family:${FONT_UI};font-weight:600;font-size:14px;"><span style="color:#ffffff;text-decoration:none;">${label}</span></a></td></tr></table>`;
+  // Full-width bulletproof table-button (Gmail strips bg+padding from raw <a>),
+  // label centered. Padding lives on the display:block <a>, not the <td>, so the
+  // ENTIRE button is the clickable target -- not just the label text.
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:8px 0 24px;"><tr><td bgcolor="#8b9cf7" style="background:#8b9cf7;border-radius:4px;"><a href="${url}" style="display:block;padding:14px 24px;text-align:center;text-decoration:none;color:#ffffff;font-family:${FONT_UI};font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:0.06em;"><span style="color:#ffffff;text-decoration:none;">${label}</span></a></td></tr></table>`;
 }
 
 function renderSeparator(b: SeparatorBlock): string {
-  return `<div style="height:${Math.max(0, b.height)}px;line-height:${Math.max(0, b.height)}px;font-size:0;">&nbsp;</div>`;
+  // Solid 1px divider in the theme's dark blue, with the block height split as
+  // breathing room above and below the line.
+  const pad = Math.round(Math.max(0, b.height) / 2);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:${pad}px 0;"><tr><td height="1" style="height:1px;line-height:1px;font-size:0;background:#3a4ed0;">&nbsp;</td></tr></table>`;
 }
 
 function shouldRender(b: EmailBlock, vars: EmailVars): boolean {

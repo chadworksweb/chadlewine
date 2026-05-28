@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import posthog from "posthog-js";
+import { PlayLimitModal } from "@/components/PlayLimitModal";
 
 export type PlaybackMode = "preview" | "full";
 
@@ -65,6 +66,10 @@ const PREVIEW_START = 13;
 const PREVIEW_DURATION = 30;
 const FADE_DURATION = 2;
 const PLAY_MIN_SECONDS = 5;
+// Seconds a listener must hear before a play counts toward the anonymous
+// per-song limit. Independent of the analytics threshold (PLAY_MIN_SECONDS)
+// and of PREVIEW_DURATION -- it just happens to share preview's 30s today.
+const GATE_PLAY_THRESHOLD = 30;
 
 type PlaySession = {
   songId: string;
@@ -89,12 +94,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // and made the progress bar lag visibly behind the audio. 100ms is far
   // faster than the eye perceives on a long progress fill.
   const lastAudioTimePushRef = useRef<number>(0);
+  // Anonymous play-gate bookkeeping for the current listen. gatedListenRef =
+  // this listen should count toward the per-song limit (anonymous, under the
+  // cap). countedListenRef = it has already been recorded (after crossing the
+  // threshold), so we don't double-count across rAF ticks or pause/resume.
+  const gatedListenRef = useRef(false);
+  const countedListenRef = useRef(false);
 
   const [current, setCurrent] = useState<PlayerSong | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resolvedDuration, setResolvedDuration] = useState(0);
   const [audioTime, setAudioTime] = useState(0);
+  // Set when an anonymous device is over the per-song play limit; drives the
+  // sign-in/buy modal. Playback does not start while this is set.
+  const [blockedSong, setBlockedSong] = useState<PlayerSong | null>(null);
 
   // Lazy-create the audio element once on the client. crossOrigin must be set
   // BEFORE src for CORS to take effect on stream requests, which the WebAudio
@@ -213,6 +227,52 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Anonymous per-song play gate. Called at the start of a fresh play (not on
+  // resume). Returns true if this device is over the limit and playback should
+  // be blocked. Fails OPEN: any error (network/gate) returns false so a gate
+  // problem can never silently break the player. The server exempts logged-in
+  // fans; admin/test browsers that opt out of analytics skip the gate here.
+  const checkGate = useCallback(
+    async (songId: string): Promise<{ blocked: boolean; unlimited: boolean }> => {
+      // Admin/test browsers opt out of the gate (and recording) entirely.
+      if (typeof window !== "undefined") {
+        try {
+          if (localStorage.getItem("cl_skip_analytics") === "1") {
+            return { blocked: false, unlimited: true };
+          }
+        } catch {}
+      }
+      try {
+        const res = await fetch("/api/play/gate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ song_id: songId, action: "check" }),
+        });
+        if (!res.ok) return { blocked: false, unlimited: false };
+        const data = await res.json();
+        return { blocked: !!data.blocked, unlimited: !!data.unlimited };
+      } catch {
+        return { blocked: false, unlimited: false };
+      }
+    },
+    [],
+  );
+
+  // Fire-and-forget increment of the per-song gate counter. Called from tick
+  // once a gated listen crosses GATE_PLAY_THRESHOLD seconds (guarded by
+  // countedListenRef so it runs at most once per listen). Failures are ignored
+  // -- the gate is a soft nudge, not DRM.
+  const recordPlay = useCallback((songId: string) => {
+    try {
+      fetch("/api/play/gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ song_id: songId, action: "record" }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {}
+  }, []);
+
   // Flush any in-flight session on tab close / navigation.
   useEffect(() => {
     const onUnload = () => flushSession();
@@ -275,6 +335,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           ? Math.max(0, audio.currentTime - PREVIEW_START)
           : audio.currentTime;
       if (heard > session.secondsPlayed) session.secondsPlayed = heard;
+
+      // Gate: a play counts toward the anonymous per-song limit only once the
+      // listener has heard GATE_PLAY_THRESHOLD seconds. Record once per listen.
+      if (
+        gatedListenRef.current &&
+        !countedListenRef.current &&
+        session.secondsPlayed >= GATE_PLAY_THRESHOLD
+      ) {
+        countedListenRef.current = true;
+        recordPlay(song.id);
+      }
     }
 
     if (song.playbackMode === "preview") {
@@ -290,25 +361,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
 
     rafRef.current = requestAnimationFrame(tickInner);
-  }, [stop]);
+  }, [stop, recordPlay]);
 
-  const play = useCallback(
+  // Tears down any current playback and starts `song` fresh. Split out from
+  // play() so the anonymous play-gate can run (async) before we disturb what's
+  // already playing -- a blocked selection must leave the current track alone.
+  const startFresh = useCallback(
     (song: PlayerSong) => {
       const audio = audioRef.current;
       if (!audio) return;
 
-      // Same song: just resume if paused
-      if (currentRef.current?.id === song.id) {
-        if (audio.paused) {
-          audio.play().then(() => {
-            setPlaying(true);
-            rafRef.current = requestAnimationFrame(tick);
-          }).catch(() => {});
-        }
-        return;
-      }
+      // New listen: clear the "already recorded" flag. gatedListenRef is set
+      // by play() from the check response just before this runs.
+      countedListenRef.current = false;
 
-      // Different song: tear down + start fresh
       flushSession();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       clearFadeIn();
@@ -410,6 +476,39 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.load();
     },
     [stop, tick, flushSession],
+  );
+
+  const play = useCallback(
+    (song: PlayerSong) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      // Same song: just resume if paused
+      if (currentRef.current?.id === song.id) {
+        if (audio.paused) {
+          audio.play().then(() => {
+            setPlaying(true);
+            rafRef.current = requestAnimationFrame(tick);
+          }).catch(() => {});
+        }
+        return;
+      }
+
+      // Different song. Anonymous visitors are capped per song; the gate also
+      // records the play. Logged-in fans and opted-out admin browsers pass
+      // through, and checkGate fails open so a gate error never blocks audio.
+      void checkGate(song.id).then(({ blocked, unlimited }) => {
+        if (blocked) {
+          setBlockedSong(song);
+          return;
+        }
+        // Anonymous and under the cap -> this listen should count once it
+        // crosses the threshold. Logged-in / opted-out listens never count.
+        gatedListenRef.current = !unlimited;
+        startFresh(song);
+      });
+    },
+    [tick, checkGate, startFresh],
   );
 
   const pause = useCallback(() => {
@@ -542,6 +641,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      {blockedSong && (
+        <PlayLimitModal
+          song={{ title: blockedSong.title, slug: blockedSong.slug }}
+          onClose={() => setBlockedSong(null)}
+        />
+      )}
     </PlayerContext.Provider>
   );
 }

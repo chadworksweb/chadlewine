@@ -18,6 +18,7 @@ const adminNav: NavItem[] = [
     children: [
       { href: "/admin/settings", label: "Overview" },
       { href: "/admin/launch-control", label: "Launch Control" },
+      { href: "/admin/librosa", label: "Librosa" },
       { href: "/admin/voice-profile", label: "Voice Profile" },
       { href: "/admin/seo", label: "SEO" },
       { href: "/admin/songwriting", label: "Songwriting Grid" },
@@ -45,6 +46,7 @@ const adminNav: NavItem[] = [
       { href: "/admin/music", label: "Overview" },
       { href: "/admin/music/releases", label: "Releases" },
       { href: "/admin/music/songs", label: "Songs" },
+      { href: "/admin/pillar-songs", label: "Pillar Songs" },
       { href: "/admin/music/analytics/plays", label: "Song Plays" },
       { href: "/admin/curation", label: "Curation — Entries" },
       { href: "/admin/homepage-hero", label: "Curation — Homepage Hero" },

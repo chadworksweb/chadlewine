@@ -208,7 +208,7 @@ export function MerchProductDetail({
           )}
 
           <p className="merch-detail__disclaimer">
-            All sales final — no returns, exchanges, or refunds.
+            All sales final — no returns, exchanges, or refunds, with exceptions for damage or incorrect items.
           </p>
 
           <div

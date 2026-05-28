@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "@/styles/global.css";
@@ -7,8 +6,7 @@ import { SiteJsonLd } from "@/components/SiteJsonLd";
 import { CartProvider, CartUI } from "@/components/Cart";
 import { PlayerProvider } from "@/components/PlayerContext";
 import { StickyPlayer } from "@/components/StickyPlayer";
-
-const GA_ID = "G-9EE3EK7X3R";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chadlewine.com"),
@@ -62,18 +60,7 @@ export default function RootLayout({
         </CartProvider>
         <Analytics />
         <SpeedInsights />
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-          strategy="afterInteractive"
-        />
-        <Script id="ga-init" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_ID}');
-          `}
-        </Script>
+        <GoogleAnalytics />
       </body>
     </html>
   );

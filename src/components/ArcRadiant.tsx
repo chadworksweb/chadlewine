@@ -23,6 +23,11 @@ export type ArcRelease = {
   slug: string;
   title: string;
   release_date: string | null;
+  // Aggregate Compass charge for the release (mean of its track charges) and
+  // the RC tier that charge falls in. Computed server-side. null when no track
+  // on the release is calibrated.
+  charge: number | null;
+  tier: string | null;
 };
 
 export type ArcEra = {
@@ -128,6 +133,8 @@ const ALBUM_HEIGHT_PATTERN = [320, 285, 345, 305, 260, 330];
 // top of each other.
 const EVENT_HEIGHT_PATTERN = [135, 195, 160, 220, 145, 205, 175, 225, 140, 200, 180];
 
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 // ---------- Component ----------
 
 export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialData; proseAvailable?: boolean }) {
@@ -136,6 +143,8 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     music: true, lifeEvents: true, lifeEras: true, releaseEras: true, compass: true,
   });
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  // Gentle initial-load CTA that frames the music-dense years. Dismissible.
+  const [showSkipCta, setShowSkipCta] = useState<boolean>(true);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   // Pixel position of the click that opened the modal, relative to the
   // outer .arc-radiant container. Drives both the radial-gradient "hole"
@@ -245,7 +254,12 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const lastPinchDistRef = useRef<number | null>(null);
 
-  const chargeByYear = useMemo(() => buildChargeByYear(data.songs, yearStart, yearEnd), [data.songs, yearStart, yearEnd]);
+  // Compass trajectory mirrors RC's artist trajectory: one point per dated,
+  // charged RELEASE (not per song), connected chronologically.
+  const chargeTrajectory = useMemo(
+    () => buildReleaseTrajectory(data.albums, yearStart, yearEnd),
+    [data.albums, yearStart, yearEnd]
+  );
 
   // Pre-sort eras by kind + date, fill in missing date_end values from the
   // NEXT same-kind era's date_start (or today if last). Most release eras come
@@ -393,6 +407,177 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     pendingScrollRef.current = null;
   }, [totalWidth]);
 
+  // Click-an-era-to-frame: animate zoom + pan so the era spans the viewport
+  // with a little padding each side. Reuses pendingScrollRef so each frame's
+  // scroll is applied AFTER React commits the new width (no maxScroll clamp
+  // race). Anchors the era's start at the same pad offset across the zoom so it
+  // reads as zooming into the era rather than sliding.
+  const focusAnimRef = useRef<number | null>(null);
+  useEffect(() => () => { if (focusAnimRef.current) cancelAnimationFrame(focusAnimRef.current); }, []);
+
+  function focusEra(startDate: string, endDate: string) {
+    const el = canvasRef.current;
+    if (!el) return;
+    const startYf = dateToYearFloat(startDate);
+    const endYf = dateToYearFloat(endDate);
+    const eraSpan = Math.max(0.08, endYf - startYf); // years; floor avoids div-by-0
+    const PAD = 0.08; // viewport fraction of breathing room on each side
+
+    let zT = (yearSpan * (1 - 2 * PAD)) / eraSpan;
+    zT = Math.max(ZOOM_MIN, Math.min(zoomMax, zT));
+    const z0 = zoomLevel;
+
+    // Scroll that puts the era's start PAD in from the left at zoom z.
+    const scrollForZoom = (z: number) =>
+      (startYf - yearStart) * ((baseWidth * z) / yearSpan) - PAD * viewportWidth;
+
+    if (focusAnimRef.current) cancelAnimationFrame(focusAnimRef.current);
+
+    // Already at target zoom (era re-clicked) — just pan; the totalWidth effect
+    // won't fire, so set scrollLeft directly.
+    if (Math.abs(zT - z0) < 1e-4) {
+      const maxScroll = Math.max(0, totalWidth - el.clientWidth);
+      const next = Math.max(0, Math.min(maxScroll, scrollForZoom(zT)));
+      el.scrollLeft = next;
+      setScrollLeft(next);
+      return;
+    }
+
+    const dur = 340;
+    const t0 = performance.now();
+    const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / dur);
+      const z = z0 + (zT - z0) * ease(t);
+      pendingScrollRef.current = scrollForZoom(z);
+      setZoomLevel(z);
+      focusAnimRef.current = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    focusAnimRef.current = requestAnimationFrame(step);
+  }
+
+  // Live mirrors so the (once-bound, non-passive) wheel listener always reads
+  // current zoom without re-binding every render.
+  const zoomLevelRef = useRef(zoomLevel);
+  zoomLevelRef.current = zoomLevel;
+  const zoomMaxRef = useRef(zoomMax);
+  zoomMaxRef.current = zoomMax;
+
+  // Ctrl/Cmd + scroll = cursor-anchored zoom when the pointer is over the arc
+  // viewport (trackpad pinch also arrives here with ctrlKey set). Plain scroll
+  // is left untouched. Non-passive so we can preventDefault the browser's own
+  // page zoom and use pendingScrollRef to keep the date under the cursor fixed.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (!el) return;
+      e.preventDefault();
+      const vw = el.clientWidth;
+      const z0 = zoomLevelRef.current;
+      let dy = e.deltaY;
+      if (e.deltaMode === 1) dy *= 16;        // lines -> px
+      else if (e.deltaMode === 2) dy *= vw;   // pages -> viewport
+      const z1 = Math.max(ZOOM_MIN, Math.min(zoomMaxRef.current, z0 * Math.exp(-dy * 0.0015)));
+      if (Math.abs(z1 - z0) < 1e-6) return;
+      if (focusAnimRef.current) {
+        cancelAnimationFrame(focusAnimRef.current);
+        focusAnimRef.current = null;
+      }
+      const cursorX = e.clientX - el.getBoundingClientRect().left;
+      const total0 = vw * z0;
+      const frac = total0 > 0 ? (el.scrollLeft + cursorX) / total0 : 0;
+      pendingScrollRef.current = frac * (vw * z1) - cursorX;
+      setZoomLevel(z1);
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // ---- Shareable view links ----
+  // A ?view=<startYear>,<endYear> param (year-fractions, so it's viewport
+  // independent) frames the arc to a date range. We DON'T mutate the address
+  // bar as the user pans/zooms — instead the Key column has a "Copy link to
+  // this view" button. But an opened/pasted link still restores its framing.
+  const restoredRef = useRef(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Restore once — but only after the canvas width is actually measured, so the
+  // scroll maths use the real width rather than the 1200 default.
+  useEffect(() => {
+    if (restoredRef.current) return;
+    const el = canvasRef.current;
+    if (!el || Math.abs(el.clientWidth - viewportWidth) > 1) return;
+    restoredRef.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get("view");
+    if (!v) return;
+
+    // Strip ?view from the address bar so it never persists. A reload loads the
+    // default view (a hard refresh is clean); only an actual navigation to a
+    // shared link restores the framing — then we still strip it so the next
+    // refresh is clean.
+    const stripUrl = () => {
+      params.delete("view");
+      const qs = params.toString();
+      window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    };
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    if (nav?.type === "reload") { stripUrl(); return; }
+
+    const [s, e] = v.split(",").map(Number);
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) { stripUrl(); return; }
+    // Arrived via a shared framing — the skip-to-music nudge isn't relevant.
+    setShowSkipCta(false);
+    const z = Math.max(ZOOM_MIN, Math.min(zoomMax, yearSpan / (e - s)));
+    const newTotal = baseWidth * z;
+    const scroll = (s - yearStart) * (newTotal / yearSpan);
+    if (Math.abs(z - zoomLevel) < 1e-6) {
+      const maxScroll = Math.max(0, newTotal - el.clientWidth);
+      el.scrollLeft = Math.max(0, Math.min(maxScroll, scroll));
+      setScrollLeft(el.scrollLeft);
+    } else {
+      pendingScrollRef.current = scroll;
+      setZoomLevel(z);
+    }
+    stripUrl();
+  }, [viewportWidth, baseWidth, yearSpan, yearStart, zoomMax, zoomLevel]);
+
+  async function copyViewLink() {
+    const safeTotal = Math.max(1, totalWidth);
+    const startYf = yearStart + (scrollLeft / safeTotal) * yearSpan;
+    const endYf = startYf + (viewportWidth / safeTotal) * yearSpan;
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", `${startYf.toFixed(3)},${endYf.toFixed(3)}`);
+    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Fallback for non-secure contexts without the async clipboard API.
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch { /* give up silently */ }
+      document.body.removeChild(ta);
+    }
+    setLinkCopied(true);
+    window.setTimeout(() => setLinkCopied(false), 1600);
+  }
+
+  // Frame the music-dense stretch: from the earliest dated release to today.
+  function skipToMusic() {
+    setShowSkipCta(false);
+    const firstRelease = data.albums
+      .map((a) => a.release_date)
+      .filter((d): d is string => !!d)
+      .sort()[0];
+    if (firstRelease) focusEra(firstRelease, new Date().toISOString().slice(0, 10));
+  }
+
   return (
     <div className={`arc-radiant${isFullscreen ? " arc-radiant--fullscreen" : ""}`} ref={setRootEl}>
       <div className="arc-radiant__upper">
@@ -414,6 +599,24 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               <span className="arc-radiant__key-label">{LAYER_LABELS[k]}</span>
             </label>
           ))}
+          <button
+            type="button"
+            className={`arc-radiant__copy-link${linkCopied ? " is-copied" : ""}`}
+            onClick={copyViewLink}
+            title="Copy a link that opens the arc framed exactly as you see it now"
+          >
+            <svg className="arc-radiant__copy-link-icon" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+              <path
+                d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>{linkCopied ? "Link copied" : "Copy link to this view"}</span>
+          </button>
         </aside>
 
         <div className="arc-radiant__main">
@@ -521,6 +724,72 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               })}
             </div>
 
+            {/* Month / mid-month ticks — surface only when zoomed in far enough
+                that a month is wide enough to read, giving the fanned events and
+                trajectory a finer time reference than the year grid. Labels and
+                mid-month ticks gate on progressively deeper zoom. */}
+            {(() => {
+              const monthPx = pxPerYear / 12;
+              if (monthPx < 14) return null;
+              const showMonthLabel = monthPx >= 46;
+              const showMid = monthPx >= 60;
+              const years = Array.from({ length: yearSpan + 1 }, (_, i) => yearStart + i);
+              return (
+                <div className="arc-radiant__months" aria-hidden="true">
+                  {years.flatMap((year) =>
+                    Array.from({ length: 12 }, (_, mi) => mi + 1).flatMap((month) => {
+                      const mm = String(month).padStart(2, "0");
+                      const out: React.ReactNode[] = [];
+                      // Skip January's start tick — the year tick already marks it.
+                      if (month !== 1) {
+                        const x = dateToX(`${year}-${mm}-01`);
+                        if (x != null) {
+                          out.push(
+                            <div
+                              key={`m-${year}-${month}`}
+                              className="arc-radiant__month-tick"
+                              style={{ left: x, bottom: 0, height: SPINE_RESERVED_PX - 6 }}
+                            >
+                              {showMonthLabel && (
+                                <span className="arc-radiant__month-label">{MONTH_ABBR[month - 1]}</span>
+                              )}
+                            </div>,
+                          );
+                        }
+                      }
+                      if (showMid) {
+                        const xMid = dateToX(`${year}-${mm}-15`);
+                        if (xMid != null) {
+                          out.push(
+                            <div
+                              key={`mid-${year}-${month}`}
+                              className="arc-radiant__month-tick arc-radiant__month-tick--mid"
+                              style={{ left: xMid, bottom: 0, height: SPINE_RESERVED_PX - 16 }}
+                            />,
+                          );
+                        }
+                      }
+                      return out;
+                    }),
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* "Now" line — a subtle vertical marker at today's date. */}
+            {(() => {
+              const nowX = dateToX(new Date().toISOString().slice(0, 10));
+              if (nowX == null) return null;
+              return (
+                <div
+                  className="arc-radiant__now-line"
+                  style={{ left: nowX, bottom: SPINE_RESERVED_PX, height: branchTop - SPINE_RESERVED_PX }}
+                >
+                  <span className="arc-radiant__now-label">Now</span>
+                </div>
+              );
+            })()}
+
             {/* Eras: horizontal segments. Life eras share one lane in the
                 lower band, release eras share one in the upper. Overlap is
                 communicated by the translucent fills blending naturally. */}
@@ -539,6 +808,19 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                   key={era.id}
                   className={`arc-radiant__era arc-radiant__era--${era.kind}`}
                   style={{ left: x1, width, bottom: bottomOffset, height: ERA_ROW_HEIGHT }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Zoom to era: ${era.title}`}
+                  onClick={() => focusEra(era.date_start, effectiveEnd)}
+                  onPointerEnter={(e) => setHover({ title: `${era.title} (${era.date_start.slice(0, 4)}-${effectiveEnd.slice(0, 4)})`, x: e.clientX, y: e.clientY })}
+                  onPointerMove={(e) => setHover({ title: `${era.title} (${era.date_start.slice(0, 4)}-${effectiveEnd.slice(0, 4)})`, x: e.clientX, y: e.clientY })}
+                  onPointerLeave={() => setHover(null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      focusEra(era.date_start, effectiveEnd);
+                    }
+                  }}
                 >
                   {showLabel && (
                     <span className="arc-radiant__era-label">{era.title}</span>
@@ -547,34 +829,74 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               );
             })}
 
-            {/* Compass charge — horizontal SVG ribbon. y=0 is centerline,
-                positive charge bulges UP, negative bulges DOWN (here, since
-                only top half is visible, negative just dips toward the spine). */}
-            {layers.compass && chargeByYear.length > 1 && (
+            {/* Compass charge — horizontal SVG ribbon bounded to the band ABOVE
+                the era lanes (bottom = ERA_ZONE_TOP), so the full charge range
+                (+100 at y=10 .. -100 at y=90) maps into that region and the area
+                wash never bleeds over the life/release era lanes below. */}
+            {layers.compass && chargeTrajectory.length > 1 && (
               <svg
                 className="arc-radiant__layer arc-radiant__layer--compass"
                 preserveAspectRatio="none"
                 viewBox="0 0 100 100"
                 style={{
                   width: totalWidth,
-                  height: branchTop,
-                  bottom: SPINE_RESERVED_PX,
+                  height: branchTop - ERA_ZONE_TOP,
+                  bottom: ERA_ZONE_TOP,
                 }}
               >
                 <defs>
-                  {/* Top of curve = violet (high charge), bottom = red (low),
-                      matching the RC aggregate chart's tier gradient. */}
-                  <linearGradient id="charge-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  {/* Tier gradient copied from RC's traj-grad. userSpaceOnUse +
+                      fixed y (charge +100 at y=10, -100 at y=90) so the color
+                      reflects ABSOLUTE charge, not the curve's local extent. */}
+                  <linearGradient id="charge-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="10" x2="0" y2="90">
                     <stop offset="0%"   stopColor="#aa54ff" />
                     <stop offset="25%"  stopColor="#3388ff" />
                     <stop offset="50%"  stopColor="#33cc55" />
                     <stop offset="75%"  stopColor="#ffbb33" />
                     <stop offset="100%" stopColor="#ff3333" />
                   </linearGradient>
+                  {/* Area fill under the line — RC's traj-area-grad: low-opacity
+                      tier wash that fades through near-transparent at neutral. */}
+                  <linearGradient id="charge-area-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="10" x2="0" y2="90">
+                    <stop offset="0%"   stopColor="#aa54ff" stopOpacity="0.2" />
+                    <stop offset="50%"  stopColor="#33cc55" stopOpacity="0.05" />
+                    <stop offset="100%" stopColor="#ff3333" stopOpacity="0.2" />
+                  </linearGradient>
                 </defs>
-                <ChargePath data={chargeByYear} yearStart={yearStart} yearSpan={yearSpan} />
+                <ChargePath data={chargeTrajectory} yearStart={yearStart} yearSpan={yearSpan} />
               </svg>
             )}
+
+            {/* Compass hover points — invisible hit targets at each release's
+                charge vertex on the trajectory. The drawn line stays clean; on
+                hover a small tier-colored dot surfaces (RC's hover-dot) plus the
+                shared hover chip, and clicking opens the same release detail. */}
+            {layers.compass && (() => {
+              const compassH = branchTop - ERA_ZONE_TOP;
+              return data.albums
+                .filter((a) => a.release_date != null && a.charge != null)
+                .map((a) => {
+                  const x = dateToX(a.release_date);
+                  if (x == null) return null;
+                  // Mirror ChargePath: y_vb = 50 - charge/100*40, so the vertex's
+                  // height above the band bottom is (0.5 + 0.4*charge/100).
+                  const pointBottom = ERA_ZONE_TOP + (0.5 + 0.4 * (a.charge! / 100)) * compassH;
+                  const isSelected = selectedItem?.type === "release" && selectedItem.data.id === a.id;
+                  return (
+                    <button
+                      key={`cp-${a.id}`}
+                      type="button"
+                      className={`arc-radiant__charge-point${isSelected ? " is-selected" : ""}`}
+                      style={{ left: x, bottom: pointBottom, ["--pt-color" as string]: TIER_COLORS[a.tier ?? "green"] }}
+                      onClick={(e) => selectNode({ type: "release", data: a }, e)}
+                      onPointerEnter={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
+                      onPointerMove={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
+                      onPointerLeave={() => setHover(null)}
+                      aria-label={a.title}
+                    />
+                  );
+                });
+            })()}
 
             {/* Albums — same CD icon as singles (slightly larger), placed at
                 the album's release_date. No on-canvas labels; title surfaces
@@ -606,34 +928,90 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
             })()}
 
             {/* Life events — vertical branches rising from spine; titles
-                surface via hover chip + detail panel. */}
+                surface via hover chip + detail panel.
+
+                Collision handling (render-only, never mutates stored dates):
+                events sharing the exact same date_start — chiefly the
+                documentary placeholders all pinned to Jan-1 of their year — are
+                fanned FORWARD across the year so each stays reachable. The fan
+                width tracks zoom (tight when zoomed out, spreading to most of a
+                year's width when there's room), and heights vary so the dots
+                scatter in 2D. Distinct real dates form groups of one => zero
+                offset, so this self-dissolves as real dates get added. */}
             {layers.lifeEvents && (() => {
-              const events = data.lifeEvents
-                .map((ev, i) => ({ ev, i, x: dateToX(ev.date_start) }))
-                .filter((e): e is { ev: ArcLifeEvent; i: number; x: number } => e.x != null)
-                .sort((a, b) => a.x - b.x);
-              return events.map(({ ev, i, x }) => {
-                const branchHeight = clamp(scalePattern(EVENT_HEIGHT_PATTERN[i % EVENT_HEIGHT_PATTERN.length]));
-                const isSelected = selectedItem?.type === "event" && selectedItem.data.id === ev.id;
-                return (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    className={`arc-radiant__branch arc-radiant__branch--event${isSelected ? " is-selected" : ""}`}
-                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
-                    onClick={(e) => selectNode({ type: "event", data: ev }, e)}
-                    onPointerEnter={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
-                    onPointerMove={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
-                    onPointerLeave={() => setHover(null)}
-                  >
-                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
-                    <span className="arc-radiant__branch-dot arc-radiant__branch-dot--event" />
-                  </button>
-                );
-              });
+              const placed = data.lifeEvents
+                .map((ev) => ({ ev, x: dateToX(ev.date_start) }))
+                .filter((e): e is { ev: ArcLifeEvent; x: number } => e.x != null);
+
+              const groups = new Map<string, { ev: ArcLifeEvent; x: number }[]>();
+              for (const e of placed) {
+                const key = e.ev.date_start ?? `_${e.x}`;
+                const arr = groups.get(key) ?? [];
+                arr.push(e);
+                groups.set(key, arr);
+              }
+
+              const nodes: React.ReactNode[] = [];
+              let hi = 0; // running index so fanned heights stay varied
+              for (const members of groups.values()) {
+                const n = members.length;
+                // Fan stays within one year (placeholders are Jan-1, so spreading
+                // forward never implies a prior-year date) and adapts to zoom.
+                const spread = n > 1 ? Math.min(pxPerYear * 0.92, (n - 1) * 14) : 0;
+                members
+                  .slice()
+                  .sort((a, b) => a.ev.title.localeCompare(b.ev.title))
+                  .forEach(({ ev, x }, k) => {
+                    const fx = x + (n > 1 ? (k * spread) / (n - 1) : 0);
+                    const branchHeight = clamp(scalePattern(EVENT_HEIGHT_PATTERN[(hi + k) % EVENT_HEIGHT_PATTERN.length]));
+                    const isSelected = selectedItem?.type === "event" && selectedItem.data.id === ev.id;
+                    nodes.push(
+                      <button
+                        key={ev.id}
+                        type="button"
+                        className={`arc-radiant__branch arc-radiant__branch--event${isSelected ? " is-selected" : ""}`}
+                        style={{ left: fx, bottom: SPINE_RESERVED_PX, height: branchHeight }}
+                        onClick={(e) => selectNode({ type: "event", data: ev }, e)}
+                        onPointerEnter={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
+                        onPointerMove={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
+                        onPointerLeave={() => setHover(null)}
+                      >
+                        <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
+                        <span className="arc-radiant__branch-dot arc-radiant__branch-dot--event" />
+                      </button>,
+                    );
+                  });
+                hi += n;
+              }
+              return nodes;
             })()}
           </div>
         </div>
+        {showSkipCta && (
+          <div className="arc-radiant__skip-cta" role="note">
+            <button
+              type="button"
+              className="arc-radiant__skip-cta-go"
+              onClick={skipToMusic}
+            >
+              <span>Skip to the music</span>
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                <path d="M3 8h9M9 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="arc-radiant__skip-cta-close"
+              onClick={() => setShowSkipCta(false)}
+              aria-label="Dismiss"
+              title="Dismiss"
+            >
+              <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+                <path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        )}
         </div>
       </div>
 
@@ -754,34 +1132,51 @@ function KeySwatch({ layer }: { layer: LayerKey }) {
 // ---------- Charge path subcomponent ----------
 
 function ChargePath({ data, yearStart, yearSpan }: {
-  data: { year: number; charge: number; n: number }[];
+  data: ReleasePoint[];
   yearStart: number;
   yearSpan: number;
 }) {
-  // x = position along timeline (0..100), y = charge mapped to height
-  // (positive charge rises from spine: charge=+100 → y=10, charge=-100 → y=90).
+  // x = position along timeline (0..100) at the exact release date, y = charge
+  // mapped to height (charge=+100 → y=10, 0 → y=50, -100 → y=90). One release
+  // per vertex. Straight segments + area fill + grid, copied from RC's
+  // renderTrajectoryChart — no bezier smoothing, no per-point dots.
   const points = data.map((d) => ({
-    x: ((d.year - yearStart) / yearSpan) * 100,
+    x: ((dateToYearFloat(d.date) - yearStart) / yearSpan) * 100,
     y: 50 - (d.charge / 100) * 40,
   }));
   if (points.length < 2) return null;
 
-  let dPath = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    const cx = (prev.x + curr.x) / 2;
-    const cy = (prev.y + curr.y) / 2;
-    dPath += ` Q ${prev.x} ${prev.y}, ${cx} ${cy}`;
-  }
-  dPath += ` T ${points[points.length - 1].x} ${points[points.length - 1].y}`;
+  const linePath = points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+    .join(" ");
+  // Area drops from the line to the horizon (bottom of the band) and back.
+  const first = points[0];
+  const last = points[points.length - 1];
+  const areaPath = `${linePath} L ${last.x.toFixed(2)} 100 L ${first.x.toFixed(2)} 100 Z`;
+
+  // Charge reference lines: +100 / +50 / 0 / -50 / -100.
+  const gridLines = [10, 30, 50, 70, 90];
 
   return (
     <>
-      <path d={dPath} stroke="url(#charge-gradient)" strokeWidth={1.2} fill="none" vectorEffect="non-scaling-stroke" />
-      {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={0.6} fill="#fff" stroke="url(#charge-gradient)" strokeWidth={0.4} vectorEffect="non-scaling-stroke" />
+      {gridLines.map((y) => (
+        <line
+          key={y}
+          className="arc-radiant__charge-grid"
+          x1={first.x}
+          y1={y}
+          x2={last.x}
+          y2={y}
+          vectorEffect="non-scaling-stroke"
+        />
       ))}
+      <path className="arc-radiant__charge-area" d={areaPath} fill="url(#charge-area-gradient)" />
+      <path
+        className="arc-radiant__charge-line"
+        d={linePath}
+        stroke="url(#charge-gradient)"
+        vectorEffect="non-scaling-stroke"
+      />
     </>
   );
 }
@@ -818,6 +1213,15 @@ function ArcOverviewLocator({
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<LocatorDrag | null>(null);
   const [isActive, setIsActive] = useState(false);
+  const [trackW, setTrackW] = useState(0);
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const measure = () => setTrackW(el.getBoundingClientRect().width);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   // Map canvas scroll/zoom → visible year window.
   const safeTotal = Math.max(1, totalWidth);
@@ -842,6 +1246,14 @@ function ArcOverviewLocator({
   const withMonth = span < 5;
   const startLabel = formatYear(visibleStartYear, "start", withMonth);
   const endLabel = formatYear(visibleEndYear, "end", withMonth);
+  // Start/end labels sit at the window's inner edges when there's room. When the
+  // window is too narrow to hold both without colliding (ss25-27), flip them to
+  // the OUTSIDE of the window — start to its left, end to its right — so they
+  // never overlap. Threshold errs generous (outside never overlaps; inside is
+  // only used when clearly wide). At full zoom-out the window fills the track,
+  // so it stays inside and the labels can't fall off the track edges.
+  const windowPx = (widthPct / 100) * trackW;
+  const labelsOutside = trackW > 0 && windowPx < 160;
 
   // Convert visible-year window → (zoomLevel, scrollLeft) and dispatch.
   // Minimum visible span is 1 year (max zoom level).
@@ -1025,10 +1437,10 @@ function ArcOverviewLocator({
         data-handle="pan"
         style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
       >
-        <span className="arc-radiant__overview-year arc-radiant__overview-year--left">
+        <span className={`arc-radiant__overview-year arc-radiant__overview-year--left${labelsOutside ? " is-outside" : ""}`}>
           {startLabel}
         </span>
-        <span className="arc-radiant__overview-year arc-radiant__overview-year--right">
+        <span className={`arc-radiant__overview-year arc-radiant__overview-year--right${labelsOutside ? " is-outside" : ""}`}>
           {endLabel}
         </span>
         <div
@@ -1041,7 +1453,6 @@ function ArcOverviewLocator({
           data-handle="right"
           aria-label="Drag to set end year"
         />
-        <div className="arc-radiant__overview-grip" aria-hidden="true" />
       </div>
     </div>
   );
@@ -1155,19 +1566,26 @@ function ArcRadiantModal({
 
 // ---------- Aggregation ----------
 
-function buildChargeByYear(songs: ArcSong[], yearStart: number, yearEnd: number) {
-  const buckets: Record<number, { sum: number; n: number }> = {};
-  for (const s of songs) {
-    if (s.rc_charge == null || s.instrumental) continue;
-    const date = s.release_date ?? s.write_date;
-    if (!date) continue;
-    const year = parseInt(date.slice(0, 4), 10);
-    if (year < yearStart || year > yearEnd) continue;
-    const b = buckets[year] ?? (buckets[year] = { sum: 0, n: 0 });
-    b.sum += s.rc_charge;
-    b.n += 1;
-  }
-  return Object.entries(buckets)
-    .map(([y, b]) => ({ year: parseInt(y, 10), charge: b.sum / b.n, n: b.n }))
-    .sort((a, b) => a.year - b.year);
+type ReleasePoint = { date: string; charge: number; tier: string; title: string; id: string };
+
+// Fractional year for a YYYY-MM-DD date, matching dateToX's mapping so compass
+// points line up horizontally with the release CDs.
+function dateToYearFloat(d: string): number {
+  const [y, m = "1", day = "1"] = d.split("-");
+  return parseInt(y, 10) + (parseInt(m, 10) - 1) / 12 + (parseInt(day, 10) - 1) / 365;
+}
+
+// One trajectory point per dated, charged release, sorted chronologically.
+// Releases with no release_date are off the timeline; releases with no charged
+// track have no point. Mirrors RC's /artists/{slug}/trajectory.
+function buildReleaseTrajectory(releases: ArcRelease[], yearStart: number, yearEnd: number): ReleasePoint[] {
+  return releases
+    .filter((r): r is ArcRelease & { release_date: string; charge: number; tier: string } =>
+      r.release_date != null && r.charge != null && r.tier != null)
+    .filter((r) => {
+      const year = parseInt(r.release_date.slice(0, 4), 10);
+      return year >= yearStart && year <= yearEnd;
+    })
+    .map((r) => ({ date: r.release_date, charge: r.charge, tier: r.tier, title: r.title, id: r.id }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }

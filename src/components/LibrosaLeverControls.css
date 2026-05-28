@@ -1,0 +1,121 @@
+.lev-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.lev-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.lev-section__title {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.lev-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.lev-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.lev-row__label {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.lev-row__label--inherited {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.lev-row__state {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid var(--border-medium);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  white-space: nowrap;
+}
+
+.lev-row__state--overridden {
+  color: var(--text-accent);
+  border-color: var(--text-accent);
+}
+
+.lev-row__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.lev-row__slider {
+  flex: 1;
+  accent-color: var(--text-accent);
+  cursor: pointer;
+}
+
+/* Inheriting the global value, but still editable — a light cue, not a
+   disabled state. Touching it creates the per-song override. */
+.lev-row__slider--inherited {
+  opacity: 0.6;
+}
+
+.lev-row__num {
+  width: 90px;
+  flex: none;
+  padding: 4px var(--space-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  text-align: right;
+  outline: none;
+}
+
+.lev-row__num:focus { border-color: var(--text-accent); }
+
+.lev-row__unit {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  width: 34px;
+  flex: none;
+}
+
+.lev-row__desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.lev-row__rescan {
+  color: #d97706;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

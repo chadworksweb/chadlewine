@@ -234,13 +234,15 @@ export default async function SongwritingPage() {
           </p>
           <p>
             I&rsquo;ve been writing pop songs embedded with inspirational and deeply thoughtful
-            messages for nearly two decades. I&rsquo;m not talking Fight Song by Rachel Platten,
-            I&rsquo;m talking Man In The Mirror by Michael Jackson. I&rsquo;m not talking Firework by
-            Katy Perry, I&rsquo;m talking The Living Years by Mike and the Mechanics. I&rsquo;m talking
-            Conviction of the Heart by Kenny Loggins and Mmmbop by Hanson (that song is deep, if you
-            didn&rsquo;t know.) I write songs that blend in with the sonics and arrangement of
-            contemporary music but carry a message markedly different from what&rsquo;s trendy or
-            charting.
+            messages for nearly two decades. I&rsquo;m not talking Fight Song by
+            Rachel Platten, I&rsquo;m talking Man In The Mirror by Michael Jackson. I&rsquo;m not
+            talking Firework by Katy Perry, I&rsquo;m talking The Living Years
+            by Mike and the Mechanics. I&rsquo;m talking Conviction of the Heart by Kenny Loggins and
+            Mmmbop by Hanson (that song is deep, if you didn&rsquo;t know.) I write songs that blend
+            in with the sonics and arrangement of contemporary music but carry a message markedly
+            different from what&rsquo;s trendy or charting. (Don&rsquo;t get me wrong, I&rsquo;d
+            eagerly write a Fight Song or a Firework if that&rsquo;s the call; they&rsquo;re great
+            songs. The deeper, more intentional stuff is just my specialty.)
           </p>
           <p>
             If you or your artist wants a song that no one else has, I&rsquo;ve got it. A song that

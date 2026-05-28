@@ -15,6 +15,7 @@ import { CubeFaceEditor } from "@/components/CubeFaceEditor";
 import { EntityPicker } from "@/components/EntityPicker";
 import { CreditsEditor } from "@/components/CreditsEditor";
 import { SkuPanel } from "@/components/SkuPanel";
+import { LibrosaPanel } from "@/components/LibrosaPanel";
 
 interface ExpansionSummary {
   id: string;
@@ -316,6 +317,13 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
   // The editor reads it from the initial payload to gate the cube-face
   // editor, but never toggles it from this UI.
   const isSingle = (initial as unknown as { is_single?: boolean } | undefined)?.is_single === true;
+  // The cube only has tunable reactions when stems have been analyzed
+  // (beat_data present). Frequency-only songs render as rotation + ambient,
+  // which has nothing to tune, so they get no Librosa panel at all.
+  const hasStems = (() => {
+    const bd = (initial as unknown as { beat_data?: unknown[] } | undefined)?.beat_data;
+    return Array.isArray(bd) && bd.length > 0;
+  })();
 
   useEffect(() => {
     fetch("/api/admin/releases")
@@ -598,6 +606,10 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
           {form.id && (
             <SkuPanel kind="song" parentId={form.id} parentSlug={form.slug} />
           )}
+
+          {/* Cube visualizer tuning — stem cubes only (frequency cubes have
+              no reactive effects to tune). */}
+          {form.id && hasStems && <LibrosaPanel songId={form.id} />}
 
           {/* Visibility Engine */}
           {form.id && (

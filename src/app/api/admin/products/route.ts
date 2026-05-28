@@ -40,6 +40,8 @@ export async function POST(request: Request) {
       // tier retired as a category; column is now nullable (art-merch products
       // get tier set to art_print/art_original by the art-products route).
       tier: body.tier ?? null,
+      merch_type_id: body.merch_type_id ?? null,
+      release_sku_id: body.release_sku_id ?? null,
       fulfillment: body.fulfillment || "printify_curated",
       title,
       slug,
@@ -49,7 +51,6 @@ export async function POST(request: Request) {
       image_url: body.image_url || null,
       image_alt: body.image_alt || null,
       status: body.status || "active",
-      is_catalog_item: body.is_catalog_item ?? false,
       linked_art_piece_id: body.linked_art_piece_id || null,
       shipping_first_cents: body.shipping_first_cents ?? null,
       shipping_addl_cents: body.shipping_addl_cents ?? null,
