@@ -47,7 +47,7 @@ export function AudienceAdmin({
   requests: UnsubRequestRow[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("all");
+  const [tab, setTab] = useState<Tab>("subscribers");
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -157,11 +157,11 @@ export function AudienceAdmin({
 
       <div className="admin-tabs">
         {([
-          ["all", `All ${audience.length}`],
           ["subscribers", `Subscribers ${activeCount}`],
           ["customers", `Customers ${customerCount}`],
           ["requests", `Requests ${pendingRequests.length}`],
           ["archive", `Archive ${archiveCount}`],
+          ["all", `All ${audience.length}`],
         ] as [Tab, string][]).map(([t, label]) => (
           <button
             key={t}

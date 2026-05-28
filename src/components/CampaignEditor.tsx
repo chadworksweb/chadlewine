@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAutosave } from "@/hooks/useAutosave";
 import { BlockEditor } from "@/components/BlockEditor";
@@ -281,6 +282,15 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
                 onChange={(next) => setForm({ ...form, body_blocks: next })}
               />
             )}
+            <p className="campaign-editor__hint">
+              The header and footer are shared across every email.{" "}
+              <Link
+                href="/admin/email-templates/globals"
+                style={{ color: "var(--text-accent)", fontWeight: 500 }}
+              >
+                Edit header &amp; footer &rarr;
+              </Link>
+            </p>
           </div>
 
           <div className="campaign-editor__field campaign-editor__preview-toggle">

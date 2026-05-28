@@ -159,11 +159,10 @@ void main() {
   // smooth convex bulge.
   float freq      = mix(0.25, 0.6, fract(uVariantSeed * 0.731));
   float timeOff   = uVariantSeed * 117.0;
-  // Kick morph amplitude bumped from 0.18 -> 0.22 for a noticeably
-  // stronger reaction on the beats that fire (per spec: "morph stronger
-  // on the kick"). Snares get a fragment-shader corner strobe instead
-  // of a geometry change — see the fragment shader.
-  float amp       = 0.22;
+  // Kick morph amplitude. Was 0.18 -> 0.22; reduced ~1/3 to 0.147 to dial
+  // back the face extrusion (per request). Snares get a fragment-shader
+  // corner strobe instead of a geometry change — see the fragment shader.
+  float amp       = 0.147;
 
   // Radial direction (from cube center). Pushing along this keeps faces
   // sealed because every vertex sharing a world position pushes the same
@@ -310,13 +309,25 @@ void main() {
   // read as the same "stage lighting" family.
   color += vec3(1.0, 1.04, 1.10) * trailGlow * 0.95;
 
-  // BASS PULSE acid color-filter REMOVED (per request). It boosted
-  // saturation and skewed the palette magenta/cyan in time with the bass,
-  // which read on-device as a "filter" washing the cover art during
-  // playback. Only fired with real audio analysis, so it looked clean in
-  // headless/desktop testing but showed on the phone. The uniform and the
-  // bassPulseRef plumbing stay in place; the motion/lighting effects
-  // (geometry morph, rotation, snare strobe, hat trails, rim) are untouched.
+  // BASS PULSE — acid color filter (restored). NOT a spatial effect (the
+  // cube doesn't swell). Boosts saturation hard and skews the palette toward
+  // magenta + cyan on the R/B axis, pulling G down. Result: the cover art
+  // briefly reads like it got dunked in acid — same composition, intensified,
+  // hue-warped. Decays out cleanly so the cube returns to normal.
+  //
+  // SCOPED TO STEM CUBES BY CONSTRUCTION: uBassPulseAmount is fed from
+  // bassPulseState, which is only ever set by beat_data bp hits. Default
+  // (frequency) cubes have no beat_data, so uBassPulseAmount stays 0 and this
+  // block never fires for them. The previous "leaks onto every cube" was a
+  // bug, not the intent -- if it reappears, the leak is upstream in the feed,
+  // not here.
+  if (uBassPulseAmount > 0.001) {
+    float luma = dot(color, vec3(0.299, 0.587, 0.114));
+    vec3 saturated = mix(vec3(luma), color, 1.0 + uBassPulseAmount * 1.8);
+    // Magenta/cyan acid lean: R + B up, G down.
+    vec3 acidWash = saturated * vec3(1.18, 0.78, 1.32);
+    color = mix(color, acidWash, min(1.0, uBassPulseAmount));
+  }
 
   // SNARE STROBE — airplane wingtip flash. Tightens the corner mask
   // before lighting so the strobe reads as a small point of light at

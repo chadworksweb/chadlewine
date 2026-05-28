@@ -61,6 +61,53 @@ def supabase_client():
     key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     return create_client(url, key)
 
+# Analyzer-lever defaults. MUST mirror the render/analyzer registry in
+# src/lib/librosa-levers.ts (group "analyzer") so a song with no overrides and
+# an empty global config analyzes identically to the original hardcoded run.
+ANALYZER_DEFAULTS = {
+    "sample_rate": 22050,
+    "hpss_margin_harmonic": 1.0,
+    "hpss_margin_percussive": 5.0,
+    "kick_band_low": 30,
+    "kick_band_high": 130,
+    "snare_band_low": 200,
+    "snare_band_high": 450,
+    "norm_percentile": 95,
+}
+
+def load_global_config(sb) -> dict:
+    """Read the 'default' (frequency) profile from the singleton settings row
+    (librosa_settings.id = 1). analyze_beats.py is the HPSS/frequency analyzer,
+    so it reads the 'default' profile. Config shape is {default:{}, stem:{}};
+    a legacy flat object is treated as the default profile."""
+    try:
+        res = sb.table("librosa_settings").select("config").eq("id", 1).single().execute()
+        cfg = (res.data or {}).get("config") or {}
+        if not isinstance(cfg, dict):
+            return {}
+        nested = cfg.get("default")
+        if isinstance(nested, dict):
+            return nested
+        # Legacy flat config: top-level lever keys belong to the default profile.
+        if any(k in ANALYZER_DEFAULTS for k in cfg):
+            return cfg
+        return {}
+    except Exception:
+        return {}
+
+def effective_config(global_cfg: dict, song_overrides: dict | None) -> dict:
+    """defaults <- global <- per-song override. Unknown keys are ignored
+    because we only ever read ANALYZER_DEFAULTS keys downstream."""
+    cfg = dict(ANALYZER_DEFAULTS)
+    for src in (global_cfg or {}, song_overrides or {}):
+        for k in ANALYZER_DEFAULTS:
+            if k in src:
+                try:
+                    cfg[k] = float(src[k])
+                except (TypeError, ValueError):
+                    pass
+    return cfg
+
 def download_to_temp(url: str) -> Path:
     """Stream an audio URL into a temp file we can hand to librosa.load."""
     suffix = Path(url.split("?")[0]).suffix or ".mp3"
@@ -73,14 +120,17 @@ def download_to_temp(url: str) -> Path:
     tmp.close()
     return Path(tmp.name)
 
-def analyze(path: Path) -> tuple[float, list[float], list[float], list[float], list[float]]:
+def analyze(path: Path, cfg: dict | None = None) -> tuple[float, list[float], list[float], list[float], list[float]]:
     """Run librosa beat tracking + onset analysis.
     Returns (tempo_bpm, beat_times_seconds, beat_strengths, beat_kicks, beat_snares).
-    All four beat_* lists are aligned and the same length as beat_times."""
+    All four beat_* lists are aligned and the same length as beat_times.
+    cfg holds the effective analyzer levers (see ANALYZER_DEFAULTS); None uses
+    the defaults verbatim."""
+    cfg = cfg or dict(ANALYZER_DEFAULTS)
     librosa, np = _lazy_imports()
-    # Mono load at 22050 Hz — beat tracker doesn't need full fidelity and
-    # halving the sample rate halves the analysis time on a typical song.
-    y, sr = librosa.load(str(path), sr=22050, mono=True)
+    # Mono load — beat tracker doesn't need full fidelity and halving the
+    # sample rate halves the analysis time on a typical song.
+    y, sr = librosa.load(str(path), sr=int(cfg["sample_rate"]), mono=True)
 
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, units="frames")
     beat_times = librosa.frames_to_time(beat_frames, sr=sr)
@@ -112,10 +162,12 @@ def analyze(path: Path) -> tuple[float, list[float], list[float], list[float], l
     # 2. Tighter band: 30-130 Hz. Brackets the kick fundamental + early
     #    body. Above 130 starts catching snare shells; below 30 is mostly
     #    room rumble + subsonic.
-    _y_harm, y_perc = librosa.effects.hpss(y, margin=(1.0, 5.0))
+    _y_harm, y_perc = librosa.effects.hpss(
+        y, margin=(cfg["hpss_margin_harmonic"], cfg["hpss_margin_percussive"])
+    )
     perc_mel = librosa.feature.melspectrogram(y=y_perc, sr=sr, n_mels=128, fmax=8000)
     mel_freqs = librosa.mel_frequencies(n_mels=128, fmax=8000)
-    kick_mask = (mel_freqs >= 30) & (mel_freqs <= 130)
+    kick_mask = (mel_freqs >= cfg["kick_band_low"]) & (mel_freqs <= cfg["kick_band_high"])
     kick_mel = perc_mel[kick_mask, :]
     kick_env = librosa.onset.onset_strength(S=librosa.power_to_db(kick_mel), sr=sr)
 
@@ -125,7 +177,7 @@ def analyze(path: Path) -> tuple[float, list[float], list[float], list[float], l
     # hi-hats also live, so we stick to the body band for cleaner
     # separation. Beats reading high here AND low in beat_kicks are
     # snare-only (backbeats); beats high in both are kick+snare hits.
-    snare_mask = (mel_freqs >= 200) & (mel_freqs <= 450)
+    snare_mask = (mel_freqs >= cfg["snare_band_low"]) & (mel_freqs <= cfg["snare_band_high"])
     snare_mel = perc_mel[snare_mask, :]
     snare_env = librosa.onset.onset_strength(S=librosa.power_to_db(snare_mel), sr=sr)
 
@@ -142,10 +194,11 @@ def analyze(path: Path) -> tuple[float, list[float], list[float], list[float], l
     # every other kick toward 0.2-0.4 even when most kicks were equally
     # strong. With p95 the top ~5% clip at 1.0 and the meaningful range
     # spreads across 0.4-1.0, giving the frontend threshold real headroom.
+    pct = float(cfg["norm_percentile"])
     def _norm(arr) -> float:
         if arr.size == 0:
             return 1.0
-        v = float(np.percentile(arr, 95))
+        v = float(np.percentile(arr, pct))
         return v if v > 0 else 1.0
 
     s_norm = _norm(raw_strengths)
@@ -158,7 +211,7 @@ def analyze(path: Path) -> tuple[float, list[float], list[float], list[float], l
     snares = [round(min(1.0, float(s) / sn_norm), 4) for s in raw_snares]
     return bpm, times, strengths, kicks, snares
 
-def process_song(sb, song: dict, force: bool) -> None:
+def process_song(sb, song: dict, force: bool, global_cfg: dict | None = None) -> None:
     slug = song["slug"]
     streaming = song.get("streaming_path")
     if not streaming:
@@ -168,10 +221,13 @@ def process_song(sb, song: dict, force: bool) -> None:
         print(f"[skip] {slug} — already analyzed ({len(song['beat_peaks'])} beats)")
         return
 
-    print(f"[analyze] {slug} — downloading ...", flush=True)
+    cfg = effective_config(global_cfg or {}, song.get("visualizer_overrides"))
+    nondefault = {k: cfg[k] for k in ANALYZER_DEFAULTS if cfg[k] != ANALYZER_DEFAULTS[k]}
+    print(f"[analyze] {slug} — downloading ..."
+          + (f" (overrides: {nondefault})" if nondefault else ""), flush=True)
     tmp_path = download_to_temp(streaming)
     try:
-        bpm, beats, strengths, kicks, snares = analyze(tmp_path)
+        bpm, beats, strengths, kicks, snares = analyze(tmp_path, cfg)
         head = ", ".join(f"{t:.2f}" for t in beats[:5])
         # Surface band stats so threshold-tuning decisions don't require
         # querying the DB after every run.
@@ -198,7 +254,7 @@ def process_song(sb, song: dict, force: bool) -> None:
             pass
 
 def iter_songs(sb, slug: str | None, force: bool) -> Iterable[dict]:
-    select = "slug, streaming_path, beat_peaks"
+    select = "slug, streaming_path, beat_peaks, visualizer_overrides"
     if slug:
         res = sb.table("songs").select(select).eq("slug", slug).execute()
         if not res.data:
@@ -235,11 +291,12 @@ def main() -> None:
         sys.exit(1)
 
     sb = supabase_client()
+    global_cfg = load_global_config(sb)
     songs = list(iter_songs(sb, args.slug, args.force))
     print(f"[run] {len(songs)} song(s) to process", file=sys.stderr)
     for s in songs:
         try:
-            process_song(sb, s, args.force)
+            process_song(sb, s, args.force, global_cfg)
         except Exception as e:
             print(f"[error] {s['slug']}: {e}", file=sys.stderr)
 

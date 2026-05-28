@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { MediaLibrary } from "@/components/MediaLibrary";
+import { LinkSearchInput } from "@/components/LinkSearchInput";
 
 interface RichTextEditorProps {
   value: string;
@@ -60,6 +61,138 @@ const toolbarButtons = [
   { cmd: "removeFormat", title: "Clear formatting" },
 ];
 
+// --- Paste sanitizer ------------------------------------------------------
+// Google Docs / Word / web pastes carry a mountain of inline styles, <span>
+// wrappers, ids and classes. Strip all of that down to the clean semantic tags
+// this editor uses, mapping style-based bold/italic/underline/strike back to
+// <strong>/<em>/<u>/<s> and unwrapping Google's link redirects.
+const PASTE_DROP_TAGS = new Set([
+  "STYLE", "SCRIPT", "META", "TITLE", "HEAD", "LINK", "O:P", "COLGROUP", "COL",
+]);
+const PASTE_BLOCK_MAP: Record<string, string> = {
+  P: "p", PRE: "p",
+  H1: "h2", H2: "h2", H3: "h3", H4: "h4", H5: "h4", H6: "h4",
+  BLOCKQUOTE: "blockquote", UL: "ul", OL: "ol", LI: "li",
+};
+
+function escHtmlText(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function escHtmlAttr(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+function pasteSafeHref(href: string): boolean {
+  const h = href.trim();
+  if (/^(https?:|mailto:|tel:|#|\/)/i.test(h)) return true;
+  return !/^[a-z][a-z0-9+.-]*:/i.test(h);
+}
+function unwrapGoogleRedirect(href: string): string {
+  try {
+    if (/^https?:\/\/(www\.)?google\.com\/url\?/i.test(href)) {
+      const q = new URL(href).searchParams.get("q");
+      if (q) return q;
+    }
+  } catch {
+    /* not a parseable URL */
+  }
+  return href;
+}
+// Read bold/italic/underline/strike from either the tag or its inline style
+// (Docs encodes them as <span style="font-weight:700">, etc.) and wrap.
+function emphasisWrap(el: HTMLElement, inner: string): string {
+  if (!inner) return inner;
+  const tag = el.tagName;
+  const st = el.style;
+  const fw = st?.fontWeight || "";
+  const fs = st?.fontStyle || "";
+  const td = `${st?.textDecorationLine || ""} ${st?.textDecoration || ""}`;
+  // Docs wraps the whole paste in <b style="font-weight:normal"> -- not bold.
+  const bold =
+    tag === "B" || tag === "STRONG"
+      ? !/^(normal|[1-5]00)$/.test(fw)
+      : /^(bold|bolder)$/i.test(fw) || parseInt(fw, 10) >= 600;
+  const italic = tag === "I" || tag === "EM" || fs === "italic" || fs === "oblique";
+  const underline = tag === "U" || /underline/.test(td);
+  const strike = tag === "S" || tag === "STRIKE" || tag === "DEL" || /line-through/.test(td);
+  let out = inner;
+  if (strike) out = `<s>${out}</s>`;
+  if (underline) out = `<u>${out}</u>`;
+  if (italic) out = `<em>${out}</em>`;
+  if (bold) out = `<strong>${out}</strong>`;
+  return out;
+}
+function hasBlockChild(el: HTMLElement): boolean {
+  return !!el.querySelector(
+    "p,div,h1,h2,h3,h4,h5,h6,ul,ol,li,blockquote,table,hr",
+  );
+}
+function pasteSerializeChildren(node: Node): string {
+  let html = "";
+  node.childNodes.forEach((c) => {
+    html += pasteSerializeNode(c);
+  });
+  return html;
+}
+function pasteSerializeNode(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return escHtmlText((node.textContent || "").replace(/\s+/g, " "));
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return "";
+  const el = node as HTMLElement;
+  const tag = el.tagName;
+  if (PASTE_DROP_TAGS.has(tag)) return "";
+  if (tag === "BR") return "<br>";
+  if (tag === "HR") return "<hr>";
+  if (tag === "IMG") {
+    const src = (el.getAttribute("src") || "").trim();
+    if (!/^https?:/i.test(src)) return ""; // drop base64/blob/inline images
+    const alt = el.getAttribute("alt") || "";
+    return `<img src="${escHtmlAttr(src)}" alt="${escHtmlAttr(alt)}" />`;
+  }
+  if (tag === "A") {
+    const href = unwrapGoogleRedirect(
+      (el.getAttribute("href") || "").trim(),
+    ).trim();
+    const inner = pasteSerializeChildren(el);
+    if (!inner) return "";
+    if (!href || !pasteSafeHref(href)) return inner;
+    const tgt =
+      el.getAttribute("target") === "_blank"
+        ? ` target="_blank" rel="noopener noreferrer"`
+        : "";
+    return `<a href="${escHtmlAttr(href)}"${tgt}>${inner}</a>`;
+  }
+  if (tag === "DIV") {
+    // A div holding blocks just unwraps; an inline-only div becomes a paragraph
+    // (Docs/Word sometimes use a <div> per paragraph).
+    const inner = pasteSerializeChildren(el);
+    if (!inner.trim()) return "";
+    return hasBlockChild(el) ? inner : `<p>${inner}</p>`;
+  }
+  const mapped = PASTE_BLOCK_MAP[tag];
+  if (mapped) {
+    const inner = pasteSerializeChildren(el);
+    if (!inner.trim()) return "";
+    return `<${mapped}>${inner}</${mapped}>`;
+  }
+  // span / font / b / i / u / s / unknown: drop the wrapper, carry emphasis.
+  return emphasisWrap(el, pasteSerializeChildren(el));
+}
+/** Sanitize pasted clipboard HTML down to this editor's clean semantic tags. */
+function sanitizePastedHtml(rawHtml: string): string {
+  if (typeof DOMParser === "undefined") return "";
+  // DOMParser builds an inert document (no scripts run, no resources load).
+  const doc = new DOMParser().parseFromString(rawHtml, "text/html");
+  return pasteSerializeChildren(doc.body)
+    .replace(/<(p|h2|h3|h4|blockquote|li)>\s*<\/\1>/gi, "")
+    .replace(/(?:<br>\s*){3,}/gi, "<br><br>")
+    .trim();
+}
+
 interface LinkTooltip {
   url: string;
   target: string;
@@ -78,6 +211,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const [creatingLink, setCreatingLink] = useState(false);
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkTarget, setNewLinkTarget] = useState("");
+  const [createPos, setCreatePos] = useState<{ x: number; y: number } | null>(null);
   const [currentBlock, setCurrentBlock] = useState("p");
   const editorRef = useRef<HTMLDivElement>(null);
   const codeRef = useRef<HTMLTextAreaElement>(null);
@@ -112,13 +246,44 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
 
   function restoreSelection() {
     if (savedSelection.current) {
-      editorRef.current?.focus();
+      // preventScroll: focusing a tall contentEditable otherwise yanks the
+      // editor back to the top before the caret/selection is restored.
+      editorRef.current?.focus({ preventScroll: true });
       const sel = window.getSelection();
       if (sel) {
         sel.removeAllRanges();
         sel.addRange(savedSelection.current);
       }
     }
+  }
+
+  // Position (relative to the editor wrapper) of the current selection, so the
+  // create-link popover can appear next to the cursor rather than top-left.
+  function getSelectionPos(): { x: number; y: number } | null {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !editorRef.current) return null;
+    if (!editorRef.current.contains(sel.anchorNode)) return null;
+    const range = sel.getRangeAt(0);
+    let rect = range.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      const rects = range.getClientRects();
+      if (rects.length) rect = rects[0];
+    }
+    const editorRect = editorRef.current.getBoundingClientRect();
+    // Clamp so the popover stays inside the editor's width.
+    const x = Math.max(
+      0,
+      Math.min(rect.left - editorRect.left, Math.max(0, editorRect.width - 460)),
+    );
+    return { x, y: rect.bottom - editorRect.top + 6 };
+  }
+
+  function openCreateLink() {
+    saveSelection();
+    setCreatePos(getSelectionPos());
+    setNewLinkUrl("");
+    setNewLinkTarget("");
+    setCreatingLink(true);
   }
 
   useEffect(() => {
@@ -135,7 +300,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
     const imgTag = `<img src="${url}"${altAttr}${titleAttr} />`;
 
     if (mode === "visual" && editorRef.current) {
-      editorRef.current.focus();
+      editorRef.current.focus({ preventScroll: true });
       document.execCommand("insertHTML", false, imgTag);
       isInternalUpdate.current = true;
       onChange(editorRef.current.innerHTML);
@@ -160,10 +325,7 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
       const tag = cmdString.split(":")[1];
       document.execCommand("formatBlock", false, tag);
     } else if (cmdString === "createLink") {
-      saveSelection();
-      setNewLinkUrl("");
-      setNewLinkTarget("");
-      setCreatingLink(true);
+      openCreateLink();
       return;
     } else {
       document.execCommand(cmdString, false);
@@ -186,6 +348,30 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const handleCodeChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       onChange(e.target.value);
+    },
+    [onChange]
+  );
+
+  // Intercept paste so Google Docs / Word / web HTML is sanitized to clean
+  // semantic tags instead of dumping inline-CSS spans into the body.
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const html = e.clipboardData.getData("text/html");
+      const text = e.clipboardData.getData("text/plain");
+      let clean = "";
+      if (html && html.trim()) {
+        clean = sanitizePastedHtml(html);
+      } else if (text) {
+        clean = text
+          .split(/\r?\n\r?\n+/)
+          .map((p) => `<p>${escHtmlText(p).replace(/\r?\n/g, "<br>")}</p>`)
+          .join("");
+      }
+      if (!clean) return;
+      document.execCommand("insertHTML", false, clean);
+      isInternalUpdate.current = true;
+      if (editorRef.current) onChange(editorRef.current.innerHTML);
     },
     [onChange]
   );
@@ -378,6 +564,14 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
             contentEditable
             spellCheck
             onInput={handleInput}
+            onPaste={handlePaste}
+            onKeyDown={(e) => {
+              // Cmd/Ctrl+K -- add link on the current selection.
+              if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+                e.preventDefault();
+                openCreateLink();
+              }
+            }}
             onMouseUp={saveSelection}
             onKeyUp={saveSelection}
             onMouseOver={handleEditorMouseOver}
@@ -393,12 +587,11 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
             >
               {editingLink ? (
                 <div className="rte__link-tooltip-edit">
-                  <input
-                    className="rte__link-tooltip-input"
-                    type="text"
+                  <LinkSearchInput
                     value={editLinkUrl}
-                    onChange={(e) => setEditLinkUrl(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && saveEditLink()}
+                    onChange={setEditLinkUrl}
+                    onPick={(url) => setEditLinkUrl(url)}
+                    onEnter={saveEditLink}
                     autoFocus
                   />
                   <select
@@ -426,15 +619,20 @@ export function RichTextEditor({ value, onChange }: RichTextEditorProps) {
             </div>
           )}
           {creatingLink && (
-            <div className="rte__link-tooltip rte__link-tooltip--create">
+            <div
+              className="rte__link-tooltip rte__link-tooltip--create"
+              style={
+                createPos
+                  ? { left: createPos.x, top: createPos.y, transform: "none" }
+                  : undefined
+              }
+            >
               <div className="rte__link-tooltip-edit">
-                <input
-                  className="rte__link-tooltip-input"
-                  type="text"
-                  placeholder="Enter URL"
+                <LinkSearchInput
                   value={newLinkUrl}
-                  onChange={(e) => setNewLinkUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && confirmCreateLink()}
+                  onChange={setNewLinkUrl}
+                  onPick={(url) => setNewLinkUrl(url)}
+                  onEnter={confirmCreateLink}
                   autoFocus
                 />
                 <select

@@ -50,3 +50,7 @@ next-env.d.ts
 scripts/*.log
 scripts/*.out.json
 scripts/bg-remove-work/
+
+# logs + python cache (never commit)
+*.log
+__pycache__/

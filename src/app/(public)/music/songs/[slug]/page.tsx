@@ -10,6 +10,7 @@ import { fetchBadge } from "@/lib/rising-compass";
 import { renderSection, extractSongSlugs } from "@/lib/visibility-sections";
 import { getSingleSongIds } from "@/lib/song-singles";
 import { fetchReleaseSkusForIds, fetchSongSkusForIds } from "@/lib/release-skus";
+import { mergeConfig, RENDER_LEVERS, profileForSong, profileFromStored } from "@/lib/librosa-levers";
 
 export const revalidate = 60;
 
@@ -151,6 +152,28 @@ async function getSongData(songSlug: string) {
       .filter((s): s is typeof connectionsSongs[number] => !!s && !!s.art_image_path);
   }
 
+  // Effective render-lever config for the cube. Stem-analyzed songs (with
+  // beat_data) inherit the "stem" profile; everything else the shared
+  // "default" (frequency) profile. Per-song overrides layer on top. Narrowed
+  // to the render levers the visualizer actually reads.
+  const { data: librosaSettings } = await supabase
+    .from("librosa_settings")
+    .select("config")
+    .eq("id", 1)
+    .maybeSingle();
+  const songHasStems = Array.isArray(song.beat_data) && song.beat_data.length > 0;
+  const profileCfg = profileFromStored(
+    librosaSettings?.config as Record<string, unknown> | null,
+    profileForSong(songHasStems),
+  );
+  const mergedConfig = mergeConfig(
+    profileCfg,
+    song.visualizer_overrides as Record<string, unknown> | null,
+  );
+  const renderConfig = Object.fromEntries(
+    RENDER_LEVERS.map((l) => [l.id, mergedConfig[l.id]]),
+  );
+
   return {
     album,
     song: { ...song, track_number: trackNumber ?? 1 },
@@ -159,6 +182,7 @@ async function getSongData(songSlug: string) {
     credits: credits || [],
     visibilitySections: renderedSections,
     connectionsSongs,
+    renderConfig,
   };
 }
 
@@ -207,7 +231,7 @@ export default async function SongDetailPage({
   const result = await getSongData(slug);
   if (!result) notFound();
 
-  const { album, song, totalTracks, expansions, credits, visibilitySections, connectionsSongs } = result;
+  const { album, song, totalTracks, expansions, credits, visibilitySections, connectionsSongs, renderConfig } = result;
 
   const supabase = createPublicClient();
   const [badge, playbackMode, songSkusMap, releaseSkusMap] = await Promise.all([
@@ -289,6 +313,7 @@ export default async function SongDetailPage({
           bass_synth_envelope_hz: typeof song.bass_synth_envelope_hz === "number" ? song.bass_synth_envelope_hz : null,
           bass_synth_pitch: Array.isArray(song.bass_synth_pitch) ? song.bass_synth_pitch : null,
         }}
+        renderConfig={renderConfig}
         album={
           album
             ? {

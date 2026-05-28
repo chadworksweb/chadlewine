@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/utils";
 import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
+import { buildContentUrl } from "@/lib/content-urls";
 
 interface CategoryOption {
   id: string;
@@ -327,6 +328,20 @@ export function ObservationEditor({
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
   const [allThoughtlines, setAllThoughtlines] = useState<ThoughtlineOption[]>([]);
   const [allTags, setAllTags] = useState<TagOption[]>([]);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Copy the PUBLIC (production) post URL -- never localhost/staging. Hardcodes
+  // the production host so the link is shareable from any environment.
+  const copyPublicLink = async () => {
+    const url = `https://chadlewine.com${buildContentUrl("observation", form.slug, false)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1500);
+    } catch {
+      window.prompt("Copy this link:", url);
+    }
+  };
 
   const buildPayload = useCallback((d: ObservationData) => ({
     title: d.title,
@@ -426,6 +441,32 @@ export function ObservationEditor({
         <div className="obsv-editor__actions">
           {form.id && (
             <>
+              <button
+                type="button"
+                className="admin-btn admin-btn--icon"
+                onClick={copyPublicLink}
+                title="Copy public link"
+                aria-label="Copy public link"
+              >
+                {linkCopied ? (
+                  "Copied!"
+                ) : (
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                )}
+              </button>
               <a
                 className="admin-btn"
                 href={`/observations/${form.slug}`}

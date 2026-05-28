@@ -10,6 +10,26 @@ import { EntityPicker } from "@/components/EntityPicker";
 const STATUSES = ["active", "inactive", "pending_review"] as const;
 const FULFILLMENTS = ["manual", "printify_curated"] as const;
 
+interface MerchType {
+  id: string;
+  slug: string;
+  label: string;
+  sort_order: number;
+}
+
+interface ReleaseSkuOption {
+  id: string;
+  format: string;
+  status: string;
+  release: { id: string; slug: string; title: string; status: string; release_date: string | null } | null;
+}
+
+const FORMAT_LABEL: Record<string, string> = {
+  vinyl: "Vinyl",
+  cd: "CD",
+  cassette: "Cassette",
+};
+
 interface ProductData {
   id?: string;
   title: string;
@@ -21,8 +41,9 @@ interface ProductData {
   printify_product_id: string | null;
   image_url: string | null;
   image_alt: string | null;
-  is_catalog_item: boolean;
   linked_art_piece_id: string | null;
+  merch_type_id: string | null;
+  release_sku_id: string | null;
   shipping_first_cents: number | null;
   shipping_addl_cents: number | null;
   shipping_ca_first_cents: number | null;
@@ -44,8 +65,9 @@ const emptyProduct: ProductData = {
   printify_product_id: null,
   image_url: null,
   image_alt: null,
-  is_catalog_item: false,
   linked_art_piece_id: null,
+  merch_type_id: null,
+  release_sku_id: null,
   shipping_first_cents: null,
   shipping_addl_cents: null,
   shipping_ca_first_cents: null,
@@ -66,6 +88,19 @@ export function MerchProductEditor({ idOrSlug }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<ProductData | null>(idOrSlug ? null : { ...emptyProduct });
   const [error, setError] = useState("");
+  const [merchTypes, setMerchTypes] = useState<MerchType[]>([]);
+  const [releaseSkus, setReleaseSkus] = useState<ReleaseSkuOption[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/merch-types")
+      .then((r) => r.json())
+      .then((d) => setMerchTypes(Array.isArray(d) ? d : []))
+      .catch(() => setMerchTypes([]));
+    fetch("/api/admin/release-skus")
+      .then((r) => r.json())
+      .then((d) => setReleaseSkus(Array.isArray(d) ? d : []))
+      .catch(() => setReleaseSkus([]));
+  }, []);
 
   useEffect(() => {
     if (!idOrSlug) return;
@@ -87,8 +122,9 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           printify_product_id: d.printify_product_id ?? null,
           image_url: d.image_url ?? null,
           image_alt: d.image_alt ?? null,
-          is_catalog_item: !!d.is_catalog_item,
           linked_art_piece_id: d.linked_art_piece_id ?? null,
+          merch_type_id: d.merch_type_id ?? null,
+          release_sku_id: d.release_sku_id ?? null,
           shipping_first_cents: d.shipping_first_cents ?? null,
           shipping_addl_cents: d.shipping_addl_cents ?? null,
           shipping_ca_first_cents: d.shipping_ca_first_cents ?? null,
@@ -115,8 +151,9 @@ export function MerchProductEditor({ idOrSlug }: Props) {
       printify_product_id: data.printify_product_id,
       image_url: data.image_url,
       image_alt: data.image_alt,
-      is_catalog_item: data.is_catalog_item,
       linked_art_piece_id: data.linked_art_piece_id,
+      merch_type_id: data.merch_type_id,
+      release_sku_id: data.release_sku_id,
       shipping_first_cents: data.shipping_first_cents,
       shipping_addl_cents: data.shipping_addl_cents,
       shipping_ca_first_cents: data.shipping_ca_first_cents,
@@ -231,6 +268,55 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           placeholder={isExisting ? "my-product-slug" : "auto-generated from title"}
         />
       </div>
+
+      <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Type</label>
+        <select
+          className="obsv-editor__input"
+          value={form.merch_type_id ?? ""}
+          onChange={(e) => set("merch_type_id", e.target.value || null)}
+        >
+          <option value="">-- uncategorized --</option>
+          {merchTypes.map((t) => (
+            <option key={t.id} value={t.id}>{t.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {(() => {
+        const selectedType = merchTypes.find((t) => t.id === form.merch_type_id);
+        if (selectedType?.slug !== "physical_music") return null;
+        const inUseByOther = new Set<string>();
+        // (We don't currently fetch other merch rows here, so the dropdown
+        // lists every SKU. The unique index will surface a save error if the
+        // chosen SKU is already linked to another merch row.)
+        return (
+          <div className="obsv-editor__field">
+            <label className="obsv-editor__label">Linked release SKU</label>
+            <select
+              className="obsv-editor__input"
+              value={form.release_sku_id ?? ""}
+              onChange={(e) => set("release_sku_id", e.target.value || null)}
+            >
+              <option value="">-- none --</option>
+              {releaseSkus.map((s) => {
+                const fmt = FORMAT_LABEL[s.format] ?? s.format;
+                const releaseTitle = s.release?.title || "(unknown release)";
+                const releaseState = s.release?.status === "published" ? "" : ` [${s.release?.status ?? "?"}]`;
+                const skuState = s.status === "available" ? "" : ` (${s.status})`;
+                return (
+                  <option key={s.id} value={s.id} disabled={inUseByOther.has(s.id)}>
+                    {releaseTitle}{releaseState} -- {fmt}{skuState}
+                  </option>
+                );
+              })}
+            </select>
+            <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: 12, margin: "4px 0 0" }}>
+              The SKU owns format + price + stock + downloads. This merch row owns the product photography.
+            </p>
+          </div>
+        );
+      })()}
 
       <div className="obsv-editor__field">
         <label className="obsv-editor__label">Fulfillment</label>
@@ -374,17 +460,6 @@ export function MerchProductEditor({ idOrSlug }: Props) {
         </div>
       )}
 
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">
-          <input
-            type="checkbox"
-            checked={form.is_catalog_item}
-            onChange={(e) => set("is_catalog_item", e.target.checked)}
-            style={{ marginRight: 8 }}
-          />
-          Catalog Item
-        </label>
-      </div>
     </div>
   );
 }

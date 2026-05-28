@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useCart } from "@/components/Cart";
 import { releaseFormatLabel, type ReleaseFormat } from "@/lib/release-labels";
 import type { SkuGalleryImage, SkuVariantRow } from "@/lib/release-skus";
@@ -54,10 +55,18 @@ export function FormatShowcase(props: Props) {
   const cart = useCart();
   const skus = props.skus;
 
-  const initialId = useMemo(
-    () => skus.find((s) => s.status !== "sold_out")?.id ?? skus[0]?.id ?? null,
-    [skus],
-  );
+  // ?format=vinyl|cd|cassette|digital on the URL pre-selects that SKU on
+  // mount. Used by the /merch physical_music cards so a vinyl card lands on
+  // the release page with the vinyl format already chosen.
+  const searchParams = useSearchParams();
+  const initialId = useMemo(() => {
+    const requested = (searchParams?.get("format") || "").toLowerCase();
+    if (requested) {
+      const matched = skus.find((s) => s.format === requested);
+      if (matched) return matched.id;
+    }
+    return skus.find((s) => s.status !== "sold_out")?.id ?? skus[0]?.id ?? null;
+  }, [skus, searchParams]);
   const [selectedSkuId, setSelectedSkuId] = useState<string | null>(initialId);
   // SKUs that have ever been selected. Used to persist the post-animation
   // rest state on each card's mockup (e.g. EQ bars stay at their settled

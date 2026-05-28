@@ -73,6 +73,11 @@ interface CubeVisualizerProps {
    *  song's MIDI range). Same sample rate + length as envelope. Drives
    *  ambient/glow hue rotation per note. */
   bassSynthPitch?: number[] | null;
+  /** Effective render-lever config (global defaults merged with this song's
+   *  overrides), keyed by lever id from src/lib/librosa-levers.ts. Any key
+   *  absent falls back to the documented RENDER_FALLBACK constants below, so
+   *  passing null reproduces the original hardcoded behavior exactly. */
+  renderConfig?: Record<string, number> | null;
 }
 
 // Beats with kick-band energy below this are NOT kicks — skip the morph
@@ -96,6 +101,11 @@ const SNARE_THRESH = 0.15;  // stems are clean by construction — lower thresho
 // at 1.2 so even maxed snares can't blow out beyond a controlled flash.
 const SNARE_INTENSITY_FLOOR = 0.55;
 const SNARE_INTENSITY_RANGE = 0.55;
+// HPSS-path dominance margin: the strobe fires only when the snare band beats
+// the kick band by at least this much. 0 keeps the original "snare >= kick"
+// behavior; the Default profile sets it higher to stop snare-hot songs from
+// strobing on almost every beat. Inert on the stems path (it uses precedence).
+const SNARE_DOMINANCE_MARGIN = 0;
 
 // Stem-derived thresholds (used when beat_data is present, i.e., the song
 // was analyzed via analyze_drums_stems.py from isolated stems). Stems
@@ -148,6 +158,27 @@ const BASS_SYNTH_ENV_CURVE = 1;
 // the effect blends across a quarter-second window so 50ms-resolution
 // envelope frame-to-frame jumps become continuous ambient swells.
 const BASS_SYNTH_SMOOTHING_MS = 400;
+
+// Render-lever fallbacks. Maps the documented constants above to their
+// lever ids (src/lib/librosa-levers.ts). The visualizer reads its effective
+// values from renderConfig merged OVER this map, so a song with no overrides
+// and an empty global config behaves identically to the hardcoded constants.
+const RENDER_FALLBACK: Record<string, number> = {
+  kick_thresh: KICK_THRESH,
+  kick_intensity_floor: KICK_INTENSITY_FLOOR,
+  kick_intensity_range: KICK_INTENSITY_RANGE,
+  snare_thresh: SNARE_THRESH,
+  snare_intensity_floor: SNARE_INTENSITY_FLOOR,
+  snare_intensity_range: SNARE_INTENSITY_RANGE,
+  snare_dominance_margin: SNARE_DOMINANCE_MARGIN,
+  hat_thresh: HAT_THRESH,
+  tom_thresh: TOM_THRESH,
+  bass_pulse_thresh: BASS_PULSE_THRESH,
+  bass_synth_thresh: BASS_SYNTH_THRESH,
+  bass_synth_env_gate: BASS_SYNTH_ENV_GATE,
+  bass_synth_env_curve: BASS_SYNTH_ENV_CURVE,
+  bass_synth_smoothing_ms: BASS_SYNTH_SMOOTHING_MS,
+};
 
 // Diagnostic kick-only mode. When true: the FFT analyser is bypassed
 // (no cube breathing, no EQ bars, no ambient color pump), rotation
@@ -227,6 +258,7 @@ export function CubeVisualizer({
   bassSynthEnvelope,
   bassSynthEnvelopeHz,
   bassSynthPitch,
+  renderConfig,
 }: CubeVisualizerProps) {
   const player = usePlayer();
   const isThis = player.isCurrent(songId);
@@ -236,7 +268,16 @@ export function CubeVisualizer({
   // legacy librosa path stays as a fallback for songs analyzed before
   // the multi-stem pipeline.
   const useBeatData = !!(beatData && beatData.length > 0);
-  const usePrecomputedBeats = !useBeatData && !!(beatPeaks && beatPeaks.length > 0);
+  // Default (frequency/HPSS) cubes no longer drive beat reactions. The
+  // beat_track grid can't capture sub-grid fast runs and the HPSS kick/snare
+  // bands bleed too much to classify cleanly — the frequency-analysis ceiling.
+  // So non-stem cubes render as rotation + ambient FFT only (the pre-librosa
+  // behavior); the morph/strobe/hat/tom/bass reactions are reserved for stem
+  // cubes (beat_data). The precomputed beat_peaks dispatch below stays in the
+  // tree but is gated off by this switch — flip it true to revive the HPSS path.
+  const enableHpssBeatReactions = false as boolean;
+  const usePrecomputedBeats =
+    enableHpssBeatReactions && !useBeatData && !!(beatPeaks && beatPeaks.length > 0);
   const beatOffsetSec = beatOffset ?? 0;
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -288,6 +329,12 @@ export function CubeVisualizer({
   // hue-rotate on the ambient + glow layers (gated by envelope intensity
   // so silent sections don't leak a stale color cast).
   const bassSynthPitchStateRef = useRef({ value: 0.5 });
+  // Effective render-lever values, read inside the animation tick. Held in a
+  // ref so the tick closure always sees the latest without re-subscribing.
+  // renderConfig (global defaults + per-song overrides) merges OVER the
+  // documented fallback constants.
+  const renderCfgRef = useRef<Record<string, number>>({ ...RENDER_FALLBACK, ...(renderConfig || {}) });
+  renderCfgRef.current = { ...RENDER_FALLBACK, ...(renderConfig || {}) };
   // Callback ref: fires whenever the cube box attaches OR detaches. Because
   // the box only mounts when playing flips true, a normal useLayoutEffect with
   // [] deps misses the mount entirely (boxRef.current was null when it ran).
@@ -441,6 +488,7 @@ export function CubeVisualizer({
 
     const tick = (ts: number) => {
       const s = animRef.current;
+      const rc = renderCfgRef.current;
       const dt = s.lastTs ? Math.min(64, ts - s.lastTs) : 16;
       s.lastTs = ts;
 
@@ -530,14 +578,14 @@ export function CubeVisualizer({
           // only. Backbeats stay readable as strobe-not-morph events.
           const kickVal = ev.k ?? 0;
           const snareVal = ev.s ?? 0;
-          if (snareVal >= SNARE_THRESH) {
+          if (snareVal >= rc.snare_thresh) {
             meshSnareRef.current.intensity =
-              SNARE_INTENSITY_FLOOR + snareVal * SNARE_INTENSITY_RANGE;
+              rc.snare_intensity_floor + snareVal * rc.snare_intensity_range;
             meshSnareRef.current.pending = true;
-          } else if (kickVal >= KICK_THRESH) {
+          } else if (kickVal >= rc.kick_thresh) {
             meshBeatRef.current.seed = Math.random() * 1000;
             meshBeatRef.current.intensity =
-              KICK_INTENSITY_FLOOR + kickVal * KICK_INTENSITY_RANGE;
+              rc.kick_intensity_floor + kickVal * rc.kick_intensity_range;
             meshBeatRef.current.pending = true;
           }
 
@@ -545,7 +593,7 @@ export function CubeVisualizer({
           // fired above — a backbeat with hat + snare gets both the
           // corner strobe AND the rim shimmer.
           const hatVal = ev.h ?? 0;
-          if (hatVal >= HAT_THRESH) {
+          if (hatVal >= rc.hat_thresh) {
             // Advance the pen one step in its current direction, then
             // drop a new dash at the new position. Pen continuity gives
             // each hat hit a sense of "moving" along the cube; small
@@ -616,13 +664,13 @@ export function CubeVisualizer({
             if (trail.length > HAT_TRAIL_MAX) trail.length = HAT_TRAIL_MAX;
           }
           const tomVal = ev.to ?? 0;
-          if (tomVal >= TOM_THRESH) {
+          if (tomVal >= rc.tom_thresh) {
             meshTomRef.current.seed = Math.random();
             meshTomRef.current.intensity = 0.5 + tomVal * 0.5;
             meshTomRef.current.pending = true;
           }
           const bpVal = ev.bp ?? 0;
-          if (bpVal >= BASS_PULSE_THRESH) {
+          if (bpVal >= rc.bass_pulse_thresh) {
             meshBassPulseRef.current.intensity = 0.4 + bpVal * 0.6;
             meshBassPulseRef.current.pending = true;
           }
@@ -632,7 +680,7 @@ export function CubeVisualizer({
           // perceptible ambient swell; the envelope path below replaces
           // this with a continuous follower.
           const bsVal = ev.bs ?? 0;
-          if (!bassSynthEnvelope && bsVal >= BASS_SYNTH_THRESH) {
+          if (!bassSynthEnvelope && bsVal >= rc.bass_synth_thresh) {
             bassSynthStateRef.current.amount = Math.max(
               bassSynthStateRef.current.amount,
               0.3 + bsVal * 0.7,
@@ -683,21 +731,25 @@ export function CubeVisualizer({
           if (beatKicks && idx < beatKicks.length) {
             const kick = beatKicks[idx];
             const snare = beatSnares?.[idx] ?? 0;
-            // Snare takes precedence. Backbeats often have both kick AND
-            // snare above their thresholds (snare body fundamentals leak
-            // into the kick band, real backbeats stack both drums); if we
-            // fire both, every snare beat ALSO morphs the cube — exactly
-            // the visual the spec rejects. Treat the beat as a snare hit
-            // whenever the snare band is meaningfully active, otherwise
-            // fall through to the kick morph.
-            if (snare >= SNARE_THRESH) {
+            // DOMINANCE rule (HPSS path). Unlike isolated stems, the HPSS
+            // kick/snare bands bleed into each other: a kick drum's body +
+            // harmonics light up the 200-450 Hz snare band, so on most beats
+            // BOTH bands clear their thresholds. A pure "snare wins"
+            // precedence then strobes ~80% of beats and starves the kick
+            // morph. Instead, treat the beat as a snare hit only when the
+            // snare band actually DOMINATES the kick band (snare >= kick) and
+            // clears its floor; otherwise it's a kick-led beat -> morph. This
+            // self-separates backbeats (snare-dominant) from kick beats
+            // per-beat without a song-specific threshold. The stems path
+            // (beat_data dispatcher above) keeps its clean precedence rule.
+            if (snare >= rc.snare_thresh && snare >= kick + rc.snare_dominance_margin) {
               meshSnareRef.current.intensity =
-                SNARE_INTENSITY_FLOOR + snare * SNARE_INTENSITY_RANGE;
+                rc.snare_intensity_floor + snare * rc.snare_intensity_range;
               meshSnareRef.current.pending = true;
-            } else if (kick >= KICK_THRESH) {
+            } else if (kick >= rc.kick_thresh) {
               meshBeatRef.current.seed = Math.random() * 1000;
               meshBeatRef.current.intensity =
-                KICK_INTENSITY_FLOOR + kick * KICK_INTENSITY_RANGE;
+                rc.kick_intensity_floor + kick * rc.kick_intensity_range;
               meshBeatRef.current.pending = true;
             }
             // else: ghost beat, no effect
@@ -781,16 +833,16 @@ export function CubeVisualizer({
           const frac = fIdx - idx0;
           const raw = a * (1 - frac) + b * frac;
           // Gate + power curve: crush noise floor and emphasize peaks.
-          if (raw > BASS_SYNTH_ENV_GATE) {
-            const scaled = (raw - BASS_SYNTH_ENV_GATE) / (1 - BASS_SYNTH_ENV_GATE);
-            target = Math.pow(scaled, BASS_SYNTH_ENV_CURVE);
+          if (raw > rc.bass_synth_env_gate) {
+            const scaled = (raw - rc.bass_synth_env_gate) / (1 - rc.bass_synth_env_gate);
+            target = Math.pow(scaled, rc.bass_synth_env_curve);
           }
         }
-        // Low-pass smooth toward the target over BASS_SYNTH_SMOOTHING_MS.
+        // Low-pass smooth toward the target over bass_synth_smoothing_ms.
         // Without this, the envelope's frame-to-frame jumps register as
         // jitter; with it, the ambient swell glides smoothly between
         // levels — feels like a breathing layer instead of a follower.
-        const k = 1 - Math.pow(0.001, dt / BASS_SYNTH_SMOOTHING_MS);
+        const k = 1 - Math.pow(0.001, dt / rc.bass_synth_smoothing_ms);
         bsState.amount += (target - bsState.amount) * k;
 
         // Pitch follows the same interpolation + smoothing pattern as the
