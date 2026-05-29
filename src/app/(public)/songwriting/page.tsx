@@ -537,7 +537,13 @@ export default async function SongwritingPage() {
             </p>
             <InquireForm />
           </div>
-          <div className="sw-inquire__image" aria-hidden="true" />
+          <div className="sw-inquire__image">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/super-individual/chad-lewine_the-deprogrammer_blue-glow.webp"
+              alt="Chad Lewine"
+            />
+          </div>
         </div>
       </section>
 
