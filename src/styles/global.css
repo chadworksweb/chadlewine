@@ -2696,6 +2696,39 @@ body.art-immersive main ~ * {
   border-radius: 4px;
 }
 
+/* ------------------------------------------------------------
+   OBSERVATION HERO + READING COLUMN -- MOBILE
+   The home hero (CoverHero) and the single hero both render
+   .cover-hero__content, a 3fr/1fr grid that sits the title and the
+   date/meta bar on the SAME row. On phones, stack them. Drop the
+   title-reveal canvas so the homepage H1 reads as plain text (no
+   comet/mask overlay -- the single hero has no canvas), and let the
+   single-page reading column use the full content track instead of
+   squeezing prose into 3/4 of an already-narrow column.
+   NOTE: placed after the .observation-body .reading-column base rule
+   above so it wins on source order (media queries add no specificity).
+   ------------------------------------------------------------ */
+@media (max-width: 768px) {
+  /* Stack the title above the meta/date bar instead of side-by-side. */
+  .cover-hero__content {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  /* No mask/comet reveal on the homepage hero title on mobile --
+     the plain H1 text underneath stays visible. */
+  .cover-hero .title-reveal__canvas {
+    display: none;
+  }
+
+  /* Prose uses the full content track on phones -- the 3fr/1fr split
+     was leaving a quarter of an already-narrow column empty. */
+  .observation-body .reading-column {
+    grid-template-columns: 1fr;
+    column-gap: 0;
+  }
+}
+
 
 /* ============================================================
    FOUNDATIONS PAGE
