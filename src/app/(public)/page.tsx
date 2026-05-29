@@ -42,16 +42,18 @@ export async function generateMetadata(): Promise<Metadata> {
 async function getHomepageSongs() {
   const supabase = createPublicClient();
 
-  // Latest 10 songs that have a manually-set release_date. The hero lens
-  // intentionally excludes songs with no song-level date even if their
-  // album has one — manual dates are the curation signal.
+  // Latest 15 songs that have a manually-set release_date. This feeds the
+  // homepage "Latest Songs" archive (15 entries); the hero-lens fallback is
+  // capped separately in HomepageFeed so the slide count is unchanged. Songs
+  // with no song-level date are intentionally excluded even if their album
+  // has one — manual dates are the curation signal.
   const { data } = await supabase
     .from("songs")
     .select("id, title, slug, release_date, art_image_path, art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, song_summary")
     .in("status", ["unreleased", "published"])
     .not("release_date", "is", null)
     .order("release_date", { ascending: false })
-    .limit(10);
+    .limit(15);
 
   const songs = data || [];
   if (songs.length === 0) return [];

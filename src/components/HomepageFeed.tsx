@@ -6,7 +6,10 @@ import { HeroLens, type HeroLensItem } from "@/components/HeroLens";
 import { FeedEntry } from "@/components/FeedEntry";
 import { FeaturedTrack } from "@/components/FeaturedTrack";
 
-const FEED_LIMIT = 10;
+const FEED_LIMIT = 15;
+// Hero-lens fallback (used only when no curated picks exist) stays at its
+// original count so expanding the feed archive doesn't add slides.
+const HERO_FALLBACK_LIMIT = 10;
 
 // Pinned to a FIXED timezone so the string is identical whether it is
 // computed on the server (Vercel = UTC) or in the visitor's browser. Using
@@ -95,6 +98,7 @@ interface HomepageFeedProps {
 
 export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroItems }: HomepageFeedProps) {
   const feedSongs = useMemo(() => songs.slice(0, FEED_LIMIT), [songs]);
+  const heroFallbackSongs = useMemo(() => songs.slice(0, HERO_FALLBACK_LIMIT), [songs]);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [stuck, setStuck] = useState(false);
 
@@ -102,7 +106,7 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroI
     // Curated picks win when present — fall back to the latest-songs auto feed.
     if (curatedHeroItems && curatedHeroItems.length > 0) return curatedHeroItems;
 
-    return feedSongs.map((s) => {
+    return heroFallbackSongs.map((s) => {
       // When falling back to the album cover, use the album's focal data —
       // the song's focal points were calibrated for a different image.
       const useAlbumImage = !s.art_image_path && !!s.album_cover_path;
@@ -123,7 +127,7 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroI
         kind: "song" as const,
       };
     });
-  }, [curatedHeroItems, feedSongs]);
+  }, [curatedHeroItems, heroFallbackSongs]);
 
   // Toggle `is-stuck` directly via DOM in a rAF-throttled scroll listener
   // so the mask flips on/off in the SAME frame the scroll is painted.
