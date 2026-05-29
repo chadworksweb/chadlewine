@@ -31,11 +31,26 @@ export async function generateMetadata(): Promise<Metadata> {
 // points - edit freely. Write each answer in your voice; keep the first
 // sentence a clean, quotable, attributable claim.
 const FAQ = [
-  { q: "Can I release original music if I do not write songs?", a: "[[ANSWER: ...]]" },
-  { q: "What is the difference between Sing My Songs and Cowriting and Vision Completion?", a: "[[ANSWER: ...]]" },
-  { q: "Do you keep the rights to a song I record?", a: "[[ANSWER: 50/50 initial bid; majors case by case; no fee either way for pre-income artists]]" },
-  { q: "Is this songwriting lessons or coaching?", a: "[[ANSWER: no - co-creation, not instruction; for singers who already know how to sing]]" },
-  { q: "What kind of songs do you write?", a: "[[ANSWER: decent to ascended on the Rising Compass; never corrupted or degraded]]" },
+  {
+    q: "Can I release original music if I do not write songs?",
+    a: "Yes. You can release original music without writing a single note of it yourself, and that's how most of the major music industry already works. The split between the singer and the songwriter is the norm, not the exception, and plenty of the voices you love are carrying words someone else wrote. Singing one of my songs puts you in that exact lane, except the song is built on intention instead of trend.",
+  },
+  {
+    q: "What is the difference between Sing My Songs and Cowriting and Vision Completion?",
+    a: "They're two different things. With Sing My Songs, I hand you a finished, original song and give you permission to record and release it under your own name. The work is already done. With Cowriting and Vision Completion, you bring me an idea and I help you carry it over the finish line as your co-writer, shaping the lyric and the melody until the song becomes what it was meant to be. One is a song that already exists. The other is a song we finish together.",
+  },
+  {
+    q: "Do you keep the rights to a song I record?",
+    a: "You keep your recording. I keep a songwriting credit, because the song is something I wrote or helped write. On a Sing My Songs cut, my share of the writing is 50%, and how you divide the other half is your call. On a Vision Completion co-write, we set the splits by what each of us actually brought to the song by the time it's finished, and my share always leaves room for the producer who still has to make the record. I'm fair but firm here. The split reflects the work, not leverage. For artists who aren't yet living off their music, no money changes hands in either direction, and 50/50 is simply where the writing conversation starts. Major-label situations get their own conversation.",
+  },
+  {
+    q: "Is this songwriting lessons or coaching?",
+    a: "No. This isn't a lesson or a coaching program. I'm either handing you a finished song or sitting beside you as a peer to finish yours. I won't teach you how to sing, and I won't teach you how to write. I do the writing, with you or for you, and you walk away with a song instead of homework.",
+  },
+  {
+    q: "What kind of songs do you write?",
+    a: "If the song revolves around a problem or negative feeling or notion, I'll use that as the frame, but not the main message. I won't let a song wallow in, harp on or claim identity of the hurt or the wound itself. The song will always find a way to lean forward, however incremental that may be. Sometimes the most subtle, nearly subliminal messages are the most influential. I won't end a song on \"I lost it all and my time is done.\" I'll end it on \"I lost it all but I know I'll get it back.\" No topic is off limits with me, but what I or we do with it has limits. Check out The Rising Compass to learn about those limits and guidelines.",
+  },
 ];
 
 // Only emit FAQ schema once real answers exist (avoid publishing placeholders).
@@ -188,16 +203,19 @@ export default async function SongwritingPage() {
       <section className="si-hero" aria-label="Songwriting">
         <div className="si-hero__inner">
           <h1 className="si-hero__eyebrow">
-            Writing songs for a higher purpose.
+            Writing positively tilted songs.
           </h1>
           <h2 className="si-hero__headline">Songwriting</h2>
           <div className="si-hero__sub">
-            <Prompt>
-              Hero sub copy - not yet written. 2-3 sentences introducing the two offers.
-            </Prompt>
+            <p>
+              I write more positively tilted songs than I could ever record on my own. Sing one of my
+              finished songs as your own, or bring me your vision and I&rsquo;ll help you finish it.
+              Both come with the same promise: a song built on intention, that finds its way toward a
+              better place.
+            </p>
           </div>
           <div className="si-hero__nav">
-            <a href="#cut" className="si-hero__nav-link">The Inspirational Song Guy</a>
+            <a href="#cut" className="si-hero__nav-link">Positively Tilted Songs</a>
             <a href="#sing" className="si-hero__nav-link">Sing My Songs</a>
             <a href="#vision" className="si-hero__nav-link">Cowriting &amp; Vision</a>
             <a href="#how" className="si-hero__nav-link">How It Works</a>
@@ -206,13 +224,13 @@ export default async function SongwritingPage() {
         </div>
       </section>
 
-      {/* Lead - The Inspirational Cut (pitch to the music industry) */}
+      {/* Lead - Positively Tilted Songs (pitch to the music industry) */}
       <section id="cut" className="si-door si-door--lead" aria-labelledby="sw-cut-heading">
         <p className="si-door__eyebrow">For the major music industry</p>
         <div className="si-banner-bar">
           <div className="glyph-title-bar glyph-title-bar--top">
             <span className="glyph-title-bar__label" aria-hidden="true">&#9617;&#9618;&#9619;&#9608;</span>
-            <h2 className="glyph-title-bar__heading" id="sw-cut-heading">The Inspirational Cut</h2>
+            <h2 className="glyph-title-bar__heading" id="sw-cut-heading">Positively Tilted Songs</h2>
             <span className="glyph-title-bar__label" aria-hidden="true">&#9608;&#9619;&#9618;&#9617;</span>
           </div>
         </div>
@@ -221,20 +239,7 @@ export default async function SongwritingPage() {
 
         <div className="si-prose" style={{ marginBottom: "var(--space-xl)" }}>
           <p>
-            It&rsquo;s cooler than ever to be bad. The irreverent counterculture of the 90s and 2000s
-            is now a mainstream staple. It&rsquo;s commonplace to be disrespectful, degenerate,
-            nihilistic and anxious; everyone&rsquo;s doing it. And when everyone starts doing it, it
-            starts to get old. Soon, being bad will start feeling bad instead of feeling trendy. Soon,
-            it&rsquo;s going to be cool to care, as I mention in my song{" "}
-            <a href="/music/songs/this-is-a-raid">This is a Raid!</a>
-          </p>
-          <p>
-            I&rsquo;m Chad Lewine, and on this webpage I&rsquo;ve decided to call myself The
-            Inspirational Song Guy. We&rsquo;ll see if it sticks.
-          </p>
-          <p>
-            I&rsquo;ve been writing pop songs embedded with inspirational and deeply thoughtful
-            messages for nearly two decades. I&rsquo;m not talking Fight Song by
+            I&rsquo;m Chad Lewine, and I&rsquo;ve been writing positively tilted songs for nearly two decades. I&rsquo;m not talking Fight Song by
             Rachel Platten, I&rsquo;m talking Man In The Mirror by Michael Jackson. I&rsquo;m not
             talking Firework by Katy Perry, I&rsquo;m talking The Living Years
             by Mike and the Mechanics. I&rsquo;m talking Conviction of the Heart by Kenny Loggins and
@@ -243,6 +248,31 @@ export default async function SongwritingPage() {
             different from what&rsquo;s trendy or charting. (Don&rsquo;t get me wrong, I&rsquo;d
             eagerly write a Fight Song or a Firework if that&rsquo;s the call; they&rsquo;re great
             songs. The deeper, more intentional stuff is just my specialty.)
+          </p>
+          <p>
+            What does positively tilted mean? It means, when I write, I make sure the overall message
+            of the songs leans into a positive charge. (Well, what does that mean, Chad?!) It means I
+            don&rsquo;t dwell on, end on, highlight, glamorize, glorify, focus on or wallow in the
+            problem, the obstacle, or the negative feeling. I&rsquo;ll use problems, obstacles and
+            negative feelings as sparks, origin points, frames and foundations, but my songs will
+            always find a way to transmute and uplift, however small or subtle that may be. For
+            example, I won&rsquo;t end a song with &ldquo;and she left me lying there.&rdquo; I&rsquo;ll
+            end it with &ldquo;and she left me lying there, but my heart&rsquo;s still beating.&rdquo;
+          </p>
+          <p>
+            It&rsquo;s these subtle changes that completely change the charge and trajectory of a
+            song&rsquo;s message and intention. The first leaves the listener in a state of
+            loneliness, loss and hopelessness and depletion. The second leaves the listener with hope,
+            optimism, and a future to work towards. That is what positively tilted means, that is what
+            I specialize in.
+          </p>
+          <p>
+            It doesn&rsquo;t mean any topics are off limits, it&rsquo;s what we do with those topics
+            that I place limits on. For more information on those limits, please check out{" "}
+            <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer">
+              The Rising Compass
+            </a>
+            .
           </p>
           <p>
             If you or your artist wants a song that no one else has, I&rsquo;ve got it. A song that
@@ -470,16 +500,16 @@ export default async function SongwritingPage() {
           <p className="sw-audiences__lead">It comes down to three kinds of artist:</p>
           <ul className="sw-audiences">
             <li>
-              <strong>Established &amp; signed artists</strong> &mdash; [[WRITE: one line - you want
-              the genuinely positive, inspirational cut for your next record]]
+              <strong>Established &amp; signed artists</strong> &mdash; you want the one positively
+              tilted cut your next record is missing, and almost nobody else can write it.
             </li>
             <li>
-              <strong>Singers who don&rsquo;t write</strong> &mdash; [[WRITE: one line - you have the
-              voice and want a real song worth carrying]]
+              <strong>Singers who don&rsquo;t write</strong> &mdash; you&rsquo;ve got the voice, and
+              you want a real song worth carrying instead of another disposable bop.
             </li>
             <li>
-              <strong>Visionary artists who write</strong> &mdash; [[WRITE: one line - you have the
-              vision and want a co-writer to complete it]]
+              <strong>Visionary artists who write</strong> &mdash; you can see the song in your head,
+              and you want a co-writer to pull it all the way out.
             </li>
           </ul>
           <p>
@@ -507,11 +537,17 @@ export default async function SongwritingPage() {
             </p>
             <InquireForm />
           </div>
-          <div className="sw-inquire__image" aria-hidden="true" />
+          <div className="sw-inquire__image">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/super-individual/chad-lewine_the-deprogrammer_blue-glow.webp"
+              alt="Chad Lewine"
+            />
+          </div>
         </div>
       </section>
 
-      {/* Section - FAQ (doubles as the GEO citation block). Answers not yet written. */}
+      {/* Section - FAQ (doubles as the GEO citation block). */}
       <section className="si-section" id="faq" aria-labelledby="sw-faq-heading">
         <div className="si-banner-bar">
           <div className="glyph-title-bar glyph-title-bar--top">
@@ -524,7 +560,7 @@ export default async function SongwritingPage() {
           {FAQ.map((item) => (
             <div key={item.q} style={{ marginBottom: "var(--space-lg)" }}>
               <h3>{item.q}</h3>
-              <Prompt>{item.a}</Prompt>
+              {item.a.startsWith("[[") ? <Prompt>{item.a}</Prompt> : <p>{item.a}</p>}
             </div>
           ))}
         </div>

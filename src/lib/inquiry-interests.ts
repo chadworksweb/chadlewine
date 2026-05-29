@@ -3,7 +3,7 @@
 // submitted value against this list. Keep `value` stable (it is stored); edit
 // `label` freely.
 export const INQUIRY_INTERESTS = [
-  { value: "inspirational-cut", label: "The Inspirational Cut (for a label or established artist)" },
+  { value: "inspirational-cut", label: "Signed artist or industry inquiry" },
   { value: "sing-my-songs", label: "Sing My Songs" },
   { value: "vision-completion", label: "Vision Completion" },
   { value: "realtime-songwriting", label: "Realtime Human Songwriting" },
