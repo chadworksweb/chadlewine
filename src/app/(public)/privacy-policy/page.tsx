@@ -71,6 +71,20 @@ export default function PrivacyPolicyPage() {
         and debugging the Site.
       </p>
       <p>
+        <strong>Device hash and free-play limit.</strong> To count plays
+        and to limit free listening for signed-out visitors (a few free
+        plays per song before we prompt you to sign in or buy), we derive
+        a short device hash from your IP address and browser user-agent (a
+        one-way SHA-256 fingerprint, not your raw IP), used only for play
+        counting and rate-limiting, never advertising.
+      </p>
+      <p>
+        <strong>Contact and inquiry forms.</strong> When you submit a
+        contact or songwriting inquiry, we collect what you provide (such
+        as name, email, and message) along with your IP address and
+        browser details for spam and fraud prevention.
+      </p>
+      <p>
         <strong>Cookies and similar technologies.</strong> The Site sets
         authentication cookies (managed by Supabase, named
         sb-access-token and sb-refresh-token) when you sign in, so that

@@ -253,8 +253,10 @@ export default function TermsPage() {
         functions: Stripe (payments and customer billing), Resend (email
         delivery), Printify (physical-product fulfillment), Supabase
         (authentication and database hosting), Bunny.net (content
-        delivery and media hosting), and Cloudflare Turnstile (bot
-        protection). When you use the Site, certain information is
+        delivery and media hosting), Cloudflare Turnstile (bot
+        protection), and PostHog (product analytics and session replay,
+        served first-party with data stored in the United States). When
+        you use the Site, certain information is
         shared with these providers as necessary to deliver the service
         (for example, your email and order details with Stripe and
         Printify; your shipping address with Printify; your email and
