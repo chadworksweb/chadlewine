@@ -94,7 +94,8 @@ export function ReleaseDataSectionEditor({ albumId, section, cat, onChanged }: P
 
 function hasMeaningfulPayload(slug: string, p: Record<string, unknown>): boolean {
   switch (slug) {
-    case "song-slider": {
+    case "song-slider":
+    case "release-track-grid": {
       const ids = (p as { song_ids?: string[] | null }).song_ids;
       // null = auto (publishable). Empty array = nothing picked. Non-empty = picks.
       return ids === null || (Array.isArray(ids) && ids.length > 0);
@@ -125,6 +126,7 @@ interface PickerProps {
 function PickerForSlug({ slug, albumId, payload, onChange }: PickerProps) {
   switch (slug) {
     case "song-slider":
+    case "release-track-grid":
       return <SongSliderPicker albumId={albumId} payload={payload} onChange={onChange} />;
     case "lyrics":
       return <LyricsPicker albumId={albumId} payload={payload} onChange={onChange} />;

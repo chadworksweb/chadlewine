@@ -11732,6 +11732,13 @@ html {
   font-size: 0.95625rem; /* 25% smaller than base 1.275rem */
 }
 
+/* Track + Album info match the Released date size (FitText is pinned to the
+   same size below, so the album title renders at this size too). */
+.track-detail__info-value--track,
+.track-detail__info-value--album {
+  font-size: 0.95625rem;
+}
+
 /* Glitch link on album name */
 
 .track-detail__glitch-link,
@@ -13058,6 +13065,399 @@ html {
   margin: var(--space-lg) 0 var(--space-sm);
 }
 
+/* — Track Grid (the collection: each track a luxury "model bay") — */
+.album-section--track-grid {
+  padding-block: 0 var(--space-3xl);
+}
+
+.rtg__intro {
+  margin-bottom: var(--space-3xl);
+}
+.rtg__intro-title {
+  font-family: var(--font-body);
+  font-size: var(--text-3xl);
+  letter-spacing: 0.01em;
+  line-height: var(--leading-tight);
+  margin: 0;
+}
+
+.album-section--track-grid .rtg {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4xl);
+}
+
+.rtg__bay {
+  display: grid;
+  /* art 2/5, text 3/5 */
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: clamp(var(--space-xl), 5vw, var(--space-3xl));
+  align-items: center;
+}
+/* Reversed bays: text (3/5) on the left, art (2/5) on the right. */
+.rtg__bay--rev {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+.rtg__bay--rev .rtg__stage { order: 2; }
+.rtg__bay--rev .rtg__spec { order: 1; }
+
+@media (max-width: 860px) {
+  .rtg__bay,
+  .rtg__bay--rev {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+  .rtg__bay--rev .rtg__stage,
+  .rtg__bay--rev .rtg__spec { order: 0; }
+  /* Full-width art on a single-column phone layout. */
+  .rtg__frame { width: 100%; }
+}
+
+/* ---- Art stage ---- */
+.rtg__stage {
+  position: relative;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Oversized ghosted catalog numeral -- leads the text column. */
+.rtg__index {
+  display: block;
+  font-family: var(--font-body);
+  font-size: clamp(3.5rem, 5vw, 6rem);
+  line-height: 0.85;
+  letter-spacing: -0.02em;
+  color: rgba(228, 228, 236, 0.12);
+  -webkit-text-stroke: 1px rgba(139, 156, 247, 0.35);
+  margin-bottom: var(--space-sm);
+  pointer-events: none;
+}
+
+@media (max-width: 860px) {
+  .rtg__index { font-size: clamp(3rem, 12vw, 4.5rem); }
+}
+
+.rtg__frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 3px;
+  border: 1px solid var(--border-medium);
+  background: var(--bg-elevated);
+  box-shadow: 0 30px 80px -42px rgba(0, 0, 0, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.rtg__shot {
+  object-fit: cover;
+  transition: transform var(--duration-slow) var(--ease-out), filter var(--duration-slow) var(--ease-out);
+}
+.rtg__stage:hover .rtg__shot {
+  transform: scale(1.045);
+  filter: brightness(1.06) saturate(1.08) contrast(1.03);
+}
+.rtg__shot-fallback {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 30% 10%, rgba(139, 156, 247, 0.22), transparent 60%),
+    linear-gradient(135deg, var(--bg-elevated), var(--bg-deep));
+}
+
+/* Cinematic vignette so the frame reads lit, not a flat photo. */
+.rtg__veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(7, 7, 13, 0) 45%, rgba(7, 7, 13, 0.55) 100%),
+    radial-gradient(130% 100% at 50% 0%, transparent 55%, rgba(7, 7, 13, 0.4) 100%);
+}
+
+/* Scanline pass (pillar LCD echo) -- subtle at rest, intensifies on hover. */
+.rtg__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.10) 3px);
+  opacity: 0.22;
+  transition: opacity var(--duration-base) var(--ease-out);
+  mix-blend-mode: multiply;
+}
+.rtg__stage:hover .rtg__scan { opacity: 0.55; }
+
+/* ---- Spec sheet (content column) ---- */
+.rtg__spec {
+  min-width: 0;
+}
+
+.rtg__name {
+  font-family: var(--font-body);
+  font-size: clamp(1.9rem, 1.3rem + 2vw, 3rem);
+  line-height: 1.04;
+  letter-spacing: 0.005em;
+  color: #fff;
+  margin: 0 0 var(--space-md);
+}
+.rtg__name-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--duration-base) var(--ease-out);
+}
+.rtg__name-link:hover { color: var(--text-accent); }
+
+.rtg__desc {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.45;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md);
+}
+
+
+/* Spec row: the REAL compass gauge + hairline-separated stats, on a glass
+   instrument panel (faint periwinkle gradient + scanline texture). */
+.rtg__sheet {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(139, 156, 247, 0.07), rgba(139, 156, 247, 0.015)),
+    var(--bg-glass);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 30px -24px rgba(0, 0, 0, 0.8);
+}
+/* Fine scanline texture overlay (pillar LCD echo), kept under the content. */
+.rtg__sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0) 3px, rgba(255, 255, 255, 0.018) 4px);
+  mix-blend-mode: overlay;
+}
+.rtg__sheet > * { position: relative; }
+.rtg__gauge {
+  position: relative;
+  flex-shrink: 0;
+  display: block;
+  line-height: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.rtg__gauge:hover { opacity: 0.82; }
+.rtg__gauge .rc-compass-icon { width: 60px; height: 60px; }
+.rtg__pending {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-16deg);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  color: #c02020;
+  border: 2px solid #c02020;
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.rtg__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0;
+}
+.rtg__stat {
+  padding: 0 var(--space-md);
+  border-left: 1px solid var(--border-subtle);
+}
+.rtg__stat:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+.rtg__stat dt {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-tertiary);
+  margin-bottom: 0.25rem;
+}
+.rtg__stat dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+/* Phones: the three stats can't fit beside the gauge in one row (the
+   "Classification" label is too wide), so stack them as inline label -> value
+   rows instead of leaving Runtime orphaned on a wrapped line. */
+@media (max-width: 480px) {
+  .rtg__sheet { gap: var(--space-md); }
+  .rtg__stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+  .rtg__stat {
+    padding: 0;
+    border-left: none;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .rtg__stat dt { margin-bottom: 0; }
+}
+
+/* CTA -- glass instrument button with a chromatic glitch on hover
+   (pillar / merch signature). */
+.rtg__cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.72rem 1.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--bg-deep);
+  text-decoration: none;
+  border: 1px solid var(--text-accent);
+  border-radius: 4px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #9fb0fb, var(--text-accent));
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    background var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+/* Scanline texture so the button matches the spec panel. */
+.rtg__cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0) 3px, rgba(255, 255, 255, 0.02) 4px);
+  mix-blend-mode: overlay;
+}
+.rtg__cta:hover {
+  color: var(--bg-deep);
+  border-color: #b8c4fc;
+  background: linear-gradient(180deg, #b8c4fc, #97a8fa);
+  box-shadow: 0 0 0 1px rgba(139, 156, 247, 0.4), 0 16px 36px -18px rgba(139, 156, 247, 0.75);
+}
+.rtg__cta-text { position: relative; z-index: 1; display: inline-block; }
+.rtg__cta-text::before,
+.rtg__cta-text::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.rtg__cta:hover .rtg__cta-text::before { color: #0ff; opacity: 0.85; animation: rtg-cta-cyan 0.4s steps(3) 1; }
+.rtg__cta:hover .rtg__cta-text::after { color: #f0f; opacity: 0.85; animation: rtg-cta-magenta 0.4s steps(3) 1; }
+.rtg__cta-arrow { position: relative; z-index: 1; transition: transform var(--duration-base) var(--ease-out); }
+.rtg__cta:hover .rtg__cta-arrow { transform: translateX(5px); }
+
+@keyframes rtg-cta-cyan { 0%, 100% { transform: none; } 50% { transform: translate(-2px, -1px); } }
+@keyframes rtg-cta-magenta { 0%, 100% { transform: none; } 50% { transform: translate(2px, 1px); } }
+
+/* ---- Per-column choreographed reveal ----
+   Armed by JS (.rtg--armed) so no-JS renders fully visible. The art stage
+   reveals as one unit (clip + chromatic split); the spec column's lines
+   cascade independently -- the bay never animates as a single block. */
+.rtg--armed .rtg__stage,
+.rtg--armed .rtg__spec > * {
+  opacity: 0;
+  will-change: opacity, transform, filter;
+}
+
+.rtg--armed .rtg__bay.is-in .rtg__stage {
+  animation: rtg-stage-in 0.8s var(--ease-out) both;
+}
+.rtg--armed .rtg__bay--rev.is-in .rtg__stage {
+  animation-name: rtg-stage-in-rev;
+}
+.rtg--armed .rtg__bay.is-in .rtg__frame {
+  animation: rtg-frame-reveal 0.85s var(--ease-out) both;
+}
+.rtg--armed .rtg__bay--rev.is-in .rtg__frame {
+  animation-name: rtg-frame-reveal-rev;
+}
+.rtg--armed .rtg__bay.is-in .rtg__shot {
+  animation: rtg-shot-shred 0.7s steps(2) both;
+}
+
+/* Content column -- each line on its own delay (cascade). */
+.rtg--armed .rtg__bay.is-in .rtg__spec > * {
+  animation: rtg-line-in 0.6s var(--ease-out) both;
+}
+.rtg--armed .rtg__bay.is-in .rtg__spec > *:nth-child(1) { animation-delay: 0.12s; }
+.rtg--armed .rtg__bay.is-in .rtg__spec > *:nth-child(2) { animation-delay: 0.20s; }
+.rtg--armed .rtg__bay.is-in .rtg__spec > *:nth-child(3) { animation-delay: 0.28s; }
+.rtg--armed .rtg__bay.is-in .rtg__spec > *:nth-child(4) { animation-delay: 0.36s; }
+.rtg--armed .rtg__bay.is-in .rtg__spec > *:nth-child(5) { animation-delay: 0.44s; }
+.rtg--armed .rtg__bay.is-in .rtg__spec > *:nth-child(6) { animation-delay: 0.52s; }
+
+@keyframes rtg-stage-in {
+  0% { opacity: 0; transform: translateX(-26px); filter: drop-shadow(8px 0 0 rgba(139, 156, 247, 0.5)) drop-shadow(-8px 0 0 rgba(255, 180, 40, 0.4)); }
+  55% { opacity: 1; filter: drop-shadow(3px 0 0 rgba(139, 156, 247, 0.3)); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+@keyframes rtg-stage-in-rev {
+  0% { opacity: 0; transform: translateX(26px); filter: drop-shadow(-8px 0 0 rgba(139, 156, 247, 0.5)) drop-shadow(8px 0 0 rgba(255, 180, 40, 0.4)); }
+  55% { opacity: 1; filter: drop-shadow(-3px 0 0 rgba(139, 156, 247, 0.3)); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+@keyframes rtg-frame-reveal {
+  0% { clip-path: inset(0 0 0 100%); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+@keyframes rtg-frame-reveal-rev {
+  0% { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+@keyframes rtg-shot-shred {
+  0% { transform: translateX(-10px) scale(1.06); filter: hue-rotate(35deg) saturate(1.5); }
+  50% { transform: translateX(6px) scale(1.02); filter: hue-rotate(-15deg) saturate(1.2); }
+  100% { transform: none; filter: none; }
+}
+@keyframes rtg-line-in {
+  0% { opacity: 0; transform: translateY(16px) skewX(-2deg); filter: drop-shadow(3px 0 0 rgba(139, 156, 247, 0.4)); }
+  60% { opacity: 1; filter: none; }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rtg--armed .rtg__stage,
+  .rtg--armed .rtg__spec > * { opacity: 1; }
+  .rtg--armed .rtg__bay.is-in .rtg__stage,
+  .rtg--armed .rtg__bay--rev.is-in .rtg__stage,
+  .rtg--armed .rtg__bay.is-in .rtg__frame,
+  .rtg--armed .rtg__bay--rev.is-in .rtg__frame,
+  .rtg--armed .rtg__bay.is-in .rtg__shot,
+  .rtg--armed .rtg__bay.is-in .rtg__spec > * { animation: none; }
+}
+
 /* — Lyrics — */
 .album-section__lyrics-list {
   list-style: none;
@@ -14121,7 +14521,11 @@ html {
 
   .track-detail__art-col,
   .product-detail__art-col {
-    position: static;
+    /* Stays a positioning context so the absolutely-positioned format-gallery
+       overlay (vinyl/CD mockups) + floating thumbs anchor to the art column,
+       not a far ancestor. (Was `static`, which let the gallery overlay escape
+       and cover the whole page on mobile/tablet.) */
+    position: relative;
     width: 100%;
     max-width: 400px;
     margin: 0 auto;
@@ -14157,10 +14561,6 @@ html {
     white-space: normal;
     text-align: center;
     line-height: 1.3;
-  }
-
-  .product-detail__art-col {
-    position: relative;
   }
 }
 

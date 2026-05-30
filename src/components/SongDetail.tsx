@@ -242,7 +242,7 @@ export function SongDetail({
       key: "album",
       label: "Album",
       value: (
-        <FitText>
+        <FitText sizesRem={[0.95625]}>
           <Link
             href={`/music/releases/${album.slug}`}
             className="track-detail__glitch-link"

@@ -117,12 +117,20 @@ export function FormatShowcase(props: Props) {
 
   const scrollToIndex = useCallback(
     (idx: number, opts?: { lockSelection?: boolean }) => {
+      const scroller = scrollerRef.current;
       const target = cardRefs.current[idx];
-      if (!target) return;
+      if (!scroller || !target) return;
       if (opts?.lockSelection) {
         programmaticUntilRef.current = Date.now() + 700;
       }
-      target.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      // Center the card by scrolling the scroller's OWN scrollLeft -- NOT
+      // element.scrollIntoView, which walks every scroll ancestor incl. the
+      // window and lurched the whole page vertically on mobile whenever the
+      // format row wasn't horizontally scrollable (e.g. 2 cards that fit).
+      const sRect = scroller.getBoundingClientRect();
+      const tRect = target.getBoundingClientRect();
+      const delta = tRect.left - sRect.left - (scroller.clientWidth - tRect.width) / 2;
+      scroller.scrollTo({ left: scroller.scrollLeft + delta, behavior: "smooth" });
     },
     [],
   );

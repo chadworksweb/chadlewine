@@ -32,6 +32,16 @@ export const RELEASE_VISIBILITY_CATEGORIES: ReleaseVisibilityCategoryDef[] = [
     default_status: "published",
   },
 
+  // Data — per-track grid (auto-pulls every song; art + meta + RC badge,
+  // alternating sides, glitch-in entrance). Auto unless admin picks/orders.
+  {
+    slug: "release-track-grid",
+    label: "Track Grid",
+    description: "Per-track grid: art + title/summary/Rising Compass badge, alternating sides",
+    kind: "data",
+    default_status: "published",
+  },
+
   // Narrative — album-specific
   {
     slug: "story",
@@ -139,6 +149,10 @@ export type ReleaseVisibilityCategory = (typeof RELEASE_VISIBILITY_CATEGORIES)[n
 
 export interface DataPayloadSongSlider {
   song_ids: string[] | null; // null = auto (all songs in album, track order)
+}
+
+export interface DataPayloadReleaseTrackGrid {
+  song_ids: string[] | null; // null/empty = auto (all songs in album, track order)
 }
 
 export interface DataPayloadLyrics {

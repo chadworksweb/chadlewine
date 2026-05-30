@@ -22,6 +22,18 @@ export interface RisingCompassBadgeData {
   // specific song page on risingcompass.net. Null when RC has no slug
   // yet — fall back to risingcompass.net homepage.
   song_slug?: string | null;
+  // --- Full-record fields (added to /api/badge/lookup; all optional so the
+  // lean badge consumers keep working). Null when not yet populated. ---
+  // Ether Art Chart: flat literal naming of the song.
+  deadpan_line?: string | null;
+  // Ether Art Chart: taxonomy slugs, dominant-first.
+  topics?: string[] | null;
+  // 3-paragraph per-song description of what the song transmits.
+  effects_prose?: string | null;
+  // 0..1 calibration confidence.
+  confidence?: number | null;
+  // Which calibration table matched (compass | library | submitted).
+  song_source?: string | null;
 }
 
 // Build a deep-link URL to the RC song page for a badge. Falls back to the

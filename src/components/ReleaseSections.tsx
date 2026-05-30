@@ -20,6 +20,8 @@ import {
   type ReleaseArtAspect,
 } from "@/lib/release-visibility";
 import { AlbumSongSliderSection } from "@/components/AlbumSongSliderSection";
+import { ReleaseTrackGrid, type ReleaseTrackGridTrack } from "@/components/ReleaseTrackGrid";
+import { fetchBadge, rcBadgeHref } from "@/lib/rising-compass";
 import type { HeroLensItem } from "@/components/HeroLens";
 
 interface SongRow {
@@ -29,6 +31,7 @@ interface SongRow {
   lyrics: string | null;
   chorus: string | null;
   release_date: string | null;
+  duration_seconds: number | null;
   art_image_path: string | null;
   art_alt: string | null;
   song_summary: string | null;
@@ -78,7 +81,7 @@ export async function ReleaseSections({
   // Tracklist songs (used by song-slider, lyrics, art).
   const { data: junctions } = await supabase
     .from("release_songs")
-    .select("track_number, song:songs(id, title, slug, lyrics, chorus, release_date, art_image_path, art_alt, song_summary, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, status)")
+    .select("track_number, song:songs(id, title, slug, lyrics, chorus, release_date, duration_seconds, art_image_path, art_alt, song_summary, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, status)")
     .eq("release_id", albumId)
     .order("track_number");
 
@@ -131,6 +134,15 @@ export async function ReleaseSections({
     if (!songsById.has(s.id)) songsById.set(s.id, s);
   }
 
+  // Track grid: when a published release-track-grid section exists, resolve its
+  // ordered songs (picked or auto = all) and fetch each one's Rising Compass
+  // badge. fetchBadge is cached 24h and deduped per render, so this piggybacks
+  // on any badges the album page already pulled.
+  const trackGridSection = sections.find((s) => s.category === "release-track-grid");
+  const trackGridTracks: ReleaseTrackGridTrack[] = trackGridSection
+    ? await buildTrackGridTracks(trackGridSection, albumSongs, album)
+    : [];
+
   return (
     <>
       {hasGeoFields && (
@@ -175,6 +187,8 @@ export async function ReleaseSections({
                 payload={s.data_payload}
               />
             );
+          case "release-track-grid":
+            return <ReleaseTrackGrid key={s.id} tracks={trackGridTracks} />;
           case "lyrics":
             return <LyricsSection key={s.id} payload={s.data_payload} songsById={songsById} />;
           case "art":
@@ -264,6 +278,53 @@ function SongSlider({
     .filter(Boolean) as HeroLensItem[];
 
   return <AlbumSongSliderSection items={items} />;
+}
+
+// ─── Track Grid ─────────────────────────────────────────────────────────────
+
+async function buildTrackGridTracks(
+  section: ReleaseVisibilitySection,
+  albumSongs: Array<SongRow & { track_number: number }>,
+  album: AlbumLite,
+): Promise<ReleaseTrackGridTrack[]> {
+  const pickedIds = (section.data_payload as { song_ids?: string[] | null }).song_ids;
+  const ordered: Array<SongRow & { track_number: number }> =
+    Array.isArray(pickedIds) && pickedIds.length > 0
+      ? (() => {
+          const map = new Map(albumSongs.map((s) => [s.id, s]));
+          return pickedIds
+            .map((id) => map.get(id))
+            .filter(Boolean) as Array<SongRow & { track_number: number }>;
+        })()
+      : albumSongs;
+
+  // One badge per track. Cached 24h; null when RC has no calibration.
+  const badges = await Promise.all(
+    ordered.map((s) => fetchBadge(s.title, "Chad Lewine")),
+  );
+
+  return ordered.map((s, i): ReleaseTrackGridTrack => {
+    const b = badges[i];
+    return {
+      id: s.id,
+      slug: s.slug,
+      title: s.title,
+      trackNumber: s.track_number,
+      collection: album.title,
+      summary: s.song_summary,
+      durationSeconds: s.duration_seconds,
+      art: s.art_image_path || album.cover_art_path,
+      artAlt: s.art_alt || album.cover_art_alt || s.title,
+      // Editorial crop: card focal is stored 0-100 (percent); null = center.
+      focalX: s.card_focal_x,
+      focalY: s.card_focal_y,
+      deadpan: b?.deadpan_line || null,
+      chargeSummary: b?.charge_summary || null,
+      pending: b?.pending ?? false,
+      badge: b ? { tierLabel: b.tier_label, tierHex: b.tier_hex, charge: b.charge } : null,
+      badgeHref: rcBadgeHref(b),
+    };
+  });
 }
 
 // ─── Lyrics ─────────────────────────────────────────────────────────────────
