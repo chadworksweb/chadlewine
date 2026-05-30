@@ -28,6 +28,9 @@ interface LyricBookProps {
 export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [activeTrackSlug, setActiveTrackSlug] = useState<string | null>(null);
+  // Mobile only: the TOC is a bottom drawer. It opens to the releases menu by
+  // default; picking a song slides it down to a tab. Desktop ignores this.
+  const [drawerOpen, setDrawerOpen] = useState(true);
   const readerRef = useRef<HTMLDivElement>(null);
 
   const allSongs = [...singles, ...songs];
@@ -40,16 +43,32 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
     if (song) {
       setExpandedGroups(new Set([song.release_id]));
       setActiveTrackSlug(song.slug);
+      setDrawerOpen(false); // land on the lyrics, drawer tucked away
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; allSongs derives from props
   }, []);
 
-  // Update hash when track changes
+  // Lock background scroll while the menu/drawer covers the screen (mobile).
+  // Expanded = menu mode (no song picked yet) or an open drawer. When reading
+  // with the drawer closed (tab peeking), the lyrics are the page, so scrolling
+  // stays on. Unlocking is delayed past the close slide so toggling body
+  // overflow doesn't reflow mid-animation and stutter it.
   useEffect(() => {
-    if (activeTrackSlug) {
-      window.history.replaceState(null, "", `#${activeTrackSlug}`);
+    const expanded = !activeTrackSlug || drawerOpen;
+    const root = document.documentElement;
+    if (expanded) {
+      root.classList.add("lb-locked");
+      return;
     }
-  }, [activeTrackSlug]);
+    const t = window.setTimeout(() => root.classList.remove("lb-locked"), 480);
+    return () => window.clearTimeout(t);
+  }, [activeTrackSlug, drawerOpen]);
+
+  // Clear the lock if we unmount while it's still applied.
+  useEffect(
+    () => () => document.documentElement.classList.remove("lb-locked"),
+    [],
+  );
 
   function toggleGroup(groupId: string) {
     setExpandedGroups((prev) => {
@@ -62,9 +81,10 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
 
   function selectTrack(song: Song) {
     setActiveTrackSlug(song.slug);
-    if (window.innerWidth <= 768 && readerRef.current) {
-      readerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    setDrawerOpen(false); // drop the menu away; lyrics + sticky pull tab take over
+    // Reset to the top so the new song's header shows first.
+    readerRef.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
   }
 
   const activeSong = activeTrackSlug
@@ -116,9 +136,10 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
                 <button
                   className={`lb__track-btn${
                     activeTrackSlug === song.slug ? " lb__track-btn--active" : ""
-                  }`}
+                  }${song.instrumental ? " lb__track-btn--instrumental" : ""}`}
                   type="button"
-                  onClick={() => selectTrack(song)}
+                  disabled={song.instrumental}
+                  onClick={song.instrumental ? undefined : () => selectTrack(song)}
                 >
                   <span className="lb__track-num">{song.track_number}.</span>
                   <span className="lb__track-name">{song.title}</span>
@@ -137,10 +158,39 @@ export default function LyricBook({ albums, songs, singles }: LyricBookProps) {
   }
 
   return (
-    <article className="lb">
-      {/* Sidebar TOC */}
+    <article
+      className={`lb${activeSong ? " lb--reading" : ""}${
+        drawerOpen ? " lb--drawer-open" : ""
+      }`}
+    >
+      {/* TOC — sidebar on desktop; on mobile, the bottom drawer. The pull tab
+          is its top edge: it peeks at the bottom when closed and rides up with
+          the drawer when opened. */}
       <nav className="lb__toc" aria-label="Lyric book table of contents">
-        <div className="lb__toc-inner">
+        {/* Pull tab — top of the drawer; one tap toggles the list. */}
+        <button
+          type="button"
+          className="lb__pull"
+          aria-controls="lb-toc-inner"
+          aria-expanded={drawerOpen}
+          onClick={() => setDrawerOpen((open) => !open)}
+        >
+          <span className="lb__pull-frame" aria-hidden="true">
+            <span className="logo-shape">&#x2591;</span>
+            <span className="logo-shape">&#x2592;</span>
+            <span className="logo-shape">&#x2593;</span>
+            <span className="logo-shape">&#x2588;</span>
+          </span>
+          <span className="lb__pull-label">Choose another song</span>
+          <span className="lb__pull-frame" aria-hidden="true">
+            <span className="logo-shape">&#x2588;</span>
+            <span className="logo-shape">&#x2593;</span>
+            <span className="logo-shape">&#x2592;</span>
+            <span className="logo-shape">&#x2591;</span>
+          </span>
+        </button>
+
+        <div className="lb__toc-inner" id="lb-toc-inner">
           <h1 className="lb__toc-title">Lyric Book</h1>
 
           {/* Singles first */}

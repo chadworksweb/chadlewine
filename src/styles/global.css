@@ -10622,7 +10622,7 @@ html {
 /* --- Lyric Book --- */
 
 .lb {
-  --lb-tab-h: 52px; /* height of the mobile drawer's pull tab */
+  --lb-tab-h: 60px; /* height of the mobile drawer's pull tab */
   display: grid;
   grid-template-columns: 320px 1fr;
   min-height: calc(100vh - var(--nav-height));
@@ -10895,17 +10895,16 @@ html {
     min-height: calc(100vh - var(--nav-height));
     min-height: calc(100dvh - var(--nav-height));
     padding: 0; /* the cream mat runs edge to edge */
-    overflow: visible; /* so the sticky pull tab can anchor to the viewport */
-    display: flex;
-    flex-direction: column;
   }
   .lb__reader-inner {
-    padding: var(--space-lg) var(--space-md) var(--space-md);
+    /* clear the tab where it peeks at the bottom when the drawer is closed */
+    padding: var(--space-lg) var(--space-md) calc(var(--space-lg) + var(--lb-tab-h));
   }
   .lb__welcome { min-height: 40dvh; }
 
-  /* TOC overlay: full-screen menu under the nav by default; slides fully off
-     the bottom once reading + closed; slides back up when the drawer opens. */
+  /* TOC overlay: full-screen menu under the nav on initial load (no gap); slides
+     fully off the bottom once reading + closed; slides back up as a shorter
+     bottom sheet when reopened. */
   .lb__toc {
     position: fixed;
     left: 0;
@@ -10921,17 +10920,28 @@ html {
     background: var(--bg-elevated);
     overflow: hidden; /* inner list scrolls, not the panel shell */
     transform: translateY(0); /* menu mode + open drawer both sit full */
-    transition: transform var(--duration-base) var(--ease-out);
+    transition: transform 0.42s var(--ease-in-out);
+    will-change: transform; /* own compositor layer -> slide isn't stuttered by reflow */
   }
-  /* Reading + closed: the menu is gone; the sticky pull tab is the affordance. */
-  .lb--reading:not(.lb--drawer-open) .lb__toc {
-    transform: translateY(100%);
-  }
-  /* Reading + open: dress it as a drawer (rounded, lifted, close handle). */
-  .lb--reading.lb--drawer-open .lb__toc {
+  /* Reading: the release list is a shorter sheet (20% lyric gap at top) that
+     slides up and down BEHIND the persistent pull tab. The drawer dressing
+     (rounded top, lift, shadow) stays applied in both open and closed reading
+     states, so it keeps its shape all the way through the close slide instead of
+     flashing to the square initial-menu look. */
+  .lb--reading .lb__toc {
+    height: calc((100vh - var(--nav-height)) * 0.8);
+    height: calc((100dvh - var(--nav-height)) * 0.8);
     border-top: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 18px 18px 0 0;
     box-shadow: 0 -18px 44px rgba(0, 0, 0, 0.55);
+  }
+  /* Closed: slid down so only the tab (the drawer's top edge) peeks. */
+  .lb--reading:not(.lb--drawer-open) .lb__toc {
+    transform: translateY(calc(100% - var(--lb-tab-h)));
+  }
+  /* Clear the home indicator at the bottom of the open list. */
+  .lb--reading .lb__toc-inner {
+    padding-bottom: calc(var(--space-xl) + env(safe-area-inset-bottom, 0px));
   }
 
   /* "Lyric Book" heading shows in menu mode; hidden once reading. */
@@ -10943,105 +10953,52 @@ html {
   }
   .lb--reading .lb__toc-title { display: none; }
 
-  /* Close handle at the top of the open drawer. */
-  .lb__drawer-tab { display: none; }
-  .lb--reading.lb--drawer-open .lb__drawer-tab {
-    position: relative;
+  /* Pull tab — the drawer's top edge. A flex child at the top of the panel, so
+     it rides up and down with the drawer: peeks at the bottom when closed, sits
+     atop the list when open. Same label both states; styled after the header
+     logo; one tap toggles the list. The drawer's overflow:hidden + radius clip
+     its top corners round. */
+  .lb--reading .lb__pull {
     display: flex;
     align-items: center;
-    gap: var(--space-sm);
+    justify-content: center;
+    gap: 0.55em;
     flex-shrink: 0;
     width: 100%;
     height: var(--lb-tab-h);
     padding: 0 var(--space-md);
-    background: var(--bg-glass);
+    background: var(--bg-elevated);
     border: none;
     border-bottom: 1px solid var(--border-subtle);
     color: var(--text-primary);
     font-family: var(--font-ui);
     font-size: var(--text-sm);
-    font-weight: 600;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     cursor: pointer;
-    transition: background var(--duration-fast);
+    transition: background var(--duration-base) var(--ease-out);
   }
-  .lb__drawer-tab:active { background: var(--bg-glass-hover); }
-  .lb__drawer-grip {
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 44px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--text-secondary);
+  /* Same tab, slightly lighter background while the list is open. */
+  .lb--reading.lb--drawer-open .lb__pull {
+    background: #1c1c28;
   }
-  .lb__drawer-label {
-    flex: 1;
-    min-width: 0;
-    margin-top: 10px;
-    overflow: hidden;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .lb__drawer-chevron {
-    margin-top: 10px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    transform: rotate(180deg); /* points down -> tap to close */
-  }
-
-  /* Sticky pull tab — sits at the bottom of the lyric mat. Sticky (not fixed)
-     so it tracks the visible viewport as the browser toolbar slides, leaving no
-     gap. margin-top:auto pins it to the mat bottom when a song is short. */
-  .lb--reading .lb__pull {
-    position: sticky;
-    bottom: 0;
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    width: 100%;
-    height: var(--lb-tab-total);
-    margin-top: auto;
-    padding: 0 var(--space-md) env(safe-area-inset-bottom, 0px);
-    background: var(--reading-bg);
-    border: none;
-    border-top: 1px solid var(--reading-border);
-    box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.08);
-    color: var(--reading-text);
-    font-family: var(--font-ui);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    cursor: pointer;
-  }
-  .lb__pull-grip {
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 44px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--reading-text-tertiary);
+  /* Block-shade bars in the logo's accent blue (matches the header on dark). */
+  .lb__pull-frame {
+    flex-shrink: 0;
+    font-family: var(--font-mono, var(--font-ui));
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    line-height: 1;
+    color: var(--text-accent);
   }
   .lb__pull-label {
-    flex: 1;
     min-width: 0;
-    margin-top: 10px;
     overflow: hidden;
-    text-align: left;
+    text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .lb__pull-chevron {
-    margin-top: 10px;
-    font-size: 0.8rem;
-    color: var(--reading-text-tertiary);
   }
 
   .lb__toc-inner {
