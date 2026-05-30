@@ -143,6 +143,8 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Run on everything except static files + Next internals + preview itself
-    "/((?!_next/|preview|api/stripe-webhook|.*\\.).*)",
+    // + the PostHog /ingest proxy (rewritten in next.config; no auth/redirect
+    // logic applies, and skipping it avoids a redirect-table lookup per event).
+    "/((?!_next/|preview|ingest/|api/stripe-webhook|.*\\.).*)",
   ],
 };
