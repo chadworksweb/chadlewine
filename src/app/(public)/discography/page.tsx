@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { DiscographyExplorer } from "@/components/DiscographyExplorer";
+import { ArtistCatalogJsonLd } from "@/components/ArtistCatalogJsonLd";
 import { releaseTypeLabel, releaseFormatLabel } from "@/lib/release-labels";
 import { getSingleSongIds } from "@/lib/song-singles";
 import { fetchReleaseSkusForIds } from "@/lib/release-skus";
@@ -259,8 +260,18 @@ async function getDiscography() {
 export default async function DiscographyPage() {
   const { items, allTypes } = await getDiscography();
 
+  // Catalog node: albums/EPs/compilations -> release pages (MusicAlbum @ids),
+  // singles -> song pages (MusicRecording @ids). All items here are published.
+  const catalogAlbums = items
+    .filter((i) => i.type === "album")
+    .map((i) => ({ title: i.title, slug: i.slug }));
+  const catalogSingles = items
+    .filter((i) => i.type === "single")
+    .map((i) => ({ title: i.title, slug: i.slug }));
+
   return (
     <div id="page-discography">
+      <ArtistCatalogJsonLd songs={catalogSingles} albums={catalogAlbums} />
       <h1 className="page-static__title">Discography</h1>
       <DiscographyExplorer items={items} allTypes={allTypes} />
     </div>

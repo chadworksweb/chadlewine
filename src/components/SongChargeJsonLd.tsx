@@ -1,4 +1,5 @@
 import type { RisingCompassBadgeData } from "@/lib/rising-compass";
+import { artistRef, absoluteImage, isoDuration, recordingId } from "@/lib/artist-schema";
 
 interface SectionQA {
   question: string;
@@ -7,10 +8,15 @@ interface SectionQA {
 
 interface SongChargeJsonLdProps {
   songTitle: string;
+  songSlug: string;
   songUrl: string;
-  albumTitle: string;
-  albumUrl: string;
-  badge: RisingCompassBadgeData;
+  albumTitle?: string | null;
+  albumUrl?: string | null;
+  durationSeconds?: number | null;
+  isrc?: string | null;
+  releaseDate?: string | null;
+  imagePath?: string | null;
+  badge?: RisingCompassBadgeData | null;
   citationSummary?: string | null;
   focusKeyphrase?: string | null;
   secondaryKeyphrases?: string[];
@@ -20,9 +26,14 @@ interface SongChargeJsonLdProps {
 
 export function SongChargeJsonLd({
   songTitle,
+  songSlug,
   songUrl,
   albumTitle,
   albumUrl,
+  durationSeconds,
+  isrc,
+  releaseDate,
+  imagePath,
   badge,
   citationSummary,
   focusKeyphrase,
@@ -30,33 +41,45 @@ export function SongChargeJsonLd({
   paaPairs = [],
   sectionQAPairs = [],
 }: SongChargeJsonLdProps) {
-  const jsonLd = {
-    "@context": [
-      "https://schema.org",
-      {
-        rc: "https://risingcompass.net/schema/",
-        lyricalCharge: "rc:LyricalCharge",
-        chargeTier: "rc:ChargeTier",
-        chargeValue: "rc:chargeValue",
-        chargeSummary: "rc:chargeSummary",
-        contaminated: "rc:contaminated",
-        contaminationNote: "rc:contaminationNote",
-      },
-    ],
+  // The rc:* custom context only carries meaning when a Rising Compass badge is
+  // present, so keep it off plain recordings.
+  const context = badge
+    ? [
+        "https://schema.org",
+        {
+          rc: "https://risingcompass.net/schema/",
+          lyricalCharge: "rc:LyricalCharge",
+          chargeTier: "rc:ChargeTier",
+          chargeValue: "rc:chargeValue",
+          chargeSummary: "rc:chargeSummary",
+          contaminated: "rc:contaminated",
+          contaminationNote: "rc:contaminationNote",
+        },
+      ]
+    : "https://schema.org";
+
+  const image = absoluteImage(imagePath);
+  const duration = isoDuration(durationSeconds);
+
+  const jsonLd: Record<string, unknown> = {
+    "@context": context,
     "@type": "MusicRecording",
+    "@id": recordingId(songSlug),
     name: songTitle,
     url: songUrl,
-    byArtist: {
-      "@type": "Person",
-      "@id": "https://chadlewine.com/chad-lewine#person",
-      name: "Chad Lewine",
-    },
-    inAlbum: {
-      "@type": "MusicAlbum",
-      name: albumTitle,
-      url: albumUrl,
-    },
-    review: {
+    byArtist: artistRef(),
+    ...(albumTitle && albumUrl
+      ? { inAlbum: { "@type": "MusicAlbum", name: albumTitle, url: albumUrl } }
+      : {}),
+    ...(duration ? { duration } : {}),
+    ...(isrc ? { isrcCode: isrc } : {}),
+    ...(releaseDate ? { datePublished: releaseDate } : {}),
+    ...(image ? { image } : {}),
+  };
+
+  // Rising Compass classification enrichment (review, properties, custom node).
+  if (badge) {
+    jsonLd.review = {
       "@type": "Rating",
       author: {
         "@type": "Organization",
@@ -67,8 +90,8 @@ export function SongChargeJsonLd({
       bestRating: 100,
       worstRating: -100,
       ratingExplanation: badge.charge_summary || undefined,
-    },
-    additionalProperty: [
+    };
+    jsonLd.additionalProperty = [
       {
         "@type": "PropertyValue",
         propertyID: "RisingCompassTier",
@@ -108,8 +131,8 @@ export function SongChargeJsonLd({
         name: "Rising Compass Contamination Flag",
         value: badge.contaminated,
       },
-    ],
-    lyricalCharge: {
+    ];
+    jsonLd.lyricalCharge = {
       "@type": "rc:LyricalCharge",
       chargeTier: badge.tier_label,
       tierColor: badge.tier,
@@ -124,12 +147,15 @@ export function SongChargeJsonLd({
         name: "Rising Compass",
         url: "https://risingcompass.net",
       },
-    },
-    ...(citationSummary ? { description: citationSummary } : {}),
-    ...((focusKeyphrase || secondaryKeyphrases.length > 0) ? {
-      keywords: [focusKeyphrase, ...secondaryKeyphrases].filter(Boolean).join(", "),
-    } : {}),
-  };
+    };
+  }
+
+  if (citationSummary) jsonLd.description = citationSummary;
+  if (focusKeyphrase || secondaryKeyphrases.length > 0) {
+    jsonLd.keywords = [focusKeyphrase, ...secondaryKeyphrases]
+      .filter(Boolean)
+      .join(", ");
+  }
 
   const schemas: Record<string, unknown>[] = [jsonLd];
 

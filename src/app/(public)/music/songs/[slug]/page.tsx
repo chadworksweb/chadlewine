@@ -376,20 +376,23 @@ export default async function SongDetailPage({
         merchSlot={<YouMightAlsoLike sourceType="song" sourceId={song.id} />}
       />
       <ExploreStrip wrap />
-      {badge && album && (
-        <SongChargeJsonLd
-          songTitle={song.title}
-          songUrl={`https://chadlewine.com/music/songs/${song.slug}`}
-          albumTitle={album.title}
-          albumUrl={`https://chadlewine.com/music/releases/${album.slug}`}
-          badge={badge}
-          citationSummary={song.citation_summary}
-          focusKeyphrase={song.focus_keyphrase}
-          secondaryKeyphrases={song.secondary_keyphrases || []}
-          paaPairs={song.paa_pairs || []}
-          sectionQAPairs={sectionQAPairs}
-        />
-      )}
+      <SongChargeJsonLd
+        songTitle={song.title}
+        songSlug={song.slug}
+        songUrl={`https://chadlewine.com/music/songs/${song.slug}`}
+        albumTitle={album?.title ?? null}
+        albumUrl={album ? `https://chadlewine.com/music/releases/${album.slug}` : null}
+        durationSeconds={song.duration_seconds}
+        isrc={song.isrc}
+        releaseDate={song.release_date}
+        imagePath={song.art_image_path || album?.cover_art_path || null}
+        badge={badge}
+        citationSummary={song.citation_summary}
+        focusKeyphrase={song.focus_keyphrase}
+        secondaryKeyphrases={song.secondary_keyphrases || []}
+        paaPairs={song.paa_pairs || []}
+        sectionQAPairs={sectionQAPairs}
+      />
     </>
   );
 }

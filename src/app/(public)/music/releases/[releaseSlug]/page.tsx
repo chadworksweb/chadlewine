@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { ReleaseDetail } from "@/components/ReleaseDetail";
 import { ReleaseSections } from "@/components/ReleaseSections";
+import { AlbumChargeJsonLd } from "@/components/AlbumChargeJsonLd";
 import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge, fetchAlbumBadge, rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
@@ -180,6 +181,16 @@ export default async function AlbumDetailPage({
   return (
     <>
       <AdminEditButton href={`/admin/music/releases/${album.slug || album.id}`} />
+      <AlbumChargeJsonLd
+        albumTitle={album.title}
+        albumSlug={album.slug}
+        releaseDate={album.release_date}
+        imagePath={album.cover_art_path}
+        releaseType={(album as { release_type?: string | null }).release_type ?? null}
+        tracks={songs.map((s) => ({ title: s.title, slug: s.slug }))}
+        badge={albumBadgeData}
+        citationSummary={album.citation_summary || null}
+      />
       <ReleaseDetail
         album={{
           id: album.id,

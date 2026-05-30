@@ -1,5 +1,6 @@
 import { createPublicClient } from "@/lib/supabase-server";
 import { SongsExplorer } from "@/components/SongsExplorer";
+import { ArtistCatalogJsonLd } from "@/components/ArtistCatalogJsonLd";
 import { getSingleSongIds } from "@/lib/song-singles";
 
 export const revalidate = 60;
@@ -192,15 +193,25 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
 export default async function MusicSongsPage() {
   const { songs, allTopics } = await getSongs();
 
-  return (
-    <div className="songs-explorer">
-      <div className="songs-explorer__inner site-contain">
-        <header className="songs-explorer__header">
-          <h1 className="songs-explorer__title">Chad Lewine Songs</h1>
-        </header>
+  // Only enumerate songs whose detail page actually resolves: published songs,
+  // plus unreleased songs that are singles (unreleased album tracks 404). This
+  // keeps dead URLs out of the catalog structured data.
+  const catalogSongs = songs
+    .filter((s) => s.status === "published" || (s.status === "unreleased" && s.is_single))
+    .map((s) => ({ title: s.title, slug: s.slug }));
 
-        <SongsExplorer songs={songs} allTopics={allTopics} />
+  return (
+    <>
+      <ArtistCatalogJsonLd songs={catalogSongs} />
+      <div className="songs-explorer">
+        <div className="songs-explorer__inner site-contain">
+          <header className="songs-explorer__header">
+            <h1 className="songs-explorer__title">Chad Lewine Songs</h1>
+          </header>
+
+          <SongsExplorer songs={songs} allTopics={allTopics} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
