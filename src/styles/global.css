@@ -2448,11 +2448,10 @@ body.art-immersive main ~ * {
   padding-top: var(--space-sm);
 }
 
-@media (max-width: 768px) {
-  .home-split__observations .home-split__section-heading {
-    --sticky-top: calc((var(--nav-height) + var(--space-md)) / 2);
-  }
-}
+/* No mobile --sticky-top override: it must stay >= --nav-height (80px) or the
+   heading pins BEHIND the fixed nav and reads as "not sticky". The base rule's
+   --sticky-top: var(--nav-height) already lands it flush at the nav's bottom,
+   which is correct at every width. */
 
 
 /* Visible accent — sits ON TOP of the heading's transparent border-top
@@ -10623,13 +10622,23 @@ html {
 /* --- Lyric Book --- */
 
 .lb {
+  --lb-tab-h: 52px; /* height of the mobile drawer's pull tab */
   display: grid;
   grid-template-columns: 320px 1fr;
   min-height: calc(100vh - var(--nav-height));
-  max-width: var(--site-width);
-  margin-inline: auto;
+  /* Fill the site-width content track. <main>'s page-shell grid already places
+     .lb in the centered site-width column, so the old max-width + margin-inline:
+     auto (a per-section width hack from before the global-width restructure) now
+     made the grid shrink-wrap to its content (~760px) and re-center, leaving
+     dead space each side. width:100% makes it fill the track. */
+  width: 100%;
   background: var(--bg-deep);
   color: var(--text-primary);
+}
+
+/* The pull tab only exists on mobile, where the TOC becomes a bottom drawer. */
+.lb__drawer-tab {
+  display: none;
 }
 
 /* --- TOC Sidebar --- */
@@ -10756,6 +10765,16 @@ html {
   color: var(--text-accent);
   background: rgba(139, 156, 247, 0.06);
 }
+/* Instrumental tracks have no lyrics -- listed but not selectable. */
+.lb__track-btn:disabled {
+  cursor: default;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+.lb__track-btn:disabled:hover {
+  background: none;
+  color: var(--text-tertiary);
+}
 
 .lb__track-num {
   color: var(--text-tertiary);
@@ -10780,6 +10799,11 @@ html {
 .lb__reader-inner {
   max-width: 680px;
   margin: 0 auto;
+}
+
+/* The sticky pull tab only exists on mobile (reading mode). */
+.lb__pull {
+  display: none;
 }
 
 /* Welcome state */
@@ -10851,32 +10875,194 @@ html {
   word-wrap: break-word;
 }
 
-/* --- Mobile --- */
+/* --- Mobile: full-screen releases menu that drops into a bottom drawer ---
+   On load (no song selected) the menu fills the page. Picking a song drops it
+   into a pull-tab drawer and reveals the lyrics; it stays in drawer mode for
+   the visit. A fresh load resets to the menu, unselected. */
 
 @media (max-width: 768px) {
   .lb {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    display: block; /* reader is the base layer; TOC is a fixed overlay */
+    grid-column: full; /* edge-to-edge so the cream reading mat reaches the screen */
+    /* Tab footprint incl. the iOS home-indicator safe area, so the closed tab
+       clears the home bar and the slide math stays consistent. */
+    --lb-tab-total: calc(var(--lb-tab-h) + env(safe-area-inset-bottom, 0px));
   }
+
+  .lb__reader {
+    /* vh fallback, then dvh: dvh tracks the visible viewport as the browser's
+       dynamic toolbar (URL/tab bar) retracts and returns on scroll. */
+    min-height: calc(100vh - var(--nav-height));
+    min-height: calc(100dvh - var(--nav-height));
+    padding: 0; /* the cream mat runs edge to edge */
+    overflow: visible; /* so the sticky pull tab can anchor to the viewport */
+    display: flex;
+    flex-direction: column;
+  }
+  .lb__reader-inner {
+    padding: var(--space-lg) var(--space-md) var(--space-md);
+  }
+  .lb__welcome { min-height: 40dvh; }
+
+  /* TOC overlay: full-screen menu under the nav by default; slides fully off
+     the bottom once reading + closed; slides back up when the drawer opens. */
   .lb__toc {
-    position: static;
-    height: auto;
-    max-height: 50vh;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--nav-height));
+    height: calc(100dvh - var(--nav-height));
     border-right: none;
-    border-bottom: 1px solid var(--text-accent);
+    background: var(--bg-elevated);
+    overflow: hidden; /* inner list scrolls, not the panel shell */
+    transform: translateY(0); /* menu mode + open drawer both sit full */
+    transition: transform var(--duration-base) var(--ease-out);
   }
+  /* Reading + closed: the menu is gone; the sticky pull tab is the affordance. */
+  .lb--reading:not(.lb--drawer-open) .lb__toc {
+    transform: translateY(100%);
+  }
+  /* Reading + open: dress it as a drawer (rounded, lifted, close handle). */
+  .lb--reading.lb--drawer-open .lb__toc {
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -18px 44px rgba(0, 0, 0, 0.55);
+  }
+
+  /* "Lyric Book" heading shows in menu mode; hidden once reading. */
+  .lb__toc-title {
+    display: block;
+    font-size: var(--text-lg);
+    padding: 0 var(--space-md) var(--space-sm);
+    margin: 0;
+  }
+  .lb--reading .lb__toc-title { display: none; }
+
+  /* Close handle at the top of the open drawer. */
+  .lb__drawer-tab { display: none; }
+  .lb--reading.lb--drawer-open .lb__drawer-tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-shrink: 0;
+    width: 100%;
+    height: var(--lb-tab-h);
+    padding: 0 var(--space-md);
+    background: var(--bg-glass);
+    border: none;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background var(--duration-fast);
+  }
+  .lb__drawer-tab:active { background: var(--bg-glass-hover); }
+  .lb__drawer-grip {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 44px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--text-secondary);
+  }
+  .lb__drawer-label {
+    flex: 1;
+    min-width: 0;
+    margin-top: 10px;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb__drawer-chevron {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    transform: rotate(180deg); /* points down -> tap to close */
+  }
+
+  /* Sticky pull tab — sits at the bottom of the lyric mat. Sticky (not fixed)
+     so it tracks the visible viewport as the browser toolbar slides, leaving no
+     gap. margin-top:auto pins it to the mat bottom when a song is short. */
+  .lb--reading .lb__pull {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    width: 100%;
+    height: var(--lb-tab-total);
+    margin-top: auto;
+    padding: 0 var(--space-md) env(safe-area-inset-bottom, 0px);
+    background: var(--reading-bg);
+    border: none;
+    border-top: 1px solid var(--reading-border);
+    box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.08);
+    color: var(--reading-text);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+  .lb__pull-grip {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 44px;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--reading-text-tertiary);
+  }
+  .lb__pull-label {
+    flex: 1;
+    min-width: 0;
+    margin-top: 10px;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb__pull-chevron {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: var(--reading-text-tertiary);
+  }
+
   .lb__toc-inner {
-    padding: var(--space-lg) 0 var(--space-md);
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain; /* don't chain scroll to the page behind */
+    -webkit-overflow-scrolling: touch;
+    padding: var(--space-md) 0 var(--space-xl);
   }
-  .lb__toc-title { font-size: var(--text-lg); margin-bottom: var(--space-md); }
-  .lb__album-header { font-size: 1rem; padding: 8px var(--space-md); }
+  .lb__album-header { font-size: 1rem; padding: 10px var(--space-md); }
   .lb__track-btn { padding-left: calc(var(--space-md) + 14px); padding-right: var(--space-md); }
-  .lb__reader { padding: var(--space-lg) var(--space-md); }
-  .lb__welcome { min-height: 30vh; }
+
+  /* Lock background scroll while the menu/drawer covers the screen. */
+  html.lb-locked,
+  html.lb-locked body {
+    overflow: hidden;
+  }
 }
 
 @media (max-width: 480px) {
-  .lb__reader { padding: var(--space-md); }
+  .lb__reader-inner { padding: var(--space-md); }
   .lb__lyrics-body { font-size: 0.88rem; line-height: 1.7; }
 }
 
@@ -16801,6 +16987,30 @@ html {
   gap: var(--space-xl);
   padding: var(--space-lg) var(--space-xl);
   border-left: 3px solid var(--text-accent);
+  border-right: 3px solid var(--text-accent);
+  position: relative;
+}
+
+/* Simple expand/collapse: slide + fade. */
+.songs-explorer__drawer.is-opening {
+  animation: sw-drawer-in 0.24s ease-out both;
+}
+.songs-explorer__drawer.is-closing {
+  animation: sw-drawer-out 0.2s ease-in both;
+}
+
+@keyframes sw-drawer-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes sw-drawer-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .songs-explorer__drawer.is-opening,
+  .songs-explorer__drawer.is-closing { animation: none; }
 }
 
 @media (max-width: 1100px) {
@@ -16847,6 +17057,14 @@ html {
   flex-direction: column;
   gap: var(--space-md);
   min-width: 0;
+}
+
+/* Topics inside the drawer are mobile-only — desktop shows them in the row. */
+.songs-explorer__drawer-topics { display: none; }
+.songs-explorer__drawer-topic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .songs-explorer__drawer-section {
@@ -17106,7 +17324,312 @@ html {
 @media (max-width: 700px) {
   .songs-explorer__th--action,
   .songs-explorer__td--action { display: none; }
+  /* Reclaim the action column's reserved width once its cells are hidden,
+     otherwise fixed table layout leaves ~140px dead space on the right. */
+  .songs-explorer__table col.col--action { width: 0; }
   .songs-explorer__td { padding: var(--space-xs, 0.5rem) var(--space-sm); }
+}
+
+/* Phone: the fixed 5-column table can't breathe under ~640px, so stack each
+   row into an art + (title / release / topics) card. Keeps the same <table>
+   markup, toggle behavior, and expand drawer intact. */
+@media (max-width: 640px) {
+  .songs-explorer__table,
+  .songs-explorer__table tbody { display: block; width: 100%; }
+  .songs-explorer__table thead,
+  .songs-explorer__table colgroup { display: none; }
+
+  .songs-explorer__row {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    grid-template-areas:
+      "art title"
+      "art release";
+    column-gap: var(--space-sm);
+    row-gap: 0;
+    align-items: center;
+    /* Roomier separation between songs. */
+    padding: var(--space-md) 0;
+  }
+
+  .songs-explorer__td { display: block; padding: 0; }
+
+  .songs-explorer__td--art { grid-area: art; align-self: start; padding-right: 0; }
+  .songs-explorer__td--title { grid-area: title; white-space: normal; overflow: visible; }
+  /* Sit the release just under the title with a small gap. */
+  .songs-explorer__td--release { grid-area: release; white-space: normal; overflow: visible; margin-top: 3px; }
+  /* Tags are hidden in the collapsed row on mobile; they move into the expand
+     drawer instead (see .songs-explorer__drawer-topics). */
+  .songs-explorer__row td:nth-child(4) { display: none; }
+
+  /* Larger, tighter title for tap-scannability. */
+  .songs-explorer__row-title { font-size: 1.4rem; line-height: 1.1; }
+
+  .songs-explorer__td--title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-sm);
+  }
+
+  /* Make the expand/collapse affordance obvious on touch. */
+  .songs-explorer__row-caret {
+    margin-left: 0;
+    flex-shrink: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-accent);
+    line-height: 1;
+  }
+
+  .songs-explorer__row-art { width: 44px; height: 44px; }
+
+  /* Navigation lives on the drawer's "Read The Full Story" CTA; the row tap
+     opens the drawer. Keep the action column hidden (this re-asserts the 700px
+     rule, which our .songs-explorer__td reset above would otherwise override). */
+  .songs-explorer__td--action { display: none; }
+
+  /* Drawer row spans full width once the table goes block-level. */
+  .songs-explorer__drawer-row,
+  .songs-explorer__drawer-cell { display: block; width: 100%; }
+
+  /* Tighten the expanded drawer for phone width: less side padding. */
+  .songs-explorer__drawer { padding: var(--space-md) var(--space-md); gap: var(--space-md); }
+  /* Full-width hero art on mobile (no cap). */
+  .songs-explorer__drawer-art { max-width: none; margin-inline: 0; }
+
+  /* Surface the song's tags here since the collapsed row hides them on mobile. */
+  .songs-explorer__drawer-topics { display: flex; }
+
+  /* Larger section labels (2x) and summary body (1.3x) for mobile legibility. */
+  .songs-explorer__drawer-label { font-size: 1.2rem; }
+  .songs-explorer__drawer-prose { font-size: 1.14rem; }
+
+  /* Forthcoming badge 15% smaller on mobile. */
+  .songs-explorer__row-forthcoming { font-size: 0.53rem; padding: 2px 9px; }
+
+  /* Topic chips 20% bigger on mobile (they only render in the drawer here). */
+  .songs-explorer__drawer-topic-chips .songs-explorer__card-topic {
+    font-size: 0.72rem;
+    padding: 3px 10px;
+  }
+}
+
+/* ---- Topic filter: inline cloud (desktop) vs. bottom sheet (phone) ---- */
+
+/* The trigger button only exists on phones; the inline cloud only on desktop. */
+.songs-explorer__filter-trigger { display: none; }
+
+@media (max-width: 640px) {
+  .songs-explorer__topics { display: none; }
+
+  .songs-explorer__filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: 9px 14px;
+    border: 1px solid var(--border-medium);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  /* Active topic: accent the trigger so the current filter reads at a glance. */
+  .songs-explorer__filter-trigger.is-active {
+    border-color: var(--text-accent);
+    color: var(--text-accent);
+  }
+
+  .songs-explorer__filter-trigger-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* CSS-drawn down caret (keeps the source ASCII-only). */
+  .songs-explorer__filter-trigger::after {
+    content: "\2304";
+    font-size: 1.1em;
+    line-height: 1;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+  .songs-explorer__filter-trigger.is-active::after { color: var(--text-accent); }
+}
+
+/* Sheet overlay + panel. Rendered only when open; capped so it never shows on
+   desktop even if the open state somehow persists across a resize. */
+.songs-explorer__sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  animation: sw-sheet-fade 0.18s ease;
+}
+
+.songs-explorer__sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 82vh;
+  background: var(--bg-elevated);
+  border-top: 2px solid var(--text-accent);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+  animation: sw-sheet-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sw-sheet-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sw-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .songs-explorer__sheet-overlay,
+  .songs-explorer__sheet { animation: none; }
+}
+
+.songs-explorer__sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.songs-explorer__sheet-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.songs-explorer__sheet-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ---- Topic drum spinner (phone sheet) ---- */
+
+.songs-explorer__wheel {
+  position: relative;
+  padding: var(--space-md);
+}
+
+/* Centered selection band — the strip the active row sits in. Overlay on the
+   wrapper (not inside the scroller) so it never affects the index math. */
+.songs-explorer__wheel::before {
+  content: "";
+  position: absolute;
+  left: var(--space-md);
+  right: var(--space-md);
+  top: 50%;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1px solid rgba(64, 96, 255, 0.6);
+  border-bottom: 1px solid rgba(64, 96, 255, 0.6);
+  background: rgba(64, 96, 255, 0.14);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Top + bottom fade masks (the drum recede). Single overlay using two stacked
+   gradients; kept OUT of the scroll flow so spacers stay exactly 2 rows tall. */
+.songs-explorer__wheel::after {
+  content: "";
+  position: absolute;
+  inset: var(--space-md);
+  background:
+    linear-gradient(to bottom, var(--bg-elevated), transparent 32%),
+    linear-gradient(to top, var(--bg-elevated), transparent 32%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.songs-explorer__wheel-viewport {
+  position: relative;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.songs-explorer__wheel-viewport::-webkit-scrollbar { display: none; }
+
+.songs-explorer__wheel-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  scroll-snap-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.85;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease, font-size 0.15s ease;
+}
+
+.songs-explorer__wheel-item.is-active {
+  color: var(--text-accent);
+  opacity: 1;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.songs-explorer__sheet-footer {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border-subtle);
+}
+
+.songs-explorer__sheet-clear,
+.songs-explorer__sheet-apply {
+  flex: 1;
+  padding: 14px var(--space-md);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* Slightly glow the live result button so the count reads as the primary action. */
+.songs-explorer__sheet-apply { box-shadow: 0 0 18px rgba(64, 96, 255, 0.3); }
+
+.songs-explorer__sheet-clear {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-medium);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.songs-explorer__sheet-clear:disabled { opacity: 0.4; cursor: default; }
+
+.songs-explorer__sheet-apply {
+  border: 1px solid var(--text-accent);
+  background: var(--text-accent);
+  color: var(--bg-primary, #000);
 }
 
 /* ============================================================
@@ -24944,11 +25467,14 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 
 /* Forthcoming songs (on a not-yet-dated release, no own date, not singles):
    colored row cells to signal "coming, not out yet". */
-.songs-explorer__row.is-forthcoming > td {
+/* Shade the whole row, not each cell — on mobile the row is a grid and
+   per-cell backgrounds left the gaps between cells unshaded. A tr/grid-row
+   background fills the entire box uniformly. */
+.songs-explorer__row.is-forthcoming {
   background: rgba(64, 96, 255, 0.12);
   transition: background 0.2s ease;
 }
-.songs-explorer__row.is-forthcoming:hover > td {
+.songs-explorer__row.is-forthcoming:hover {
   background: rgba(64, 96, 255, 0.18);
 }
 

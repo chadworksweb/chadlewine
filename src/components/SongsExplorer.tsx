@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { focalCropStyle } from "@/lib/focal-crop";
@@ -119,35 +119,76 @@ function halfArray<T>(arr: T[]): T[] {
 }
 
 export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
-  const [selectedTopicIds, setSelectedTopicIds] = useState<Set<string>>(new Set());
+  // Single-select: songs rarely cross multiple topics, so one active topic at a
+  // time. null = "All" (no filter).
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  // Which row (if any) should skip its close animation because it's being
+  // swapped out for another — a delayed unmount would jump the layout.
+  const switchClosingIdRef = useRef<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Mobile-only: the inline topic cloud is too tall on phones, so it collapses
+  // behind a "Filter by topic" trigger that opens this bottom sheet.
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
-  function toggleTopic(id: string) {
-    setSelectedTopicIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // Lock background scroll while the filter sheet is open.
+  useEffect(() => {
+    if (!filterSheetOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [filterSheetOpen]);
+
+  // Close the sheet on Escape.
+  useEffect(() => {
+    if (!filterSheetOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFilterSheetOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [filterSheetOpen]);
+
+  // Click an active topic to clear it; otherwise make it the sole filter.
+  function selectTopic(id: string) {
+    setSelectedTopicId((prev) => (prev === id ? null : id));
   }
 
   function clearFilters() {
-    setSelectedTopicIds(new Set());
+    setSelectedTopicId(null);
   }
 
   function toggleRow(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id));
+    const isClosing = expandedId === id;
+    const hadOther = expandedId !== null && expandedId !== id;
+    // When swapping songs, the outgoing drawer closes instantly (no delayed
+    // unmount) so the layout settles in one step instead of jumping.
+    switchClosingIdRef.current = hadOther ? expandedId : null;
+    setExpandedId(isClosing ? null : id);
+
+    // Mobile: snap the opened row to just under the fixed nav so the drawer
+    // reveals into view. Wait a couple frames for the outgoing drawer to
+    // unmount and the layout to settle before measuring.
+    if (isClosing) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(max-width: 640px)").matches) return;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const row = document.querySelector<HTMLElement>(".songs-explorer__row.is-open");
+        if (!row) return;
+        const navOffset = 88; // --nav-height (80px) + small gap
+        const top = row.getBoundingClientRect().top + window.scrollY - navOffset;
+        window.scrollTo({ top, behavior: "smooth" });
+      })
+    );
   }
 
   const visible = useMemo(() => {
-    const selected = [...selectedTopicIds];
-    const filtered =
-      selected.length === 0
-        ? songs
-        : songs.filter((s) =>
-            selected.every((id) => s.topics.some((t) => t.id === id))
-          );
+    const filtered = selectedTopicId
+      ? songs.filter((s) => s.topics.some((t) => t.id === selectedTopicId))
+      : songs;
 
     const sorted = [...filtered];
     switch (sortMode) {
@@ -185,34 +226,79 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
         break;
     }
     return sorted;
-  }, [songs, selectedTopicIds, sortMode]);
+  }, [songs, selectedTopicId, sortMode]);
+
+  const selectedTopic = selectedTopicId
+    ? allTopics.find((t) => t.id === selectedTopicId) ?? null
+    : null;
+
+  // Desktop inline cloud (single-select).
+  const topicChips = (
+    <>
+      <button
+        type="button"
+        className={`songs-explorer__topic-chip${!selectedTopicId ? " is-selected" : ""}`}
+        onClick={clearFilters}
+      >
+        All
+      </button>
+      {allTopics.map((t) => {
+        const isSel = selectedTopicId === t.id;
+        return (
+          <button
+            type="button"
+            key={t.id}
+            className={`songs-explorer__topic-chip${isSel ? " is-selected" : ""}`}
+            onClick={() => selectTopic(t.id)}
+            aria-pressed={isSel}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </>
+  );
+
+  // Phone drum spinner: "All" + every topic, single-select by centered row.
+  const wheelItems = useMemo(
+    () => [
+      { id: null as string | null, label: "All" },
+      ...allTopics.map((t) => ({ id: t.id as string | null, label: t.label })),
+    ],
+    [allTopics]
+  );
+
+  const wheelIndex = useMemo(() => {
+    if (!selectedTopicId) return 0;
+    const i = wheelItems.findIndex((it) => it.id === selectedTopicId);
+    return i < 0 ? 0 : i;
+  }, [wheelItems, selectedTopicId]);
+
+  const onWheelSelect = useCallback(
+    (i: number) => setSelectedTopicId(wheelItems[i]?.id ?? null),
+    [wheelItems]
+  );
 
   return (
     <>
       <div className="songs-explorer__controls">
+        {/* Desktop: inline topic cloud. Hidden on phones (see global.css). */}
         <div className="songs-explorer__topics" role="group" aria-label="Filter by topic">
-          <button
-            type="button"
-            className={`songs-explorer__topic-chip${selectedTopicIds.size === 0 ? " is-selected" : ""}`}
-            onClick={clearFilters}
-          >
-            All
-          </button>
-          {allTopics.map((t) => {
-            const isSel = selectedTopicIds.has(t.id);
-            return (
-              <button
-                type="button"
-                key={t.id}
-                className={`songs-explorer__topic-chip${isSel ? " is-selected" : ""}`}
-                onClick={() => toggleTopic(t.id)}
-                aria-pressed={isSel}
-              >
-                {t.label}
-              </button>
-            );
-          })}
+          {topicChips}
         </div>
+
+        {/* Phone: trigger that opens the topic filter sheet. */}
+        <button
+          type="button"
+          className={`songs-explorer__filter-trigger${selectedTopic ? " is-active" : ""}`}
+          onClick={() => setFilterSheetOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={filterSheetOpen}
+        >
+          <span className="songs-explorer__filter-trigger-label">
+            {selectedTopic ? selectedTopic.label : "Filter by topic"}
+          </span>
+        </button>
 
         <div className="songs-explorer__sort">
           <label htmlFor="songs-sort" className="songs-explorer__sort-label">Sort</label>
@@ -229,6 +315,57 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
           </select>
         </div>
       </div>
+
+      {/* Phone topic filter sheet. Filtering is live, so the footer button
+          just dismisses; selections already applied to the list behind it. */}
+      {filterSheetOpen && (
+        <div
+          className="songs-explorer__sheet-overlay"
+          onClick={() => setFilterSheetOpen(false)}
+        >
+          <div
+            className="songs-explorer__sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filter by topic"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="songs-explorer__sheet-header">
+              <span className="songs-explorer__sheet-title">Filter by topic</span>
+              <button
+                type="button"
+                className="songs-explorer__sheet-close"
+                onClick={() => setFilterSheetOpen(false)}
+                aria-label="Close filters"
+              >
+                &times;
+              </button>
+            </div>
+            <TopicWheel
+              items={wheelItems}
+              selectedIndex={wheelIndex}
+              onSelect={onWheelSelect}
+            />
+            <div className="songs-explorer__sheet-footer">
+              <button
+                type="button"
+                className="songs-explorer__sheet-clear"
+                onClick={clearFilters}
+                disabled={!selectedTopicId}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="songs-explorer__sheet-apply"
+                onClick={() => setFilterSheetOpen(false)}
+              >
+                Show {visible.length} {visible.length === 1 ? "song" : "songs"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="songs-explorer__count">
         Showing {visible.length} of {songs.length} songs
@@ -268,6 +405,7 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
                   artAlt={alt}
                   artOwn={ownArt}
                   isOpen={isOpen}
+                  instantClose={switchClosingIdRef.current === s.id}
                   navigable={canClickThrough(s)}
                   onToggle={() => toggleRow(s.id)}
                 />
@@ -280,6 +418,73 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
   );
 }
 
+// iOS-style drum spinner ported from Lyric Transformer's Sound Lock wheel:
+// a scroll-snap viewport with spacer rows so the centered item is the
+// selection. onScroll rounds scrollTop/itemHeight to the active index.
+function TopicWheel({
+  items,
+  selectedIndex,
+  onSelect,
+}: {
+  items: { id: string | null; label: string }[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const itemHeight = 40;
+  const visibleItems = 5;
+  // Skip the smooth-scroll effect when the index change came from the user
+  // scrolling (otherwise we fight their gesture).
+  const suppressScrollRef = useRef(false);
+
+  useEffect(() => {
+    if (!listRef.current || suppressScrollRef.current) {
+      suppressScrollRef.current = false;
+      return;
+    }
+    listRef.current.scrollTo({ top: selectedIndex * itemHeight, behavior: "smooth" });
+  }, [selectedIndex]);
+
+  const handleScroll = useCallback(() => {
+    if (!listRef.current) return;
+    const idx = Math.round(listRef.current.scrollTop / itemHeight);
+    const clamped = Math.max(0, Math.min(items.length - 1, idx));
+    if (clamped !== selectedIndex) {
+      suppressScrollRef.current = true;
+      onSelect(clamped);
+    }
+  }, [items.length, selectedIndex, onSelect]);
+
+  return (
+    <div className="songs-explorer__wheel">
+      <div
+        className="songs-explorer__wheel-viewport"
+        ref={listRef}
+        onScroll={handleScroll}
+        style={{ height: visibleItems * itemHeight }}
+        role="listbox"
+        aria-label="Topic"
+      >
+        <div style={{ height: itemHeight * 2 }} aria-hidden="true" />
+        {items.map((it, i) => (
+          <button
+            type="button"
+            key={it.id ?? "__all"}
+            role="option"
+            aria-selected={i === selectedIndex}
+            className={`songs-explorer__wheel-item${i === selectedIndex ? " is-active" : ""}`}
+            style={{ height: itemHeight }}
+            onClick={() => onSelect(i)}
+          >
+            {it.label}
+          </button>
+        ))}
+        <div style={{ height: itemHeight * 2 }} aria-hidden="true" />
+      </div>
+    </div>
+  );
+}
+
 function SongRow({
   song,
   href,
@@ -287,6 +492,7 @@ function SongRow({
   artAlt,
   artOwn,
   isOpen,
+  instantClose,
   navigable,
   onToggle,
 }: {
@@ -296,6 +502,7 @@ function SongRow({
   artAlt: string;
   artOwn: boolean;
   isOpen: boolean;
+  instantClose: boolean;
   navigable: boolean;
   onToggle: () => void;
 }) {
@@ -305,6 +512,28 @@ function SongRow({
   // Forthcoming: no effective release date (on a not-yet-dated release) and not
   // a single — flagged with colored row cells + a glowing badge.
   const forthcoming = songDate(song) === null && !song.is_single;
+
+  // Expand/collapse animation: keep the drawer mounted through a "closing"
+  // phase so the exit (digital scan-out) can play before it unmounts.
+  const [drawerPhase, setDrawerPhase] = useState<"closed" | "open" | "closing">(
+    isOpen ? "open" : "closed"
+  );
+  useEffect(() => {
+    if (isOpen) setDrawerPhase("open");
+    // Switching to another song: drop instantly so the layout settles in one
+    // step (a delayed unmount would jump the page). Plain close still animates.
+    else if (instantClose) setDrawerPhase("closed");
+    else setDrawerPhase((p) => (p === "closed" ? "closed" : "closing"));
+  }, [isOpen, instantClose]);
+  // Finalize the close on a timer (animation-duration + buffer) — reliable even
+  // under prefers-reduced-motion, where animationend never fires.
+  useEffect(() => {
+    if (drawerPhase !== "closing") return;
+    const t = setTimeout(() => setDrawerPhase("closed"), 240);
+    return () => clearTimeout(t);
+  }, [drawerPhase]);
+  const showDrawer = drawerPhase !== "closed";
+
   return (
     <>
       <tr
@@ -386,7 +615,7 @@ function SongRow({
         </td>
       </tr>
 
-      {isOpen && (() => {
+      {showDrawer && (() => {
         const trimmedSecondary = song.secondary_keyphrases.filter((k) => k.trim());
         const trimmedEntities = song.entity_tags.filter((e) => e.trim());
         const halfPaa = halfArray(song.paa_pairs);
@@ -396,7 +625,9 @@ function SongRow({
         return (
           <tr className="songs-explorer__drawer-row">
             <td colSpan={5} className="songs-explorer__drawer-cell">
-              <div className="songs-explorer__drawer">
+              <div
+                className={`songs-explorer__drawer ${drawerPhase === "closing" ? "is-closing" : "is-opening"}`}
+              >
                 <div className="songs-explorer__drawer-art-col">
                   {artSrc ? (
                     <Image
@@ -414,6 +645,19 @@ function SongRow({
                 </div>
 
                 <div className="songs-explorer__drawer-main">
+                  {/* Topics live in the collapsed row on desktop; on mobile that
+                      row hides them, so surface them here (mobile-only via CSS). */}
+                  {song.topics.length > 0 && (
+                    <section className="songs-explorer__drawer-section songs-explorer__drawer-topics">
+                      <h3 className="songs-explorer__drawer-label">Topics</h3>
+                      <div className="songs-explorer__drawer-topic-chips">
+                        {song.topics.map((t) => (
+                          <span key={t.id} className="songs-explorer__card-topic">{t.label}</span>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
                   {song.song_summary && (
                     <section className="songs-explorer__drawer-section">
                       <h3 className="songs-explorer__drawer-label">Summary</h3>
