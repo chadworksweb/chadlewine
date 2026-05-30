@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies, headers } from "next/headers";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "@/styles/global.css";
@@ -7,6 +8,8 @@ import { CartProvider, CartUI } from "@/components/Cart";
 import { PlayerProvider } from "@/components/PlayerContext";
 import { StickyPlayer } from "@/components/StickyPlayer";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { ConsentProvider } from "@/components/ConsentProvider";
+import { CONSENT_COOKIE, parseConsent, defaultConsentForCountry } from "@/lib/consent";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chadlewine.com"),
@@ -42,25 +45,42 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Consent bootstrap: set window.__CL_CONSENT__ BEFORE hydration so every
+  // analytics surface (PostHog, GA, custom analytics, song-play recorder) reads
+  // the correct state on first paint. Cookie = the visitor's saved choice;
+  // otherwise the geo default (EU/UK/EEA -> opt-in/off, elsewhere -> opt-out/on).
+  // Reading cookies()+headers() makes rendering dynamic; the (public) layout
+  // already reads cookies(), so public routes are dynamic regardless.
+  const [cookieStore, hdrs] = await Promise.all([cookies(), headers()]);
+  const raw = cookieStore.get(CONSENT_COOKIE)?.value || "";
+  const decided = !!raw;
+  const c = decided
+    ? parseConsent(raw)
+    : defaultConsentForCountry(hdrs.get("x-vercel-ip-country"));
+  const bootstrap = `window.__CL_CONSENT__={decided:${decided},functional:${c.functional},analytics:${c.analytics},marketing:${c.marketing}};`;
+
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <body>
+        <script dangerouslySetInnerHTML={{ __html: bootstrap }} />
         <SiteJsonLd />
-        <CartProvider>
-          <PlayerProvider>
-            {children}
-            <StickyPlayer />
-          </PlayerProvider>
-          <CartUI />
-        </CartProvider>
-        <Analytics />
-        <SpeedInsights />
-        <GoogleAnalytics />
+        <ConsentProvider>
+          <CartProvider>
+            <PlayerProvider>
+              {children}
+              <StickyPlayer />
+            </PlayerProvider>
+            <CartUI />
+          </CartProvider>
+          <Analytics />
+          <SpeedInsights />
+          <GoogleAnalytics />
+        </ConsentProvider>
       </body>
     </html>
   );

@@ -254,9 +254,11 @@ export default function TermsPage() {
         delivery), Printify (physical-product fulfillment), Supabase
         (authentication and database hosting), Bunny.net (content
         delivery and media hosting), Cloudflare Turnstile (bot
-        protection), and PostHog (product analytics and session replay,
-        served first-party with data stored in the United States). When
-        you use the Site, certain information is
+        protection), Vercel (hosting plus cookieless web analytics),
+        PostHog (product analytics and session replay, served first-party
+        with data stored in the United States), and Google Analytics
+        (aggregate usage analytics). When you use the Site, certain
+        information is
         shared with these providers as necessary to deliver the service
         (for example, your email and order details with Stripe and
         Printify; your shipping address with Printify; your email and

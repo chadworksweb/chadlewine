@@ -514,6 +514,52 @@ export async function removeTag(audienceId: string, tag: string): Promise<void> 
   await emitEvent(supabase, audienceId, "tag_removed", { tag });
 }
 
+// Cookie-consent persistence for signed-in fans. The cl_cookie_consent cookie
+// is the runtime source of truth; this mirrors the choice onto the account so
+// it follows the fan across devices. NULL columns = not yet chosen.
+export async function setConsent(
+  audienceId: string,
+  consent: { functional: boolean; analytics: boolean; marketing: boolean },
+): Promise<void> {
+  const supabase = createAdminClient();
+  const now = new Date().toISOString();
+  await supabase
+    .from("audience")
+    .update({
+      consent_functional: consent.functional,
+      consent_analytics: consent.analytics,
+      consent_marketing: consent.marketing,
+      consent_updated_at: now,
+      updated_at: now,
+    })
+    .eq("id", audienceId);
+  await emitEvent(supabase, audienceId, "consent_updated", {
+    functional: consent.functional,
+    analytics: consent.analytics,
+    marketing: consent.marketing,
+    via: "account",
+  });
+}
+
+export async function getConsent(
+  audienceId: string,
+): Promise<{ functional: boolean; analytics: boolean; marketing: boolean } | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("audience")
+    .select("consent_analytics, consent_functional, consent_marketing")
+    .eq("id", audienceId)
+    .maybeSingle();
+  if (!data || data.consent_analytics === null || data.consent_analytics === undefined) {
+    return null; // not yet chosen on this account
+  }
+  return {
+    functional: !!data.consent_functional,
+    analytics: !!data.consent_analytics,
+    marketing: !!data.consent_marketing,
+  };
+}
+
 export async function setMailingAddress(
   audienceId: string,
   address: MailingAddress

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
+import { analyticsAllowed } from "@/lib/consent";
 
 interface AnalyticsEvent {
   event_type: string;
@@ -15,16 +16,6 @@ interface AnalyticsEvent {
 
 const BATCH_INTERVAL = 10_000; // 10 seconds
 const MAX_BATCH = 20;
-const SKIP_KEY = "cl_skip_analytics";
-
-function isSkipped(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return localStorage.getItem(SKIP_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 function randomId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -80,7 +71,7 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
 
   const track = useCallback(
     (eventType: string, metadata?: Record<string, unknown>) => {
-      if (isSkipped()) return;
+      if (!analyticsAllowed()) return;
       const sessionId = getSessionId();
       if (!sessionId) return;
       const ids = getEntityIds();

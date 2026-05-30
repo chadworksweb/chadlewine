@@ -3,6 +3,7 @@
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useEffect } from "react";
+import { analyticsAllowed } from "@/lib/consent";
 
 const SKIP_KEY = "cl_skip_analytics";
 
@@ -14,15 +15,6 @@ function applyUrlParamOverride() {
     if (param === "1") localStorage.setItem(SKIP_KEY, "1");
     else if (param === "0") localStorage.removeItem(SKIP_KEY);
   } catch {}
-}
-
-function isSkipped(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return localStorage.getItem(SKIP_KEY) === "1";
-  } catch {
-    return false;
-  }
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
@@ -50,7 +42,9 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     const isProd = host === "chadlewine.com" || host === "www.chadlewine.com";
     if (!isProd) return;
 
-    const skip = isSkipped();
+    // Gate on consent (+ admin opt-out): analyticsAllowed() is false when the
+    // visitor hasn't granted analytics consent OR this is an admin/test browser.
+    const skip = !analyticsAllowed();
 
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
       // First-party reverse proxy (ad-blocker resistant). /ingest/* is
@@ -82,11 +76,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 
     // Identify only non-admin users. Admin identification happens above and
     // triggers opt-out instead.
-    if (!isSkipped()) {
+    if (analyticsAllowed()) {
       fetch("/api/auth/me", { credentials: "include" })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
-          if (data?.user?.id && data?.user?.role !== "admin" && !isSkipped()) {
+          if (data?.user?.id && data?.user?.role !== "admin" && analyticsAllowed()) {
             posthog.identify(data.user.id, {
               email: data.user.email,
               role: data.user.role,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase-browser";
+import { useConsent } from "@/components/ConsentProvider";
 
 interface DownloadItem {
   purchase_id: string;
@@ -99,6 +100,7 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressMsg, setAddressMsg] = useState("");
   const [prefBusy, setPrefBusy] = useState(false);
+  const { consent, update: updateConsent, openManager } = useConsent();
 
   const [newEmail, setNewEmail] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
@@ -421,6 +423,40 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
                 ? "Unsubscribe"
                 : "Subscribe to updates"}
           </button>
+        </section>
+
+        <section className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Privacy and cookies</h2>
+          <p className="account-dashboard__hint">
+            Analytics (PostHog, Google Analytics, and first-party metrics,
+            including masked session replay):{" "}
+            <strong>{consent.analytics ? "On" : "Off"}</strong>
+          </p>
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={() =>
+              updateConsent({
+                essential: 1,
+                functional: consent.analytics ? 0 : 1,
+                analytics: consent.analytics ? 0 : 1,
+                marketing: 0,
+              })
+            }
+          >
+            {consent.analytics ? "Turn analytics off" : "Turn analytics on"}
+          </button>
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={openManager}
+          >
+            Manage cookie preferences
+          </button>
+          <p className="account-dashboard__hint">
+            Saved to your account and applied on every device you sign in on.
+            Toggling reloads the page so trackers start or stop cleanly.
+          </p>
         </section>
         </div>
 

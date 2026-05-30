@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
+import { analyticsAllowed } from "@/lib/consent";
 
 const GA_ID = "G-9EE3EK7X3R";
 
@@ -15,27 +16,20 @@ function isAdminPath(pathname: string): boolean {
   );
 }
 
-// Shared opt-out with first-party analytics: set localStorage.cl_skip_analytics
-// to "1" on the admin's own machines to mute all GA hits from that browser.
-function isSkipped(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return localStorage.getItem("cl_skip_analytics") === "1";
-  } catch {
-    return false;
-  }
-}
-
 export function GoogleAnalytics() {
   const pathname = usePathname();
-  const [skipDevice, setSkipDevice] = useState(false);
+  const [allowed, setAllowed] = useState(false);
 
-  // localStorage is client-only; resolve it after mount to avoid hydration drift.
+  // Gate on analytics consent (analyticsAllowed() also covers the admin/test
+  // opt-out), plus admin paths. Resolve after mount since window.__CL_CONSENT__
+  // and localStorage are client-only; starting false keeps SSR/first paint
+  // script-free until consent is confirmed, and re-checking on pathname keeps
+  // admin routes excluded.
   useEffect(() => {
-    setSkipDevice(isSkipped());
-  }, []);
+    setAllowed(analyticsAllowed() && !isAdminPath(pathname));
+  }, [pathname]);
 
-  if (skipDevice || isAdminPath(pathname)) return null;
+  if (!allowed) return null;
 
   return (
     <>

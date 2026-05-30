@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ManageCookiesButton } from "@/components/ManageCookiesButton";
 
 export const metadata: Metadata = {
   title: "Privacy Policy - Chad Lewine",
@@ -96,16 +97,20 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         <strong>Product analytics and session replay.</strong> We use
-        PostHog to understand how the Site is used: pages viewed, clicks
-        and other interactions, device and browser type, and general
-        geographic region. PostHog also records session replays
-        (playbacks of on-page activity) with text and form inputs masked,
-        which we use to debug and improve the experience. PostHog is
-        served first-party from our own domain and may set cookies. For
-        signed-out visitors this data is not linked to your identity; if
-        you sign in, we associate it with your account. PostHog stores
-        this data in the United States, and we have configured it to
-        honor your browser&rsquo;s Do Not Track signal.
+        PostHog, Google Analytics, and Vercel Web Analytics to understand
+        how the Site is used: pages viewed, clicks and other interactions,
+        device and browser type, and general geographic region. Google
+        Analytics sets _ga cookies; PostHog is served first-party from our
+        own domain and may set cookies; Vercel Web Analytics is cookieless.
+        PostHog also records session replays (playbacks of on-page
+        activity) with text and form inputs masked, which we use to debug
+        and improve the experience. For signed-out visitors this data is
+        not linked to your identity; if you sign in, we associate it with
+        your account. We ask for your consent before loading analytics and
+        apply it by region; you can change it anytime (see &ldquo;Your
+        Choices&rdquo; below), and PostHog honors your browser&rsquo;s Do
+        Not Track signal. PostHog and Google Analytics store this data in
+        the United States.
       </p>
 
       <h2>2. How We Use Information</h2>
@@ -169,13 +174,19 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         <strong>Vercel</strong> &mdash; web hosting and application
-        runtime.
+        runtime, plus cookieless Web Analytics and Speed Insights
+        (aggregate page and performance metrics; no cross-site tracking).
       </p>
       <p>
         <strong>PostHog</strong> &mdash; product analytics and session
         replay, served first-party from our domain. PostHog receives
         usage and interaction data and masked session recordings, stored
         in the United States.
+      </p>
+      <p>
+        <strong>Google Analytics (Google LLC)</strong> &mdash; aggregate
+        usage analytics. Receives page-view and interaction events and sets
+        _ga cookies; data stored in the United States.
       </p>
       <p>
         We may also share information when required by law (for example,
@@ -231,9 +242,15 @@ export default function PrivacyPolicyPage() {
         retained as described in section 5.
       </p>
       <p>
-        <strong>Analytics opt-out.</strong> PostHog honors your
-        browser&rsquo;s Do Not Track setting: enable it and we collect no
-        analytics or session-replay data from you.
+        <strong>Analytics and cookie choices.</strong> We ask for your
+        consent before loading analytics (PostHog, Google Analytics, and
+        Vercel) and apply it by region &mdash; opt-in in the EU, UK, and
+        EEA; on by default with an easy opt-out elsewhere. You can change
+        it anytime via{" "}
+        <ManageCookiesButton /> or the Privacy and cookies panel on{" "}
+        <Link href="/account">your account</Link> (your choice follows you
+        across devices when signed in). PostHog also honors your
+        browser&rsquo;s Do Not Track signal.
       </p>
       <p>
         <strong>California residents (CCPA/CPRA).</strong> If you are a

@@ -11,6 +11,7 @@ import {
 } from "react";
 import posthog from "posthog-js";
 import { PlayLimitModal } from "@/components/PlayLimitModal";
+import { analyticsAllowed } from "@/lib/consent";
 
 export type PlaybackMode = "preview" | "full";
 
@@ -178,11 +179,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     sessionRef.current = null;
     if (!s || s.secondsPlayed < PLAY_MIN_SECONDS) return;
 
-    if (typeof window !== "undefined") {
-      try {
-        if (localStorage.getItem("cl_skip_analytics") === "1") return;
-      } catch {}
-    }
+    // Analytics write (song_play_events + PostHog) is gated by consent (+ admin
+    // opt-out). NOTE: the access-control play GATE below (checkGate) stays
+    // admin-only and is NOT consent-gated -- declining analytics must not grant
+    // unlimited free plays.
+    if (!analyticsAllowed()) return;
 
     const secondsPlayed = Math.floor(s.secondsPlayed);
 
