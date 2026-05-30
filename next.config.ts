@@ -3,6 +3,9 @@ import path from "node:path";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Don't 308 trailing-slash variants -- PostHog hits /ingest/e/ etc. and the
+  // redirect would break the proxied POSTs.
+  skipTrailingSlashRedirect: true,
   // A stray package-lock.json in C:\Users\chad made Next infer the home folder
   // as the workspace root, so its file tracer/watcher crawled all of Dropbox,
   // Local Sites, OneDrive, AppData -- grinding dev to a halt. Pin the root to
@@ -28,6 +31,22 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images-api.printify.com" },
       { protocol: "https", hostname: "images.printify.com" },
     ],
+  },
+  async rewrites() {
+    // First-party PostHog proxy (ad-blocker resistant). /ingest/static/* serves
+    // the JS bundle + session-replay recorder from PostHog's assets host;
+    // /ingest/* carries events, flags, and replay data to the ingestion host.
+    // proxy.ts excludes /ingest from its matcher so these add no middleware cost.
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://us.i.posthog.com/:path*",
+      },
+    ];
   },
   async redirects() {
     // Pattern-based 301s for the albums -> releases entity rename. The
