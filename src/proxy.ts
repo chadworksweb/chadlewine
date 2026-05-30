@@ -25,9 +25,10 @@ async function checkAdmin(userId: string): Promise<boolean> {
 // Cookie presence != auth. Validate the JWT against Supabase AND confirm
 // the user is in the `admins` table.
 //
-// When the access token is stale, attempt a refresh-token exchange (only
-// when running off-Vercel, i.e. on local). Refreshed tokens are returned
-// so the proxy can write them back as cookies on the response.
+// When the access token is stale, attempt a refresh-token exchange (in every
+// environment when allowRefresh is set). Refreshed tokens are returned so the
+// proxy can write them back as cookies on the response, sliding the 30-day
+// window forward on each admin request.
 async function authAdmin(
   accessToken: string | undefined,
   refreshToken: string | undefined,
@@ -85,9 +86,11 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const accessToken = request.cookies.get("sb-access-token")?.value;
     const refreshToken = request.cookies.get("sb-refresh-token")?.value;
-    // Refresh-on-stale only when running off-Vercel (local machine). On
-    // Vercel deployments the 1h access cookie expiry is enforced as before.
-    const allowRefresh = !process.env.VERCEL;
+    // Refresh-on-stale everywhere (local AND Vercel). The 1h access cookie is
+    // meant to be silently renewed from the 30-day refresh cookie; gating this
+    // to local-only is what made "stay logged in 30 days" fail in production --
+    // admins were hard-logged-out the moment the access token expired.
+    const allowRefresh = true;
     const auth = await authAdmin(accessToken, refreshToken, allowRefresh);
     if (!auth.ok) {
       if (pathname.startsWith("/api/")) {
@@ -140,6 +143,8 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Run on everything except static files + Next internals + preview itself
-    "/((?!_next/|preview|api/stripe-webhook|.*\\.).*)",
+    // + the PostHog /ingest proxy (rewritten in next.config; no auth/redirect
+    // logic applies, and skipping it avoids a redirect-table lookup per event).
+    "/((?!_next/|preview|ingest/|api/stripe-webhook|.*\\.).*)",
   ],
 };
