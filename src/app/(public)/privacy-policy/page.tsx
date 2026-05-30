@@ -12,7 +12,7 @@ export default function PrivacyPolicyPage() {
     <main className="page-static prose" style={{ paddingBlock: "var(--space-2xl)" }}>
       <h1>Privacy Policy</h1>
       <p>
-        <em>Last updated: 2026-05-15.</em>
+        <em>Last updated: 2026-05-30.</em>
       </p>
 
       <p>
@@ -77,9 +77,21 @@ export default function PrivacyPolicyPage() {
         subsequent requests can be identified as yours. Cloudflare
         Turnstile may set its own short-lived tokens to verify that form
         submissions are from a human. We do not use third-party
-        advertising cookies, cross-site tracking pixels, or analytics
-        platforms such as Google Analytics, Meta Pixel, Mixpanel, or
-        Segment.
+        advertising cookies, cross-site tracking pixels, or
+        behavioral-advertising networks such as Meta Pixel.
+      </p>
+      <p>
+        <strong>Product analytics and session replay.</strong> We use
+        PostHog to understand how the Site is used: pages viewed, clicks
+        and other interactions, device and browser type, and general
+        geographic region. PostHog also records session replays
+        (playbacks of on-page activity) with text and form inputs masked,
+        which we use to debug and improve the experience. PostHog is
+        served first-party from our own domain and may set cookies. For
+        signed-out visitors this data is not linked to your identity; if
+        you sign in, we associate it with your account. PostHog stores
+        this data in the United States, and we have configured it to
+        honor your browser&rsquo;s Do Not Track signal.
       </p>
 
       <h2>2. How We Use Information</h2>
@@ -146,6 +158,12 @@ export default function PrivacyPolicyPage() {
         runtime.
       </p>
       <p>
+        <strong>PostHog</strong> &mdash; product analytics and session
+        replay, served first-party from our domain. PostHog receives
+        usage and interaction data and masked session recordings, stored
+        in the United States.
+      </p>
+      <p>
         We may also share information when required by law (for example,
         in response to a subpoena, court order, or other legal process),
         to protect our rights or the safety of others, or in connection
@@ -197,6 +215,11 @@ export default function PrivacyPolicyPage() {
         account deletion. We will remove your authentication record
         and stop marketing to you. Order, financial, and audit data are
         retained as described in section 5.
+      </p>
+      <p>
+        <strong>Analytics opt-out.</strong> PostHog honors your
+        browser&rsquo;s Do Not Track setting: enable it and we collect no
+        analytics or session-replay data from you.
       </p>
       <p>
         <strong>California residents (CCPA/CPRA).</strong> If you are a
@@ -261,11 +284,11 @@ export default function PrivacyPolicyPage() {
 
       <h2>10. Do Not Track</h2>
       <p>
-        The Site does not respond to browser Do Not Track signals
-        because there is no industry-standard interpretation. We do not
-        use cross-site tracking and do not sell or share personal
-        information for behavioral advertising, regardless of any DNT
-        setting.
+        Our analytics provider (PostHog) honors your browser&rsquo;s Do
+        Not Track signal: with Do Not Track enabled, no analytics or
+        session-replay data is collected from you. We do not use
+        cross-site tracking and do not sell or share personal information
+        for behavioral advertising, regardless of any DNT setting.
       </p>
 
       <h2>11. Changes to This Policy</h2>

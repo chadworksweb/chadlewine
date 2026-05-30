@@ -58,6 +58,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       // at the real app.
       api_host: "/ingest",
       ui_host: "https://us.posthog.com",
+      respect_dnt: true,
       person_profiles: "identified_only",
       capture_pageview: true,
       capture_pageleave: true,
