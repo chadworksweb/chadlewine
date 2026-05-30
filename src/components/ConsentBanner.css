@@ -7,13 +7,19 @@
   right: 0;
   bottom: 0;
   z-index: 1000;
-  background: var(--bg-glass, rgba(18, 20, 28, 0.92));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border-subtle, rgba(139, 156, 247, 0.22));
-  color: var(--text-primary, #e8e8ef);
+  /* Opaque LCD / dot-matrix backdrop, echoing the Pillar Songs pixel shader:
+     solid dark base + a faint accent pixel grid + scanlines + a cool backlight
+     glow rising from the bottom, with a scribed accent rim along the top. */
+  background-color: #07070d;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.40) 0, rgba(0, 0, 0, 0.40) 1px, transparent 1px, transparent 3px),
+    repeating-linear-gradient(90deg, rgba(139, 156, 247, 0.11) 0, rgba(139, 156, 247, 0.11) 1px, transparent 1px, transparent 6px),
+    repeating-linear-gradient(0deg, rgba(139, 156, 247, 0.07) 0, rgba(139, 156, 247, 0.07) 1px, transparent 1px, transparent 6px),
+    radial-gradient(150% 130% at 50% 150%, rgba(64, 96, 255, 0.22), transparent 62%);
+  border-top: 1px solid var(--text-accent, #8b9cf7);
+  color: var(--text-primary, #e4e4ec);
   font-family: var(--font-ui, system-ui, sans-serif);
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(139, 156, 247, 0.3);
   animation: cl-consent-rise 0.32s var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
@@ -32,8 +38,22 @@
   padding: var(--space-md, 0.9rem) var(--space-lg, 1.25rem);
 }
 
+.cl-consent__label {
+  flex-shrink: 0;
+  align-self: center;
+  font-family: var(--font-mono, "SF Mono", monospace);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-accent, #8b9cf7);
+  background: #000;
+  padding: 0.28rem 0.6rem;
+  white-space: nowrap;
+}
+
 .cl-consent__text {
-  flex: 1 1 320px;
+  flex: 1 1 280px;
   font-size: 0.86rem;
   line-height: 1.5;
   color: var(--text-secondary, #b8b8c6);

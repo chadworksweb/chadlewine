@@ -37,6 +37,7 @@ export function ConsentBanner({
   return (
     <div className="cl-consent" role="dialog" aria-label="Cookie preferences" aria-live="polite">
       <div className="cl-consent__bar">
+        <span className="cl-consent__label" aria-hidden="true">{"░▒▓ cookies ▓▒░"}</span>
         <div className="cl-consent__text">
           We use cookies for essential site functions and (with your OK) analytics
           to understand how the site is used. <Link href="/privacy-policy">Learn more</Link>.
