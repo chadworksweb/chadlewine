@@ -6277,6 +6277,111 @@ html {
   color: var(--text-accent);
   margin: 6px 0 0 0;
 }
+
+/* Notification category preferences — shared toggle rows used by the account
+   dashboard card and the public /preferences page. */
+.account-dashboard__prefs {
+  list-style: none;
+  margin: var(--space-md) 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.account-dashboard__pref {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.account-dashboard__pref:first-child { border-top: 0; }
+.account-dashboard__pref-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.account-dashboard__pref-label {
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-dashboard__pref-desc {
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: rgba(228, 228, 236, 0.6);
+  line-height: 1.5;
+}
+.account-dashboard__pref-badge {
+  font-family: var(--font-ui);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text-accent);
+  border: 1px solid var(--text-accent);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.account-dashboard__toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 24px;
+  display: inline-block;
+}
+.account-dashboard__toggle input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.account-dashboard__toggle-slider {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: #2a2a3a;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  transition: background var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+.account-dashboard__toggle-slider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: #c8c8d4;
+  border-radius: 50%;
+  transition: transform var(--duration-fast) var(--ease-out),
+              background var(--duration-fast) var(--ease-out);
+}
+.account-dashboard__toggle input:checked + .account-dashboard__toggle-slider {
+  background: var(--text-accent);
+  border-color: var(--text-accent);
+}
+.account-dashboard__toggle input:checked + .account-dashboard__toggle-slider::before {
+  transform: translate(18px, -50%);
+  background: var(--bg-deep);
+}
+.account-dashboard__toggle input:disabled { cursor: not-allowed; }
+.account-dashboard__toggle input:disabled:not(:checked) + .account-dashboard__toggle-slider {
+  opacity: 0.4;
+}
+.account-dashboard__toggle input:disabled:checked + .account-dashboard__toggle-slider {
+  opacity: 0.7;
+}
 .account-dashboard__stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -6380,14 +6485,11 @@ html {
 
 /* Unsubscribe public page */
 .unsubscribe-page {
-  min-height: 60vh;
-  display: grid;
-  place-items: center;
-  padding-block: var(--space-3xl);
+  /* Full site width via the page-static content rail -- never a centered
+     narrow column (see AGENTS.md layout rule). */
+  padding-block: var(--space-xl);
 }
 .unsubscribe-page__inner {
-  max-width: 540px;
-  text-align: center;
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -6418,7 +6520,7 @@ html {
   border-top: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-sm);
 }
 .unsubscribe-page__resub-line {
@@ -6430,17 +6532,17 @@ html {
 .unsubscribe-page__resub-btn {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
-  color: var(--text-accent);
-  background: transparent;
+  font-weight: 600;
+  color: var(--bg-deep);
+  background: var(--text-accent);
   border: 1px solid var(--text-accent);
   border-radius: 999px;
   padding: 10px 20px;
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  transition: filter var(--duration-fast) var(--ease-out);
 }
 .unsubscribe-page__resub-btn:hover:not(:disabled) {
-  background: var(--text-accent);
-  color: var(--bg-deep);
+  filter: brightness(1.1);
 }
 .unsubscribe-page__resub-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -6449,6 +6551,9 @@ html {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  /* Cap the form fields at a sensible measure -- this is a form width, not a
+     page wrapper, so it doesn't violate the full-width page rule. */
+  max-width: 480px;
 }
 .unsubscribe-page__input,
 .unsubscribe-page__textarea {

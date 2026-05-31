@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { getResend, siteOrigin } from "@/lib/resend";
 import { renderCampaignEmail } from "@/lib/email-template";
 import { renderEmail as renderBlockEmail, type EmailBlock, type GlobalsRow } from "@/lib/email-blocks";
+import { categoryColumn } from "@/lib/notification-categories";
 
 /** Audience filter shape. Empty filter = all active subscribers.
    - tags_all: must have every listed tag (intersection)
@@ -80,7 +81,8 @@ async function audienceIdsWithAnyTag(
 
 export async function fetchAudience(
   supabase: ReturnType<typeof createAdminClient>,
-  filter: AudienceFilter
+  filter: AudienceFilter,
+  category?: string | null
 ): Promise<AudienceRow[]> {
   // Base set: active, non-unsubscribed audience rows.
   let query = supabase
@@ -88,6 +90,14 @@ export async function fetchAudience(
     .select("id, email, unsubscribe_token, engagement_score, first_name")
     .eq("subscriber_status", "active")
     .is("unsubscribed_at", null);
+
+  // Category gating: an optional category skips rows that opted out of it.
+  // The required "general" category (and any unknown/empty value) maps to no
+  // column, so it reaches every active subscriber.
+  const catCol = category ? categoryColumn(category) : null;
+  if (catCol) {
+    query = query.eq(catCol, true);
+  }
 
   if (filter.engagement_in && filter.engagement_in.length > 0) {
     query = query.in("engagement_score", filter.engagement_in);
@@ -117,9 +127,10 @@ export async function fetchAudience(
 
 export async function audienceCount(
   supabase: ReturnType<typeof createAdminClient>,
-  filter: AudienceFilter
+  filter: AudienceFilter,
+  category?: string | null
 ): Promise<number> {
-  const rows = await fetchAudience(supabase, filter);
+  const rows = await fetchAudience(supabase, filter, category);
   return rows.length;
 }
 
@@ -133,6 +144,7 @@ interface CampaignRow {
   from_email: string;
   reply_to: string | null;
   audience_filter: AudienceFilter;
+  category: string | null;
   status: string;
 }
 
@@ -156,6 +168,12 @@ export function unsubscribeUrl(token: string): string {
   return `${siteOrigin()}/unsubscribe?token=${encodeURIComponent(token)}`;
 }
 
+/** Build the manage-preferences URL. Reuses the unsubscribe token -- the
+   /preferences page resolves it to the audience row's category toggles. */
+export function preferencesUrl(token: string): string {
+  return `${siteOrigin()}/preferences?token=${encodeURIComponent(token)}`;
+}
+
 /** Resend doesn't natively interpolate per-recipient links across a batch
    send, so we render each email individually and send through `emails.send`
    in parallel within a chunk. This is still well within free-tier rate
@@ -173,6 +191,7 @@ async function sendChunk(
     chunk.map(async (row) => {
       try {
         const unsub = unsubscribeUrl(row.unsubscribe_token || "");
+        const prefs = preferencesUrl(row.unsubscribe_token || "");
         const { html, text } = useBlocks
           ? renderBlockEmail(
               {
@@ -187,6 +206,7 @@ async function sendChunk(
               {
                 first_name: row.first_name ?? null,
                 unsubscribe_url: unsub,
+                preferences_url: prefs,
                 postal_address: POSTAL_ADDRESS,
               },
             )
@@ -195,6 +215,7 @@ async function sendChunk(
               preheader: campaign.preheader,
               bodyHtml: campaign.body_html,
               unsubscribeUrl: unsub,
+              preferencesUrl: prefs,
               fromName: campaign.from_name,
               postalAddress: POSTAL_ADDRESS,
             });
@@ -264,7 +285,7 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
     .eq("id", campaignId)
     .eq("status", "draft")
     .select(
-      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, status"
+      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, category, status"
     )
     .single();
 
@@ -276,7 +297,7 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
   const campaign = locked as CampaignRow;
 
   // 2. Pull the audience + load shared header/footer globals once.
-  const audience = await fetchAudience(supabase, campaign.audience_filter);
+  const audience = await fetchAudience(supabase, campaign.audience_filter, campaign.category);
   const globals = await loadGlobals(supabase);
   if (audience.length === 0) {
     await supabase
@@ -353,7 +374,7 @@ export async function resendCampaignFailures(
   const { data: campaign, error: cErr } = await supabase
     .from("campaigns")
     .select(
-      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, status",
+      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, category, status",
     )
     .eq("id", campaignId)
     .single();
@@ -373,10 +394,12 @@ export async function resendCampaignFailures(
 
   const globals = await loadGlobals(supabase);
   // Reuse the audience filter to recover first_name + unsubscribe_token, then
-  // narrow to the failed recipients (skips anyone since unsubscribed).
+  // narrow to the failed recipients (skips anyone since unsubscribed or newly
+  // opted out of this campaign's category).
   const audience = await fetchAudience(
     supabase,
     (campaign as CampaignRow).audience_filter,
+    (campaign as CampaignRow).category,
   );
   const targets = audience.filter((a) => failedIds.has(a.id));
   if (targets.length === 0) return { sent: 0, failed: 0 };
@@ -449,6 +472,7 @@ export async function sendTest(
   const resend = getResend();
   const from = `${campaign.from_name} <${campaign.from_email}>`;
   const unsub = `${siteOrigin()}/unsubscribe?token=preview-test`;
+  const prefs = `${siteOrigin()}/preferences?token=preview-test`;
 
   const useBlocks =
     Array.isArray(campaign.body_blocks) && (campaign.body_blocks as EmailBlock[]).length > 0;
@@ -468,6 +492,7 @@ export async function sendTest(
         {
           first_name: null,
           unsubscribe_url: unsub,
+          preferences_url: prefs,
           postal_address: POSTAL_ADDRESS,
         },
       )
@@ -476,6 +501,7 @@ export async function sendTest(
         preheader: campaign.preheader,
         bodyHtml: campaign.body_html,
         unsubscribeUrl: unsub,
+        preferencesUrl: prefs,
         fromName: campaign.from_name,
         postalAddress: POSTAL_ADDRESS,
       });

@@ -55,9 +55,6 @@ export function UnsubscribeClient({ outcome, token }: Props) {
         {outcome === "ok" && resubState !== "done" && (
           <>
             <h1 className="unsubscribe-page__title">You&rsquo;re unsubscribed.</h1>
-            <p className="unsubscribe-page__body">
-              No more emails from this list. Take care.
-            </p>
             <div className="unsubscribe-page__resub">
               <p className="unsubscribe-page__resub-line">
                 Unsubscribed by mistake?
