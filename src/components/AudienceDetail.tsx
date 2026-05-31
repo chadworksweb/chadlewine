@@ -103,6 +103,7 @@ const EVENT_LABELS: Record<string, string> = {
   note_added: "Note updated",
   mailing_address_updated: "Mailing address updated",
   profile_updated: "Profile updated",
+  notification_prefs_updated: "Email preferences updated",
   account_created: "Account created",
   account_linked: "Account linked",
   coupon_claimed: "Coupon claimed",
