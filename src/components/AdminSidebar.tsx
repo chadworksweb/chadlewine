@@ -53,7 +53,14 @@ const adminNav: NavItem[] = [
       { href: "/admin/cl-stream", label: "Curation — CL Stream" },
     ],
   },
-  { href: "/admin/inquiries", label: "Inquiries" },
+  {
+    href: "/admin/inquiries",
+    label: "Inquiries",
+    children: [
+      { href: "/admin/inquiries", label: "Songwriting" },
+      { href: "/admin/booking-inquiries", label: "Bookings" },
+    ],
+  },
   { href: "/admin/art", label: "Art" },
   {
     href: "/admin/merch",

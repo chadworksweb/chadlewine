@@ -91,7 +91,7 @@ export function BookingWipeTransition() {
   useEffect(() => {
     if (phase !== "navigating") return;
     const target = targetRef.current || "";
-    const expectInquiry = /[?&]inquiry=1\b/.test(target);
+    const expectInquiry = /[?&]booking\b/.test(target);
 
     let raf = 0;
     let painted = 0;

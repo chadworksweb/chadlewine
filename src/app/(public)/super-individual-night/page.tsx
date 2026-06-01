@@ -4,7 +4,8 @@ import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { getSingleSongIds } from "@/lib/song-singles";
 import { ExploreSongs } from "@/components/ExploreSongs";
-import { SetlistPicker, type SetlistSong, type SetlistTopic } from "@/components/SetlistPicker";
+import { type SetlistSong, type SetlistTopic } from "@/components/SetlistPicker";
+import { BookingInquiryForm } from "@/components/BookingInquiryForm";
 import { WipeLink, BookingWipeTransition } from "@/components/BookingWipe";
 import { PantheonStage, type PantheonVideo } from "@/components/PantheonStage";
 import { SongVoiceGrid, type VoiceSong } from "@/components/SongVoiceGrid";
@@ -13,19 +14,13 @@ import { fetchBadge } from "@/lib/rising-compass";
 export const revalidate = 60;
 
 // --- Single source of truth for the page -------------------------------
-// BOOKING_EMAIL is the address every CTA points to. Create the alias/forward
-// or change it here. The setlist picker (client component) hardcodes the same
-// address -- keep them in sync if you change it.
-const BOOKING_EMAIL = "booking@chadlewine.com";
-const MUSIC_URL = "/music";
-const CATALOG_URL = "/music/songs";
 const SUPER_INDIVIDUAL_URL = "/super-individual";
 
 // The page lives at one route. The default state sells the night and pushes
-// the host to EXPLORE the songs first; adding ?inquiry=1 flips the same URL
-// into the booking-inquiry state (specifics + setlist picker + contact).
-const OVERVIEW_HREF = "/about/booking";
-const INQUIRY_HREF = "/about/booking?inquiry=1";
+// the host to EXPLORE the songs first; adding ?booking flips the same URL
+// into the booking-inquiry state -- a Typeform-style form (BookingInquiryForm)
+// that gathers the night and posts to /api/book.
+const INQUIRY_HREF = "/super-individual-night?booking";
 
 // The featured music video shown in the "Watch a music video" section. Matched
 // by slug from the videos table -- swap this to feature a different one.
@@ -34,25 +29,21 @@ const FEATURED_VIDEO_SLUG = "johnny-boy-music-video-green-lane-park-edition";
 const FEATURED_SONG_TITLE = "Johnny Boy";
 // ------------------------------------------------------------------------
 
-const MAILTO = `mailto:${BOOKING_EMAIL}?subject=${encodeURIComponent(
-  "Super Individual Night - host a date at our space",
-)}`;
-
 const DEFAULT_METADATA: Metadata = {
-  title: "Book the Super Individual Night",
+  title: "Super Individual Night",
   description:
     "Host Chad Lewine's Super Individual Night: a live original-song performance for ceremony spaces, sound-bath and ecstatic-dance rooms, listening rooms, studios, and galleries -- as much a gathering as a show. One-person load-in, you co-curate the set.",
-  alternates: { canonical: "https://chadlewine.com/about/booking" },
+  alternates: { canonical: "https://chadlewine.com/super-individual-night" },
   openGraph: {
-    title: "Book the Super Individual Night - Chad Lewine",
+    title: "Super Individual Night - Chad Lewine",
     description:
       "A live original-song performance for ceremony spaces, listening rooms, studios, and galleries -- as much a gathering as a show. You co-curate the set.",
-    url: "https://chadlewine.com/about/booking",
+    url: "https://chadlewine.com/super-individual-night",
   },
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  return mergeMetadata("/about/booking", DEFAULT_METADATA);
+  return mergeMetadata("/super-individual-night", DEFAULT_METADATA);
 }
 
 const BOOKING_JSON_LD = {
@@ -421,6 +412,11 @@ function OverviewView({ exploreSongs, featuredVideo, featuredQuote, voiceSongs }
             </p>
           </li>
         </ol>
+        <div className="bk-cta">
+          <WipeLink href={INQUIRY_HREF} className="bk-cta__btn bk-cta__btn--hollow">
+            Send a booking inquiry
+          </WipeLink>
+        </div>
       </section>
 
       {/* ============================================================
@@ -569,7 +565,7 @@ function OverviewView({ exploreSongs, featuredVideo, featuredQuote, voiceSongs }
         <div className="bk-what__row">
           <div className="bk-what__half">
             <ul className="bk-checklist bk-checklist--alt">
-              <li><strong>Permission to feel.</strong> Chad has a magnetic presence, but attendees should feel comfortable to stand up, sit down, watch, close their eyes, whatever &mdash; let the songs do the work.</li>
+              <li><strong>Freeform listening.</strong> Chad has a magnetic presence, but attendees should feel comfortable to stand up, sit down, watch, close their eyes, whatever &mdash; let the songs do the work.</li>
               <li><strong>A room full of their own kind.</strong> People from every walk of life who also do not quite fit anywhere.</li>
               <li><strong>Songs that raise frequency.</strong> New, original songs that make pop music safe and uplifting for conscious beings.</li>
               <li><strong>Kindred discourse.</strong> An opportunity to discuss topics surrounding media and entertainment that they may not be able to discuss anywhere else in their life.</li>
@@ -690,178 +686,15 @@ function OverviewView({ exploreSongs, featuredVideo, featuredQuote, voiceSongs }
 }
 
 // =======================================================================
-// STATE B -- the booking inquiry (URL carries ?inquiry=1). Logistics plus the
+// STATE B -- the booking inquiry (URL carries ?booking). Logistics plus the
 // setlist picker. Assumes the host has already explored the songs; keeps a
 // reminder + link back to the catalog for anyone who lands here cold.
 // =======================================================================
-function InquiryView({ setlistSongs, topics }: { setlistSongs: SetlistSong[]; topics: SetlistTopic[] }) {
-  return (
-    <>
-      {/* ============================================================
-          SECTION: INQUIRY HERO   >> REWRITE IN YOUR VOICE <<
-          JOB: Shift the mode from selling to doing, and reassure: the
-          logistics are light and the set is theirs to shape.
-          WRITE: the eyebrow ("Booking inquiry" or your phrase), a
-          headline, and 1-2 sentences -- what hosting actually takes, and
-          that they co-curate the set. Keep the back-to-overview link
-          (it triggers the reverse wipe).
-          TONE: calm, capable, welcoming.  AVOID: re-selling the concept.
-          ============================================================ */}
-      <section className="si-hero" aria-label="Super Individual Night - booking inquiry">
-        <div className="si-hero__inner">
-          <h1 className="si-hero__eyebrow">Booking inquiry</h1>
-          <h2 className="si-hero__headline">Let&rsquo;s build your night</h2>
-          <div className="si-hero__sub">
-            <p>
-              The logistics are light and the set is yours to shape. Here is exactly what hosting a
-              Super Individual Night takes &mdash; and a way to hand me the songs you want in the room.
-            </p>
-          </div>
-          <div className="si-hero__nav">
-            <WipeLink href={OVERVIEW_HREF} className="si-hero__nav-link">&larr; Back to overview</WipeLink>
-            <a href="#host" className="si-hero__nav-link">What it takes</a>
-            <a href="#setlist" className="si-hero__nav-link">Suggest the set</a>
-            <a href="#send" className="si-hero__nav-link">Send it</a>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================
-          SECTION: EXPLORE-FIRST REMINDER   >> REWRITE IN YOUR VOICE <<
-          JOB: Catch anyone who jumped straight to the inquiry without
-          hearing the songs -- you cannot suggest a set for music you
-          have not heard.
-          WRITE: a short, friendly nudge to open the catalog (summaries +
-          audio) or go back to the overview first, then build the set
-          below. Keep both links.
-          TONE: friendly, brief, no scolding.
-          ============================================================ */}
-      <section className="si-section" aria-label="Explore the songs first">
-        <div className="bk-callout">
-          <p>
-            <strong>Have you spent time with the songs yet?</strong> You cannot suggest a set for music
-            you have not heard &mdash; and that is fine, that is the point. Open the{" "}
-            <Link href={CATALOG_URL}>full catalog</Link> (summaries and audio on every track), or go
-            back to the <Link href={OVERVIEW_HREF}>overview</Link> for the taste. Then come build the
-            set below.
-          </p>
-        </div>
-      </section>
-
-      {/* ============================================================
-          SECTION: WHAT IT TAKES TO HOST   >> REWRITE IN YOUR VOICE <<
-          JOB: Make hosting feel effortless; answer every logistics worry
-          before they have to ask.
-          WRITE: the real rider for an intimate / ceremony room (PA or an
-          acoustic-leaning set, one vocal mic, a line-in, low light, floor
-          space), what YOU bring, the room types that fit, and the
-          flexible exchange (door split / honorarium / ticketed /
-          donation / first night to prove fit). Keep it accurate to your
-          actual rig.
-          TONE: easy, reassuring, professional.  AVOID: diva riders.
-          ============================================================ */}
-      <section id="host" className="si-door" aria-labelledby="bk-host-heading">
-        <GlyphTitle id="bk-host-heading">What it takes to host</GlyphTitle>
-
-        <div className="bk-grid">
-          <div className="bk-grid__col">
-            <h3 className="bk-grid__head">All I need from the space</h3>
-            <ul className="bk-rider">
-              <li>A PA / house sound system (or a quiet, intimate room for an acoustic-leaning set)</li>
-              <li>One vocal mic</li>
-              <li>A line / aux input for my playback (1/8&quot; or DI)</li>
-              <li>Dimmable or low lighting, and floor space &mdash; cushions, mats, or chairs</li>
-            </ul>
-          </div>
-          <div className="bk-grid__col">
-            <h3 className="bk-grid__head">What I bring</h3>
-            <ul className="bk-rider">
-              <li>My own backing tracks and playback rig</li>
-              <li>A full-sounding, finished set built as a transmission</li>
-              <li>Fast, calm load-in and tear-down &mdash; no backline, no band</li>
-              <li>The set we curated together (or the arc you trusted me to shape)</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="si-prose" style={{ marginTop: "var(--space-xl)" }}>
-          <p>
-            <strong>Rooms this fits:</strong> sound-bath and ecstatic-dance spaces, yoga and breathwork
-            studios, meditation centers and sanctuaries, retreat evenings, listening rooms and house
-            concerts, galleries, intentional-community gatherings, and conscious / wellness events. Set
-            length is flexible &mdash; a 45-minute journey, a full evening, or a slot inside a larger
-            ceremony.
-          </p>
-          <p>
-            <strong>On the exchange:</strong> I am flexible and realistic. Door split, honorarium,
-            ticketed, donation-based, or a first night to prove the fit &mdash; tell me what works for
-            your space and we will make it easy.
-          </p>
-        </div>
-      </section>
-
-      {/* ============================================================
-          SECTION: SUGGEST THE SET (the picker)
-          >> REWRITE IN YOUR VOICE <<
-          JOB: Invite co-curation now that they have explored, and frame
-          the picker.
-          WRITE: why you hand them the set (their room, their theme,
-          their people), one line on how it works (filter by theme, tap
-          songs, it emails you the set + space + date), the "let Chad
-          shape the arc" option, and that each card links out for one
-          more listen. Keep it short -- the tool does the talking.
-          TONE: inviting, a little proud of the feature.
-          ============================================================ */}
-      <section id="setlist" className="si-door si-door--rc" aria-labelledby="bk-setlist-heading">
-        <GlyphTitle id="bk-setlist-heading">Suggest the set for your room</GlyphTitle>
-
-        <div className="si-prose" style={{ marginBottom: "var(--space-xl)" }}>
-          <p>
-            Now that you have a feel for the songs, suggest the set. Filter by theme to match the mood
-            you want to hold, tap the songs you want me to play, and it sends me your suggestion along
-            with your space and date. Not sure? Check <em>&ldquo;let Chad shape the arc&rdquo;</em> and
-            trust me to read the room. Every card links out to that song if you want one more listen.
-          </p>
-        </div>
-
-        {setlistSongs.length > 0 ? (
-          <SetlistPicker songs={setlistSongs} topics={topics} />
-        ) : (
-          <div className="si-prose">
-            <p>The catalog is loading its setlist view &mdash; in the meantime, <Link href={MUSIC_URL}>browse the music hub</Link> and email me the songs you love.</p>
-          </div>
-        )}
-
-        <div className="si-door__footer">
-          <Link href={CATALOG_URL} className="si-door__cta">See the full song catalog &rarr;</Link>
-        </div>
-      </section>
-
-      {/* ============================================================
-          SECTION: SEND IT (inquiry close)   >> REWRITE IN YOUR VOICE <<
-          JOB: Frictionless close -- the last nudge to actually reach out.
-          WRITE: short -- the picker sends their night in one tap, or they
-          can just email a date and the kind of room they hold. Promise a
-          straight answer.
-          TONE: direct, human, low-pressure.
-          ============================================================ */}
-      <section id="send" className="si-door si-door--lead" aria-labelledby="bk-send-heading">
-        <GlyphTitle id="bk-send-heading">Send your inquiry</GlyphTitle>
-
-        <div className="si-prose">
-          <p>
-            The setlist picker above sends me your night in one tap &mdash; your songs, your space,
-            your date. Prefer to just write? Email me a date or two and the kind of room you hold, and
-            I will tell you straight if we can make something real together.
-          </p>
-        </div>
-        <div className="bk-cta">
-          <a className="bk-cta__btn" href={MAILTO}>Email me about a date</a>
-          <p className="bk-cta__addr">{BOOKING_EMAIL}</p>
-        </div>
-      </section>
-    </>
-  );
+function InquiryView({ setlistSongs }: { setlistSongs: SetlistSong[] }) {
+  // The whole inquiry view is now one Typeform-style form. It only needs each
+  // song's id + title for the search-driven setlist step.
+  const songs = setlistSongs.map((s) => ({ id: s.id, title: s.title }));
+  return <BookingInquiryForm songs={songs} />;
 }
 
 export default async function BookingPage({
@@ -870,8 +703,8 @@ export default async function BookingPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const sp = await searchParams;
-  const isInquiry = sp.inquiry !== undefined;
-  const [{ setlistSongs, topics, exploreSongs }, { video: featuredVideo, quote: featuredQuote }, voiceSongs] =
+  const isInquiry = sp.booking !== undefined;
+  const [{ setlistSongs, exploreSongs }, { video: featuredVideo, quote: featuredQuote }, voiceSongs] =
     await Promise.all([fetchCatalog(), fetchFeaturedVideo(), fetchVoiceSongs()]);
 
   return (
@@ -885,7 +718,7 @@ export default async function BookingPage({
       />
       <BookingWipeTransition />
       {isInquiry ? (
-        <InquiryView setlistSongs={setlistSongs} topics={topics} />
+        <InquiryView setlistSongs={setlistSongs} />
       ) : (
         <OverviewView exploreSongs={exploreSongs} featuredVideo={featuredVideo} featuredQuote={featuredQuote} voiceSongs={voiceSongs} />
       )}
