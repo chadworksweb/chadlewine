@@ -29,6 +29,7 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
       { href: "/radiant-arc", label: "Radiant Arc" },
       { href: "/super-individual", label: "Super Individual" },
       { href: "/songwriting", label: "Songwriting" },
+      { href: "/about/booking", label: "Booking" },
     ],
   },
 ];

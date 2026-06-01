@@ -284,6 +284,7 @@ async function getExploreSongs() {
       .from("songs")
       .select("id, title, slug, song_summary, art_image_path, art_alt")
       .eq("status", "published")
+      .neq("instrumental", true)
       .in("id", ids);
     const byId = new Map((data || []).map((s) => [s.id, s]));
     songs = ids.map((id) => byId.get(id)).filter(Boolean) as typeof songs;
@@ -292,7 +293,8 @@ async function getExploreSongs() {
     let query = supabase
       .from("songs")
       .select("id, title, slug, song_summary, art_image_path, art_alt")
-      .eq("status", "published");
+      .eq("status", "published")
+      .neq("instrumental", true);
     if (excludedIds.length > 0) {
       query = query.not("id", "in", `(${excludedIds.join(",")})`);
     }

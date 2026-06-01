@@ -60,11 +60,12 @@ function formatDate(iso?: string | null): string | null {
 interface Props {
   video: PantheonVideo | null;
   onShare?: (video: PantheonVideo) => void;
+  showDate?: boolean;
 }
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
-export function PantheonStage({ video, onShare }: Props) {
+export function PantheonStage({ video, onShare, showDate = true }: Props) {
   const { mode, src } = resolveMode(video);
   const poster = posterFor(video);
 
@@ -80,8 +81,27 @@ export function PantheonStage({ video, onShare }: Props) {
   const [duration, setDuration] = useState(video?.duration_seconds ?? 0);
   const [buffered, setBuffered] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [scanlines, setScanlines] = useState(true);
+  const [scanlines, setScanlines] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Transport drawer auto-hide: stays up for a beat after the cursor last moved
+  // over the video, then drops away during uninterrupted playback.
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimerRef = useRef<number | null>(null);
+
+  const CONTROLS_IDLE_MS = 2600;
+  const pokeControls = useCallback(() => {
+    setControlsVisible(true);
+    if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    if (isPlaying) {
+      hideTimerRef.current = window.setTimeout(() => setControlsVisible(false), CONTROLS_IDLE_MS);
+    }
+  }, [isPlaying]);
+  const onScreenLeave = useCallback(() => {
+    if (isPlaying) {
+      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+      setControlsVisible(false);
+    }
+  }, [isPlaying]);
 
   // ---- Attach the HLS source (native mode only) ----------------------------
   useEffect(() => {
@@ -191,6 +211,21 @@ export function PantheonStage({ video, onShare }: Props) {
     setCopied(false);
   }, [video?.id, video?.duration_seconds]);
 
+  // When playback starts, begin the idle countdown so the drawer slides away on
+  // its own; when paused, keep it up and cancel any pending hide.
+  useEffect(() => {
+    if (!isPlaying) {
+      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+      setControlsVisible(true);
+      return;
+    }
+    if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = window.setTimeout(() => setControlsVisible(false), CONTROLS_IDLE_MS);
+    return () => {
+      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    };
+  }, [isPlaying]);
+
   // On play, bring the screen to the vertical centre of the viewport so the
   // video becomes the focus (the temple top/hero scroll up out of the way).
   useEffect(() => {
@@ -264,11 +299,11 @@ export function PantheonStage({ video, onShare }: Props) {
 
   const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
   const bufPct = duration > 0 ? Math.min(100, (buffered / duration) * 100) : 0;
-  const dateLabel = formatDate(video?.published_at);
+  const dateLabel = showDate ? formatDate(video?.published_at) : null;
 
   return (
     <div
-      className={`pantheon${scanlines ? " is-crt" : ""}${isPlaying ? " is-playing" : ""}`}
+      className={`pantheon${scanlines ? " is-crt" : ""}${isPlaying ? " is-playing" : ""}${controlsVisible ? " is-controls" : ""}`}
       data-mode={mode}
     >
       {/* Pediment */}
@@ -285,6 +320,8 @@ export function PantheonStage({ video, onShare }: Props) {
           ref={screenRef}
           tabIndex={mode === "native" ? 0 : -1}
           onKeyDown={onStageKeyDown}
+          onMouseMove={mode === "native" ? pokeControls : undefined}
+          onMouseLeave={mode === "native" ? onScreenLeave : undefined}
           aria-label={video ? video.title : "Video stage"}
         >
           <div className="pantheon__screen">
