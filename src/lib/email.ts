@@ -355,6 +355,9 @@ export function buildCouponEmailHtml(params: {
   footerNote: string;
   ctaUrl?: string;
   ctaLabel?: string;
+  /** Optional trusted HTML block rendered ABOVE the coupon content (e.g. an
+      inquiry summary). Caller is responsible for escaping its own values. */
+  prependHtml?: string;
 }): string {
   const expiresText = params.expiresAt.toLocaleString("en-US", {
     weekday: "short",
@@ -369,6 +372,7 @@ export function buildCouponEmailHtml(params: {
   const shopUrl = params.ctaUrl || `${SITE_URL}/music`;
   const ctaLabel = params.ctaLabel || "Shop now";
   const inner = `
+    ${params.prependHtml || ""}
     <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em; color: #8b9cf7; margin-bottom: 8px;">${escapeHtml(params.eyebrow)}</p>
     <h1 style="font-size: 26px; font-weight: 600; margin: 0 0 12px; color: #e0e0e8;">${escapeHtml(params.headline)}</h1>
     <p style="font-size: 16px; color: #a0a0b0; line-height: 1.55; margin: 0 0 24px;">

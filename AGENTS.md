@@ -1,3 +1,12 @@
+# Layout: full site width, NEVER a thin centered column
+
+**Every page and new layout renders full site width through the global page-shell grid, exactly like every other page on the site.** This is a hard rule — do not ask, do not default to anything narrower.
+
+- The standard pattern is `page-static` + the existing grid/card classes. Copy the **account dashboard**: `page-static account-dashboard` → `account-dashboard__grid` (two-column) → `account-dashboard__card`. The `/preferences` page is built this way; use it as the template.
+- **NEVER** put `max-width`, `margin: auto`, `place-items: center`, or horizontal padding on a page wrapper, and **never** create a new `*-page { max-width: Npx }` centered shell.
+- The `unsubscribe-page` centered-column block is a legacy exception, **not** a model to copy. Don't reach for it.
+- Before writing any new layout CSS, reuse an existing full-width layout (account dashboard, admin pages). Only use a narrower measure if the user explicitly asks for one.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

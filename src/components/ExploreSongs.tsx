@@ -88,6 +88,9 @@ function resolveArt(s: ExploreSong): { src: string | null; alt: string } {
 
 interface ExploreSongsProps {
   songs: ExploreSong[];
+  showHeading?: boolean;
+  showFooter?: boolean;
+  showViewAll?: boolean;
 }
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -98,7 +101,7 @@ const nextFrame = () =>
 // shuffle: the pile riffles. fan: cards springing back out to coverflow.
 type Phase = "idle" | "collapse" | "shuffle" | "fan";
 
-export function ExploreSongs({ songs: initialSongs }: ExploreSongsProps) {
+export function ExploreSongs({ songs: initialSongs, showHeading = true, showFooter = true, showViewAll = true }: ExploreSongsProps) {
   const [songs, setSongs] = useState<ExploreSong[]>(initialSongs);
   const [active, setActive] = useState(Math.floor(initialSongs.length / 2));
   const [phase, setPhase] = useState<Phase>("idle");
@@ -169,11 +172,13 @@ export function ExploreSongs({ songs: initialSongs }: ExploreSongsProps) {
 
   return (
     <section className="explore-songs">
-      <div className="glyph-title-bar glyph-title-bar--top">
-        <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
-        <h2 className="glyph-title-bar__heading">Browse Chad Lewine Songs</h2>
-        <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
-      </div>
+      {showHeading && (
+        <div className="glyph-title-bar glyph-title-bar--top">
+          <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+          <h2 className="glyph-title-bar__heading">Browse Chad Lewine Songs</h2>
+          <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+        </div>
+      )}
 
       <div className="explore-songs__inner site-contain">
 
@@ -307,26 +312,30 @@ export function ExploreSongs({ songs: initialSongs }: ExploreSongsProps) {
               href={`/music/songs/${current.slug}`}
               className="explore-songs__cta"
             >
-              Listen →
+              Explore →
             </Link>
           </div>
         </div>
       </div>
 
-      <div className="explore-songs__footer">
-        <button
-          type="button"
-          className="explore-songs__cta explore-songs__cta--shuffle"
-          onClick={shuffle}
-          disabled={shuffling}
-        >
-          <ShuffleIcon />
-          {shuffling ? "Shuffling…" : "Shuffle More Songs"}
-        </button>
-        <Link href="/music/songs" className="home-merch__view-all">
-          View All Songs →
-        </Link>
-      </div>
+      {showFooter && (
+        <div className="explore-songs__footer">
+          <button
+            type="button"
+            className="explore-songs__cta explore-songs__cta--shuffle"
+            onClick={shuffle}
+            disabled={shuffling}
+          >
+            <ShuffleIcon />
+            {shuffling ? "Shuffling…" : "Shuffle More Songs"}
+          </button>
+          {showViewAll && (
+            <Link href="/music/songs" className="home-merch__view-all">
+              View All Songs →
+            </Link>
+          )}
+        </div>
+      )}
     </section>
   );
 }

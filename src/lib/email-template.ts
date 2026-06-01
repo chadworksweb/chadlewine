@@ -7,6 +7,8 @@ export interface RenderCampaignEmailInput {
   preheader?: string | null;
   bodyHtml: string;
   unsubscribeUrl: string;
+  /** Optional manage-preferences URL rendered beside Unsubscribe. */
+  preferencesUrl?: string | null;
   fromName: string;
   /** Optional postal address footer (CAN-SPAM). Plain string. */
   postalAddress?: string | null;
@@ -51,6 +53,7 @@ export function renderCampaignEmail(input: RenderCampaignEmailInput): RenderedEm
     preheader,
     bodyHtml,
     unsubscribeUrl,
+    preferencesUrl,
     fromName,
     postalAddress,
   } = input;
@@ -120,7 +123,11 @@ export function renderCampaignEmail(input: RenderCampaignEmailInput): RenderedEm
                 You're getting this because you subscribed at <a href="https://chadlewine.com" style="color:#4060ff;">chadlewine.com</a>.
               </p>
               <p style="margin:0 0 8px 0;">
-                <a href="${unsubscribeUrl}" style="color:#4060ff;">Unsubscribe</a>
+                <a href="${unsubscribeUrl}" style="color:#4060ff;">Unsubscribe</a>${
+                  preferencesUrl
+                    ? ` &nbsp;&middot;&nbsp; <a href="${preferencesUrl}" style="color:#4060ff;">Manage email preferences</a>`
+                    : ""
+                }
               </p>
               ${
                 safeAddress
@@ -140,6 +147,7 @@ export function renderCampaignEmail(input: RenderCampaignEmailInput): RenderedEm
     htmlToText(bodyHtml),
     "—",
     `Unsubscribe: ${unsubscribeUrl}`,
+    preferencesUrl ? `Manage email preferences: ${preferencesUrl}` : "",
     postalAddress ? `\n${postalAddress}` : "",
   ]
     .filter(Boolean)

@@ -45,7 +45,8 @@ export async function GET() {
   let query = supabase
     .from("songs")
     .select("id, title, slug, song_summary, art_image_path, art_alt")
-    .eq("status", "published");
+    .eq("status", "published")
+    .neq("instrumental", true);
   if (excludedIds.length > 0) {
     query = query.not("id", "in", `(${excludedIds.join(",")})`);
   }

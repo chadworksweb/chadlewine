@@ -35,6 +35,8 @@ export interface GrantStoreCouponOptions {
   footerNote: string;
   ctaUrl?: string;
   ctaLabel?: string;
+  /** Optional trusted HTML rendered above the coupon (e.g. an inquiry recap). */
+  prependHtml?: string;
 }
 
 export interface GrantStoreCouponResult {
@@ -201,6 +203,7 @@ export async function grantStoreCoupon(
       footerNote: opts.footerNote,
       ctaUrl: opts.ctaUrl,
       ctaLabel: opts.ctaLabel,
+      prependHtml: opts.prependHtml,
     }),
   });
 

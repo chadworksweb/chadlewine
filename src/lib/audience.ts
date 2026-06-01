@@ -5,6 +5,10 @@ import {
   deriveTier,
   type MemberTier,
 } from "@/lib/audience-notify";
+import {
+  OPTIONAL_CATEGORIES,
+  categoryColumn,
+} from "@/lib/notification-categories";
 
 /* Audience helper library — single source of truth for upserting and
    tagging the master contact record. Every state-changing helper emits
@@ -629,4 +633,97 @@ export async function setNames(
 export async function refreshAudienceTags(audienceId: string): Promise<void> {
   const supabase = createAdminClient();
   await refreshTags(supabase, audienceId);
+}
+
+/* ---- Notification category preferences ----------------------------------
+   Per-subscriber opt-out for the OPTIONAL email categories. The required
+   "general" category has no column -- it is governed by subscriber_status.
+   See src/lib/notification-categories.ts. Like setConsent, these are pure
+   preference writes: they emit a timeline event but don't touch tags/rollups. */
+
+const PREF_COLUMNS = OPTIONAL_CATEGORIES.map((c) => c.column as string);
+
+export type NotificationPrefMap = Record<string, boolean>;
+
+// Map a selected audience row (column-keyed) to a category-key-keyed pref map.
+// Null/undefined columns read as true to match the column default (opt-out).
+function prefMapFromRow(row: Record<string, unknown> | null): NotificationPrefMap {
+  const out: NotificationPrefMap = {};
+  for (const c of OPTIONAL_CATEGORIES) {
+    const v = row?.[c.column as string];
+    out[c.key] = v === undefined || v === null ? true : !!v;
+  }
+  return out;
+}
+
+/* Read the optional-category prefs for an audience row (keyed by category). */
+export async function getNotificationPrefs(
+  audienceId: string,
+): Promise<NotificationPrefMap> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("audience")
+    .select(PREF_COLUMNS.join(", "))
+    .eq("id", audienceId)
+    .maybeSingle();
+  return prefMapFromRow(data as unknown as Record<string, unknown> | null);
+}
+
+/* Update optional-category prefs by audience id. Map is keyed by category key;
+   "general"/unknown keys (no column) are ignored. */
+export async function setNotificationPrefs(
+  audienceId: string,
+  prefs: Record<string, boolean>,
+): Promise<void> {
+  const supabase = createAdminClient();
+  const update: Record<string, unknown> = {};
+  const changed: string[] = [];
+  for (const [key, val] of Object.entries(prefs)) {
+    const col = categoryColumn(key);
+    if (col) {
+      update[col] = !!val;
+      changed.push(key);
+    }
+  }
+  if (changed.length === 0) return;
+  update.updated_at = new Date().toISOString();
+  await supabase.from("audience").update(update).eq("id", audienceId);
+  await emitEvent(supabase, audienceId, "notification_prefs_updated", { changed });
+}
+
+/* Resolve an audience row by its unsubscribe_token (reused as the prefs token,
+   since it already appears in every email footer) for the public /preferences
+   page. Returns null if the token doesn't match. */
+export async function findAudienceForPrefsByToken(token: string): Promise<{
+  id: string;
+  email: string;
+  subscriber_status: string;
+  prefs: NotificationPrefMap;
+} | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("audience")
+    .select(`id, email, subscriber_status, ${PREF_COLUMNS.join(", ")}`)
+    .eq("unsubscribe_token", token)
+    .maybeSingle();
+  if (!data) return null;
+  const row = data as unknown as Record<string, unknown>;
+  return {
+    id: row.id as string,
+    email: row.email as string,
+    subscriber_status: row.subscriber_status as string,
+    prefs: prefMapFromRow(row),
+  };
+}
+
+/* Token-gated setter for the public /preferences page. Returns false if the
+   token doesn't resolve (caller stays idempotent / doesn't leak existence). */
+export async function setNotificationPrefsByToken(
+  token: string,
+  prefs: Record<string, boolean>,
+): Promise<boolean> {
+  const found = await findAudienceForPrefsByToken(token);
+  if (!found) return false;
+  await setNotificationPrefs(found.id, prefs);
+  return true;
 }

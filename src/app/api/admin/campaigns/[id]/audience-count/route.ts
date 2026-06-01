@@ -15,7 +15,7 @@ export async function GET(
 
   const { data: campaign } = await supabase
     .from("campaigns")
-    .select("audience_filter")
+    .select("audience_filter, category")
     .eq("id", id)
     .single();
 
@@ -24,7 +24,11 @@ export async function GET(
   }
 
   try {
-    const count = await audienceCount(supabase, campaign.audience_filter || {});
+    const count = await audienceCount(
+      supabase,
+      campaign.audience_filter || {},
+      campaign.category,
+    );
     return Response.json({ count });
   } catch (e) {
     return Response.json(
@@ -46,9 +50,12 @@ export async function POST(
     return Response.json({ error: "Invalid id" }, { status: 400 });
   }
   const supabase = createAdminClient();
-  const body = (await request.json().catch(() => ({}))) as { filter?: AudienceFilter };
+  const body = (await request.json().catch(() => ({}))) as {
+    filter?: AudienceFilter;
+    category?: string | null;
+  };
   try {
-    const count = await audienceCount(supabase, body.filter || {});
+    const count = await audienceCount(supabase, body.filter || {}, body.category);
     return Response.json({ count });
   } catch (e) {
     return Response.json(

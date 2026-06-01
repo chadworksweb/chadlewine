@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase-browser";
 import { useConsent } from "@/components/ConsentProvider";
+import {
+  NOTIFICATION_CATEGORIES,
+  OPTIONAL_CATEGORIES,
+} from "@/lib/notification-categories";
 
 interface DownloadItem {
   purchase_id: string;
@@ -46,6 +50,12 @@ export interface AccountAudience {
   lifetime_spend: number;
   emails_received: number;
   emails_opened: number;
+  notify_new_releases: boolean;
+  notify_archive_highlights: boolean;
+  notify_curated: boolean;
+  notify_observations: boolean;
+  notify_merch: boolean;
+  notify_live_shows: boolean;
 }
 
 export interface AccountData {
@@ -100,6 +110,16 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressMsg, setAddressMsg] = useState("");
   const [prefBusy, setPrefBusy] = useState(false);
+  const [prefs, setPrefs] = useState<Record<string, boolean>>(() => {
+    const p: Record<string, boolean> = {};
+    const row = initial.audience as unknown as Record<string, unknown>;
+    for (const c of OPTIONAL_CATEGORIES) {
+      const v = row[c.column as string];
+      p[c.key] = v === undefined || v === null ? true : !!v;
+    }
+    return p;
+  });
+  const [catBusyKey, setCatBusyKey] = useState<string | null>(null);
   const { consent, update: updateConsent, openManager } = useConsent();
 
   const [newEmail, setNewEmail] = useState("");
@@ -239,6 +259,21 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
     });
     setPrefBusy(false);
     if (res.ok) setA({ ...a, subscriber_status: next });
+  };
+
+  const toggleCategory = async (key: string, next: boolean) => {
+    setPrefs((p) => ({ ...p, [key]: next }));
+    setCatBusyKey(key);
+    const res = await fetch("/api/account/preferences", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categories: { [key]: next } }),
+    });
+    setCatBusyKey(null);
+    if (!res.ok) {
+      // Revert the optimistic flip on failure.
+      setPrefs((p) => ({ ...p, [key]: !next }));
+    }
   };
 
   const signOut = async () => {
@@ -400,7 +435,7 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
         </section>
 
         <section className="account-dashboard__card">
-          <h2 className="account-dashboard__card-title">Marketing emails</h2>
+          <h2 className="account-dashboard__card-title">Email preferences</h2>
           <p className="account-dashboard__hint">
             Status:{" "}
             <strong>
@@ -420,9 +455,48 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
             {prefBusy
               ? "..."
               : a.subscriber_status === "active"
-                ? "Unsubscribe"
+                ? "Unsubscribe from everything"
                 : "Subscribe to updates"}
           </button>
+
+          <p className="account-dashboard__hint">
+            {a.subscriber_status === "active"
+              ? "Pick what you hear about. Order, account, and legal emails always come through."
+              : "Subscribe to choose which emails you get. Order and account emails always come through regardless."}
+          </p>
+
+          <ul className="account-dashboard__prefs">
+            {NOTIFICATION_CATEGORIES.map((cat) => {
+              const isGeneral = cat.required;
+              const checked = isGeneral ? true : !!prefs[cat.key];
+              const disabled =
+                isGeneral ||
+                a.subscriber_status !== "active" ||
+                catBusyKey === cat.key;
+              return (
+                <li key={cat.key} className="account-dashboard__pref">
+                  <span className="account-dashboard__pref-info">
+                    <span className="account-dashboard__pref-label">
+                      {cat.label}
+                      {isGeneral && (
+                        <span className="account-dashboard__pref-badge">Always on</span>
+                      )}
+                    </span>
+                    <span className="account-dashboard__pref-desc">{cat.description}</span>
+                  </span>
+                  <label className="account-dashboard__toggle">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={disabled}
+                      onChange={(e) => toggleCategory(cat.key, e.target.checked)}
+                    />
+                    <span className="account-dashboard__toggle-slider" />
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
         <section className="account-dashboard__card">

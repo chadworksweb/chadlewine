@@ -7,6 +7,7 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { BlockEditor } from "@/components/BlockEditor";
 import { CampaignPreview } from "@/components/CampaignPreview";
 import { newBlock, type EmailBlock } from "@/lib/email-blocks";
+import { NOTIFICATION_CATEGORIES } from "@/lib/notification-categories";
 
 export interface CampaignData {
   id: string;
@@ -17,6 +18,7 @@ export interface CampaignData {
   from_email: string;
   reply_to: string | null;
   audience_filter: AudienceFilterShape;
+  category: string;
   cta_label: string | null;
   cta_url: string | null;
   body_blocks: EmailBlock[] | null;
@@ -125,6 +127,7 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
       from_email: data.from_email,
       reply_to: data.reply_to,
       audience_filter: data.audience_filter,
+      category: data.category,
     }),
     []
   );
@@ -137,14 +140,17 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
     enabled: form.status === "draft",
   });
 
-  // Re-count whenever the audience_filter changes so the editor reflects
-  // live segment size. Debounced via the filter dep below.
+  // Re-count whenever the audience_filter or category changes so the editor
+  // reflects live segment size (category excludes opted-out subscribers).
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/admin/campaigns/${form.id}/audience-count`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filter: form.audience_filter || {} }),
+      body: JSON.stringify({
+        filter: form.audience_filter || {},
+        category: form.category || "general",
+      }),
     })
       .then((r) => r.json())
       .then((d) => {
@@ -154,7 +160,7 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
     return () => {
       cancelled = true;
     };
-  }, [form.id, form.audience_filter]);
+  }, [form.id, form.audience_filter, form.category]);
 
   // For a locked (sent/sending/failed) campaign, render the real email -- the
   // same server renderer used at send time (header + body + footer globals) --
@@ -559,6 +565,24 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
 
           <section className="campaign-editor__panel">
             <h3 className="campaign-editor__panel-title">Audience</h3>
+            <label className="campaign-editor__label">Category</label>
+            <select
+              className="campaign-editor__input"
+              value={form.category || "general"}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              disabled={isLocked}
+            >
+              {NOTIFICATION_CATEGORIES.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                  {c.required ? " (all subscribers)" : ""}
+                </option>
+              ))}
+            </select>
+            <p className="campaign-editor__hint">
+              Subscribers who opted out of this category are skipped. General
+              reaches every active subscriber.
+            </p>
             <p className="campaign-editor__stat">
               Will send to{" "}
               <strong>{audienceCount ?? "…"}</strong>{" "}

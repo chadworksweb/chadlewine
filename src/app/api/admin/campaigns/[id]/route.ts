@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { isValidCategory } from "@/lib/notification-categories";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -52,6 +53,8 @@ export async function PUT(
   if (body.reply_to !== undefined) update.reply_to = body.reply_to;
   if (body.audience_filter !== undefined)
     update.audience_filter = body.audience_filter;
+  if (typeof body.category === "string" && isValidCategory(body.category))
+    update.category = body.category;
   // cta_label/cta_url retired in favor of button blocks in body_blocks.
   // Legacy values on existing rows are read once by CampaignEditor's
   // useState initializer to seed a button block, then ignored.

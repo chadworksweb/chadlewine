@@ -87,6 +87,7 @@ export default async function MusicHubPage() {
       .from("songs")
       .select("id, title, slug, art_image_path, art_alt, song_summary, release_date, created_at")
       .eq("status", "published")
+      .neq("instrumental", true)
       .order("release_date", { ascending: false, nullsFirst: false })
       .limit(EXPLORE_SONG_LIMIT),
     supabase

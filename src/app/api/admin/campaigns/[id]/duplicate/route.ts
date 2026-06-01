@@ -18,7 +18,7 @@ export async function POST(
   const { data: src, error } = await supabase
     .from("campaigns")
     .select(
-      "subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter"
+      "subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, category"
     )
     .eq("id", id)
     .single();
@@ -37,6 +37,7 @@ export async function POST(
       from_email: src.from_email,
       reply_to: src.reply_to,
       audience_filter: src.audience_filter,
+      category: src.category,
       status: "draft",
     })
     .select("id")
