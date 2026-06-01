@@ -406,9 +406,12 @@ function OverviewView({ exploreSongs, featuredVideo, featuredQuote, voiceSongs }
             <span className="bk-act__kind">The compass</span>
             <h3 className="bk-act__title">Introduction to The Rising Compass</h3>
             <p className="bk-act__desc">
-              A real-time, live presentation of The Rising Compass, a tool I built that takes a daily
-              reading of the USA&rsquo;s top 20 most popular songs and tells the truth about the
-              messages coming from them.
+              A real-time, live presentation of{" "}
+              <a href="https://risingcompass.net" target="_blank" rel="noopener noreferrer">
+                The Rising Compass
+              </a>
+              , a tool I built that takes a daily reading of the USA&rsquo;s top 20 most popular
+              songs and tells the truth about the messages coming from them.
             </p>
           </li>
         </ol>
