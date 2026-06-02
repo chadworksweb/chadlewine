@@ -3,9 +3,10 @@
 /* Transcend the Machine - Phase 0 proof-of-look.
  * Corridor-in-the-void: glowing wireframe "pixel pillars" in pure black, a
  * floor grid into fog, a distant rune to fly toward.
- * Controls: keyboard thrusts (WASD/arrows + Q/E), MOUSE steers the view angle
- * (no click - cursor offset from center = turn rate). Custom reticle cursor
- * shows idle (cyan) vs steering/"grabbed" (magenta).
+ * Controls (RPG, not FPS): cursor POSITION spins you - horizontal offset from
+ * center = spin rate, ~20px dead zone, yaw only / level horizon (no tilt).
+ * WASD/arrows move, Q/E up-down. Esc (or moving off-screen) unhooks so it
+ * never spins away. Floor is solid.
  * Deferred to Phase 1: UnrealBloom, fractal-skinned pillars, real beat_data. */
 
 import { useEffect, useMemo, useRef } from "react";
@@ -15,21 +16,24 @@ import * as THREE from "three";
 const CYAN = "#00e0ff";
 const MAGENTA = "#ff2e63";
 const FLOOR_Y = -3;
+const MIN_Y = FLOOR_Y + 1.4; // camera eye height - cannot drop through the floor
 const ROWS = 30;
-const GAP = 6;
-const AISLE = 5.5;
+const GAP = 8.5;
+const AISLE = 8;
 const RUNE_Z = -ROWS * GAP - 24;
-const DEAD_ZONE = 0.08; // center rest band where the mouse does not steer
-const STEER_RANGE = 0.5; // cursor hits MAX turn at half-deflection - less travel, more sensitive
+const DEAD_PX = 20; // px from screen center before left/right spin engages
+const FULL_PX = 260; // px from center at which spin reaches max rate
 
-type Pointer = { nx: number; ny: number };
+type Pointer = { steer: number }; // signed spin rate, -1..1
 type Pillar = { x: number; z: number; h: number; w: number; accent: boolean };
 
-function steerAxis(n: number): number {
-  const a = Math.abs(n);
-  if (a < DEAD_ZONE) return 0;
-  // ramp from the dead-zone edge to MAX at STEER_RANGE, clamped beyond
-  return Math.sign(n) * Math.min(1, (a - DEAD_ZONE) / (STEER_RANGE - DEAD_ZONE));
+function spinFromDx(dx: number): number {
+  const a = Math.abs(dx);
+  if (a < DEAD_PX) return 0;
+  // EASE-IN ramp from the dead-zone edge to MAX at FULL_PX: gentle near center
+  // so spin falls off fast as the cursor returns toward the middle (crisp stop).
+  const t = Math.min(1, (a - DEAD_PX) / (FULL_PX - DEAD_PX));
+  return Math.sign(dx) * Math.pow(t, 1.7);
 }
 
 function buildPillars(): Pillar[] {
@@ -39,12 +43,12 @@ function buildPillars(): Pillar[] {
     const leftDoor = i % 8 === 4; // wall gaps read as doorways
     const rightDoor = i % 8 === 0 && i > 0;
     if (!leftDoor)
-      out.push({ x: -(AISLE + Math.random()), z, h: 9 + Math.random() * 9, w: 1.4 + Math.random(), accent: i % 8 === 5 });
+      out.push({ x: -(AISLE + Math.random() * 1.5), z, h: 11 + Math.random() * 12, w: 1.6 + Math.random() * 1.2, accent: i % 8 === 5 });
     if (!rightDoor)
-      out.push({ x: AISLE + Math.random(), z, h: 9 + Math.random() * 9, w: 1.4 + Math.random(), accent: i % 8 === 1 });
+      out.push({ x: AISLE + Math.random() * 1.5, z, h: 11 + Math.random() * 12, w: 1.6 + Math.random() * 1.2, accent: i % 8 === 1 });
     if (i % 5 === 2) {
-      out.push({ x: -2.2, z, h: 1.2, w: 1.6, accent: false });
-      out.push({ x: 2.2, z, h: 1.2, w: 1.6, accent: false });
+      out.push({ x: -3, z, h: 1.6, w: 2, accent: false });
+      out.push({ x: 3, z, h: 1.6, w: 2, accent: false });
     }
   }
   return out;
@@ -102,7 +106,6 @@ function FlyCam({ pointer }: { pointer: { current: Pointer } }) {
   const { camera } = useThree();
   const keys = useRef<Record<string, boolean>>({});
   const yaw = useRef(0);
-  const pitch = useRef(0);
   const vel = useRef(new THREE.Vector3());
 
   useEffect(() => {
@@ -125,17 +128,17 @@ function FlyCam({ pointer }: { pointer: { current: Pointer } }) {
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
 
-    // Mouse steers the angle: cursor offset from center = turn RATE (no click).
-    const TURN = 1.6; // rad/sec at full deflection
-    yaw.current -= steerAxis(pointer.current.nx) * TURN * dt;
-    pitch.current = Math.max(-1.2, Math.min(1.2, pitch.current - steerAxis(pointer.current.ny) * TURN * dt));
-    const euler = new THREE.Euler(pitch.current, yaw.current, 0, "YXZ");
+    // Cursor-position spin (RPG feel): offset from center = spin RATE, yaw only.
+    // No pitch, no roll - the view stays parallel to the ground (no diagonal tilt).
+    const TURN = 1.36; // rad/sec at full deflection (15% slower)
+    yaw.current -= pointer.current.steer * TURN * dt;
+    const euler = new THREE.Euler(0, yaw.current, 0, "YXZ");
     camera.quaternion.setFromEuler(euler);
 
-    // Keyboard thrust (faster than v1).
+    // Keyboard thrust along the level facing.
     const fwd = new THREE.Vector3(0, 0, -1).applyEuler(euler);
     const right = new THREE.Vector3(1, 0, 0).applyEuler(euler);
-    const ACCEL = 150;
+    const ACCEL = 100;
     const v = vel.current;
     const k = keys.current;
     if (k["w"] || k["arrowup"]) v.addScaledVector(fwd, ACCEL * dt);
@@ -144,28 +147,29 @@ function FlyCam({ pointer }: { pointer: { current: Pointer } }) {
     if (k["d"] || k["arrowright"]) v.addScaledVector(right, ACCEL * dt);
     if (k["q"]) v.y -= ACCEL * dt;
     if (k["e"]) v.y += ACCEL * dt;
-    v.multiplyScalar(0.9);
-    if (v.lengthSq() > 45 * 45) v.setLength(45);
+    v.multiplyScalar(0.84);
+    if (v.lengthSq() > 34 * 34) v.setLength(34);
     camera.position.addScaledVector(v, dt);
+    if (camera.position.y < MIN_Y) { camera.position.y = MIN_Y; if (v.y < 0) v.y = 0; } // floor: no falling through
   });
 
   return null;
 }
 
-const CURSOR_CSS = `
+const UI_CSS = `
 .tmspike-cursor{position:fixed;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;pointer-events:none;z-index:60;will-change:transform}
 .tmspike-cursor::before{content:"";position:absolute;inset:0;border:1.5px solid ${CYAN};border-radius:50%;box-shadow:0 0 8px rgba(0,224,255,.6),inset 0 0 4px rgba(0,224,255,.4);transition:transform .12s ease,border-color .12s,box-shadow .12s}
 .tmspike-cursor::after{content:"";position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;background:${CYAN};border-radius:50%;box-shadow:0 0 6px ${CYAN};transition:background .12s,box-shadow .12s}
 .tmspike-cursor[data-grab="1"]::before{border-color:${MAGENTA};box-shadow:0 0 12px rgba(255,46,99,.7),inset 0 0 5px rgba(255,46,99,.4);transform:scale(1.3)}
 .tmspike-cursor[data-grab="1"]::after{background:${MAGENTA};box-shadow:0 0 8px ${MAGENTA}}
+.tmspike-status{display:none;position:fixed;left:50%;top:24px;transform:translateX(-50%);font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.16em;color:${MAGENTA};text-shadow:0 0 8px rgba(255,46,99,.6);pointer-events:none;user-select:none}
 .tmspike-hud{position:absolute;left:24px;bottom:20px;font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.12em;color:#cdebff;text-shadow:-1px 0 ${MAGENTA},1px 0 ${CYAN};pointer-events:none;user-select:none}
 .tmspike-hud b{display:block;font-size:15px;margin-bottom:6px;font-weight:600}
 .tmspike-hud span{opacity:.7}
-.tmspike-status{display:none;position:fixed;left:50%;top:24px;transform:translateX(-50%);font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.16em;color:${MAGENTA};text-shadow:0 0 8px rgba(255,46,99,.6);pointer-events:none;user-select:none}
 `;
 
 export function TranscendSpike() {
-  const pointer = useRef<Pointer>({ nx: 0, ny: 0 });
+  const pointer = useRef<Pointer>({ steer: 0 });
   const cursorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
@@ -174,7 +178,7 @@ export function TranscendSpike() {
   useEffect(() => {
     const applyHook = () => {
       const on = hooked.current;
-      if (!on) { pointer.current.nx = 0; pointer.current.ny = 0; } // unhooked: stop turning
+      if (!on) { pointer.current.steer = 0; } // unhooked: stop turning
       if (containerRef.current) containerRef.current.style.cursor = on ? "none" : "default";
       if (cursorRef.current) cursorRef.current.style.display = on ? "" : "none";
       if (statusRef.current) statusRef.current.style.display = on ? "none" : "block";
@@ -182,20 +186,18 @@ export function TranscendSpike() {
 
     const onMove = (e: PointerEvent) => {
       if (!hooked.current) return; // unhooked: OS cursor moves freely, no steering
-      const nx = Math.max(-1, Math.min(1, (e.clientX / window.innerWidth) * 2 - 1));
-      const ny = Math.max(-1, Math.min(1, (e.clientY / window.innerHeight) * 2 - 1));
-      pointer.current.nx = nx;
-      pointer.current.ny = ny;
+      const spin = spinFromDx(e.clientX - window.innerWidth / 2);
+      pointer.current.steer = spin;
       const c = cursorRef.current;
       if (c) {
         c.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
-        c.dataset.grab = Math.hypot(nx, ny) > DEAD_ZONE ? "1" : "0";
+        c.dataset.grab = spin !== 0 ? "1" : "0";
       }
     };
 
     // Kill steering the instant the cursor leaves the window or the tab blurs,
     // so it never spins off when the mouse goes off-screen.
-    const stopSteer = () => { pointer.current.nx = 0; pointer.current.ny = 0; };
+    const stopSteer = () => { pointer.current.steer = 0; };
     const onOut = (e: MouseEvent) => { if (!e.relatedTarget) stopSteer(); };
     // Esc toggles the hook (park control for testing without spinning).
     const onKey = (e: KeyboardEvent) => {
@@ -217,7 +219,7 @@ export function TranscendSpike() {
 
   return (
     <div ref={containerRef} style={{ position: "fixed", inset: 0, background: "#000", cursor: "none", zIndex: 50 }}>
-      <style>{CURSOR_CSS}</style>
+      <style>{UI_CSS}</style>
       <Canvas camera={{ fov: 75, near: 0.1, far: 500, position: [0, 0, 16] }} gl={{ antialias: true }} dpr={[1, 2]}>
         <color attach="background" args={["#000000"]} />
         <fogExp2 attach="fog" args={["#000000", 0.014]} />
@@ -228,7 +230,7 @@ export function TranscendSpike() {
       <div ref={statusRef} className="tmspike-status">UNHOOKED &middot; press Esc to re-enter</div>
       <div className="tmspike-hud">
         <b>TRANSCEND THE MACHINE</b>
-        <span>WASD / arrows fly &middot; mouse steers &middot; Q/E up-down &middot; Esc to unhook &middot; PHASE 0</span>
+        <span>WASD / arrows move &middot; mouse spins &middot; Q/E up-down &middot; Esc unhook &middot; PHASE 0</span>
       </div>
     </div>
   );
