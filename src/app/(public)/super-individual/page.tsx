@@ -697,7 +697,7 @@ export default async function SuperIndividualPage() {
             <p className="rc-card__desc">
               Paste the lyrics. The Rising Compass calibration engine reads the frequency it carries.
             </p>
-            <MiniLyricalCharger />
+            <MiniLyricalCharger source="super-individual" />
           </div>
         </div>
       </section>
