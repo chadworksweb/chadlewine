@@ -8,9 +8,10 @@ interface SendEmailOptions {
   subject: string;
   html: string;
   replyTo?: string;
+  headers?: Record<string, string>;
 }
 
-export async function sendEmail({ to, subject, html, replyTo }: SendEmailOptions): Promise<boolean> {
+export async function sendEmail({ to, subject, html, replyTo, headers }: SendEmailOptions): Promise<boolean> {
   // Read env at call time so this works in scripts that load .env after module import.
   const apiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.EMAIL_FROM || "site@chadlewine.com";
@@ -27,6 +28,7 @@ export async function sendEmail({ to, subject, html, replyTo }: SendEmailOptions
     html,
   };
   if (replyTo) body.reply_to = replyTo;
+  if (headers) body.headers = headers;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -241,6 +243,73 @@ export function buildOrderConfirmationHtml(d: OrderEmailData): string {
   `;
 
   return shell(inner, "You received this because you purchased at chadlewine.com");
+}
+
+export interface CartRecoveryEmailData {
+  items: Array<{ title: string; quantity: number; lineTotal: number }>;
+  total: number;
+  resumeUrl: string;
+  unsubscribeUrl: string;
+  couponCode?: string | null;
+  discountPercent?: number;
+  couponExpiresAt?: Date | null;
+}
+
+export function buildCartRecoveryEmailHtml(d: CartRecoveryEmailData): string {
+  const couponBlock = d.couponCode && d.discountPercent
+    ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 4px;">
+      <tr><td align="center" style="border:1px dashed rgba(139,156,247,0.5);border-radius:10px;padding:16px;background:rgba(139,156,247,0.06);">
+        <div style="font-size:13px;color:#a0a0b0;margin-bottom:6px;">Here's <strong style="color:#e0e0e8;">${d.discountPercent}% off</strong> to finish up &mdash; enter at checkout:</div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:0.12em;color:#8b9cf7;font-family:'SF Mono',Menlo,monospace;">${escapeHtml(d.couponCode)}</div>
+        ${d.couponExpiresAt ? `<div style="font-size:11px;color:#808090;margin-top:6px;">Expires ${d.couponExpiresAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>` : ""}
+      </td></tr>
+    </table>`
+    : "";
+
+  return buildCartRecoveryHtmlInner(d, couponBlock);
+}
+
+function buildCartRecoveryHtmlInner(d: CartRecoveryEmailData, couponBlock: string): string {
+  const rows = d.items
+    .map(
+      (i) => `
+      <tr>
+        <td style="text-align:left;padding:8px 0;font-size:14px;color:#e0e0e8;border-bottom:1px solid rgba(255,255,255,0.08);">${escapeHtml(i.title)}${i.quantity > 1 ? ` &times;${i.quantity}` : ""}</td>
+        <td style="text-align:right;padding:8px 0;font-size:14px;color:#e0e0e8;border-bottom:1px solid rgba(255,255,255,0.08);width:90px;">${fmtDollars(i.lineTotal)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const inner = `
+    <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#8b9cf7;margin:0 0 8px;">You left something behind</p>
+    <h1 style="font-size:24px;font-weight:600;margin:0 0 12px;color:#e0e0e8;">Still want these?</h1>
+    <p style="font-size:15px;color:#a0a0b0;line-height:1.6;margin:0 0 24px;">
+      Your cart is still here. Pick up right where you left off &mdash; nothing's lost.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:8px;">
+      <tbody>${rows}</tbody>
+      <tr>
+        <td style="text-align:right;padding:12px 0;font-size:15px;font-weight:700;color:#e0e0e8;">Total</td>
+        <td style="text-align:right;padding:12px 0;font-size:15px;font-weight:700;color:#e0e0e8;">${fmtDollars(d.total)}</td>
+      </tr>
+    </table>
+
+    ${couponBlock}
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+      <tr><td align="center">
+        <a href="${d.resumeUrl}" style="display:inline-block;background:#8b9cf7;color:#0a0a14;font-size:15px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:10px;">Complete your order</a>
+      </td></tr>
+    </table>
+
+    <p style="font-size:12px;color:#808090;margin-top:24px;line-height:1.5;">
+      Changed your mind? No problem. <a href="${d.unsubscribeUrl}" style="color:#808090;">Unsubscribe</a> from reminders.
+    </p>
+  `;
+
+  return shell(inner, "You received this because you started a checkout at chadlewine.com");
 }
 
 export function buildAdminOrderNotificationHtml(d: OrderEmailData & {
