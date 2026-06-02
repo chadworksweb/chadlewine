@@ -20,9 +20,16 @@ export default function EditVideoPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const [form, setForm] = useState<Record<string, unknown> | null>(null);
+  const [songs, setSongs] = useState<Array<{ id: string; title: string }>>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetch(`/api/admin/videos/${id}`).then(r => r.json()).then(setForm); }, [id]);
+  useEffect(() => {
+    fetch("/api/admin/songs")
+      .then(r => r.json())
+      .then((rows: Array<{ id: string; title: string }>) =>
+        setSongs([...rows].sort((a, b) => a.title.localeCompare(b.title))));
+  }, []);
 
   async function handleSave() {
     if (!form) return;
@@ -49,6 +56,7 @@ export default function EditVideoPage() {
       <div className="obsv-editor__field"><label className="obsv-editor__label">Embed URL</label><input className="obsv-editor__input" value={(form.embed_url as string) || ""} onChange={e => setForm({...form, embed_url: e.target.value || null})} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Bunny Stream ID</label><input className="obsv-editor__input" value={(form.stream_id as string) || ""} onChange={e => setForm({...form, stream_id: e.target.value || null})} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Description</label><textarea className="obsv-editor__input" value={(form.description as string) || ""} onChange={e => setForm({...form, description: e.target.value})} rows={3} /></div>
+      <div className="obsv-editor__field"><label className="obsv-editor__label">Song this video is of</label><select className="obsv-editor__input" value={(form.song_id as string) || ""} onChange={e => setForm({...form, song_id: e.target.value || null})}><option value="">-- none --</option>{songs.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</select><p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "4px 0 0" }}>Links the video to its catalog song (about/subjectOf in structured data).</p></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label"><input type="checkbox" checked={!!form.is_featured} onChange={e => setForm({...form, is_featured: e.target.checked})} style={{ marginRight: 8 }} />Featured</label></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Status</label><select className="obsv-editor__input" value={(form.status as string) || "draft"} onChange={e => setForm({...form, status: e.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Publish date</label><input type="datetime-local" className="obsv-editor__input" value={toLocalInput(form.published_at)} onChange={e => setForm({...form, published_at: fromLocalInput(e.target.value)})} /><p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "4px 0 0" }}>Controls newest/oldest sort order on the public page.</p></div>
