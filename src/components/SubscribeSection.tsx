@@ -127,6 +127,16 @@ export function SubscribeSection() {
       setStatus("success");
       setMessage("You're in.");
       setEmail("");
+      // Footer subscribers should never get the engagement popup.
+      try {
+        const prev = JSON.parse(localStorage.getItem("cl_submodal") || "{}");
+        localStorage.setItem(
+          "cl_submodal",
+          JSON.stringify({ ...prev, subscribed: true })
+        );
+      } catch {
+        /* storage unavailable; ignore */
+      }
     } else {
       const data = await res.json();
       setStatus("error");

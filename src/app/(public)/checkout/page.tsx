@@ -31,6 +31,34 @@ export default function CheckoutResumePage() {
   useEffect(() => {
     let cancelled = false;
 
+    // Recovery path: an abandoned-cart email links here with ?recover=<sessionId>.
+    // Re-open the shopper's still-live session cross-device: hosted carts redirect
+    // to Stripe's url, embedded (physical) carts re-mount with the client_secret.
+    const recoverId = new URLSearchParams(window.location.search).get("recover");
+    if (recoverId) {
+      (async () => {
+        try {
+          const res = await fetch(`/api/checkout-recover?session=${encodeURIComponent(recoverId)}`);
+          const data = await res.json();
+          if (cancelled) return;
+          if (data.url) {
+            window.location.href = data.url;
+            return;
+          }
+          if (data.client_secret || data.clientSecret) {
+            setClientSecret(data.client_secret || data.clientSecret);
+            return;
+          }
+          setError("This checkout link has expired. Your items may still be in your cart.");
+        } catch {
+          if (!cancelled) setError("This checkout link has expired. Your items may still be in your cart.");
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
     // Fast path: the cart drawer already created an embedded session and
     // stashed its secret. Mount directly (single use) -- no second API call.
     try {

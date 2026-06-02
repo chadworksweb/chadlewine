@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/fan-track-drip",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/cart-recovery",
+      "schedule": "0 * * * *"
     }
   ]
 }

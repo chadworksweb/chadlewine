@@ -21,11 +21,7 @@ const adminNav: NavItem[] = [
       { href: "/admin/librosa", label: "Librosa" },
       { href: "/admin/voice-profile", label: "Voice Profile" },
       { href: "/admin/seo", label: "SEO" },
-      { href: "/admin/songwriting", label: "Songwriting Grid" },
       { href: "/admin/redirects", label: "Redirects" },
-      { href: "/admin/arc", label: "Arc — Overview" },
-      { href: "/admin/arc/capture", label: "Arc — Capture" },
-      { href: "/admin/arc/sections", label: "Arc — Sections" },
     ],
   },
   {
@@ -33,6 +29,7 @@ const adminNav: NavItem[] = [
     label: "Audience",
     children: [
       { href: "/admin/audience", label: "Members" },
+      { href: "/admin/subscribe-modal", label: "Subscribe Modal" },
       { href: "/admin/campaigns", label: "Campaigns" },
       { href: "/admin/email-templates", label: "Email templates" },
       { href: "/admin/fan-tracks", label: "For my fans" },
@@ -46,11 +43,22 @@ const adminNav: NavItem[] = [
       { href: "/admin/music", label: "Overview" },
       { href: "/admin/music/releases", label: "Releases" },
       { href: "/admin/music/songs", label: "Songs" },
+      { href: "/admin/songwriting", label: "Songwriting Grid" },
       { href: "/admin/pillar-songs", label: "Pillar Songs" },
       { href: "/admin/music/analytics/plays", label: "Song Plays" },
       { href: "/admin/curation", label: "Curation — Entries" },
       { href: "/admin/homepage-hero", label: "Curation — Homepage Hero" },
       { href: "/admin/cl-stream", label: "Curation — CL Stream" },
+    ],
+  },
+  {
+    href: "/admin/arc",
+    label: "Radiant Arc",
+    children: [
+      { href: "/admin/arc", label: "Overview" },
+      { href: "/admin/arc/nodes", label: "Nodes" },
+      { href: "/admin/arc/capture", label: "Capture" },
+      { href: "/admin/arc/sections", label: "Sections" },
     ],
   },
   {
@@ -61,14 +69,22 @@ const adminNav: NavItem[] = [
       { href: "/admin/booking-inquiries", label: "Bookings" },
     ],
   },
-  { href: "/admin/art", label: "Art" },
   {
     href: "/admin/merch",
     label: "Merch",
     children: [
       { href: "/admin/merch", label: "Products" },
       { href: "/admin/collections", label: "Collections" },
+    ],
+  },
+  { href: "/admin/art", label: "Art" },
+  {
+    href: "/admin/ecom",
+    label: "Ecom",
+    children: [
+      { href: "/admin/ecom", label: "Overview" },
       { href: "/admin/merch/orders", label: "Orders" },
+      { href: "/admin/cart-recovery", label: "Cart Recovery" },
     ],
   },
   { href: "/admin/media", label: "Media" },
