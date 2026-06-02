@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { VideoPantheon } from "@/components/VideoPantheon";
-import { ARTIST_ID, absoluteImage, isoDuration } from "@/lib/artist-schema";
+import { ARTIST_ID, absoluteImage, isoDuration, recordingId } from "@/lib/artist-schema";
 
 const VIDEOS_URL = "https://chadlewine.com/music-videos";
 
@@ -41,7 +41,7 @@ export default async function VideoPage() {
   const { data: videos } = await supabase
     .from("videos")
     .select(
-      "id, title, slug, category_id, stream_id, embed_url, thumbnail_path, description, is_featured, duration_seconds, published_at",
+      "id, title, slug, category_id, stream_id, embed_url, thumbnail_path, description, is_featured, duration_seconds, published_at, song_id, song:songs(slug, status)",
     )
     .eq("status", "published")
     .order("is_featured", { ascending: false })
@@ -55,6 +55,14 @@ export default async function VideoPage() {
     const thumb = absoluteImage(v.thumbnail_path);
     const uploaded = uploadIso(v.published_at);
     const dur = isoDuration(v.duration_seconds);
+    // When the video is linked to a catalog song (and that song's page exists),
+    // point about/subjectOf at the song's MusicRecording @id -- says "this video
+    // is OF this song", merging the two into one entity in the graph.
+    const song = Array.isArray(v.song) ? v.song[0] : v.song;
+    const songRef =
+      song && song.status === "published" && song.slug
+        ? { "@type": "MusicRecording", "@id": recordingId(song.slug) }
+        : null;
     return {
       "@context": "https://schema.org",
       "@type": "VideoObject",
@@ -68,6 +76,7 @@ export default async function VideoPage() {
       ...(v.embed_url ? { embedUrl: v.embed_url } : {}),
       author: { "@id": ARTIST_ID },
       creator: { "@id": ARTIST_ID },
+      ...(songRef ? { about: songRef, subjectOf: songRef } : {}),
     };
   });
 

@@ -11676,6 +11676,11 @@ html {
 
 .site-patronage .patronage { margin-top: 0; }
 
+/* On the dedicated /patronage page the widget is the page content, so hide the
+   duplicate global footer instance (the .site-patronage that sits after <main>).
+   The in-page one lives inside <main>, so `main ~` spares it. */
+body:has(.page-patronage) main ~ .site-patronage { display: none; }
+
 /* ============================================================
    Track Detail — Chad Rising-style track page
    Scoped under .track-detail to avoid conflicts with main site theme

@@ -1,6 +1,8 @@
 // Proxy to api.risingcompass.net/api/analyzer/calibrate-lyrics.
 // Uses chadlewine's service key so first-party callers skip bot
-// protection; we tag source="chadlewine" for downstream analytics.
+// protection. The caller may self-tag the originating surface via
+// `source` (sanitized to a slug, max 20 chars to fit RC's column);
+// defaults to "chadlewine" for downstream analytics.
 
 const RC_API_BASE = process.env.RC_API_BASE || "https://api.risingcompass.net";
 const RC_API_KEY = process.env.RC_SERVICE_API_KEY || "";
@@ -13,7 +15,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { lyrics?: string; title?: string; artist?: string };
+  let body: { lyrics?: string; title?: string; artist?: string; source?: string };
   try {
     body = await request.json();
   } catch {
@@ -43,6 +45,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "Artist is required." }, { status: 422 });
   }
 
+  // Caller-supplied origin tag (e.g. "super-individual" from the SI mini-charger).
+  // Sanitize to a lowercase slug and cap at 20 chars (RC's submitted_songs.source
+  // column is VARCHAR(20)); fall back to the generic client tag.
+  const source =
+    (body.source || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20) ||
+    "chadlewine";
+
   try {
     const res = await fetch(
       `${RC_API_BASE}/api/analyzer/calibrate-lyrics`,
@@ -56,7 +65,7 @@ export async function POST(request: Request) {
           lyrics,
           title,
           artist,
-          source: "chadlewine",
+          source,
         }),
       }
     );

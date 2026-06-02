@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     thumbnail_path: body.thumbnail_path || null,
     description: body.description || null,
     duration_seconds: body.duration_seconds || null,
+    song_id: body.song_id || null,
     is_featured: body.is_featured || false,
     status: body.status || "draft",
     published_at: body.status === "published" ? new Date().toISOString() : null,

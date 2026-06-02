@@ -24,7 +24,15 @@ const TIER_COLOR: Record<string, string> = {
   blue: "#3388cc",
 };
 
-export function MiniLyricalCharger() {
+interface MiniLyricalChargerProps {
+  /** Self-tag for the originating surface, forwarded to RC as `source`
+   *  (e.g. "super-individual"). When omitted, the proxy defaults to
+   *  "chadlewine". Lets RC distinguish which chadlewine surface a
+   *  submitted_songs row came from. */
+  source?: string;
+}
+
+export function MiniLyricalCharger({ source }: MiniLyricalChargerProps = {}) {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [lyrics, setLyrics] = useState("");
@@ -55,6 +63,7 @@ export function MiniLyricalCharger() {
           title: title.trim(),
           artist: artist.trim(),
           lyrics: lyrics.trim(),
+          ...(source ? { source } : {}),
         }),
       });
       const data = await res.json();
