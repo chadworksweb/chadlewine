@@ -12,6 +12,16 @@ import { fetchReleaseSkusForIds, fetchSongSkusForIds } from "@/lib/release-skus"
 
 export const revalidate = 60;
 
+// Prerender + ISR-cache each release page; new releases render on-demand.
+export async function generateStaticParams() {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("releases")
+    .select("slug")
+    .not("slug", "is", null);
+  return (data || []).map((r) => ({ releaseSlug: r.slug as string }));
+}
+
 async function getAlbumData(releaseSlug: string) {
   const supabase = createPublicClient();
 

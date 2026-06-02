@@ -90,7 +90,7 @@ export async function POST(
 
     const trackUrl = `${SITE_URL}/${slug}?token=${encodeURIComponent(g.token)}`;
     const unsubscribeUrl = aud.unsubscribe_token
-      ? `${SITE_URL}/unsubscribe?t=${aud.unsubscribe_token}`
+      ? `${SITE_URL}/unsubscribe?token=${encodeURIComponent(aud.unsubscribe_token)}`
       : "";
 
     const rendered = await renderTemplateBySlug(TEMPLATE_SLUG, {

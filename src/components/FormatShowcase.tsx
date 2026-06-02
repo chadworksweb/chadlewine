@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "@/components/Cart";
 import { releaseFormatLabel, type ReleaseFormat } from "@/lib/release-labels";
@@ -51,7 +51,32 @@ function computeUnitPrice(
   return sku.price + (variant ? variant.price_delta : 0);
 }
 
+// useSearchParams() (read below for the ?format= preselect) triggers a CSR
+// bailout during static prerender unless it sits under a Suspense boundary.
+// Wrapping the inner component keeps the song/release pages statically
+// cacheable: their shell prerenders and the format picker resolves on the client.
 export function FormatShowcase(props: Props) {
+  return (
+    <Suspense fallback={<FormatShowcaseFallback />}>
+      <FormatShowcaseInner {...props} />
+    </Suspense>
+  );
+}
+
+function FormatShowcaseFallback() {
+  return (
+    <button
+      type="button"
+      className="track-detail__btn track-detail__btn--buy-album"
+      disabled
+      aria-hidden="true"
+    >
+      Loading...
+    </button>
+  );
+}
+
+function FormatShowcaseInner(props: Props) {
   const cart = useCart();
   const skus = props.skus;
 

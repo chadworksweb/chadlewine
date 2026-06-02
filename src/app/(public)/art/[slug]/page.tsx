@@ -15,6 +15,16 @@ import { markdownToHtml } from "@/lib/markdown";
 
 export const revalidate = 60;
 
+// Prerender + ISR-cache each art piece; new pieces render on-demand.
+export async function generateStaticParams() {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("art_pieces")
+    .select("slug")
+    .not("slug", "is", null);
+  return (data || []).map((a) => ({ slug: a.slug as string }));
+}
+
 type ArtRow = {
   id: string;
   slug: string;

@@ -83,9 +83,28 @@ export function SubscribeModalController({
   const pathname = usePathname();
   const { count } = useCart();
   const [show, setShow] = useState(false);
+  const [eligible, setEligible] = useState(false);
+
+  // The (public) layout used to decide server-side whether to mount this at all
+  // (session / admin / admin-IP gating). It now always mounts it -- so public
+  // pages stay statically cacheable -- and eligibility is resolved here, from a
+  // dynamic API that runs the identical check.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/subscribe-modal/eligible")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) setEligible(!!d?.eligible);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (show) return; // already open this load
+    if (!eligible) return; // server-side gate (session/admin/IP) not satisfied
     if (isSuppressedPath(pathname)) return;
 
     const reshowMs = reshowDays * 24 * 60 * 60 * 1000;
@@ -145,6 +164,7 @@ export function SubscribeModalController({
     pathname,
     count,
     show,
+    eligible,
     dwellSeconds,
     cartDwellSeconds,
     scrollDepthPct,

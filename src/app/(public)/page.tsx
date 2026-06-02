@@ -149,10 +149,10 @@ async function getCLStreamSongs() {
   return rows.map((r, i) => ({ ...r, badge: badges[i] }));
 }
 
-async function getSongBriefs(): Promise<SongBriefData[]> {
+async function getSongBriefs(excludedIdsPromise: Promise<string[]>): Promise<SongBriefData[]> {
   const supabase = createPublicClient();
 
-  const excludedIds = await getBrowseExcludedSongIds(supabase);
+  const excludedIds = await excludedIdsPromise;
 
   let query = supabase
     .from("songs")
@@ -255,7 +255,7 @@ async function getHomepageMerch() {
   return data || [];
 }
 
-async function getExploreSongs() {
+async function getExploreSongs(excludedIdsPromise: Promise<string[]>) {
   const supabase = createPublicClient();
 
   const { data: settings } = await supabase
@@ -289,7 +289,7 @@ async function getExploreSongs() {
     const byId = new Map((data || []).map((s) => [s.id, s]));
     songs = ids.map((id) => byId.get(id)).filter(Boolean) as typeof songs;
   } else {
-    const excludedIds = await getBrowseExcludedSongIds(supabase);
+    const excludedIds = await excludedIdsPromise;
     let query = supabase
       .from("songs")
       .select("id, title, slug, song_summary, art_image_path, art_alt")
@@ -330,12 +330,17 @@ async function getExploreSongs() {
 }
 
 export default async function HomePage() {
+  // Compute the browse-excluded song ids ONCE and share the promise across both
+  // consumers (getExploreSongs + getSongBriefs). Previously each recomputed it --
+  // two redundant Supabase round trips on every render (and these pages render
+  // live on every request, so it was paid every time, not just on regen).
+  const excludedIdsPromise = getBrowseExcludedSongIds(createPublicClient());
   const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems] = await Promise.all([
     getHomepageSongs(),
     getFeaturedTrack(),
     getCLStreamSongs(),
-    getExploreSongs(),
-    getSongBriefs(),
+    getExploreSongs(excludedIdsPromise),
+    getSongBriefs(excludedIdsPromise),
     getHomepageMerch(),
     getCuratedHeroItems(),
   ]);

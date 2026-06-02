@@ -16,6 +16,17 @@ import { ExploreStrip } from "@/components/ExploreStrip";
 
 export const revalidate = 60;
 
+// Prerender + ISR-cache each published observation; new ones render on-demand.
+export async function generateStaticParams() {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("observations")
+    .select("slug")
+    .eq("status", "published")
+    .not("slug", "is", null);
+  return (data || []).map((o) => ({ slug: o.slug as string }));
+}
+
 async function getObservation(slug: string) {
   const supabase = createPublicClient();
 

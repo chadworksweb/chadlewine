@@ -790,6 +790,95 @@ export async function POST(request: Request) {
           console.warn(`[stripe-webhook] Failed to send admin notification for ${orderNumber}`);
         }
       }
+    } else if (itemType === "sponsor") {
+      // Sponsor a demo into production. Record the contribution, advance the
+      // pooled total, and -- the moment it crosses the goal -- stamp funded,
+      // stop accepting, and email Chad. No refunds: amount is captured up front.
+      const sponsorshipId = session.metadata?.sponsorship_id || null;
+      const songId = session.metadata?.song_id || null;
+      const audienceId = session.metadata?.audience_id || null;
+      const amountCents = session.amount_total || 0;
+
+      if (!sponsorshipId || !songId || !audienceId || amountCents <= 0) {
+        console.error("[stripe-webhook] Sponsor session missing required metadata");
+        return Response.json({ error: "Bad sponsor payload" }, { status: 400 });
+      }
+
+      // Idempotency: stripe_session_id is unique. If we've already recorded this
+      // session (webhook redelivery), acknowledge and stop.
+      const { data: already } = await supabase
+        .from("sponsor_contributions")
+        .select("id")
+        .eq("stripe_session_id", session.id)
+        .maybeSingle();
+      if (already) {
+        return Response.json({ received: true });
+      }
+
+      const { error: contribError } = await supabase.from("sponsor_contributions").insert({
+        song_id: songId,
+        sponsorship_id: sponsorshipId,
+        audience_id: audienceId,
+        amount_cents: amountCents,
+        credit_name: session.metadata?.credit_name || null,
+        is_anonymous: session.metadata?.is_anonymous === "true",
+        request_note: session.metadata?.request_note || null,
+        stripe_payment_intent_id: (session.payment_intent as string) || null,
+        stripe_session_id: session.id,
+      });
+      if (contribError) {
+        console.error("[stripe-webhook] Failed to insert sponsor contribution:", contribError.message);
+        return Response.json({ error: "Database insert failed" }, { status: 500 });
+      }
+
+      // Advance the pooled total (read-modify-write; sponsor volume is low).
+      const { data: sp } = await supabase
+        .from("song_sponsorships")
+        .select("goal_cents, raised_cents, backer_count, status, funded_at, production_type, production_mode")
+        .eq("id", sponsorshipId)
+        .maybeSingle();
+
+      if (sp) {
+        const newRaised = sp.raised_cents + amountCents;
+        const newBackers = sp.backer_count + 1;
+        const justFunded = newRaised >= sp.goal_cents && !sp.funded_at;
+
+        await supabase
+          .from("song_sponsorships")
+          .update({
+            raised_cents: newRaised,
+            backer_count: newBackers,
+            ...(justFunded ? { funded_at: new Date().toISOString(), status: "funded" } : {}),
+          })
+          .eq("id", sponsorshipId);
+
+        if (justFunded) {
+          const { data: song } = await supabase
+            .from("songs")
+            .select("title, slug")
+            .eq("id", songId)
+            .maybeSingle();
+          const tier =
+            sp.production_type === "beat"
+              ? "beat"
+              : sp.production_mode === "studio"
+                ? "full production (studio)"
+                : "full production (remote)";
+          const goalDollars = (sp.goal_cents / 100).toFixed(2);
+          await sendEmail({
+            to: ADMIN_NOTIFY_EMAIL,
+            subject: `Demo funded: "${song?.title || songId}" - ${tier}`,
+            html: `<p>A sponsor demo just hit its goal and is ready for production.</p>
+<ul>
+<li><strong>Song:</strong> ${song?.title || songId}</li>
+<li><strong>Production:</strong> ${tier}</li>
+<li><strong>Goal:</strong> $${goalDollars}</li>
+<li><strong>Backers:</strong> ${newBackers}</li>
+</ul>
+<p><a href="${SITE_URL}/admin/music/songs/${song?.slug || songId}">Open in admin</a></p>`,
+          });
+        }
+      }
     } else {
       // Patronage — donation flow.
       const observationId = session.metadata?.observation_id || null;

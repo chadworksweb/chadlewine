@@ -16,6 +16,7 @@ import { EntityPicker } from "@/components/EntityPicker";
 import { CreditsEditor } from "@/components/CreditsEditor";
 import { SkuPanel } from "@/components/SkuPanel";
 import { LibrosaPanel } from "@/components/LibrosaPanel";
+import { SponsorshipPanel } from "@/components/SponsorshipPanel";
 
 interface ExpansionSummary {
   id: string;
@@ -38,6 +39,7 @@ interface SongData {
   lyrics: string | null;
   instrumental: boolean;
   status: string;
+  demo_type: string;
   release_date: string | null;
   song_summary: string | null;
   chorus: string | null;
@@ -86,6 +88,7 @@ const emptySong: SongData = {
   lyrics: null,
   instrumental: false,
   status: "draft",
+  demo_type: "vote",
   release_date: null,
   song_summary: null,
   chorus: null,
@@ -296,6 +299,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     return {
       ...initial,
       release_id: initial.release_id || "",
+      demo_type: initial.demo_type || "vote",
       focus_keyphrase: initial.focus_keyphrase || "",
       secondary_keyphrases: initial.secondary_keyphrases || [],
       search_intent: initial.search_intent || "informational",
@@ -370,6 +374,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       lyrics: d.lyrics,
       instrumental: d.instrumental,
       status: d.status,
+      demo_type: d.demo_type,
       release_date: d.release_date,
       song_summary: d.song_summary,
       chorus: d.chorus,
@@ -688,11 +693,31 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 onChange={(e) => set("status", e.target.value)}
               >
                 <option value="draft">Draft</option>
+                <option value="demo">Demo</option>
                 <option value="unreleased">Unreleased</option>
                 <option value="published">Published</option>
               </select>
             </div>
+
+            {form.status === "demo" && (
+              <div className="obsv-editor__field">
+                <label className="obsv-editor__label" htmlFor="demo_type">Demo Type</label>
+                <select
+                  id="demo_type"
+                  className="obsv-editor__input"
+                  value={form.demo_type}
+                  onChange={(e) => set("demo_type", e.target.value)}
+                >
+                  <option value="vote">Vote to push</option>
+                  <option value="sponsor">Sponsor into production</option>
+                </select>
+              </div>
+            )}
           </div>
+
+          {form.status === "demo" && form.demo_type === "sponsor" && (
+            <SponsorshipPanel songId={form.id} songTitle={form.title} />
+          )}
 
           {/* Content Freshness */}
           {form.updated_at && (() => {
