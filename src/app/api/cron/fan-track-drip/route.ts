@@ -164,7 +164,7 @@ export async function GET(request: Request) {
 
     const trackUrl = `${siteUrl}/${track.slug}?token=${encodeURIComponent(grantToken)}`;
     const unsubscribeUrl = row.unsubscribe_token
-      ? `${siteUrl}/unsubscribe?t=${row.unsubscribe_token}`
+      ? `${siteUrl}/unsubscribe?token=${encodeURIComponent(row.unsubscribe_token)}`
       : "";
 
     const rendered = await renderTemplateBySlug("for-my-fans-01", {

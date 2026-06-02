@@ -5,6 +5,7 @@ import {
   deriveTier,
   type MemberTier,
 } from "@/lib/audience-notify";
+import { sendSubscriberWelcome } from "@/lib/subscriber-welcome";
 import {
   OPTIONAL_CATEGORIES,
   categoryColumn,
@@ -97,6 +98,12 @@ export async function upsertAudienceFromSubscribe(opts: {
   let audienceId: string;
   const now = new Date().toISOString();
   const isNew = !existing;
+  // Send the welcome email only when this is a genuine new opt-in: a brand-new
+  // contact, or an existing contact who had never subscribed (e.g. a customer
+  // who opted out of marketing at checkout, status 'never', now subscribing).
+  // An already-active subscriber re-submitting, or an explicitly unsubscribed
+  // row (which we don't auto-resubscribe), does NOT re-trigger it.
+  const becameSubscriber = isNew || existing?.subscriber_status === "never";
 
   if (existing) {
     audienceId = existing.id;
@@ -143,6 +150,10 @@ export async function upsertAudienceFromSubscribe(opts: {
       tier: "subscriber",
       source: opts.source_page ? `subscribe — ${opts.source_page}` : "subscribe",
     });
+  }
+  // Thank the subscriber with the editable welcome-01 template.
+  if (becameSubscriber) {
+    void sendSubscriberWelcome({ audienceId, email });
   }
   return audienceId;
 }
