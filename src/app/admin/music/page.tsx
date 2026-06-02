@@ -15,6 +15,8 @@ export default function AdminMusicPage() {
   const [settingFeatured, setSettingFeatured] = useState(false);
   const [playbackMode, setPlaybackMode] = useState<string>("preview");
   const [savingPlayback, setSavingPlayback] = useState(false);
+  const [sponsorDemosEnabled, setSponsorDemosEnabled] = useState(false);
+  const [savingSponsorDemos, setSavingSponsorDemos] = useState(false);
   const [exploreMode, setExploreMode] = useState<"random" | "manual">("random");
   const [exploreIds, setExploreIds] = useState<string[]>([]);
   const [savingExplore, setSavingExplore] = useState(false);
@@ -38,6 +40,7 @@ export default function AdminMusicPage() {
     setSongs(songsData);
     setFeatured(featuredData);
     if (settingsData.playback_mode) setPlaybackMode(settingsData.playback_mode);
+    setSponsorDemosEnabled(settingsData.sponsor_demos_enabled === "true");
     if (settingsData.homepage_explore_songs_mode === "manual" || settingsData.homepage_explore_songs_mode === "random") {
       setExploreMode(settingsData.homepage_explore_songs_mode);
     }
@@ -71,6 +74,17 @@ export default function AdminMusicPage() {
     });
     setPlaybackMode(mode);
     setSavingPlayback(false);
+  }
+
+  async function handleSetSponsorDemos(enabled: boolean) {
+    setSavingSponsorDemos(true);
+    await fetch("/api/admin/site-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sponsor_demos_enabled: enabled ? "true" : "false" }),
+    });
+    setSponsorDemosEnabled(enabled);
+    setSavingSponsorDemos(false);
   }
 
   async function handleSaveExplore(nextMode: "random" | "manual", nextIds: string[]) {
@@ -221,6 +235,28 @@ export default function AdminMusicPage() {
             {savingPlayback ? "Saving..." : `Sitewide: ${playbackMode === "full" ? "Full Length" : "30s Preview"}`}
           </span>
         </div>
+      </div>
+
+      <div style={{ marginBottom: "var(--space-xl)", padding: "var(--space-lg)", background: "var(--bg-glass)", border: "1px solid var(--bg-glass-border)", borderRadius: 8 }}>
+        <h2 style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "var(--space-md)" }}>Sponsor Demos</h2>
+        <label style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", fontFamily: "var(--font-ui)", fontSize: "var(--text-sm)", color: "var(--text-primary)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={sponsorDemosEnabled}
+            disabled={savingSponsorDemos}
+            onChange={(e) => handleSetSponsorDemos(e.target.checked)}
+          />
+          <span>
+            Feature is{" "}
+            <strong style={{ color: sponsorDemosEnabled ? "var(--text-accent)" : "var(--text-tertiary)" }}>
+              {savingSponsorDemos ? "saving..." : sponsorDemosEnabled ? "ON" : "OFF"}
+            </strong>{" "}
+            sitewide
+          </span>
+        </label>
+        <p style={{ fontFamily: "var(--font-ui)", fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "var(--space-sm) 0 0" }}>
+          Master switch for paid demo sponsorships. When off, every sponsor widget shows paused and the sponsor checkout is blocked. Per-song on/off lives in each song&rsquo;s Sponsorship panel.
+        </p>
       </div>
 
       <div style={{ marginBottom: "var(--space-xl)", padding: "var(--space-lg)", background: "var(--bg-glass)", border: "1px solid var(--bg-glass-border)", borderRadius: 8 }}>

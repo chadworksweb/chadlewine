@@ -9,6 +9,16 @@ import { SynapseDisplay } from "@/components/SynapseDisplay";
 
 export const revalidate = 60;
 
+// Prerender + ISR-cache each published meditation; new ones render on-demand.
+export async function generateStaticParams() {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("meditations")
+    .select("id")
+    .eq("status", "published");
+  return (data || []).map((m) => ({ id: String(m.id) }));
+}
+
 interface MeditationWithMeta {
   id: string;
   body: string;

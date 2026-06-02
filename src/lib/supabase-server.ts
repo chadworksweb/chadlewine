@@ -36,3 +36,17 @@ export async function getPlaybackMode(
     .single();
   return data?.value === "full" ? "full" : "preview";
 }
+
+/**
+ * Global kill switch for the Sponsor-demo feature. Defaults to OFF when the
+ * setting row is absent, so the feature ships dark until explicitly enabled.
+ */
+export async function getSponsorDemosEnabled(): Promise<boolean> {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "sponsor_demos_enabled")
+    .maybeSingle();
+  return data?.value === "true";
+}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
+import { CONSENT_COOKIE, OPT_IN_COUNTRIES } from "@/lib/consent";
 
 type AuthResult = {
   ok: boolean;
@@ -137,7 +138,29 @@ export async function proxy(request: NextRequest) {
   // so whatever reaches master is live. No section hiding on production. The
   // feature_flags table + launch-control admin remain dormant (cross-sell still
   // reads flags). Gate by not merging to master, not by flags.
-  return NextResponse.next();
+  //
+  // Consent geo-default (edge): first-time visitors with no saved consent choice
+  // get a cl_geo_default cookie ("deny" for EU/UK/EEA, "allow" elsewhere). The
+  // root-layout inline script reads it to set the pre-hydration consent default
+  // WITHOUT the layout calling cookies()/headers() -- which would force every
+  // public page to dynamic rendering and defeat ISR. Only set on the first hit
+  // (neither cookie present), so steady-state responses stay cache-clean.
+  const res = NextResponse.next();
+  if (
+    !pathname.startsWith("/api") &&
+    !request.cookies.get(CONSENT_COOKIE)?.value &&
+    !request.cookies.get("cl_geo_default")?.value
+  ) {
+    const country = request.headers.get("x-vercel-ip-country");
+    const def = country && OPT_IN_COUNTRIES.has(country) ? "deny" : "allow";
+    res.cookies.set("cl_geo_default", def, {
+      httpOnly: false,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
+  return res;
 }
 
 export const config = {

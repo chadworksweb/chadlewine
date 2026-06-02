@@ -1,12 +1,34 @@
-import { cookies } from "next/headers";
+"use client";
+
+import { useEffect, useState } from "react";
 
 interface AdminEditButtonProps {
   href: string;
 }
 
-export async function AdminEditButton({ href }: AdminEditButtonProps) {
-  const cookieStore = await cookies();
-  const isAdmin = cookieStore.has("sb-access-token");
+// Admin-only edit affordance. This was a server component that read the
+// sb-access-token cookie, which forced every content page rendering it (songs,
+// observations, releases, art, meditations, merch) into dynamic rendering and
+// defeated ISR. It now resolves admin status client-side via /api/auth/me so
+// the surrounding page stays statically cacheable; the pencil paints for admins
+// just after hydration. The /admin/* target is auth-gated by proxy.ts anyway,
+// so this is purely a UX hint (keying off is_admin instead of the old loose
+// "any signed-in cookie" check, so fans no longer see a dead edit link).
+export function AdminEditButton({ href }: AdminEditButtonProps) {
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) setIsAdmin(!!d?.user?.is_admin);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!isAdmin) return null;
 

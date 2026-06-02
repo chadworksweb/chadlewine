@@ -46,6 +46,62 @@ export async function createCheckoutSession(params: {
   });
 }
 
+/** Sponsor a demo into production. One line item, payment mode, captured into
+   balance immediately (funds are gated operationally via manual payouts -- there
+   is no refund path). Account is required upstream, so we always have either a
+   Stripe customer id or an email to attach. Sponsor details ride in metadata for
+   the webhook to record the contribution + advance the funding total. */
+export async function createSponsorCheckoutSession(params: {
+  amount: number;
+  song_id: string;
+  sponsorship_id: string;
+  audience_id: string;
+  product_label: string; // e.g. "Sponsor: Boomerang (full production)"
+  credit_name?: string;
+  is_anonymous?: boolean;
+  request_note?: string;
+  customer?: string;
+  customer_email?: string;
+  success_url: string;
+  cancel_url: string;
+}) {
+  const customerParams: Pick<
+    Stripe.Checkout.SessionCreateParams,
+    "customer" | "customer_email" | "customer_creation"
+  > = params.customer
+    ? { customer: params.customer }
+    : { customer_email: params.customer_email, customer_creation: "always" };
+
+  // Stripe caps metadata at 500 chars per key -- cap the free-text fields.
+  const metadata: Record<string, string> = {
+    type: "sponsor",
+    song_id: params.song_id,
+    sponsorship_id: params.sponsorship_id,
+    audience_id: params.audience_id,
+    is_anonymous: params.is_anonymous ? "true" : "false",
+  };
+  if (params.credit_name) metadata.credit_name = params.credit_name.slice(0, 120);
+  if (params.request_note) metadata.request_note = params.request_note.slice(0, 480);
+
+  return getStripe().checkout.sessions.create({
+    mode: "payment",
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: { name: params.product_label },
+          unit_amount: toCents(params.amount),
+        },
+        quantity: 1,
+      },
+    ],
+    ...customerParams,
+    metadata,
+    success_url: params.success_url,
+    cancel_url: params.cancel_url,
+  });
+}
+
 export async function createCartCheckoutSession(params: {
   line_items: Array<{
     title: string;

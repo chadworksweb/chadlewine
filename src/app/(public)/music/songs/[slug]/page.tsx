@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
+import { createPublicClient, getPlaybackMode, getSponsorDemosEnabled } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
+import { SponsorDemoDetail } from "@/components/SponsorDemoDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
 import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ExploreStrip } from "@/components/ExploreStrip";
@@ -13,6 +14,19 @@ import { fetchReleaseSkusForIds, fetchSongSkusForIds } from "@/lib/release-skus"
 import { mergeConfig, RENDER_LEVERS, profileForSong, profileFromStored } from "@/lib/librosa-levers";
 
 export const revalidate = 60;
+
+// Enumerate public song slugs at build so each song page prerenders and
+// ISR-caches (revalidate above). dynamicParams stays true by default, so songs
+// added after a build still render on-demand and then cache.
+export async function generateStaticParams() {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("songs")
+    .select("slug")
+    .in("status", ["unreleased", "published"])
+    .not("slug", "is", null);
+  return (data || []).map((s) => ({ slug: s.slug as string }));
+}
 
 async function getSongData(songSlug: string) {
   const supabase = createPublicClient();
@@ -186,12 +200,70 @@ async function getSongData(songSlug: string) {
   };
 }
 
+// Sponsor demos live at the same /music/songs/<slug> URL but are gated out of
+// getSongData (status='demo'). Fetch the song + its public sponsorship (the
+// cost-free view) + credits. Returns null for anything that isn't an open
+// sponsor demo, so the released-song path takes over.
+async function getSponsorDemo(songSlug: string) {
+  const supabase = createPublicClient();
+
+  const { data: song } = await supabase
+    .from("songs")
+    .select(
+      "id, slug, title, art_image_path, art_alt, streaming_path, duration_seconds, song_summary, lyrics, playback_mode, status, demo_type",
+    )
+    .eq("slug", songSlug)
+    .eq("status", "demo")
+    .eq("demo_type", "sponsor")
+    .maybeSingle();
+  if (!song) return null;
+
+  const { data: sponsorship } = await supabase
+    .from("song_sponsorships_public")
+    .select("*")
+    .eq("song_id", song.id)
+    .maybeSingle();
+  if (!sponsorship) return null;
+
+  const { data: credits } = await supabase
+    .from("song_credits")
+    .select("id, role, name")
+    .eq("song_id", song.id)
+    .order("display_order")
+    .order("created_at");
+
+  return { song, sponsorship, credits: credits || [] };
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+
+  const demo = await getSponsorDemo(slug);
+  if (demo) {
+    const title = `${demo.song.title} (demo) - Chad Lewine`;
+    const description =
+      demo.song.song_summary ||
+      `Sponsor "${demo.song.title}" from demo into a finished production.`;
+    return {
+      title,
+      description,
+      alternates: { canonical: `https://chadlewine.com/music/songs/${slug}` },
+      openGraph: {
+        type: "music.song",
+        title,
+        description,
+        url: `https://chadlewine.com/music/songs/${slug}`,
+        ...(demo.song.art_image_path
+          ? { images: [{ url: demo.song.art_image_path, alt: demo.song.art_alt || demo.song.title }] }
+          : {}),
+      },
+    };
+  }
+
   const result = await getSongData(slug);
   if (!result) return {};
 
@@ -228,6 +300,39 @@ export default async function SongDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
+  // Sponsor demo path (status='demo'), rendered before the released-song path.
+  // No per-user/cookie reads here so the route stays ISR-cacheable; sign-in is
+  // handled by /api/sponsor returning 401 and the widget prompting in place.
+  const demo = await getSponsorDemo(slug);
+  if (demo) {
+    const [demoPlaybackMode, sponsorEnabled] = await Promise.all([
+      getPlaybackMode(demo.song.playback_mode),
+      getSponsorDemosEnabled(),
+    ]);
+    const sp = demo.sponsorship as {
+      enabled?: boolean;
+      status?: string;
+      funded_at?: string | null;
+    };
+    // Accepting now = global switch on, song switch on, still open, not funded.
+    const accepting =
+      sponsorEnabled && sp.enabled === true && sp.status === "open" && !sp.funded_at;
+    return (
+      <>
+        <AdminEditButton href={`/admin/music/songs/${demo.song.slug || demo.song.id}`} />
+        <SponsorDemoDetail
+          song={demo.song}
+          sponsorship={demo.sponsorship}
+          credits={demo.credits}
+          accepting={accepting}
+          playbackMode={demoPlaybackMode}
+        />
+        <ExploreStrip wrap />
+      </>
+    );
+  }
+
   const result = await getSongData(slug);
   if (!result) notFound();
 

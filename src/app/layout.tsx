@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
 import "@/styles/global.css";
 import { SiteJsonLd } from "@/components/SiteJsonLd";
 import { CartProvider, CartUI } from "@/components/Cart";
@@ -8,7 +7,6 @@ import { StickyPlayer } from "@/components/StickyPlayer";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { ConsentedAnalytics } from "@/components/ConsentedAnalytics";
 import { ConsentProvider } from "@/components/ConsentProvider";
-import { CONSENT_COOKIE, parseConsent, defaultConsentForCountry } from "@/lib/consent";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chadlewine.com"),
@@ -44,29 +42,30 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+// Consent bootstrap, client-side. Sets window.__CL_CONSENT__ BEFORE hydration so
+// every analytics surface (PostHog, GA, custom analytics, song-play recorder)
+// reads the correct state on first paint. Reads the saved choice from the
+// cl_cookie_consent cookie; for first-time visitors it reads cl_geo_default
+// (set at the edge by proxy.ts: "deny" for EU/UK/EEA, "allow" elsewhere),
+// defaulting to deny when absent. This runs in the browser, so the layout no
+// longer calls cookies()/headers() server-side -- which is what forced every
+// public page to dynamic rendering and defeated ISR.
+const CONSENT_BOOTSTRAP =
+  "(function(){try{function r(n){var m=document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):null;}" +
+  "var raw=r('cl_cookie_consent'),w;" +
+  "if(raw){var o={functional:0,analytics:0,marketing:0};raw.split('|').forEach(function(p){var kv=p.split(':');if(kv[0] in o)o[kv[0]]=parseInt(kv[1],10)?1:0;});w={decided:true,functional:o.functional,analytics:o.analytics,marketing:o.marketing};}" +
+  "else{var allow=r('cl_geo_default')==='allow';w={decided:false,functional:allow?1:0,analytics:allow?1:0,marketing:0};}" +
+  "window.__CL_CONSENT__=w;}catch(e){window.__CL_CONSENT__={decided:false,functional:0,analytics:0,marketing:0};}})();";
+
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Consent bootstrap: set window.__CL_CONSENT__ BEFORE hydration so every
-  // analytics surface (PostHog, GA, custom analytics, song-play recorder) reads
-  // the correct state on first paint. Cookie = the visitor's saved choice;
-  // otherwise the geo default (EU/UK/EEA -> opt-in/off, elsewhere -> opt-out/on).
-  // Reading cookies()+headers() makes rendering dynamic; the (public) layout
-  // already reads cookies(), so public routes are dynamic regardless.
-  const [cookieStore, hdrs] = await Promise.all([cookies(), headers()]);
-  const raw = cookieStore.get(CONSENT_COOKIE)?.value || "";
-  const decided = !!raw;
-  const c = decided
-    ? parseConsent(raw)
-    : defaultConsentForCountry(hdrs.get("x-vercel-ip-country"));
-  const bootstrap = `window.__CL_CONSENT__={decided:${decided},functional:${c.functional},analytics:${c.analytics},marketing:${c.marketing}};`;
-
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <body>
-        <script dangerouslySetInnerHTML={{ __html: bootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: CONSENT_BOOTSTRAP }} />
         <SiteJsonLd />
         <ConsentProvider>
           <CartProvider>
