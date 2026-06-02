@@ -1,0 +1,269 @@
+/* Engagement-triggered subscribe modal. Shares the play-gate visual language
+   (z-index above the cart overlay and sticky player). Dark theme, site tokens. */
+
+.cl-submodal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10010;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  background: rgba(3, 3, 8, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: cl-submodal-fade 160ms ease-out;
+}
+
+.cl-submodal-card {
+  position: relative;
+  width: 100%;
+  max-width: 32rem;
+  /* Never taller than the viewport (landscape phones, short tablets); scroll
+     the card internals rather than clipping the form/close button. */
+  max-height: calc(100dvh - 2 * var(--space-md));
+  overflow-y: auto;
+  padding: var(--space-xl) var(--space-lg) var(--space-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  text-align: center;
+  animation: cl-submodal-glitch-in 520ms steps(1, end) both;
+}
+
+.cl-submodal-card--closing {
+  animation: cl-submodal-glitch-out 360ms steps(1, end) both;
+}
+
+.cl-submodal-overlay--closing {
+  animation: cl-submodal-fade-out 360ms ease-in both;
+}
+
+.cl-submodal-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.cl-submodal-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-glass-hover);
+}
+
+.cl-submodal-eyebrow {
+  margin: 0 0 var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+}
+
+.cl-submodal-title {
+  margin: 0 0 var(--space-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+  animation: cl-submodal-aberrate 520ms steps(1, end) both;
+}
+
+.cl-submodal-card--closing .cl-submodal-title {
+  animation: cl-submodal-aberrate 360ms steps(1, end) both;
+}
+
+.cl-submodal-body {
+  margin: 0 auto var(--space-lg);
+  max-width: 27rem;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  color: var(--text-secondary);
+}
+
+.cl-submodal-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  justify-content: center;
+}
+
+.cl-submodal-input {
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: 0.7rem 1rem;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-medium);
+  border-radius: 10px;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.cl-submodal-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.cl-submodal-input:focus {
+  outline: none;
+  border-color: var(--text-accent);
+  background: var(--bg-glass-hover);
+}
+
+.cl-submodal-btn {
+  flex: 0 0 auto;
+  padding: 0.7rem 1.4rem;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--bg-deep);
+  background: var(--text-accent);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.cl-submodal-btn:hover {
+  background: #a3b1f9;
+}
+
+.cl-submodal-btn:active {
+  transform: translateY(1px);
+}
+
+.cl-submodal-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cl-submodal-success {
+  margin: var(--space-sm) 0 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--text-accent);
+}
+
+.cl-submodal-error {
+  margin: var(--space-sm) 0 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: #f78b8b;
+}
+
+.cl-submodal-dismiss {
+  display: inline-block;
+  margin-top: var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.cl-submodal-dismiss:hover {
+  color: var(--text-secondary);
+}
+
+/* Phones: stack the field and button so neither gets squeezed, and give the
+   button a comfortable full-width tap target. */
+@media (max-width: 30rem) {
+  .cl-submodal-card {
+    padding: var(--space-lg) var(--space-md) var(--space-md);
+  }
+  .cl-submodal-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cl-submodal-input,
+  .cl-submodal-btn {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+  .cl-submodal-btn {
+    padding: 0.85rem 1.4rem;
+  }
+}
+
+/* Coarse pointers (touch): bump the close target to ~44px per platform HIG. */
+@media (pointer: coarse) {
+  .cl-submodal-close {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+@keyframes cl-submodal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cl-submodal-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Glitch in: signal-tearing slices, horizontal jitter, opacity flicker. */
+@keyframes cl-submodal-glitch-in {
+  0%   { opacity: 0; transform: translate(0, 10px); clip-path: inset(0 0 100% 0); }
+  8%   { opacity: 1; transform: translate(-7px, 0); clip-path: inset(0 0 62% 0); }
+  16%  { transform: translate(8px, 0); clip-path: inset(38% 0 20% 0); }
+  24%  { transform: translate(-5px, 0); clip-path: inset(8% 0 64% 0); }
+  32%  { opacity: 0.82; transform: translate(6px, 0); clip-path: inset(64% 0 8% 0); }
+  40%  { transform: translate(-3px, 0); clip-path: inset(22% 0 30% 0); }
+  52%  { opacity: 1; transform: translate(3px, 0) skewX(2deg); clip-path: inset(0 0 0 0); }
+  64%  { transform: translate(-2px, 0) skewX(-1.5deg); }
+  78%  { transform: translate(1px, 0) skewX(0.5deg); }
+  100% { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+}
+
+/* Glitch out: tears apart and drops back into the signal. */
+@keyframes cl-submodal-glitch-out {
+  0%   { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+  18%  { transform: translate(6px, 0) skewX(1deg); clip-path: inset(0 0 55% 0); }
+  36%  { transform: translate(-9px, 0); clip-path: inset(46% 0 12% 0); opacity: 0.9; }
+  54%  { transform: translate(7px, 0); clip-path: inset(18% 0 44% 0); opacity: 0.55; }
+  72%  { transform: translate(-4px, 0) skewX(-2deg); clip-path: inset(72% 0 0 0); opacity: 0.4; }
+  100% { opacity: 0; transform: translate(0, 12px) scale(0.99); clip-path: inset(0 0 100% 0); }
+}
+
+/* Chromatic aberration on the headline while the card is glitching. */
+@keyframes cl-submodal-aberrate {
+  0%, 100% { text-shadow: none; }
+  10%      { text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff; }
+  22%      { text-shadow: 3px 0 #ff2e63, -3px 0 #00e0ff; }
+  34%      { text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff; }
+  50%      { text-shadow: 1px 0 #ff2e63, -1px 0 #00e0ff; }
+}
+
+/* Reduced motion: no tearing/jitter, just a quiet fade in and out. */
+@media (prefers-reduced-motion: reduce) {
+  .cl-submodal-card {
+    animation: cl-submodal-fade 160ms ease-out both;
+  }
+  .cl-submodal-card--closing {
+    animation: cl-submodal-fade-out 160ms ease-in both;
+  }
+  .cl-submodal-title,
+  .cl-submodal-card--closing .cl-submodal-title {
+    animation: none;
+  }
+}

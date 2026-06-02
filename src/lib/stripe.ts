@@ -201,6 +201,65 @@ export function retrieveSession(sessionId: string) {
   return getStripe().checkout.sessions.retrieve(sessionId);
 }
 
+export interface RecoverableCartSession {
+  sessionId: string;
+  email: string;
+  /** Hosted (digital) sessions expose a payable url; embedded (physical) ones
+     don't, so the caller resumes those via /checkout?recover=<sessionId>. */
+  url: string | null;
+  isEmbedded: boolean;
+  amountTotalCents: number | null;
+  createdMs: number;
+}
+
+/** List cart checkout sessions a shopper opened but never paid within a time
+   window. Stripe cannot filter list() by metadata, so we page through `open`
+   sessions in the created range and filter in code to our cart sessions that
+   still have an unpaid status and a captured email. */
+export async function listRecoverableCartSessions(params: {
+  sinceMs: number; // oldest created time to include
+  untilMs: number; // newest created time to include (i.e. now - delay)
+}): Promise<RecoverableCartSession[]> {
+  const stripe = getStripe();
+  const out: RecoverableCartSession[] = [];
+
+  for await (const s of stripe.checkout.sessions.list({
+    status: "open",
+    created: {
+      gte: Math.floor(params.sinceMs / 1000),
+      lte: Math.floor(params.untilMs / 1000),
+    },
+    limit: 100,
+  })) {
+    if (s.metadata?.type !== "cart") continue;
+    if (s.payment_status !== "unpaid") continue;
+    const email = s.customer_details?.email || s.customer_email || null;
+    if (!email) continue;
+
+    out.push({
+      sessionId: s.id,
+      email,
+      url: s.url ?? null,
+      // Hosted sessions carry a payable url; embedded (physical) ones don't.
+      isEmbedded: !s.url,
+      amountTotalCents: s.amount_total ?? s.amount_subtotal ?? null,
+      createdMs: s.created * 1000,
+    });
+  }
+
+  return out;
+}
+
+/** Resume payload for an embedded cart session (used by /checkout?recover=). */
+export async function getResumableSession(
+  sessionId: string
+): Promise<{ clientSecret: string | null; url: string | null } | null> {
+  const s = await getStripe().checkout.sessions.retrieve(sessionId);
+  if (s.metadata?.type !== "cart") return null;
+  if (s.status !== "open" || s.payment_status !== "unpaid") return null;
+  return { clientSecret: s.client_secret ?? null, url: s.url ?? null };
+}
+
 export function verifyWebhookSignature(payload: string, signature: string) {
   return getStripe().webhooks.constructEvent(
     payload,
