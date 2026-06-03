@@ -130,7 +130,7 @@ export function SubscribeModal({ sourcePage, onClose, onSubscribed }: Props) {
               className="cl-submodal-dismiss"
               onClick={requestClose}
             >
-              No thanks, I&rsquo;ll risk it
+              No thanks
             </button>
           </>
         )}
