@@ -748,7 +748,7 @@ body.art-immersive main ~ * {
   background: rgba(58, 30, 90, 0.3);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 4px;
   cursor: pointer;
   padding: 0;
@@ -757,16 +757,17 @@ body.art-immersive main ~ * {
 
 .nav-mobile-menu__chevron:hover {
   background: rgba(58, 30, 90, 0.55);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
-.nav-mobile-menu__chevron span {
+.nav-mobile-menu__chevron svg {
   display: block;
-  line-height: 1;
+  width: 22px;
+  height: 22px;
   transition: transform var(--duration-base) var(--ease-out);
 }
 
-.nav-mobile-menu__chevron--open span {
+.nav-mobile-menu__chevron--open svg {
   transform: rotate(180deg);
 }
 

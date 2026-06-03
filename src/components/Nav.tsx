@@ -245,7 +245,18 @@ export function Nav({
                     aria-label={`Toggle ${item.label} submenu`}
                     aria-expanded={mobileExpanded === item.label}
                   >
-                    <span aria-hidden>▾</span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.1"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="M5 9l7 7 7-7" />
+                    </svg>
                   </button>
                 </div>
                 <div

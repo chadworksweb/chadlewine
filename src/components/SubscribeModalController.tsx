@@ -117,10 +117,12 @@ export function SubscribeModalController({
     if (sessionStorage.getItem(SESSION_KEY) === "1") return;
 
     let fired = false;
+    let armed = false;
     let maxScroll = window.scrollY;
 
     function cleanup() {
       clearTimeout(dwellTimer);
+      clearTimeout(armTimer);
       document.removeEventListener("mouseout", onMouseOut);
       window.removeEventListener("scroll", onScroll);
     }
@@ -149,14 +151,22 @@ export function SubscribeModalController({
         trigger();
         return;
       }
-      // Mobile/touch "leaving" gesture: was engaged, now racing back to top.
+      // Mobile/touch "leaving" gesture: deeply engaged, now racing back to the
+      // very top. Gated behind the settle delay and tightened (deeper scroll,
+      // closer return) so re-reading the top of a page doesn't trip it.
       if (y > maxScroll) maxScroll = y;
-      if (maxScroll > 600 && y < 200) trigger();
+      if (armed && maxScroll > 1000 && y < 80) trigger();
     }
 
     const dwellMs = (count > 0 ? cartDwellSeconds : dwellSeconds) * 1000;
     const dwellTimer = setTimeout(trigger, dwellMs);
-    document.addEventListener("mouseout", onMouseOut);
+    // Arm exit detection only after a short settle delay -- otherwise the cursor
+    // drifting toward the tab/URL bar (desktop) or an early scroll bounce
+    // (mobile) fires it before the visitor has engaged.
+    const armTimer = setTimeout(() => {
+      armed = true;
+      document.addEventListener("mouseout", onMouseOut);
+    }, 3000);
     window.addEventListener("scroll", onScroll, { passive: true });
 
     return cleanup;
