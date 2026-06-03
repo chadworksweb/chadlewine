@@ -72,6 +72,28 @@ const PLAY_MIN_SECONDS = 5;
 // and of PREVIEW_DURATION -- it just happens to share preview's 30s today.
 const GATE_PLAY_THRESHOLD = 30;
 
+// --- Visualizer playback-clock tuning levers (visual sync only) ---
+// Residual constant lookahead, in ms, added on top of the interpolated clock.
+// The interpolated clock removes iOS's stale-currentTime stepping; if a small
+// constant lag REMAINS on a device (output latency, Bluetooth route), bump
+// this so the cube reads slightly ahead and lands on the beat. 0 = off.
+// Affects ONLY getCurrentTime() (the visualizer); never the progress bar.
+// 200ms dialed in on iPhone 15 Pro (Chrome/Safari, iOS) -- compensates the
+// device output latency on top of the interpolated clock; timing locked dead
+// on the kick at this value. Other devices can override live via ?lat=NN.
+const VISUAL_LATENCY_COMP_MS = 200;
+// Live-tunable override of the above. Set on the client from a `?lat=NN` URL
+// param (ms) or the cv_lat_ms localStorage key, so the compensation can be
+// dialed in on a real device WITHOUT a rebuild -- change the number, reload.
+// Whatever value locks the cube to the audio becomes the new
+// VISUAL_LATENCY_COMP_MS default before shipping.
+let runtimeLatencyCompMs = VISUAL_LATENCY_COMP_MS;
+// Hard cap on how far the interpolated clock may run past the last real
+// currentTime sample (seconds). Protects against a buffering stall where the
+// underlying currentTime freezes -- without this the visual clock would keep
+// advancing off performance.now() and desync. One timeupdate cadence + margin.
+const MAX_CLOCK_EXTRAPOLATION_S = 0.35;
+
 type PlaySession = {
   songId: string;
   songSlug: string;
@@ -101,6 +123,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // threshold), so we don't double-count across rAF ticks or pause/resume.
   const gatedListenRef = useRef(false);
   const countedListenRef = useRef(false);
+  // Interpolated playback clock for the visualizer. iOS WebKit (Safari AND
+  // Chrome, which is WKWebView) only advances <audio>.currentTime at the
+  // ~250ms `timeupdate` cadence rather than continuously like desktop, so a
+  // per-frame read sees a STALE time between updates -- the cube lags the
+  // audio by up to a quarter second (perceived ~400ms once stacked with
+  // output latency). We anchor each genuine currentTime update to a
+  // performance.now() timestamp and extrapolate smoothly between updates so
+  // getCurrentTime() returns a continuous, low-latency playback position on
+  // every platform. `media` is the last real currentTime we saw; `perf` is
+  // the performance.now() at which we saw it.
+  const clockRef = useRef<{ media: number; perf: number }>({ media: 0, perf: 0 });
 
   const [current, setCurrent] = useState<PlayerSong | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -110,6 +143,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // Set when an anonymous device is over the per-song play limit; drives the
   // sign-in/buy modal. Playback does not start while this is set.
   const [blockedSong, setBlockedSong] = useState<PlayerSong | null>(null);
+
+  // Pick up a live latency-compensation override on the client so the
+  // visualizer sync can be dialed in on a real device without a rebuild.
+  // Priority: ?lat=NN URL param (also persisted) > cv_lat_ms localStorage >
+  // the VISUAL_LATENCY_COMP_MS default. Sweep values by changing the number
+  // and reloading; whatever locks the cube becomes the shipped default.
+  useEffect(() => {
+    try {
+      const param = new URLSearchParams(window.location.search).get("lat");
+      if (param !== null && param !== "" && !Number.isNaN(Number(param))) {
+        runtimeLatencyCompMs = Number(param);
+        window.localStorage.setItem("cv_lat_ms", String(runtimeLatencyCompMs));
+        return;
+      }
+      const stored = window.localStorage.getItem("cv_lat_ms");
+      if (stored !== null && !Number.isNaN(Number(stored))) {
+        runtimeLatencyCompMs = Number(stored);
+      }
+    } catch {
+      /* SSR / no storage -- keep the compiled default */
+    }
+  }, []);
 
   // Lazy-create the audio element once on the client. crossOrigin must be set
   // BEFORE src for CORS to take effect on stream requests, which the WebAudio
@@ -607,7 +662,31 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const isCurrent = useCallback((id: string) => currentRef.current?.id === id, []);
 
   const getCurrentTime = useCallback(() => {
-    return audioRef.current?.currentTime ?? 0;
+    const audio = audioRef.current;
+    if (!audio) return 0;
+    const raw = audio.currentTime;
+    // Paused: no interpolation, report the true position and re-anchor so the
+    // next play resumes cleanly.
+    if (audio.paused) {
+      clockRef.current.media = raw;
+      clockRef.current.perf = performance.now();
+      return raw;
+    }
+    const now = performance.now();
+    const c = clockRef.current;
+    // A genuine currentTime update arrived (or the stream seeked): re-anchor.
+    // `raw !== c.media` catches every real tick; the 0.25s guard re-anchors on
+    // seeks/drift so extrapolation can't run away from reality.
+    if (raw !== c.media || Math.abs(raw - (c.media + (now - c.perf) / 1000)) > 0.25) {
+      c.media = raw;
+      c.perf = now;
+      return raw + runtimeLatencyCompMs / 1000;
+    }
+    // Between updates: extrapolate from the last anchor using the high-res
+    // clock. Clamp the extrapolation so a stalled/buffering stream (currentTime
+    // frozen) doesn't let the visual clock sprint ahead.
+    const extrapolated = Math.min((now - c.perf) / 1000, MAX_CLOCK_EXTRAPOLATION_S);
+    return c.media + extrapolated + runtimeLatencyCompMs / 1000;
   }, []);
 
   // Derive display values
