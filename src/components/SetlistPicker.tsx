@@ -5,12 +5,12 @@ import Image from "next/image";
 
 // The venue co-curates the night. They browse Chad's full catalog, optionally
 // narrow by theme or title, and tap songs to build a requested set. The CTA
-// composes a mailto to booking@ with the chosen titles plus the space/date
+// composes a mailto to portal@ with the chosen titles plus the space/date
 // fields pre-stubbed -- matching the rest of the page's email-based flow, so
 // there is no backend form to maintain. "Let Chad shape the arc" hands the
 // curation back to Chad and the email says so.
 
-const BOOKING_EMAIL = "booking@chadlewine.com";
+const BOOKING_EMAIL = "portal@chadlewine.com";
 
 export interface SetlistSong {
   id: string;

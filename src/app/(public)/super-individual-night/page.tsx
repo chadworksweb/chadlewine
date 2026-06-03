@@ -446,7 +446,7 @@ function OverviewView({ exploreSongs, featuredVideo, featuredQuote, voiceSongs }
         <div className="bk-what__row">
           <div className="bk-what__half">
             <ul className="bk-checklist">
-              <li><strong>Pop-format music as a healing modality.</strong> The same intention as a sound bath, the same floor, a different transmission.</li>
+              <li><strong>Pop-format music as a healing modality.</strong> The same intention as a sound bath, ecstatic dance, drum circles and other spiritual/metaphysical events, just in a more accessible-to-mainstream format.</li>
               <li><strong>Songs that sound like the radio but say what the radio won&rsquo;t.</strong> Decades of study, distilled into hooks.</li>
               <li><strong>Not new age, not tribal, not contemporary pop.</strong> Lyrics and messages your soul actually feels comfortable singing.</li>
               <li><strong>Written for the sovereign.</strong> People already living outside the extractive mainstream, looking for music that knows their name.</li>
