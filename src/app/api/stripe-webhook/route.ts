@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
-import { verifyWebhookSignature, listSessionLineItems } from "@/lib/stripe";
+import { verifyWebhookSignature, listSessionLineItems, retrieveSubscription } from "@/lib/stripe";
+import type Stripe from "stripe";
 import { resolveSkuDownloadPaths } from "@/lib/release-skus";
 import {
   sendEmail,
@@ -879,8 +880,45 @@ export async function POST(request: Request) {
           });
         }
       }
+    } else if (session.mode === "subscription" || itemType === "patronage_subscription") {
+      // Monthly patronage signup. Attach the Stripe customer to the audience
+      // row (matched by email, created minimal if absent) so the billing portal
+      // can manage/cancel it. The patrons ledger row is NOT written here -- the
+      // invoice.paid handler logs the first charge and every renewal.
+      const stripeCustomerId =
+        typeof session.customer === "string" ? session.customer : session.customer?.id;
+      const email = (session.customer_details?.email || session.customer_email || "")
+        .trim()
+        .toLowerCase();
+
+      if (stripeCustomerId && email) {
+        try {
+          const { data: existing } = await supabase
+            .from("audience")
+            .select("id, stripe_customer_id")
+            .eq("email", email)
+            .maybeSingle();
+          if (existing) {
+            if (!existing.stripe_customer_id) {
+              await supabase
+                .from("audience")
+                .update({ stripe_customer_id: stripeCustomerId })
+                .eq("id", existing.id);
+            }
+          } else {
+            // Patron with no prior audience row. Create one (not a marketing
+            // opt-in -> 'never') so a later account claim on this email inherits
+            // the customer id and can self-manage the subscription.
+            await supabase
+              .from("audience")
+              .insert({ email, subscriber_status: "never", stripe_customer_id: stripeCustomerId });
+          }
+        } catch (e) {
+          console.error("[stripe-webhook] patronage subscription audience attach failed:", e);
+        }
+      }
     } else {
-      // Patronage — donation flow.
+      // Patronage — one-time donation flow.
       const observationId = session.metadata?.observation_id || null;
 
       const { error: insertError } = await supabase.from("patrons").insert({
@@ -895,6 +933,75 @@ export async function POST(request: Request) {
         console.error("[stripe-webhook] Failed to insert patron:", insertError.message);
         return Response.json({ error: "Database insert failed" }, { status: 500 });
       }
+    }
+  }
+
+  if (event.type === "invoice.paid") {
+    // Each paid invoice on a patronage subscription -- the first charge and
+    // every monthly renewal -- writes one patrons ledger row. Deduped on the
+    // invoice id (unique) so a webhook redelivery can't double-count.
+    const invoice = event.data?.object as Stripe.Invoice;
+    const invoiceId = invoice.id || null;
+    if (!invoiceId) return Response.json({ received: true });
+
+    // Where the subscription + its metadata snapshot live depends on the API
+    // version the webhook ENDPOINT renders (not the SDK's). New versions
+    // (2024+) nest them under invoice.parent.subscription_details; older ones
+    // (the chadlewine endpoint is pinned to 2022-11-15) expose
+    // invoice.subscription / invoice.payment_intent directly and carry no
+    // metadata snapshot. Read both shapes so this works regardless.
+    const legacy = invoice as unknown as {
+      subscription?: string | { id?: string } | null;
+      payment_intent?: string | { id?: string } | null;
+    };
+    const subDetails = invoice.parent?.subscription_details || null;
+    const subRef = subDetails?.subscription ?? legacy.subscription ?? null;
+    const subId = typeof subRef === "string" ? subRef : subRef?.id || null;
+
+    // One-off invoices have no subscription -> ignore.
+    if (!subId) return Response.json({ received: true });
+
+    // Confirm this is a patronage subscription. Prefer the metadata snapshot
+    // stamped on the invoice at finalization; fall back to retrieving the
+    // subscription when the snapshot is absent (older API versions / pre-2023).
+    let isPatronage = subDetails?.metadata?.type === "patronage_subscription";
+    if (!isPatronage) {
+      try {
+        const sub = await retrieveSubscription(subId);
+        isPatronage = sub.metadata?.type === "patronage_subscription";
+      } catch (e) {
+        console.error("[stripe-webhook] retrieveSubscription failed:", (e as Error).message);
+        return Response.json({ error: "Subscription lookup failed" }, { status: 500 });
+      }
+    }
+    if (!isPatronage) return Response.json({ received: true });
+
+    // Idempotency: skip if we've already recorded this invoice.
+    const { data: dup } = await supabase
+      .from("patrons")
+      .select("id")
+      .eq("stripe_invoice_id", invoiceId)
+      .maybeSingle();
+    if (dup) return Response.json({ received: true, deduped: true });
+
+    // Best-effort: the underlying payment intent (for cross-referencing in
+    // Stripe). Dedup never depends on it -- the invoice id is authoritative.
+    const payNew = invoice.payments?.data?.[0]?.payment?.payment_intent;
+    const payRef = payNew ?? legacy.payment_intent ?? null;
+    const paymentIntentId = typeof payRef === "string" ? payRef : payRef?.id || null;
+
+    const { error: insertError } = await supabase.from("patrons").insert({
+      email: invoice.customer_email || null,
+      stripe_payment_intent_id: paymentIntentId,
+      stripe_invoice_id: invoiceId,
+      amount: (invoice.amount_paid || 0) / 100,
+      is_recurring: true,
+      stripe_subscription_id: subId,
+      source_observation_id: null,
+    });
+    if (insertError) {
+      console.error("[stripe-webhook] Failed to insert recurring patron:", insertError.message);
+      return Response.json({ error: "Database insert failed" }, { status: 500 });
     }
   }
 

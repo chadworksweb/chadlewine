@@ -11469,14 +11469,27 @@ html {
 }
 
 .patronage__inner {
-  max-width: 600px;
+  max-width: 1080px;
   margin: 0 auto;
-  text-align: center;
+  text-align: left;
   position: relative;
   z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: clamp(28px, 4vw, 56px);
+  align-items: center;
+}
+.patronage__col {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .patronage__inner {
+    grid-template-columns: 1fr;
+    gap: var(--space-xl);
+  }
 }
 
 .patronage__heading {
@@ -11488,8 +11501,140 @@ html {
 
 .patronage__subtitle {
   font-size: var(--text-body);
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
   margin: 0;
+}
+
+.patronage__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  text-align: left;
+  max-width: 46ch;
+  margin: 0;
+}
+.patronage__copy p {
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* --- Payment column: inverted (light) panel, pulsing accent glow, centered --- */
+.patronage__col--form {
+  background: var(--text-primary);
+  color: var(--bg-deep);
+  border: 1px solid rgba(139, 156, 247, 0.55);
+  border-radius: 16px;
+  padding: clamp(28px, 3vw, 40px) clamp(20px, 2.4vw, 32px);
+  text-align: center;
+  align-items: center;
+  animation: patronage-glow 3.2s ease-in-out infinite;
+}
+@keyframes patronage-glow {
+  0%, 100% {
+    border-color: rgba(139, 156, 247, 0.45);
+    box-shadow: 0 0 0 1px rgba(139, 156, 247, 0.4), 0 0 16px rgba(139, 156, 247, 0.22);
+  }
+  50% {
+    border-color: rgba(139, 156, 247, 0.9);
+    box-shadow: 0 0 0 1px rgba(139, 156, 247, 0.85), 0 0 34px rgba(139, 156, 247, 0.55);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .patronage__col--form {
+    animation: none;
+    box-shadow: 0 0 0 1px rgba(139, 156, 247, 0.6), 0 0 22px rgba(139, 156, 247, 0.32);
+  }
+}
+
+/* Flip the controls so they read on the light panel. */
+.patronage__col--form .patronage__toggle {
+  background: rgba(7, 7, 13, 0.05);
+  border-color: rgba(7, 7, 13, 0.12);
+}
+.patronage__col--form .patronage__toggle-opt { color: rgba(7, 7, 13, 0.62); }
+.patronage__col--form .patronage__toggle-opt:hover { color: var(--bg-deep); }
+.patronage__col--form .patronage__preset {
+  border-color: rgba(7, 7, 13, 0.18);
+  color: rgba(7, 7, 13, 0.7);
+}
+.patronage__col--form .patronage__preset:hover {
+  border-color: rgba(7, 7, 13, 0.4);
+  color: var(--bg-deep);
+}
+.patronage__col--form .patronage__preset--active {
+  border-color: var(--text-accent);
+  color: #4a59c7;
+}
+.patronage__col--form .patronage__dollar { color: rgba(7, 7, 13, 0.5); }
+.patronage__col--form .patronage__input {
+  background: rgba(7, 7, 13, 0.05);
+  border-color: rgba(7, 7, 13, 0.18);
+  color: var(--bg-deep);
+}
+.patronage__col--form .patronage__input::placeholder { color: rgba(7, 7, 13, 0.4); }
+.patronage__col--form .patronage__step {
+  border-color: rgba(7, 7, 13, 0.18);
+  color: rgba(7, 7, 13, 0.5);
+}
+.patronage__col--form .patronage__step:hover {
+  border-color: var(--text-accent);
+  color: #4a59c7;
+}
+.patronage__col--form .patronage__consent-text { color: rgba(7, 7, 13, 0.62); }
+.patronage__col--form .patronage__terms-trigger { color: var(--bg-deep); }
+.patronage__col--form .patronage__checkbox {
+  background: rgba(7, 7, 13, 0.05);
+  border-color: rgba(7, 7, 13, 0.3);
+}
+/* CTA spans the panel width; the darker-blue fill is the clear focal action. */
+.patronage__col--form .patronage__submit { align-self: stretch; }
+
+/* "What you're buying" summary, directly above the button. */
+.patronage__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  font-family: var(--font-ui);
+}
+.patronage__summary-amount {
+  font-size: var(--text-body);
+  font-weight: 700;
+  color: var(--bg-deep);
+}
+.patronage__summary-note {
+  font-size: var(--text-sm, 13px);
+  color: rgba(7, 7, 13, 0.55);
+}
+
+.patronage__toggle {
+  display: inline-flex;
+  align-self: center;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin-top: var(--space-xs);
+}
+.patronage__toggle-opt {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm, 13px);
+  padding: 7px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.patronage__toggle-opt:hover { color: var(--text-primary); }
+.patronage__toggle-opt--active {
+  background: var(--text-accent);
+  color: var(--bg-deep);
 }
 
 .patronage__consent {
@@ -11597,10 +11742,16 @@ html {
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: var(--space-md);
+  margin-bottom: 0;
+}
+/* On desktop the amount row stays on one line -- presets + custom field
+   together -- inside the right-hand form column. It wraps only on narrow. */
+@media (min-width: 761px) {
+  .patronage__amounts { flex-wrap: nowrap; }
 }
 .patronage__preset {
-  font-family: var(--font-ui); font-size: var(--text-body); padding: 11.5px 23px;
+  font-family: var(--font-ui); font-size: var(--text-body); padding: 11.5px 16px;
+  flex-shrink: 0;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
@@ -11615,6 +11766,7 @@ html {
   align-items: center;
   gap: 4px;
   position: relative;
+  flex-shrink: 0;
 }
 .patronage__dollar { font-family: var(--font-ui); color: var(--text-tertiary); }
 .patronage__stepper {
@@ -11650,7 +11802,7 @@ html {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  color: var(--text-primary); width: 125px;
+  color: var(--text-primary); width: 92px;
   outline: none;
   transition: border-color var(--duration-fast);
   -moz-appearance: textfield;
@@ -11667,7 +11819,7 @@ html {
 
 .patronage__submit {
   font-family: var(--font-ui); font-size: var(--text-body); font-weight: 600; padding: 13.8px 32px;
-  background: var(--text-accent); color: var(--bg-deep); border: none; border-radius: 6px;
+  background: #2f3bb0; color: #fff; border: none; border-radius: 6px;
   cursor: pointer; width: auto;
   letter-spacing: 0.03em;
   transition: opacity var(--duration-fast);
@@ -11676,6 +11828,25 @@ html {
 .patronage__submit:disabled { opacity: 0.5; cursor: default; }
 
 .site-patronage .patronage { margin-top: 0; }
+
+.patronage-thanks__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-width: 58ch;
+  margin-top: var(--space-lg);
+}
+.patronage-thanks__body p {
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.patronage-thanks__link {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+.patronage-thanks__link:hover { text-decoration: underline; }
 
 /* On the dedicated /patronage page the widget is the page content, so hide the
    duplicate global footer instance (the .site-patronage that sits after <main>).
@@ -19300,7 +19471,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 }
 
 .arc-node-row.is-open { border-color: var(--accent); }
-.arc-node-row.is-readonly { opacity: 0.85; }
 
 .arc-node-row__head {
   width: 100%;

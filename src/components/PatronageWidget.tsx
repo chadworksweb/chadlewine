@@ -9,7 +9,10 @@ interface PatronageWidgetProps {
 
 const PRESETS = [5, 10, 25, 50];
 
+type Interval = "once" | "month";
+
 export function PatronageWidget({ observationId, observationTitle }: PatronageWidgetProps) {
+  const [interval, setInterval] = useState<Interval>("once");
   const [amount, setAmount] = useState(5);
   const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,6 +39,7 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
   }, [termsOpen]);
 
   const effectiveAmount = custom ? parseFloat(custom) : amount;
+  const monthly = interval === "month";
 
   async function handlePatronage() {
     if (effectiveAmount < 1 || loading || !agreed) return;
@@ -46,8 +50,10 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         amount: effectiveAmount,
-        observation_id: observationId,
-        observation_title: observationTitle,
+        interval,
+        // Monthly patronage backs the whole body of work, so it carries no
+        // single-observation context; only the one-time gift does.
+        ...(monthly ? {} : { observation_id: observationId, observation_title: observationTitle }),
       }),
     });
 
@@ -61,8 +67,46 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
   return (
     <div className="patronage">
       <div className="patronage__inner">
-        <h3 className="patronage__heading">Sponsor Chad Lewine</h3>
-        <p className="patronage__subtitle">Make a one time patronage payment</p>
+        <div className="patronage__col patronage__col--intro">
+          <h3 className="patronage__heading">Become a patron</h3>
+          <p className="patronage__subtitle">
+            Back the work as it unfolds, month to month. Cancel anytime.
+          </p>
+
+          <div className="patronage__copy">
+          <p>
+            Before streaming, labels, and the capitalization of art, the work got made
+            because patrons believed it should exist. There are no perks and no tiers
+            here. What you get is the standing of having helped make it possible.
+          </p>
+          <p>
+            You aren&rsquo;t buying anything. You&rsquo;re backing the work that keeps
+            coming: the songs, the writing, the art. That output is what you support.
+          </p>
+          </div>
+        </div>
+
+        <div className="patronage__col patronage__col--form">
+        <div className="patronage__toggle" role="tablist" aria-label="Patronage type">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!monthly}
+            className={`patronage__toggle-opt${!monthly ? " patronage__toggle-opt--active" : ""}`}
+            onClick={() => setInterval("once")}
+          >
+            One-time
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={monthly}
+            className={`patronage__toggle-opt${monthly ? " patronage__toggle-opt--active" : ""}`}
+            onClick={() => setInterval("month")}
+          >
+            Monthly
+          </button>
+        </div>
 
         <div className="patronage__amounts">
           {PRESETS.map((p) => (
@@ -139,19 +183,33 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
                 Patronage is a voluntary, non-refundable gift. It does not entitle the patron to
                 any goods, services, rights, or benefits, and creates no obligation on the part
                 of Chad Lewine to provide anything in return.
+                {monthly
+                  ? " A monthly patronage renews automatically each month until you cancel, which you can do anytime."
+                  : ""}
               </span>
             </span>{" "}
             of patronage
           </span>
         </label>
 
+        <p className="patronage__summary">
+          <span className="patronage__summary-amount">
+            ${Number(effectiveAmount > 0 ? effectiveAmount : 0).toFixed(2)}
+            {monthly ? " / month" : ""}
+          </span>
+          <span className="patronage__summary-note">
+            {monthly ? "Renews monthly, cancel anytime" : "One-time patronage gift"}
+          </span>
+        </p>
+
         <button
           className="patronage__submit"
           onClick={handlePatronage}
           disabled={loading || effectiveAmount < 1 || !agreed}
         >
-          {loading ? "Redirecting..." : `Give $${Number(effectiveAmount).toFixed(2)}`}
+          {loading ? "Redirecting..." : "Support"}
         </button>
+        </div>
       </div>
     </div>
   );
