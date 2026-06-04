@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase-server";
 import { getCurrentSession } from "@/lib/account";
+import { getActivePatronage } from "@/lib/stripe";
 import { AccountDashboard, type AccountData } from "@/components/AccountDashboard";
 
 export const metadata: Metadata = {
@@ -40,11 +41,23 @@ export default async function AccountPage() {
 
   if (!aRes.data) redirect("/account/login");
 
+  // Active patronage (live source of truth -- handles cancellation). Best-effort:
+  // a Stripe hiccup must not break the dashboard, so fall back to no patronage.
+  let patronage: AccountData["patronage"] = null;
+  if (aRes.data.stripe_customer_id) {
+    try {
+      patronage = await getActivePatronage(aRes.data.stripe_customer_id);
+    } catch (e) {
+      console.error("[account] patronage lookup failed:", (e as Error).message);
+    }
+  }
+
   const data: AccountData = {
     audience: aRes.data,
     orders: (ordersRes.data || []) as AccountData["orders"],
     hasStripeCustomer: !!aRes.data.stripe_customer_id,
     coupons: (couponsRes.data || []) as AccountData["coupons"],
+    patronage,
   };
 
   return <AccountDashboard initial={data} />;

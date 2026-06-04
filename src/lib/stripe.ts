@@ -304,6 +304,45 @@ export function retrieveSubscription(subscriptionId: string) {
   return getStripe().subscriptions.retrieve(subscriptionId);
 }
 
+/** Active patronage subscription summary for a customer, or null when they have
+   none. Authoritative live status -- this is the source of truth for whether a
+   patron is still active (the patrons ledger only logs paid invoices and never
+   learns about a cancellation). Used by the account dashboard. current_period_end
+   moved from the subscription onto the item in newer API versions; read both. */
+export async function getActivePatronage(customerId: string): Promise<{
+  amount: number;
+  interval: string;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  subscriptionId: string;
+} | null> {
+  const subs = await getStripe().subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 100,
+  });
+  const sub = subs.data.find(
+    (s) =>
+      s.metadata?.type === "patronage_subscription" &&
+      (s.status === "active" || s.status === "trialing" || s.status === "past_due"),
+  );
+  if (!sub) return null;
+
+  const item = sub.items.data[0];
+  const cpeUnix =
+    (item as { current_period_end?: number } | undefined)?.current_period_end ??
+    (sub as unknown as { current_period_end?: number }).current_period_end ??
+    null;
+
+  return {
+    amount: (item?.price?.unit_amount ?? 0) / 100,
+    interval: item?.price?.recurring?.interval ?? "month",
+    currentPeriodEnd: cpeUnix ? new Date(cpeUnix * 1000).toISOString() : null,
+    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+    subscriptionId: sub.id,
+  };
+}
+
 export interface RecoverableCartSession {
   sessionId: string;
   email: string;
