@@ -76,6 +76,13 @@ export interface AccountData {
     expires_at: string;
     redeemed_at: string | null;
   }[];
+  patronage: {
+    amount: number;
+    interval: string;
+    currentPeriodEnd: string | null;
+    cancelAtPeriodEnd: boolean;
+    subscriptionId: string;
+  } | null;
 }
 
 function fmtMoney(n: number | null): string {
@@ -618,6 +625,31 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
               Toggle on at checkout from your cart. Applies to all music
               in your cart, or one merch item &mdash; whichever saves more.
             </p>
+          </section>
+        )}
+
+        {initial.patronage && (
+          <section className="account-dashboard__card">
+            <h2 className="account-dashboard__card-title">Your patronage</h2>
+            <p className="account-dashboard__hint">
+              Monthly patron &mdash; {fmtMoney(initial.patronage.amount)}/
+              {initial.patronage.interval}
+            </p>
+            {initial.patronage.currentPeriodEnd && (
+              <p className="account-dashboard__hint">
+                {initial.patronage.cancelAtPeriodEnd
+                  ? `Ends ${fmtDate(initial.patronage.currentPeriodEnd)} - won't renew`
+                  : `Renews ${fmtDate(initial.patronage.currentPeriodEnd)}`}
+              </p>
+            )}
+            <button
+              type="button"
+              className="account-dashboard__btn"
+              onClick={openBillingPortal}
+              disabled={portalBusy}
+            >
+              {portalBusy ? "Opening..." : "Manage or cancel patronage"}
+            </button>
           </section>
         )}
 
