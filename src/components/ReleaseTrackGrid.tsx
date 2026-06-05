@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef } from "react";
-import { CompassIcon } from "@/components/RCBadge";
+import { CompassIcon } from "@/components/RisingCompassMark";
 
 // One track, presented as a "model bay" in the collection: a cinematic art
 // stage on one side, a spec sheet (name / description / Rising Compass read /

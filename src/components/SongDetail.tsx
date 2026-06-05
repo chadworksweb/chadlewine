@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { MiniPlayer } from "@/components/MiniPlayer";
 import { CubeVisualizer } from "@/components/CubeVisualizer";
-import { CompassIcon } from "@/components/RCBadge";
+import { CompassIcon } from "@/components/RisingCompassMark";
 import { useCart } from "@/components/Cart";
 import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
 import "./ArtDetail.css";
