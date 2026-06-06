@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   // Get the observation
   const { data: observation, error: obsError } = await supabase
     .from("observations")
-    .select("title, slug, hook_line, citation_summary")
+    .select("title, slug, hook_line, citation_summary, kind")
     .eq("id", observation_id)
     .single();
 

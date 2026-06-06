@@ -496,8 +496,10 @@ export function buildObservationEmailHtml(observation: {
   slug: string;
   hook_line: string | null;
   citation_summary: string | null;
+  kind?: string | null;
 }): string {
-  const url = `${SITE_URL}/observations/${observation.slug}`;
+  const section = observation.kind === "journal" ? "journal" : "observations";
+  const url = `${SITE_URL}/${section}/${observation.slug}`;
   const preview = observation.hook_line || observation.citation_summary || "";
 
   return `

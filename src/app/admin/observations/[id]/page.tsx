@@ -47,6 +47,7 @@ export default function EditObservationPage() {
         body: data.body as string,
         date_captured: data.date_captured as string,
         status: data.status as string,
+        kind: (data.kind as string) || "observation",
         hook_line: (data.hook_line as string) || "",
         tension_line: (data.tension_line as string) || "",
         art_image_path: (data.art_image_path as string) || "",

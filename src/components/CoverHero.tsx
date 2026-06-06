@@ -10,6 +10,8 @@ interface CoverHeroProps {
   hookLine: string;
   artImageUrl?: string;
   artAlt?: string;
+  href?: string;
+  ctaLabel?: string;
 }
 
 export function CoverHero({
@@ -19,7 +21,10 @@ export function CoverHero({
   hookLine,
   artImageUrl,
   artAlt,
+  href,
+  ctaLabel,
 }: CoverHeroProps) {
+  const target = href ?? `/observations/${slug}`;
   return (
     <section id="cover-hero" className="cover-hero">
       {artImageUrl && (
@@ -33,7 +38,7 @@ export function CoverHero({
       <div className="cover-hero__content">
         <div className="cover-hero__title-col">
           <TitleReveal artImageUrl={artImageUrl || ""}>
-            <Link href={`/observations/${slug}`} className="cover-hero__title-link">
+            <Link href={target} className="cover-hero__title-link">
               <h1 className="cover-hero__title">
                 {title}
               </h1>
@@ -51,8 +56,8 @@ export function CoverHero({
           <time className="cover-hero__date">
             {formatDate(dateCaptured)}
           </time>
-          <Link href={`/observations/${slug}`} className="cover-hero__cta">
-            Read the Observation →
+          <Link href={target} className="cover-hero__cta">
+            {ctaLabel ?? "Read the Observation →"}
           </Link>
         </div>
       </div>

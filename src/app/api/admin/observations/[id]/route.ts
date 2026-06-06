@@ -72,6 +72,7 @@ export async function PUT(
     body: obsBody,
     date_captured,
     status,
+    kind,
     hook_line,
     tension_line,
     art_image_path,
@@ -100,6 +101,7 @@ export async function PUT(
     body: obsBody,
     date_captured,
     status,
+    ...(kind === "observation" || kind === "journal" ? { kind } : {}),
     hook_line: hook_line || null,
     tension_line: tension_line || null,
     art_image_path: art_image_path || null,
@@ -121,7 +123,7 @@ export async function PUT(
 
   const { data: prev } = await supabase
     .from("observations")
-    .select("slug")
+    .select("slug, kind")
     .eq("id", id)
     .single();
 
@@ -137,9 +139,12 @@ export async function PUT(
   }
 
   if (prev?.slug && slug && prev.slug !== slug) {
+    // observations + journal share this table; redirect under the right section.
+    const effectiveKind = kind === "observation" || kind === "journal" ? kind : prev.kind;
+    const section = effectiveKind === "journal" ? "journal" : "observations";
     await captureSlugChange(
-      `/observations/${prev.slug}`,
-      `/observations/${slug}`,
+      `/${section}/${prev.slug}`,
+      `/${section}/${slug}`,
       "observation",
       id
     );

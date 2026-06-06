@@ -21,6 +21,7 @@ export const MANAGED_PAGES: ManagedPage[] = [
   { route: "/business", label: "Business" },
   { route: "/merch", label: "Merch" },
   { route: "/observations", label: "Observations (index)" },
+  { route: "/journal", label: "Journal (index)" },
   { route: "/lyrics", label: "Lyrics (index)" },
   { route: "/meditations", label: "Meditations (index)" },
 ];

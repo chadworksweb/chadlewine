@@ -14,12 +14,15 @@ const TAB_LABELS: Record<StatusTab, string> = {
   trash: "Trash",
 };
 
-async function getObservations() {
+type Kind = "observation" | "journal";
+
+async function getObservations(kind: Kind) {
   const supabase = createAdminClient();
 
   const { data: observations } = await supabase
     .from("observations")
     .select("id, title, slug, status, date_captured, hook_line, tension_line, art_image_path")
+    .eq("kind", kind)
     .order("date_captured", { ascending: false });
 
   if (!observations || observations.length === 0) return [];
@@ -109,15 +112,22 @@ async function getObservations() {
 export default async function AdminObservationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; kind?: string }>;
 }) {
-  const { status: statusParam } = await searchParams;
+  const { status: statusParam, kind: kindParam } = await searchParams;
   const activeTab: StatusTab =
     statusParam && statusParam in TAB_LABELS
       ? (statusParam as StatusTab)
       : "all";
+  const activeKind: Kind = kindParam === "journal" ? "journal" : "observation";
 
-  const observations = await getObservations();
+  const observations = await getObservations(activeKind);
+
+  // Preserve the active kind across status-tab links + the New button.
+  const kindQuery = `kind=${activeKind}`;
+  const isJournal = activeKind === "journal";
+  const noun = isJournal ? "Journal" : "Observations";
+  const newLabel = isJournal ? "New Entry" : "New Observation";
 
   const counts: Record<StatusTab, number> = {
     all: observations.filter((o) => o.status !== "trash").length,
@@ -135,9 +145,24 @@ export default async function AdminObservationsPage({
   return (
     <div className="admin-page">
       <div className="admin-page__header">
-        <h1 className="admin-page__title">Observations</h1>
-        <Link href="/admin/observations/new" className="admin-btn admin-btn--primary">
-          New Observation
+        <h1 className="admin-page__title">{noun}</h1>
+        <Link href={`/admin/observations/new?${kindQuery}`} className="admin-btn admin-btn--primary">
+          {newLabel}
+        </Link>
+      </div>
+
+      <div className="admin-tabs">
+        <Link
+          href="/admin/observations?kind=observation"
+          className={`admin-tabs__tab${!isJournal ? " admin-tabs__tab--active" : ""}`}
+        >
+          Observations
+        </Link>
+        <Link
+          href="/admin/observations?kind=journal"
+          className={`admin-tabs__tab${isJournal ? " admin-tabs__tab--active" : ""}`}
+        >
+          Journal
         </Link>
       </div>
 
@@ -145,7 +170,7 @@ export default async function AdminObservationsPage({
         {(Object.keys(TAB_LABELS) as StatusTab[]).map((tab) => (
           <Link
             key={tab}
-            href={tab === "all" ? "/admin/observations" : `/admin/observations?status=${tab}`}
+            href={tab === "all" ? `/admin/observations?${kindQuery}` : `/admin/observations?${kindQuery}&status=${tab}`}
             className={`admin-tabs__tab${activeTab === tab ? " admin-tabs__tab--active" : ""}`}
           >
             {TAB_LABELS[tab]}
@@ -172,7 +197,7 @@ export default async function AdminObservationsPage({
           {filtered.length === 0 && (
             <tr>
               <td className="admin-table__td admin-table__td--empty" colSpan={9}>
-                No observations found.
+                No {isJournal ? "journal entries" : "observations"} found.
               </td>
             </tr>
           )}

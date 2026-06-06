@@ -27,6 +27,7 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
   },
   // { href: "/meditations", label: "Meditations" },   // hidden — music-first pivot
   { href: "/observations", label: "Observations" },
+  { href: "/journal", label: "Journal" },
   {
     href: "/chad-lewine",
     label: "About",

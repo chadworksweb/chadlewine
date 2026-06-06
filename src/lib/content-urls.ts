@@ -18,9 +18,16 @@ export function buildContentUrl(
   type: EntityType,
   slug: string,
   absolute = false,
+  // observations + journal share the "observation" entity type but live under
+  // different sections; pass kind="journal" to route to /journal/...
+  kind?: string | null,
 ): string {
-  const build = CONTENT_PATHS[type];
-  const path = build ? build(slug) : "/";
+  const path =
+    type === "observation" && kind === "journal"
+      ? `/journal/${slug}`
+      : CONTENT_PATHS[type]
+        ? CONTENT_PATHS[type](slug)
+        : "/";
   return absolute ? `${SITE_URL}${path}` : path;
 }
 
@@ -47,6 +54,7 @@ export const STATIC_PAGES: StaticPage[] = [
   { label: "Art", path: "/art" },
   { label: "Merch", path: "/merch" },
   { label: "Observations", path: "/observations" },
+  { label: "Journal", path: "/journal" },
   { label: "Music Videos", path: "/music-videos" },
   { label: "Meditations", path: "/meditations" },
   { label: "Curation", path: "/curation" },

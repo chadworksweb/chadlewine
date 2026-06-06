@@ -9,6 +9,9 @@ interface ObservationJsonLdProps {
   artAlt?: string | null;
   articleType?: string | null;
   paaPairs?: { question: string; answer: string }[] | null;
+  /** URL prefix for the section this entry lives under (e.g. "/observations"
+      or "/journal"). Defaults to "/observations". */
+  basePath?: string;
 }
 
 export function ObservationJsonLd({
@@ -22,15 +25,17 @@ export function ObservationJsonLd({
   artAlt,
   articleType,
   paaPairs,
+  basePath = "/observations",
 }: ObservationJsonLdProps) {
   const isNews = articleType === "news_article";
+  const canonicalUrl = `https://chadlewine.com${basePath}/${slug}`;
 
   const articleSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": isNews ? "NewsArticle" : "Article",
     headline: title,
     description,
-    url: `https://chadlewine.com/observations/${slug}`,
+    url: canonicalUrl,
     datePublished: publishedAt || dateCaptured,
     dateModified: updatedAt || publishedAt || dateCaptured,
     author: {
@@ -45,7 +50,7 @@ export function ObservationJsonLd({
     },
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `https://chadlewine.com/observations/${slug}`,
+      "@id": canonicalUrl,
     },
   };
 
