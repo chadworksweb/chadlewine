@@ -24,10 +24,29 @@ export async function generateMetadata({
   const { slug } = await params;
   const f = await getFoundation(slug);
   if (!f) return {};
+  // No dedicated summary column on foundations; fall back to a cleaned snippet
+  // of the body (markdown stripped) when no meta description is set.
+  const bodySnippet = (f.body || "")
+    .replace(/[#>*_`~\-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 155);
+  const description = f.seo_description || bodySnippet || `${f.title} by Chad Lewine.`;
+  // A set seo_title renders exactly (absolute bypasses the root brand template);
+  // otherwise the bare title gets a single "- Chad Lewine" suffix.
+  const seoTitle = f.seo_title?.trim();
+  const ogTitle = seoTitle || `${f.title} — Chad Lewine`;
   return {
-    title: f.title,
+    title: seoTitle ? { absolute: seoTitle } : f.title,
+    description,
     alternates: {
       canonical: `https://chadlewine.com/foundations/${slug}`,
+    },
+    openGraph: {
+      type: "article",
+      title: ogTitle,
+      description,
+      url: `https://chadlewine.com/foundations/${slug}`,
     },
   };
 }

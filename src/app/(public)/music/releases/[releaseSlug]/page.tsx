@@ -122,14 +122,32 @@ export async function generateMetadata({
   if ("redirectTo" in result) return { robots: { index: false, follow: false } };
 
   const { album } = result;
-  // citation_summary is the AI-tuned canonical answer; fall back to concept,
-  // then to a generic line. All capped at 280 for OG/twitter.
-  const meta = (album.citation_summary || album.concept_statement || `${album.title} by Chad Lewine.`).slice(0, 280);
+  // Editor-set seo_description wins; otherwise citation_summary is the AI-tuned
+  // canonical answer, then concept, then a generic line. All capped at 280 for
+  // OG/twitter.
+  const meta = (
+    album.seo_description ||
+    album.citation_summary ||
+    album.concept_statement ||
+    `${album.title} by Chad Lewine.`
+  ).slice(0, 280);
+  // A set seo_title is rendered exactly (absolute -> bypasses the root
+  // "%s - Chad Lewine" template); otherwise the bare title flows through the
+  // template so it gets a single brand suffix.
+  const seoTitle = album.seo_title?.trim();
+  const ogTitle = seoTitle || `${album.title} — Chad Lewine`;
   return {
-    title: `${album.title} — Chad Lewine`,
+    title: seoTitle ? { absolute: seoTitle } : album.title,
     description: meta,
     alternates: {
       canonical: `https://chadlewine.com/music/releases/${releaseSlug}`,
+    },
+    openGraph: {
+      type: "music.album",
+      title: ogTitle,
+      description: meta,
+      url: `https://chadlewine.com/music/releases/${releaseSlug}`,
+      images: album.cover_art_path ? [album.cover_art_path] : undefined,
     },
   };
 }
@@ -199,7 +217,7 @@ export default async function AlbumDetailPage({
         releaseType={(album as { release_type?: string | null }).release_type ?? null}
         tracks={songs.map((s) => ({ title: s.title, slug: s.slug }))}
         badge={albumBadgeData}
-        citationSummary={album.citation_summary || null}
+        citationSummary={album.seo_description || album.citation_summary || null}
       />
       <ReleaseDetail
         album={{

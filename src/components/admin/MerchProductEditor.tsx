@@ -6,6 +6,7 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { MerchGalleryPanel } from "@/components/admin/MerchGalleryPanel";
 import { LinkedPrintPicker } from "@/components/admin/LinkedPrintPicker";
 import { EntityPicker } from "@/components/EntityPicker";
+import { SeoFieldsPanel } from "@/components/SeoFieldsPanel";
 
 const STATUSES = ["active", "inactive", "pending_review"] as const;
 const FULFILLMENTS = ["manual", "printify_curated"] as const;
@@ -37,6 +38,8 @@ interface ProductData {
   fulfillment: string;
   status: string;
   description: string;
+  seo_title: string;
+  seo_description: string;
   price: number | null;
   printify_product_id: string | null;
   image_url: string | null;
@@ -61,6 +64,8 @@ const emptyProduct: ProductData = {
   fulfillment: "manual",
   status: "active",
   description: "",
+  seo_title: "",
+  seo_description: "",
   price: null,
   printify_product_id: null,
   image_url: null,
@@ -118,6 +123,8 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           fulfillment: d.fulfillment || "printify_curated",
           status: d.status || "active",
           description: d.description || "",
+          seo_title: d.seo_title || "",
+          seo_description: d.seo_description || "",
           price: d.price ?? null,
           printify_product_id: d.printify_product_id ?? null,
           image_url: d.image_url ?? null,
@@ -147,6 +154,8 @@ export function MerchProductEditor({ idOrSlug }: Props) {
       fulfillment: data.fulfillment,
       status: data.status,
       description: data.description || null,
+      seo_title: data.seo_title || null,
+      seo_description: data.seo_description || null,
       price: data.price,
       printify_product_id: data.printify_product_id,
       image_url: data.image_url,
@@ -343,6 +352,17 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           value={form.description}
           onChange={(e) => set("description", e.target.value)}
           rows={3}
+        />
+      </div>
+
+      <div style={{ marginTop: "1.5rem" }}>
+        <SeoFieldsPanel
+          seoTitle={form.seo_title}
+          seoDescription={form.seo_description}
+          defaultTitle={`${form.title || "Untitled"} — Chad Lewine`}
+          descriptionFallbackHint="the product description"
+          urlBreadcrumb="merch"
+          onChange={(field, value) => set(field, value)}
         />
       </div>
 

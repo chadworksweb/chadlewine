@@ -269,7 +269,6 @@ export async function generateMetadata({
 
   const { song, album } = result;
   const releaseLabel = album ? album.title : "Single";
-  const title = song.seo_title || `${song.title} — ${releaseLabel}`;
   const description =
     song.seo_description ||
     song.citation_summary ||
@@ -277,16 +276,20 @@ export async function generateMetadata({
     (album ? `${song.title} from ${album.title} by Chad Lewine.` : `${song.title} by Chad Lewine.`);
   const ogImage = song.art_image_path || album?.cover_art_path || null;
   const ogImageAlt = song.art_alt || album?.cover_art_alt || album?.title || song.title;
+  // A set seo_title renders exactly (absolute bypasses the root brand template);
+  // otherwise "<song> -- <release>" flows through the template's brand suffix.
+  const seoTitle = song.seo_title?.trim();
+  const ogTitle = seoTitle || `${song.title} — ${releaseLabel}`;
 
   return {
-    title,
+    title: seoTitle ? { absolute: seoTitle } : `${song.title} — ${releaseLabel}`,
     description,
     alternates: {
       canonical: `https://chadlewine.com/music/songs/${slug}`,
     },
     openGraph: {
       type: "music.song",
-      title,
+      title: ogTitle,
       description,
       url: `https://chadlewine.com/music/songs/${slug}`,
       ...(ogImage ? { images: [{ url: ogImage, alt: ogImageAlt }] } : {}),

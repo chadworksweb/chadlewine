@@ -34,7 +34,7 @@ function fmtRuntime(seconds: number | null): string | null {
   return `${m}:${s}`;
 }
 
-export function ReleaseTrackGrid({ tracks }: { tracks: ReleaseTrackGridTrack[] }) {
+export function ReleaseTrackGrid({ tracks, heading = "Tracks" }: { tracks: ReleaseTrackGridTrack[]; heading?: string }) {
   const listRef = useRef<HTMLOListElement | null>(null);
   const bayRefs = useRef<(HTMLElement | null)[]>([]);
 
@@ -79,7 +79,7 @@ export function ReleaseTrackGrid({ tracks }: { tracks: ReleaseTrackGridTrack[] }
       <div className="album-section__inner">
         <header className="rtg__intro">
           <h2 className="album-section__heading rtg__intro-title" id="rtg-heading">
-            Tracks
+            {heading}
           </h2>
         </header>
 

@@ -12,6 +12,7 @@ import { ReleaseVisibilitySections, type ReleaseVisibilitySectionsHandle } from 
 import { EntityPicker } from "@/components/EntityPicker";
 import { CubeFaceEditor } from "@/components/CubeFaceEditor";
 import { SkuPanel } from "@/components/SkuPanel";
+import { SeoFieldsPanel } from "@/components/SeoFieldsPanel";
 import { RELEASE_TYPE_OPTIONS } from "@/lib/release-labels";
 
 interface AlbumData {
@@ -22,6 +23,8 @@ interface AlbumData {
   cover_art_path: string | null;
   cover_art_alt: string | null;
   concept_statement: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   display_order: number;
   status: string;
   release_type: string;
@@ -43,6 +46,8 @@ const emptyAlbum: AlbumData = {
   cover_art_path: null,
   cover_art_alt: null,
   concept_statement: null,
+  seo_title: null,
+  seo_description: null,
   display_order: 0,
   status: "draft",
   release_type: "album",
@@ -88,6 +93,8 @@ export default function EditAlbumPage() {
       cover_art_path: d.cover_art_path,
       cover_art_alt: d.cover_art_alt,
       concept_statement: d.concept_statement,
+      seo_title: d.seo_title,
+      seo_description: d.seo_description,
       display_order: d.display_order,
       status: d.status,
       release_type: d.release_type,
@@ -189,6 +196,18 @@ export default function EditAlbumPage() {
               onChange={e => set("concept_statement", e.target.value || null)}
               rows={3}
               placeholder="The album's manifesto -- its concept, theme, the 'why' of the record."
+            />
+          </div>
+
+          {/* Search Appearance (basic SEO title + meta description) */}
+          <div style={{ marginTop: "1.5rem" }}>
+            <SeoFieldsPanel
+              seoTitle={form.seo_title || ""}
+              seoDescription={form.seo_description || ""}
+              defaultTitle={`${form.title || "Untitled"} — Chad Lewine`}
+              descriptionFallbackHint="the citation summary, then the concept"
+              urlBreadcrumb="music › releases"
+              onChange={(field, value) => set(field, value || null)}
             />
           </div>
 

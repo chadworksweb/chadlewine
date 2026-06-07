@@ -18,19 +18,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   let body: Patch;
   try { body = (await request.json()) as Patch; } catch { return Response.json({ error: "Invalid JSON" }, { status: 400 }); }
 
-  // Block edits on documentary-source rows — those are read-only per the
-  // ingest contract; only captured rows are user-editable.
   const { data: existing } = await supabase
     .from("life_events")
     .select("id, slug, source")
     .eq("id", id)
     .single();
   if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
-  if (existing.source === "documentary") {
-    return Response.json({ error: "Documentary-source life events are read-only" }, { status: 403 });
-  }
 
   const update: Record<string, unknown> = {};
+  // A human edit supersedes the verbatim documentary import. Flip provenance to
+  // "captured" so a later re-run of ingest-documentary-life-events.ts (which
+  // upserts by slug with source='documentary') won't silently clobber the edit.
+  if (existing.source === "documentary") update.source = "captured";
   if (typeof body.title === "string") update.title = body.title.trim();
   if ("date_start" in body) update.date_start = body.date_start;
   if ("date_end" in body) update.date_end = body.date_end;
@@ -70,9 +69,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .eq("id", id)
     .single();
   if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
-  if (existing.source === "documentary") {
-    return Response.json({ error: "Documentary-source life events are read-only" }, { status: 403 });
-  }
 
   const { error } = await supabase.from("life_events").delete().eq("id", id);
   if (error) return Response.json({ error: error.message }, { status: 500 });

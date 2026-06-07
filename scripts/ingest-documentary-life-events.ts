@@ -174,6 +174,19 @@ async function upsertLifeEvent(
     display_order: index,
   };
 
+  // Don't clobber a row a human has taken over in admin. Editing a
+  // documentary node flips its source to 'captured'; treat that as the new
+  // source of truth and leave it untouched on re-ingest.
+  const { data: existing } = await supabase
+    .from("life_events")
+    .select("source")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (existing && existing.source !== "documentary") {
+    console.log(`    [skip] life_event: ${slug} (manually edited, source=${existing.source})`);
+    return;
+  }
+
   if (dryRun) {
     console.log(`    [dry] life_event: ${slug} (${title.slice(0, 40)}…)`);
     return;

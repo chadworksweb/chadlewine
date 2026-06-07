@@ -31,6 +31,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     "title", "slug", "release_date",
     "cover_art_path", "cover_art_alt",
     "concept_statement",
+    "seo_title", "seo_description",
     "citation_summary", "entity_tags",
     "display_order", "status", "release_type",
     "hero_focal_x", "hero_focal_y", "hero_zoom",
