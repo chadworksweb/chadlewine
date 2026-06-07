@@ -1,7 +1,8 @@
-// Verbatim port of rising-compass/frontend/js/compass.js.
-// Renders the half-circle gauge into a given container element, then
-// updates the needle / score / charge label imperatively. Same DOM shape
-// + same class names so the original compass.css applies unchanged.
+// Port of rising-compass/frontend/js/compass.js (reduced: no hover tooltip /
+// ghost trail). Renders the half-circle gauge into a given container element,
+// then updates the needle / score / charge label imperatively. Same DOM shape
+// + same class names so the original compass.css applies unchanged. Band
+// proportions track the backend tier bounds (BOUNDS, below).
 
 const COLORS = ["violet", "blue", "green", "orange", "red"] as const;
 const COLOR_HEX: Record<string, string> = {
@@ -40,24 +41,25 @@ function arcPath(startDeg: number, endDeg: number, radius: number) {
 export function renderCompass(container: HTMLElement) {
   let svg = `<svg class="compass-svg" viewBox="0 -10 360 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Compass gauge showing current charge level">`;
 
-  const arcSpan = 36;
+  // True tier band boundaries in degrees (0 = Ascended/left .. 180 =
+  // Corrupted/right). Mirrors backend/app/services/charge_calc.py CHARGE_TIERS
+  // and rising-compass/frontend/js/compass.js. Ascended/Corrupted are the
+  // narrow 22.5deg poles; the middle three tiers are 45deg each. Keep in
+  // lockstep with the backend -- do not fork a second set of cutoffs.
+  const BOUNDS = [0, 22.5, 67.5, 112.5, 157.5, 180];
   const TIER_LABELS = ["Ascended", "Elevated", "Decent", "Degraded", "Corrupted"];
   const labelR = R + ARC_WIDTH / 2 + 11;
 
   svg += "<defs>";
   TIER_LABELS.forEach((_label, i) => {
-    const startDeg = i * arcSpan;
-    const endDeg = startDeg + arcSpan;
-    const s = polarToCart(startDeg, labelR);
-    const e = polarToCart(endDeg, labelR);
+    const s = polarToCart(BOUNDS[i], labelR);
+    const e = polarToCart(BOUNDS[i + 1], labelR);
     svg += `<path id="tier-path-${i}" d="M ${s.x} ${s.y} A ${labelR} ${labelR} 0 0 1 ${e.x} ${e.y}" fill="none" />`;
   });
   svg += "</defs>";
 
   COLORS.forEach((color, i) => {
-    const startDeg = i * arcSpan;
-    const endDeg = startDeg + arcSpan;
-    const path = arcPath(startDeg, endDeg, R);
+    const path = arcPath(BOUNDS[i], BOUNDS[i + 1], R);
     svg += `<path class="compass-arc ${color}" data-color="${color}" d="${path}" />`;
   });
 

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { SeoFieldsPanel } from "@/components/SeoFieldsPanel";
 
 // timestamptz (ISO) <-> the value a datetime-local input expects (local time).
 function toLocalInput(iso: unknown): string {
@@ -56,6 +57,16 @@ export default function EditVideoPage() {
       <div className="obsv-editor__field"><label className="obsv-editor__label">Embed URL</label><input className="obsv-editor__input" value={(form.embed_url as string) || ""} onChange={e => setForm({...form, embed_url: e.target.value || null})} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Bunny Stream ID</label><input className="obsv-editor__input" value={(form.stream_id as string) || ""} onChange={e => setForm({...form, stream_id: e.target.value || null})} /></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Description</label><textarea className="obsv-editor__input" value={(form.description as string) || ""} onChange={e => setForm({...form, description: e.target.value})} rows={3} /></div>
+      <div style={{ marginTop: "1.5rem" }}>
+        <SeoFieldsPanel
+          seoTitle={(form.seo_title as string) || ""}
+          seoDescription={(form.seo_description as string) || ""}
+          defaultTitle={`${(form.title as string) || "Untitled"} — Music Video — Chad Lewine`}
+          descriptionFallbackHint="the video description"
+          urlBreadcrumb="music-videos"
+          onChange={(field, value) => setForm({ ...form, [field]: value })}
+        />
+      </div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Song this video is of</label><select className="obsv-editor__input" value={(form.song_id as string) || ""} onChange={e => setForm({...form, song_id: e.target.value || null})}><option value="">-- none --</option>{songs.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</select><p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "4px 0 0" }}>Links the video to its catalog song (about/subjectOf in structured data).</p></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label"><input type="checkbox" checked={!!form.is_featured} onChange={e => setForm({...form, is_featured: e.target.checked})} style={{ marginRight: 8 }} />Featured</label></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Status</label><select className="obsv-editor__input" value={(form.status as string) || "draft"} onChange={e => setForm({...form, status: e.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></div>

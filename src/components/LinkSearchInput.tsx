@@ -10,6 +10,7 @@ interface ApiRow {
   slug: string | null;
   image: string | null;
   type: EntityType;
+  kind?: string | null;
 }
 
 // A normalized dropdown row -- either a content item or a static page.
@@ -90,7 +91,7 @@ export function LinkSearchInput({
           .map((r) => ({
             key: `${r.type}:${r.id}`,
             label: r.title,
-            url: buildContentUrl(r.type, r.slug as string, absolute),
+            url: buildContentUrl(r.type, r.slug as string, absolute, r.kind),
             image: r.image,
             badge: ENTITY_LABEL[r.type] ?? r.type,
           }));

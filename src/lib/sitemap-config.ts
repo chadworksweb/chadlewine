@@ -133,18 +133,21 @@ async function fetchSongs(): Promise<SitemapEntry[]> {
   });
 }
 
-async function fetchObservations(): Promise<SitemapEntry[]> {
+// observations + journal share the `observations` table; each gets its own
+// sub-sitemap scoped by `kind` and prefixed with its public section.
+async function fetchEntries(kind: "observation" | "journal", section: string): Promise<SitemapEntry[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from("observations")
     .select("slug, updated_at, published_at, date_captured, art_image_path")
     .eq("status", "published")
+    .eq("kind", kind)
     .order("date_captured", { ascending: false });
 
   return (data ?? []).map((o) => {
     const art = absoluteUrl(o.art_image_path);
     return {
-      url: `${BASE_URL}/observations/${o.slug}`,
+      url: `${BASE_URL}/${section}/${o.slug}`,
       lastModified:
         isoOrUndef(o.updated_at) ??
         isoOrUndef(o.published_at) ??
@@ -154,6 +157,14 @@ async function fetchObservations(): Promise<SitemapEntry[]> {
       images: art ? [{ loc: art }] : undefined,
     };
   });
+}
+
+function fetchObservations(): Promise<SitemapEntry[]> {
+  return fetchEntries("observation", "observations");
+}
+
+function fetchJournal(): Promise<SitemapEntry[]> {
+  return fetchEntries("journal", "journal");
 }
 
 async function fetchArt(): Promise<SitemapEntry[]> {
@@ -269,6 +280,7 @@ export const SUB_SITEMAPS: SubSitemap[] = [
   { id: "releases", label: "Releases", filename: "sitemap-releases.xml", fetch: fetchReleases },
   { id: "songs", label: "Songs", filename: "sitemap-songs.xml", fetch: fetchSongs },
   { id: "observations", label: "Observations", filename: "sitemap-observations.xml", fetch: fetchObservations },
+  { id: "journal", label: "Journal", filename: "sitemap-journal.xml", fetch: fetchJournal },
   { id: "art", label: "Art", filename: "sitemap-art.xml", fetch: fetchArt },
   { id: "curation", label: "Curation", filename: "sitemap-curation.xml", fetch: fetchCuration },
   { id: "merch", label: "Merch", filename: "sitemap-merch.xml", fetch: fetchMerch },

@@ -1,42 +1,51 @@
 import type { Metadata } from "next";
-import { mergeMetadata } from "@/lib/page-meta";
+import { notFound } from "next/navigation";
+import { getPublishedPageWithSections } from "@/lib/pages";
+import { PageSections } from "@/components/PageSections";
 
-const DEFAULT_METADATA: Metadata = {
-  title: "Chad D — The Early Identity",
-  description:
-    "The Chad D era — where it started. How the earliest version of Chad Lewine's creative identity laid the groundwork for everything that followed.",
-  alternates: {
-    canonical: "https://chadlewine.com/chad-d",
-  },
-  openGraph: {
-    title: "Chad D — The Early Identity | Chad Lewine",
-    description:
-      "The Chad D era — where it started. How the earliest version of Chad Lewine's creative identity laid the groundwork for everything that followed.",
-    url: "https://chadlewine.com/chad-d",
-    type: "article",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    "max-image-preview": "large" as const,
-    "max-snippet": -1,
-  },
-};
+// Migrated to the Pages CMS: renders from the database (pages + page_sections,
+// slug 'chad-d'). Content + SEO are edited in /admin/pages.
+
+export const revalidate = 60;
+
+const SLUG = "chad-d";
+const CANONICAL = "https://chadlewine.com/chad-d";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return mergeMetadata("/chad-d", DEFAULT_METADATA);
+  const result = await getPublishedPageWithSections(SLUG);
+  if (!result) return {};
+  const { page } = result;
+
+  const title = page.seo_title ? { absolute: page.seo_title } : page.title;
+  const description = page.seo_description || undefined;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: CANONICAL },
+    openGraph: {
+      title: page.seo_title || `${page.title} - Chad Lewine`,
+      description,
+      url: CANONICAL,
+      type: "article",
+      ...(page.og_image_path
+        ? { images: [{ url: page.og_image_path, width: 1200, height: 630 }] }
+        : {}),
+    },
+  };
 }
 
-export default function ChadDPage() {
-  return (
-    <article id="page-chad-d" className="page-static">
-      <h1 className="page-static__title">Chad D</h1>
+export default async function ChadDPage() {
+  const result = await getPublishedPageWithSections(SLUG);
+  if (!result) notFound();
+  const { page, sections } = result;
 
-      <div className="prose">
-        <p className="page-who__placeholder">
-          Content in progress.
-        </p>
-      </div>
-    </article>
+  return (
+    <PageSections
+      page={page}
+      sections={sections}
+      wrapperId="page-chad-d"
+      wrapperClassName="page-super-individual"
+    />
   );
 }

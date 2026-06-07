@@ -4,16 +4,28 @@ import Image from "next/image";
 import { createPublicClient } from "@/lib/supabase-server";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { AdminEditButton } from "@/components/AdminEditButton";
+import { getPublishedPageWithSections } from "@/lib/pages";
+import { PageSections } from "@/components/PageSections";
 
 export const revalidate = 60;
 
+// CMS pages (DB-rendered, template 'standard') win over door_pages at the same
+// single-segment slug. Managed pages render from their own code route and never
+// reach here, so they are excluded defensively.
+async function getCmsPage(slug: string) {
+  const result = await getPublishedPageWithSections(slug);
+  if (!result || result.page.template !== "standard") return null;
+  return result;
+}
+
 async function getDoorPage(slug: string) {
   const supabase = createPublicClient();
+  // maybeSingle so an unknown slug returns null (404) instead of throwing (500).
   const { data } = await supabase
     .from("door_pages")
     .select("*")
     .eq("slug", slug)
-    .single();
+    .maybeSingle();
   return data;
 }
 
@@ -42,6 +54,29 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+
+  // CMS page metadata (exact-title { absolute } rule).
+  const cms = await getCmsPage(slug);
+  if (cms) {
+    const { page } = cms;
+    const title = page.seo_title ? { absolute: page.seo_title } : page.title;
+    const description = page.seo_description || undefined;
+    return {
+      title,
+      description,
+      alternates: { canonical: `https://chadlewine.com/${slug}` },
+      openGraph: {
+        title: page.seo_title || `${page.title} - Chad Lewine`,
+        description,
+        url: `https://chadlewine.com/${slug}`,
+        type: "website",
+        ...(page.og_image_path
+          ? { images: [{ url: page.og_image_path, width: 1200, height: 630 }] }
+          : {}),
+      },
+    };
+  }
+
   const dp = await getDoorPage(slug);
   if (!dp) return {};
 
@@ -75,6 +110,13 @@ export default async function DoorPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
+  // CMS page (DB-rendered) takes precedence at this slug.
+  const cms = await getCmsPage(slug);
+  if (cms) {
+    return <PageSections page={cms.page} sections={cms.sections} />;
+  }
+
   const dp = await getDoorPage(slug);
   if (!dp) notFound();
 

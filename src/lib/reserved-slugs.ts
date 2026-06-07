@@ -16,6 +16,7 @@ export const RESERVED_SLUGS = new Set<string>([
   "foundations",
   "home-preview",
   "honeychrome",
+  "journal",
   "lyrics",
   "meditations",
   "merch",

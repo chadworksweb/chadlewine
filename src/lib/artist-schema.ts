@@ -11,15 +11,16 @@ export const ARTIST_ID = `${SITE_URL}/chad-lewine#artist`;
 // The human (Person). Member of the MusicGroup above.
 export const PERSON_ID = `${SITE_URL}/chad-lewine#person`;
 
-// Entity-reconciliation targets. EMPTY until the open-database profiles exist.
-// Phase 2 of the Song Visibility Plan fills these with the MusicBrainz, Wikidata,
-// and Discogs artist URLs. Google reads sameAs to connect this site's artist to
-// its Knowledge Graph entity -- this is the single most important off-site link.
-// Add the URLs here once created (no other code change needed):
-//   "https://musicbrainz.org/artist/<MBID>",
-//   "https://www.wikidata.org/wiki/<QID>",
-//   "https://www.discogs.com/artist/<id>",
-export const ARTIST_SAME_AS: string[] = [];
+// Entity-reconciliation targets. Google reads sameAs to connect this site's
+// artist to its Knowledge Graph entity -- the single most important off-site
+// link. Filled Phase 2D of the Song Visibility Plan once the open-database
+// profiles existed; linking is now bidirectional (each DB points its
+// official-homepage relationship back at chadlewine.com).
+export const ARTIST_SAME_AS: string[] = [
+  "https://musicbrainz.org/artist/ad48b14b-a3ed-41f8-b12c-ed3babe60f56",
+  "https://www.wikidata.org/wiki/Q140089858",
+  "https://www.discogs.com/artist/17822181",
+];
 
 // Set once a primary genre is decided (e.g. ["Indie", "Singer-Songwriter"]).
 export const ARTIST_GENRE: string[] = [];

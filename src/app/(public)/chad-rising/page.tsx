@@ -1,42 +1,51 @@
 import type { Metadata } from "next";
-import { mergeMetadata } from "@/lib/page-meta";
+import { notFound } from "next/navigation";
+import { getPublishedPageWithSections } from "@/lib/pages";
+import { PageSections } from "@/components/PageSections";
 
-const DEFAULT_METADATA: Metadata = {
-  title: "Chad Rising — The Music Identity",
-  description:
-    "The Chad Rising era — the artist name behind 13 albums and 151 songs. How this music identity became the bridge to Chad Lewine.",
-  alternates: {
-    canonical: "https://chadlewine.com/chad-rising",
-  },
-  openGraph: {
-    title: "Chad Rising — The Music Identity | Chad Lewine",
-    description:
-      "The Chad Rising era — the artist name behind 13 albums and 151 songs. How this music identity became the bridge to Chad Lewine.",
-    url: "https://chadlewine.com/chad-rising",
-    type: "article",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    "max-image-preview": "large" as const,
-    "max-snippet": -1,
-  },
-};
+// Migrated to the Pages CMS: renders from the database (pages + page_sections,
+// slug 'chad-rising'). Content + SEO are edited in /admin/pages.
+
+export const revalidate = 60;
+
+const SLUG = "chad-rising";
+const CANONICAL = "https://chadlewine.com/chad-rising";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return mergeMetadata("/chad-rising", DEFAULT_METADATA);
+  const result = await getPublishedPageWithSections(SLUG);
+  if (!result) return {};
+  const { page } = result;
+
+  const title = page.seo_title ? { absolute: page.seo_title } : page.title;
+  const description = page.seo_description || undefined;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: CANONICAL },
+    openGraph: {
+      title: page.seo_title || `${page.title} - Chad Lewine`,
+      description,
+      url: CANONICAL,
+      type: "article",
+      ...(page.og_image_path
+        ? { images: [{ url: page.og_image_path, width: 1200, height: 630 }] }
+        : {}),
+    },
+  };
 }
 
-export default function ChadRisingPage() {
-  return (
-    <article id="page-chad-rising" className="page-static">
-      <h1 className="page-static__title">Chad Rising</h1>
+export default async function ChadRisingPage() {
+  const result = await getPublishedPageWithSections(SLUG);
+  if (!result) notFound();
+  const { page, sections } = result;
 
-      <div className="prose">
-        <p className="page-who__placeholder">
-          Content in progress.
-        </p>
-      </div>
-    </article>
+  return (
+    <PageSections
+      page={page}
+      sections={sections}
+      wrapperId="page-chad-rising"
+      wrapperClassName="page-super-individual"
+    />
   );
 }

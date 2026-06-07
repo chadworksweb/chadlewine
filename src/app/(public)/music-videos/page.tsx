@@ -41,7 +41,7 @@ export default async function VideoPage() {
   const { data: videos } = await supabase
     .from("videos")
     .select(
-      "id, title, slug, category_id, stream_id, embed_url, thumbnail_path, description, is_featured, duration_seconds, published_at, song_id, song:songs(slug, status)",
+      "id, title, slug, category_id, stream_id, embed_url, thumbnail_path, description, seo_title, seo_description, is_featured, duration_seconds, published_at, song_id, song:songs(slug, status)",
     )
     .eq("status", "published")
     .order("is_featured", { ascending: false })
@@ -67,8 +67,8 @@ export default async function VideoPage() {
       "@context": "https://schema.org",
       "@type": "VideoObject",
       "@id": `${VIDEOS_URL}?v=${v.slug}#video`,
-      name: v.title,
-      description: v.description || `${v.title} -- a music video by Chad Lewine.`,
+      name: v.seo_title || v.title,
+      description: v.seo_description || v.description || `${v.title} -- a music video by Chad Lewine.`,
       url: `${VIDEOS_URL}?v=${v.slug}`,
       ...(thumb ? { thumbnailUrl: thumb } : {}),
       ...(uploaded ? { uploadDate: uploaded } : {}),

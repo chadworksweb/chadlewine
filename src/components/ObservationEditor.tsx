@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/utils";
 import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
-import { buildContentUrl } from "@/lib/content-urls";
 
 interface CategoryOption {
   id: string;
@@ -38,6 +37,7 @@ interface ObservationData {
   body: string;
   date_captured: string;
   status: string;
+  kind: string;
   hook_line: string;
   tension_line: string;
   art_image_path: string;
@@ -68,6 +68,7 @@ const emptyObservation: ObservationData = {
   body: "",
   date_captured: new Date().toISOString().split("T")[0],
   status: "draft",
+  kind: "observation",
   hook_line: "",
   tension_line: "",
   art_image_path: "",
@@ -318,11 +319,19 @@ function FullResArtPanel({
 
 export function ObservationEditor({
   initial,
+  defaultKind,
 }: {
   initial?: ObservationData;
+  defaultKind?: string;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState<ObservationData>(initial || emptyObservation);
+  const [form, setForm] = useState<ObservationData>(
+    initial || {
+      ...emptyObservation,
+      kind: defaultKind === "journal" ? "journal" : "observation",
+    },
+  );
+  const section = form.kind === "journal" ? "journal" : "observations";
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- setter reserved for upcoming server-error surfacing
   const [error, setError] = useState("");
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
@@ -333,7 +342,7 @@ export function ObservationEditor({
   // Copy the PUBLIC (production) post URL -- never localhost/staging. Hardcodes
   // the production host so the link is shareable from any environment.
   const copyPublicLink = async () => {
-    const url = `https://chadlewine.com${buildContentUrl("observation", form.slug, false)}`;
+    const url = `https://chadlewine.com/${section}/${form.slug}`;
     try {
       await navigator.clipboard.writeText(url);
       setLinkCopied(true);
@@ -349,6 +358,7 @@ export function ObservationEditor({
     body: d.body,
     date_captured: d.date_captured,
     status: d.status,
+    kind: d.kind,
     hook_line: d.hook_line,
     tension_line: d.tension_line,
     art_image_path: d.art_image_path,
@@ -436,7 +446,9 @@ export function ObservationEditor({
     <div className="obsv-editor">
       <div className="obsv-editor__header">
         <h1 className="admin-page__title">
-          {!form.id ? "New Observation" : "Edit Observation"}
+          {form.kind === "journal"
+            ? !form.id ? "New Journal Entry" : "Edit Journal Entry"
+            : !form.id ? "New Observation" : "Edit Observation"}
         </h1>
         <div className="obsv-editor__actions">
           {form.id && (
@@ -469,7 +481,7 @@ export function ObservationEditor({
               </button>
               <a
                 className="admin-btn"
-                href={`/observations/${form.slug}`}
+                href={`/${section}/${form.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -564,6 +576,19 @@ export function ObservationEditor({
         <div className="obsv-editor__sidebar">
           <div className="obsv-editor__panel">
             <h3 className="obsv-editor__panel-title">Publish</h3>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="kind">Kind</label>
+              <select
+                id="kind"
+                className="obsv-editor__select"
+                value={form.kind}
+                onChange={(e) => set("kind", e.target.value)}
+              >
+                <option value="observation">Observation (not about me)</option>
+                <option value="journal">Journal (about me / my music)</option>
+              </select>
+            </div>
 
             <div className="obsv-editor__field">
               <label className="obsv-editor__label" htmlFor="status">Status</label>

@@ -59,7 +59,7 @@ export async function resolveEntities(
       ? (() => { const q = supabase.from("art_pieces").select("id, slug, title, image_path, image_alt").in("id", idsByType.art); return all ? q : q.in("status", ["published", "unreleased"]); })()
       : Promise.resolve({ data: [] }),
     idsByType.observation.length
-      ? (() => { const q = supabase.from("observations").select("id, slug, title, art_image_path, art_alt").in("id", idsByType.observation); return all ? q : q.eq("status", "published"); })()
+      ? (() => { const q = supabase.from("observations").select("id, slug, title, art_image_path, art_alt, kind").in("id", idsByType.observation); return all ? q : q.eq("status", "published"); })()
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -67,7 +67,7 @@ export async function resolveEntities(
   type ReleaseRow = Row & { cover_art_path: string | null; cover_art_alt: string | null };
   type ProductRow = Row & { image_url: string | null; image_alt: string | null };
   type ArtRow = Row & { image_path: string | null; image_alt: string | null };
-  type ObsRow = Row & { art_image_path: string | null; art_alt: string | null };
+  type ObsRow = Row & { art_image_path: string | null; art_alt: string | null; kind: string | null };
 
   // Album-cover fallback for songs lacking their own art (matches homepage feed).
   const songRows = (songs.data || []) as SongRow[];
@@ -119,7 +119,10 @@ export async function resolveEntities(
       }
       case "observation": {
         const o = maps.observation.get(id); if (!o || !o.slug) break;
-        out.push({ entity_type: "observation", id, slug: o.slug, title: o.title, image: o.art_image_path, alt: o.art_alt || o.title, href: `/observations/${o.slug}` });
+        // observations + journal share this table; route by `kind` so journal
+        // entries resolve to /journal/... not /observations/...
+        const section = o.kind === "journal" ? "journal" : "observations";
+        out.push({ entity_type: "observation", id, slug: o.slug, title: o.title, image: o.art_image_path, alt: o.art_alt || o.title, href: `/${section}/${o.slug}` });
         break;
       }
     }

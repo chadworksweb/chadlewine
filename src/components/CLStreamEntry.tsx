@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
-import { CompassIcon } from "@/components/RCBadge";
+import { CompassIcon } from "@/components/RisingCompassMark";
 import { rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
 
 interface CLStreamSong {

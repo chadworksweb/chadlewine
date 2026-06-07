@@ -90,9 +90,10 @@ const adminNav: NavItem[] = [
   { href: "/admin/media", label: "Media" },
   {
     href: "/admin/observations",
-    label: "Observations",
+    label: "Writing",
     children: [
-      { href: "/admin/observations", label: "Overview" },
+      { href: "/admin/observations?kind=observation", label: "Observations" },
+      { href: "/admin/observations?kind=journal", label: "Journal" },
       { href: "/admin/meditations", label: "Meditations" },
       { href: "/admin/categories", label: "Categories" },
       { href: "/admin/thoughtlines", label: "Thoughtlines" },

@@ -15,6 +15,7 @@ import { CubeFaceEditor } from "@/components/CubeFaceEditor";
 import { EntityPicker } from "@/components/EntityPicker";
 import { CreditsEditor } from "@/components/CreditsEditor";
 import { SkuPanel } from "@/components/SkuPanel";
+import { SeoFieldsPanel } from "@/components/SeoFieldsPanel";
 import { LibrosaPanel } from "@/components/LibrosaPanel";
 import { SponsorshipPanel } from "@/components/SponsorshipPanel";
 
@@ -583,6 +584,18 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
               onChange={(e) => set("chad_quote", e.target.value || null)}
               rows={3}
               placeholder="A short quote from you about this song — appears in section 1 of the landing page."
+            />
+          </div>
+
+          {/* Search Appearance (basic SEO title + meta description) */}
+          <div style={{ marginTop: "1.5rem" }}>
+            <SeoFieldsPanel
+              seoTitle={form.seo_title}
+              seoDescription={form.seo_description}
+              defaultTitle={`${form.title || "Untitled"} — Chad Lewine`}
+              descriptionFallbackHint="the song summary, then a generated line"
+              urlBreadcrumb="music › songs"
+              onChange={(field, value) => set(field, value)}
             />
           </div>
 

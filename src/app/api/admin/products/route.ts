@@ -46,6 +46,8 @@ export async function POST(request: Request) {
       title,
       slug,
       description: body.description || null,
+      seo_title: body.seo_title || null,
+      seo_description: body.seo_description || null,
       printify_product_id: body.printify_product_id || null,
       price: body.price ?? null,
       image_url: body.image_url || null,

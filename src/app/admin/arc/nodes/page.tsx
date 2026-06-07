@@ -310,7 +310,7 @@ function LifeEventRow({
   const [status, setStatus] = useState(event.status);
   const [bodyMd, setBodyMd] = useState(event.body_md ?? "");
   const [saving, setSaving] = useState(false);
-  const readOnly = event.source === "documentary";
+  const fromDocumentary = event.source === "documentary";
 
   async function save() {
     setSaving(true);
@@ -354,7 +354,7 @@ function LifeEventRow({
   }
 
   return (
-    <div className={`arc-node-row arc-node-row--event${open ? " is-open" : ""}${readOnly ? " is-readonly" : ""}`}>
+    <div className={`arc-node-row arc-node-row--event${open ? " is-open" : ""}`}>
       <button type="button" className="arc-node-row__head" onClick={() => setOpen((v) => !v)}>
         <span className={`arc-node-row__pill arc-node-row__pill--${event.source}`}>{event.source}</span>
         <span className="arc-node-row__title">{event.title}</span>
@@ -366,23 +366,24 @@ function LifeEventRow({
       </button>
       {open && (
         <div className="arc-node-row__body">
-          {readOnly && (
+          {fromDocumentary && (
             <p style={{ fontSize: "0.8rem", color: "var(--text-tertiary)", marginBottom: 8 }}>
-              Documentary-source events are read-only. Edit the source script and re-run the ingest.
+              Imported verbatim from the documentary. Saving an edit marks this node as captured,
+              so a future ingest re-run won&apos;t overwrite your changes.
             </p>
           )}
           <Field label="Title">
-            <input className="obsv-editor__input" value={title} onChange={(e) => setTitle(e.target.value)} disabled={readOnly} />
+            <input className="obsv-editor__input" value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
             <Field label="Date start">
-              <input className="obsv-editor__input" type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} disabled={readOnly} />
+              <input className="obsv-editor__input" type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} />
             </Field>
             <Field label="Date end">
-              <input className="obsv-editor__input" type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} disabled={readOnly} />
+              <input className="obsv-editor__input" type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} />
             </Field>
             <Field label="Era">
-              <select className="obsv-editor__input" value={eraId} onChange={(e) => setEraId(e.target.value)} disabled={readOnly}>
+              <select className="obsv-editor__input" value={eraId} onChange={(e) => setEraId(e.target.value)}>
                 <option value="">— none —</option>
                 {eras.map((e) => (
                   <option key={e.id} value={e.id}>{e.kind === "life" ? "L" : "R"} · {e.title}</option>
@@ -391,23 +392,19 @@ function LifeEventRow({
             </Field>
           </div>
           <Field label="Status">
-            <select className="obsv-editor__input" value={status} onChange={(e) => setStatus(e.target.value as "draft" | "published")} disabled={readOnly}>
+            <select className="obsv-editor__input" value={status} onChange={(e) => setStatus(e.target.value as "draft" | "published")}>
               <option value="draft">draft</option>
               <option value="published">published</option>
             </select>
           </Field>
           <Field label="Body (markdown)">
-            <textarea className="obsv-editor__input" rows={6} value={bodyMd} onChange={(e) => setBodyMd(e.target.value)} disabled={readOnly} />
+            <textarea className="obsv-editor__input" rows={6} value={bodyMd} onChange={(e) => setBodyMd(e.target.value)} />
           </Field>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            {!readOnly && (
-              <>
-                <button onClick={save} disabled={saving} className="admin-btn admin-btn--primary">
-                  {saving ? "Saving…" : "Save"}
-                </button>
-                <button onClick={del} disabled={saving} className="admin-btn admin-btn--danger">Delete</button>
-              </>
-            )}
+            <button onClick={save} disabled={saving} className="admin-btn admin-btn--primary">
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button onClick={del} disabled={saving} className="admin-btn admin-btn--danger">Delete</button>
             <button onClick={() => setOpen(false)} disabled={saving} className="admin-btn admin-btn--secondary">Close</button>
           </div>
         </div>

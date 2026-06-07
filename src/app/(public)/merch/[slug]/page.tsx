@@ -17,6 +17,8 @@ interface ProductRow {
   tier: string;
   title: string;
   description: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   price: number | null;
   fulfillment: string;
   status: string;
@@ -39,7 +41,7 @@ async function getProduct(
   const isUuid = UUID_RE.test(key);
   const { data } = await supabase
     .from("merch")
-    .select("id, slug, tier, title, description, price, fulfillment, status, variants, linked_art_piece_id, created_at")
+    .select("id, slug, tier, title, description, seo_title, seo_description, price, fulfillment, status, variants, linked_art_piece_id, created_at")
     .eq(isUuid ? "id" : "slug", key)
     .eq("status", "active")
     .single();
@@ -89,13 +91,19 @@ export async function generateMetadata({
   const { product, gallery } = result;
   const canonicalKey = product.slug || product.id;
   const ogImage = gallery[0]?.url;
+  const seoTitle = product.seo_title?.trim();
+  const ogTitle = seoTitle || `${product.title} — Chad Lewine`;
+  const description =
+    product.seo_description || product.description || `${product.title} by Chad Lewine.`;
   return {
-    title: `${product.title} — Chad Lewine`,
-    description: product.description || `${product.title} by Chad Lewine.`,
+    // Set seo_title renders exactly (absolute bypasses the root brand template);
+    // otherwise the bare title gets a single "- Chad Lewine" from the template.
+    title: seoTitle ? { absolute: seoTitle } : product.title,
+    description,
     alternates: { canonical: `https://chadlewine.com/merch/${canonicalKey}` },
     openGraph: {
-      title: product.title,
-      description: product.description || undefined,
+      title: ogTitle,
+      description,
       images: ogImage ? [{ url: ogImage }] : undefined,
     },
   };

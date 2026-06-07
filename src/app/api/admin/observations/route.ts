@@ -1,13 +1,22 @@
 import { createAdminClient } from "@/lib/supabase-server";
 
-// GET /api/admin/observations — list all observations (any status)
-export async function GET() {
+// GET /api/admin/observations — list all observations (any status).
+// Optional ?kind=observation|journal filters by content kind.
+export async function GET(request: Request) {
   const supabase = createAdminClient();
 
-  const { data: observations, error } = await supabase
+  const kindParam = new URL(request.url).searchParams.get("kind");
+
+  let query = supabase
     .from("observations")
-    .select("id, title, slug, status, date_captured, hook_line, tension_line, created_at")
+    .select("id, title, slug, status, kind, date_captured, hook_line, tension_line, created_at")
     .order("date_captured", { ascending: false });
+
+  if (kindParam === "observation" || kindParam === "journal") {
+    query = query.eq("kind", kindParam);
+  }
+
+  const { data: observations, error } = await query;
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
@@ -79,6 +88,7 @@ export async function POST(request: Request) {
     body: obsBody,
     date_captured,
     status,
+    kind,
     hook_line,
     tension_line,
     art_image_path,
@@ -105,6 +115,7 @@ export async function POST(request: Request) {
       body: obsBody,
       date_captured,
       status: status || "draft",
+      kind: kind === "journal" ? "journal" : "observation",
       hook_line: hook_line || null,
       tension_line: tension_line || null,
       art_image_path: art_image_path || null,
