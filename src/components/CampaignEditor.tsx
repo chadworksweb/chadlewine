@@ -116,7 +116,7 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
   const [resendStatus, setResendStatus] = useState<{ kind: "idle" | "confirm" | "sending" | "ok" | "err"; msg?: string }>({ kind: "idle" });
   const [sentPreviewHtml, setSentPreviewHtml] = useState("");
   const [reusing, setReusing] = useState(false);
-  const [clickMetrics, setClickMetrics] = useState<{ uniqueLinkClicks: number; totalClicks: number } | null>(null);
+  const [clickMetrics, setClickMetrics] = useState<{ uniqueLinkClicks: number; totalClicks: number; bySend?: Record<string, number> } | null>(null);
 
   const buildPayload = useCallback(
     (data: CampaignData) => ({
@@ -396,7 +396,7 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
         <div className="campaign-editor__main">
           {sendsOpen && form.status === "sent" && (
             <div className="campaign-editor__field">
-              <SendsTable rows={sends} />
+              <SendsTable rows={sends} clicksBySend={clickMetrics?.bySend} />
             </div>
           )}
           <div className="campaign-editor__field">
@@ -813,7 +813,7 @@ function statusCell(r: SendRow) {
   );
 }
 
-function SendsTable({ rows }: { rows: SendRow[] | null }) {
+function SendsTable({ rows, clicksBySend }: { rows: SendRow[] | null; clicksBySend?: Record<string, number> }) {
   const [sortCol, setSortCol] = useState<SendSortCol>("sent_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -823,6 +823,10 @@ function SendsTable({ rows }: { rows: SendRow[] | null }) {
   if (rows.length === 0) {
     return <p className="campaign-editor__hint">No recipients yet.</p>;
   }
+  // Per-recipient human click count (scanner/CloudFront pre-fetch storms
+  // removed), falling back to the raw stored counter until metrics load.
+  const clicksFor = (r: SendRow) => clicksBySend?.[r.id] ?? r.click_count;
+
   const realRows = rows.filter((r) => !r.is_test);
   const testRows = rows.filter((r) => r.is_test);
 
@@ -833,7 +837,7 @@ function SendsTable({ rows }: { rows: SendRow[] | null }) {
       case "status":
         return a.status.localeCompare(b.status);
       case "click_count":
-        return a.click_count - b.click_count;
+        return clicksFor(a) - clicksFor(b);
       default: {
         // date columns: nulls sort last
         const av = a[sortCol] ?? "";
@@ -895,8 +899,8 @@ function SendsTable({ rows }: { rows: SendRow[] | null }) {
                 {fmtShort(r.sent_at)}
               </td>
               <td className="admin-table__td">
-                {r.click_count > 0 ? (
-                  <strong>{r.click_count}</strong>
+                {clicksFor(r) > 0 ? (
+                  <strong>{clicksFor(r)}</strong>
                 ) : (
                   <span className="admin-dash">—</span>
                 )}
@@ -931,7 +935,7 @@ function SendsTable({ rows }: { rows: SendRow[] | null }) {
                     {fmtShort(r.sent_at)}
                   </td>
                   <td className="admin-table__td">
-                    {r.click_count > 0 ? r.click_count : "—"}
+                    {clicksFor(r) > 0 ? clicksFor(r) : "—"}
                   </td>
                   <td className="admin-table__td admin-table__td--date">
                     {fmtShort(r.clicked_at)}

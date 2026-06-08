@@ -1,17 +1,22 @@
 // Detects email security scanners / link-protection gateways and non-browser
 // fetchers by user-agent. These "click" every link the instant an email is
 // delivered (scanning for malware), which inflates open/click analytics and
-// engagement scores -- e.g. a corporate gateway behind "Amazon CloudFront"
-// firing 8 clicks in 0.7s with zero opens. Used to exclude their events from
-// metrics and from engagement bumps. It does NOT block delivery: the recipient
-// is a real person sitting behind a scanning mail gateway.
+// engagement scores. Used to exclude their events from metrics and engagement
+// bumps. It does NOT block delivery: the recipient is a real person sitting
+// behind a scanning mail gateway.
+//
+// NOTE: "Amazon CloudFront" is deliberately NOT in this list. Resend routes
+// every tracked click through CloudFront, so that UA appears on REAL human
+// clicks too -- filtering it here zeroed out all legitimate clicks. Scanner
+// pre-fetch storms are instead caught behaviorally (burst of clicks to one
+// recipient within ~2s) in src/lib/click-analytics.ts, where timing -- not the
+// UA -- is the signal.
 //
 // Conservative on purpose -- only clearly non-human fetchers match. A null or
 // empty UA is NOT treated as a bot (some legitimate clients omit it), to avoid
 // silently dropping real engagement.
 
 const BOT_UA_PATTERNS: RegExp[] = [
-  /cloudfront/i,                       // Amazon CloudFront (mail-gateway scanners)
   /proofpoint|urldefense/i,            // Proofpoint URL Defense
   /mimecast/i,
   /barracuda/i,
