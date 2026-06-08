@@ -28,6 +28,7 @@ export function SiteJsonLd() {
         "@id": PERSON_ID,
         name: "Chad Lewine",
         url: `${SITE_URL}/chad-lewine`,
+        image: `${SITE_URL}/chad-lewine-portrait.webp`,
         hasOccupation: [
           { "@type": "Occupation", name: "Musician" },
           { "@type": "Occupation", name: "Songwriter" },
@@ -50,7 +51,7 @@ export function SiteJsonLd() {
         "@id": ARTIST_ID,
         name: "Chad Lewine",
         url: `${SITE_URL}/chad-lewine`,
-        image: `${SITE_URL}/og-default.webp`,
+        image: `${SITE_URL}/chad-lewine-portrait.webp`,
         description:
           "Independent musician and songwriter. An original catalog of songs, with art, merch, and live shows.",
         member: { "@id": PERSON_ID },
