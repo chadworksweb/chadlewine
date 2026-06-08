@@ -22,8 +22,8 @@ export const ARTIST_SAME_AS: string[] = [
   "https://www.discogs.com/artist/17822181",
 ];
 
-// Set once a primary genre is decided (e.g. ["Indie", "Singer-Songwriter"]).
-export const ARTIST_GENRE: string[] = [];
+// Primary genre decided 2026-06-08: Pop.
+export const ARTIST_GENRE: string[] = ["Pop"];
 
 // A lean reference to the artist node for use as byArtist on recordings.
 // The full node (image, description, sameAs, member) is declared once in

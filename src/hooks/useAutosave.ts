@@ -7,7 +7,7 @@ export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 interface UseAutosaveOptions<T> {
   /** Current form data */
   data: T;
-  /** API base path, e.g. "/api/admin/observations" */
+  /** API base path, e.g. "/api/admin/writings" */
   endpoint: string;
   /** Record ID — undefined for new records */
   id: string | undefined;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 import { CompassIcon } from "@/components/RisingCompassMark";
-import { rcBadgeHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
+import { rcBadgeHref, rcArtistHref, type RisingCompassBadgeData } from "@/lib/rising-compass";
 
 interface CLStreamSong {
   id: string;
@@ -34,12 +34,39 @@ export function CLStreamEntry({ song }: { song: CLStreamSong }) {
       <div className="feed-entry__content">
         <div className="feed-entry__meta">
           <time className="feed-entry__date">Added {formatDate(song.created_at)}</time>
+          {song.source_url && (
+            <a
+              href={song.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cl-stream-entry__listen"
+            >
+              Listen &#8599;
+            </a>
+          )}
         </div>
         <div className="cl-stream-entry-body">
           <div className="cl-stream-entry-body__text">
             <h2 className="feed-entry__title">
-              {song.title}
-              <span style={{ opacity: 0.45, fontWeight: 400 }}> — {song.artist}</span>
+              <a
+                href={rcBadgeHref(song.badge)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cl-stream-entry__link"
+              >
+                {song.title}
+              </a>
+              <span style={{ opacity: 0.45, fontWeight: 400 }}>
+                {" "}&mdash;{" "}
+                <a
+                  href={rcArtistHref(song.artist)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cl-stream-entry__link"
+                >
+                  {song.artist}
+                </a>
+              </span>
             </h2>
             {song.album && (
               <p className="feed-entry__hook"><em>{song.album}</em></p>
@@ -95,13 +122,5 @@ export function CLStreamEntry({ song }: { song: CLStreamSong }) {
     </div>
   );
 
-  return (
-    <div className="archive__feed-item">
-      {song.source_url ? (
-        <a href={song.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", color: "inherit" }}>
-          {inner}
-        </a>
-      ) : inner}
-    </div>
-  );
+  return <div className="archive__feed-item">{inner}</div>;
 }

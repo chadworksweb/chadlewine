@@ -30,13 +30,13 @@ export async function DELETE(
   const supabase = createAdminClient();
 
   const { count } = await supabase
-    .from("observation_categories")
+    .from("post_categories")
     .select("*", { count: "exact", head: true })
     .eq("category_id", id);
 
   if (count && count > 0) {
     return Response.json(
-      { error: `Cannot delete — ${count} observation(s) use this category. Reassign them first.` },
+      { error: `Cannot delete — ${count} post(s) use this category. Reassign them first.` },
       { status: 409 }
     );
   }

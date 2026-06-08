@@ -53,7 +53,7 @@ export async function GET(
     variant === "print" ? "art_fullres_print_path" : "art_fullres_wallpaper_path";
 
   const { data: observation } = await supabase
-    .from("observations")
+    .from("posts")
     .select(col)
     .eq("id", product.source_observation_id)
     .single<Record<string, string | null>>();

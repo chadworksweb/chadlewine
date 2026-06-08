@@ -65,6 +65,35 @@ const nextConfig: NextConfig = {
         destination: "/admin/music/releases/:path*",
         permanent: true,
       },
+      // Observations -> Writings rename. Posts now live under /writings, split
+      // by kind into /writings/observations and /writings/journal. The admin
+      // list moved to /admin/writings. DB-backed redirects handle per-row slug
+      // changes; these handle the URL-shape change for every existing post.
+      {
+        source: "/admin/observations/:path*",
+        destination: "/admin/writings/:path*",
+        permanent: true,
+      },
+      {
+        source: "/observations",
+        destination: "/writings/observations",
+        permanent: true,
+      },
+      {
+        source: "/observations/:slug",
+        destination: "/writings/observations/:slug",
+        permanent: true,
+      },
+      {
+        source: "/journal",
+        destination: "/writings/journal",
+        permanent: true,
+      },
+      {
+        source: "/journal/:slug",
+        destination: "/writings/journal/:slug",
+        permanent: true,
+      },
     ];
   },
 };

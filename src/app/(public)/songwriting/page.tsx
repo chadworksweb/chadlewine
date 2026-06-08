@@ -569,7 +569,7 @@ export default async function SongwritingPage() {
       {/* The full backstory lives in an Observation, linked quietly at the foot. */}
       <section className="si-section sw-backstory">
         <p>
-          <a href="https://chadlewine.com/observations/on-writing-songs-for-other-artists">
+          <a href="https://chadlewine.com/writings/observations/on-writing-songs-for-other-artists">
             The thinking behind this &rarr;
           </a>
         </p>

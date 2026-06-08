@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     // Join with observation titles
     const ids = (data || []).map((d) => d.observation_id).filter(Boolean);
     const { data: observations } = await supabase
-      .from("observations")
+      .from("posts")
       .select("id, title, slug")
       .in("id", ids);
 

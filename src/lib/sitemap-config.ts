@@ -133,12 +133,12 @@ async function fetchSongs(): Promise<SitemapEntry[]> {
   });
 }
 
-// observations + journal share the `observations` table; each gets its own
+// observation + journal posts share the `posts` table; each gets its own
 // sub-sitemap scoped by `kind` and prefixed with its public section.
 async function fetchEntries(kind: "observation" | "journal", section: string): Promise<SitemapEntry[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
-    .from("observations")
+    .from("posts")
     .select("slug, updated_at, published_at, date_captured, art_image_path")
     .eq("status", "published")
     .eq("kind", kind)
@@ -160,11 +160,11 @@ async function fetchEntries(kind: "observation" | "journal", section: string): P
 }
 
 function fetchObservations(): Promise<SitemapEntry[]> {
-  return fetchEntries("observation", "observations");
+  return fetchEntries("observation", "writings/observations");
 }
 
 function fetchJournal(): Promise<SitemapEntry[]> {
-  return fetchEntries("journal", "journal");
+  return fetchEntries("journal", "writings/journal");
 }
 
 async function fetchArt(): Promise<SitemapEntry[]> {

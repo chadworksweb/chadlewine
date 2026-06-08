@@ -70,18 +70,19 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
         <div className="patronage__col patronage__col--intro">
           <h3 className="patronage__heading">Become a patron</h3>
           <p className="patronage__subtitle">
-            Back the work as it unfolds, month to month. Cancel anytime.
+            One time or monthly, cancel anytime.
           </p>
 
           <div className="patronage__copy">
           <p>
             Before streaming, labels, and the capitalization of art, the work got made
             because patrons believed it should exist. There are no perks and no tiers
-            here. What you get is the standing of having helped make it possible.
+            here. You are giving because you believe in me, my vision and my mission.
           </p>
           <p>
-            You aren&rsquo;t buying anything. You&rsquo;re backing the work that keeps
-            coming: the songs, the writing, the art. That output is what you support.
+            You aren&rsquo;t buying a product, you&rsquo;re supporting my livelihood so
+            that I can keep creating the songs, music and art that brought you here.
+            Thank you for that.
           </p>
           </div>
         </div>

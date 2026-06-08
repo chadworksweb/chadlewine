@@ -19,8 +19,8 @@ export const MANAGED_PAGES: ManagedPage[] = [
   { route: "/archive/xanga", label: "Xanga Archive" },
   { route: "/business", label: "Business" },
   { route: "/merch", label: "Merch" },
-  { route: "/observations", label: "Observations (index)" },
-  { route: "/journal", label: "Journal (index)" },
+  { route: "/writings/observations", label: "Observations (index)" },
+  { route: "/writings/journal", label: "Journal (index)" },
   { route: "/lyrics", label: "Lyrics (index)" },
   { route: "/meditations", label: "Meditations (index)" },
 ];

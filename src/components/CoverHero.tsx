@@ -24,7 +24,7 @@ export function CoverHero({
   href,
   ctaLabel,
 }: CoverHeroProps) {
-  const target = href ?? `/observations/${slug}`;
+  const target = href ?? `/writings/observations/${slug}`;
   return (
     <section id="cover-hero" className="cover-hero">
       {artImageUrl && (

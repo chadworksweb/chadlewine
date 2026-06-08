@@ -15,7 +15,7 @@ async function getObservations() {
   const supabase = createPublicClient();
 
   const { data: observations } = await supabase
-    .from("observations")
+    .from("posts")
     .select("id, title, slug, date_captured, art_image_path, art_alt, hook_line, status")
     .eq("status", "published")
     .order("date_captured", { ascending: false });

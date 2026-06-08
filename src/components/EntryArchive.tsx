@@ -2,7 +2,7 @@ import { CoverHero } from "@/components/CoverHero";
 import { FeedEntry } from "@/components/FeedEntry";
 import { getEntriesArchive, type EntryKind } from "@/lib/entries";
 
-// Shared archive renderer for both /observations and /journal. The two sections
+// Shared archive renderer for both /writings/observations and /writings/journal. The two sections
 // are structurally identical (same table, same card components) and differ only
 // by `kind` + the URL prefix (`basePath`). Styling classes are reused as-is.
 interface EntryArchiveProps {

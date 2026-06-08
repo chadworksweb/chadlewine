@@ -1,0 +1,562 @@
+{
+  "27c4a392-7469-448c-8726-1d69cb92315e": {
+    "status": 201,
+    "slug": "dark-nights",
+    "title": "Dark Nights"
+  },
+  "44965e22-e573-4525-8f22-1fe0b02cbb35": {
+    "status": 201,
+    "slug": "the-bells-ring",
+    "title": "...The Bells Ring"
+  },
+  "685d8fd0-e5e5-4496-99aa-ebb773ee424a": {
+    "status": 201,
+    "slug": "til-i-pop",
+    "title": "'Til I Pop"
+  },
+  "d372be1f-d97c-46b0-a0e2-a397a2345e31": {
+    "status": 201,
+    "slug": "1-dance",
+    "title": "1 Dance"
+  },
+  "c4de93b2-ab2d-43ea-8fb5-d78d40da6cc1": {
+    "status": 201,
+    "slug": "35",
+    "title": "35"
+  },
+  "830cf3b6-f975-4579-8187-f573a6d2a841": {
+    "status": 201,
+    "slug": "all-i-wanna-do",
+    "title": "All I Wanna Do"
+  },
+  "1d1e0236-e22c-4af6-976d-bfa797d724b4": {
+    "status": 201,
+    "slug": "all-the-right-places-track",
+    "title": "All The Right Places"
+  },
+  "a6005c61-f7c5-4829-89b7-0349d31d6a22": {
+    "status": 201,
+    "slug": "ancient-flow",
+    "title": "Ancient Flow"
+  },
+  "954e68ba-8583-4c88-84e3-fc529c698741": {
+    "status": 201,
+    "slug": "angel",
+    "title": "Angel"
+  },
+  "02c73632-fdbc-49c7-88c4-67a818234013": {
+    "status": 201,
+    "slug": "ascend",
+    "title": "Ascend"
+  },
+  "0d9d4dde-513a-4dfc-a039-bbf7134bf935": {
+    "status": 201,
+    "slug": "ask-and-tell",
+    "title": "Ask & Tell"
+  },
+  "8c4fe3d8-c7ec-49e6-b145-7d946d08e6b7": {
+    "status": 201,
+    "slug": "back-to-me",
+    "title": "Back To Me"
+  },
+  "b9469a81-0f4b-47d7-ac2a-b4baeea37903": {
+    "status": 201,
+    "slug": "beat-rides-over-me",
+    "title": "Beat Rides Over Me"
+  },
+  "bba05191-4481-409e-b432-55dc07ef40a3": {
+    "status": 201,
+    "slug": "better",
+    "title": "Better"
+  },
+  "ead2890d-7a60-40dc-9247-eedf36eb2e80": {
+    "status": 201,
+    "slug": "boomerang",
+    "title": "Boomerang"
+  },
+  "5dbd521b-e085-4455-b093-28920f524a4d": {
+    "status": 201,
+    "slug": "bounce",
+    "title": "Bounce"
+  },
+  "f364c632-81e2-42d3-bdd3-3f0bb6495cda": {
+    "status": 201,
+    "slug": "branching-out",
+    "title": "Branching Out"
+  },
+  "47d2d761-db43-4796-9b11-c50f024a4d14": {
+    "status": 201,
+    "slug": "breaking-the-bond",
+    "title": "Breaking The Bond"
+  },
+  "6a2af7fb-7ec7-4982-80ec-872af729f76d": {
+    "status": 201,
+    "slug": "buzz-up",
+    "title": "Buzz Up"
+  },
+  "ac5a4fa8-d7e9-4279-9ffa-842296e7020a": {
+    "status": 201,
+    "slug": "cant-stop-us-now",
+    "title": "Can't Stop Us Now"
+  },
+  "8d117aea-8957-42ed-a888-fbffa8d3ca26": {
+    "status": 201,
+    "slug": "cashing-out",
+    "title": "Cashing Out"
+  },
+  "b87a92c4-0cfd-4e8b-ba19-56277568791c": {
+    "status": 201,
+    "slug": "catch-me-if-you-can",
+    "title": "Catch Me (If You Can)"
+  },
+  "43b951ea-d7b5-4beb-a265-a4cb73e3669f": {
+    "status": 201,
+    "slug": "choose-lit",
+    "title": "Choose Lit"
+  },
+  "f50fcfea-10e9-4e0d-9757-08e6839085b0": {
+    "status": 201,
+    "slug": "cross",
+    "title": "Cross"
+  },
+  "49e0fd8a-f66b-4f95-9078-5cf6664dc32e": {
+    "status": 201,
+    "slug": "daylight-animal-track",
+    "title": "Daylight Animal"
+  },
+  "46a49b27-e2cd-49cb-9b1a-8a4360fe2338": {
+    "status": 201,
+    "slug": "da-interlude",
+    "title": "Daylight Animal Interlude"
+  },
+  "00613cf2-d1b8-4b2e-9f23-b0b45a04cb13": {
+    "status": 201,
+    "slug": "deep",
+    "title": "Deep"
+  },
+  "c000f059-f80e-49a7-8789-ecc5f0c87e92": {
+    "status": 201,
+    "slug": "dont-blame-me-track",
+    "title": "Don't Blame Me"
+  },
+  "bb17263b-9279-4a72-b177-8c27732ce35b": {
+    "status": 201,
+    "slug": "drawn-together",
+    "title": "Drawn Together"
+  },
+  "d5e99261-4838-489c-a5f0-6441adf330d7": {
+    "status": 201,
+    "slug": "earth-plane",
+    "title": "Earth Plane"
+  },
+  "b894e959-cfc1-450c-8e59-499be592b941": {
+    "status": 201,
+    "slug": "end-game",
+    "title": "End Game"
+  },
+  "54a700ee-73ff-4420-9c8b-c5654407da1a": {
+    "status": 201,
+    "slug": "everything-i-need",
+    "title": "Everything I Need"
+  },
+  "b737cb1e-c9fe-49e2-9423-c4c070397ad7": {
+    "status": 201,
+    "slug": "eye-for-an-eye",
+    "title": "Eye For An Eye"
+  },
+  "3af8082a-3280-4694-a608-85b55da96166": {
+    "status": 201,
+    "slug": "fat-lip",
+    "title": "FAT LIP"
+  },
+  "058c3e2f-a0a0-466b-84c5-cb54bed849fb": {
+    "status": 201,
+    "slug": "feel-alright",
+    "title": "Feel Alright"
+  },
+  "4757d9aa-c315-4549-a22f-6a7a27f37697": {
+    "status": 201,
+    "slug": "feeling-high-track",
+    "title": "Feeling High"
+  },
+  "ed449de9-ceb9-44a3-b4f6-3aee7430a97c": {
+    "status": 201,
+    "slug": "finding-freedom",
+    "title": "Finding Freedom"
+  },
+  "59537616-b830-4d3d-a717-e6c00e895117": {
+    "status": 201,
+    "slug": "finding-freedom-extended",
+    "title": "Finding Freedom (Extended)"
+  },
+  "51515a65-269d-4a66-8fb3-5bacc548178f": {
+    "status": 201,
+    "slug": "flipside",
+    "title": "Flipside"
+  },
+  "6a49e8f9-8c9d-4fa8-9c0e-89b1dac43236": {
+    "status": 201,
+    "slug": "fly",
+    "title": "Fly"
+  },
+  "efdfdfc2-a696-4334-ad9f-af5726340e11": {
+    "status": 201,
+    "slug": "fog-machine",
+    "title": "Fog Machine"
+  },
+  "75edcf12-ebad-4f49-93f5-c3763a691fa7": {
+    "status": 201,
+    "slug": "fools-gold-kingdom",
+    "title": "Fool's Gold Kingdom"
+  },
+  "5b1c2c0b-bc00-4936-94c3-8bf80515187a": {
+    "status": 201,
+    "slug": "freedom-ring",
+    "title": "Freedom Ring"
+  },
+  "2ac71fda-6885-4fa6-994b-2620dd3d4124": {
+    "status": 201,
+    "slug": "hail-to-the-wonder",
+    "title": "Hail To The Wonder"
+  },
+  "b2e1b753-ad63-444c-b716-31ca8ef561bd": {
+    "status": 201,
+    "slug": "higher-ground",
+    "title": "Higher Ground"
+  },
+  "f99cc3d8-caf5-4164-bdf3-20d4db03d64a": {
+    "status": 201,
+    "slug": "hope-you-visit-soon-bro",
+    "title": "Hope You Visit Soon, Bro"
+  },
+  "e454c428-4953-402f-a29a-397147110ff3": {
+    "status": 201,
+    "slug": "how-do-you-wanna-feel",
+    "title": "How Do You Wanna Feel?"
+  },
+  "e64b7919-8a91-4c55-86b7-0b0de4fbca0b": {
+    "status": 201,
+    "slug": "i-dont-need-another-ghost",
+    "title": "I Don't (Need Another Ghost)"
+  },
+  "2082d21b-4d3f-4852-a979-94d300d3f090": {
+    "status": 201,
+    "slug": "i-got-the-key",
+    "title": "I Got The Key"
+  },
+  "5588e2f7-626e-4d49-b2c2-a85925de944a": {
+    "status": 201,
+    "slug": "i-work-hard-everyday",
+    "title": "I Work Hard Everyday"
+  },
+  "4dda1bd3-763b-45fa-bcfb-2245915d4c68": {
+    "status": 201,
+    "slug": "im-stayin",
+    "title": "I'm Stayin'"
+  },
+  "40b73dde-2eff-4399-9758-3f63f481166d": {
+    "status": 201,
+    "slug": "if-i-dont",
+    "title": "If I Don't"
+  },
+  "8f936282-f62d-42a9-a85b-e1acf49f2d9e": {
+    "status": 201,
+    "slug": "in-love-with-you",
+    "title": "In Love With You"
+  },
+  "64538afe-250b-4c00-83d6-f8e542c42833": {
+    "status": 201,
+    "slug": "johnny-boy",
+    "title": "Johnny Boy"
+  },
+  "29ac3221-0779-4df2-b52b-9b8553d91d31": {
+    "status": 201,
+    "slug": "keep-competent",
+    "title": "Keep Competent"
+  },
+  "d02e5a7c-44ae-471b-aba4-64ecab466bd5": {
+    "status": 201,
+    "slug": "killin-me",
+    "title": "Killin' Me"
+  },
+  "529ac3ad-5e5e-4ef9-9529-f491a9d29fca": {
+    "status": 201,
+    "slug": "led",
+    "title": "Led"
+  },
+  "5569c06f-5ece-4fd2-8d69-de12d4d1a5d0": {
+    "status": 201,
+    "slug": "let-love-happen",
+    "title": "Let Love Happen"
+  },
+  "aaddaca6-375d-42e6-899b-9f99785a6c08": {
+    "status": 201,
+    "slug": "life-is-a-ride",
+    "title": "Life is a Ride"
+  },
+  "45fa6e0d-6387-4c97-ace2-2f276104ba93": {
+    "status": 201,
+    "slug": "lightbody",
+    "title": "Lightbody"
+  },
+  "23d497a3-20fd-4bd0-bb3f-d46aa05d417a": {
+    "status": 201,
+    "slug": "limitless",
+    "title": "Limitless"
+  },
+  "7cecd817-8b18-4f47-a9c0-592854068ff3": {
+    "status": 201,
+    "slug": "love-come-find-me",
+    "title": "Love Come Find Me"
+  },
+  "289669dc-31b7-4ddd-9bd4-90e89382cb76": {
+    "status": 201,
+    "slug": "love-enough",
+    "title": "Love Enough"
+  },
+  "bff85ccc-aa32-45f5-8794-e9a55f299fed": {
+    "status": 201,
+    "slug": "machine",
+    "title": "Machine"
+  },
+  "49d300a6-9f4c-4fba-97a8-fb239b9a793d": {
+    "status": 201,
+    "slug": "magic",
+    "title": "Magic"
+  },
+  "a4fda891-7587-4098-a482-59353ce8843b": {
+    "status": 201,
+    "slug": "masterpeace",
+    "title": "Masterpeace"
+  },
+  "6255e349-c72f-4c53-a2e6-c974c5572ff6": {
+    "status": 201,
+    "slug": "michael",
+    "title": "Michael"
+  },
+  "dee091cf-aa50-4bc1-acc7-92d7dd2c8439": {
+    "status": 201,
+    "slug": "modern-turbulence",
+    "title": "Modern Turbulence"
+  },
+  "a9b36ce3-8791-47a4-8ad5-9c89e6a91d62": {
+    "status": 201,
+    "slug": "murphy",
+    "title": "Murphy"
+  },
+  "b065b84b-735a-4123-984e-c7ec8aa1f994": {
+    "status": 201,
+    "slug": "my-body-knows",
+    "title": "My Body Knows"
+  },
+  "7ed3457f-3d9d-4f02-a5a4-ffd4a64a8441": {
+    "status": 201,
+    "slug": "new-age",
+    "title": "New Age"
+  },
+  "0e119aba-0a6f-49a8-88a4-97fa46d4184b": {
+    "status": 201,
+    "slug": "night-time-flight-time",
+    "title": "Night Time Flight Time"
+  },
+  "80af35f3-2d06-41f2-a43e-2f847a2aa98c": {
+    "status": 201,
+    "slug": "no-ceiling",
+    "title": "No Ceiling"
+  },
+  "da0c2ebf-0eae-4ffe-b0f6-221727b0719b": {
+    "status": 201,
+    "slug": "no-signal",
+    "title": "No Signal"
+  },
+  "ef7cbd62-f642-424d-9c00-887d1861dd19": {
+    "status": 201,
+    "slug": "not-today",
+    "title": "Not Today"
+  },
+  "be83fc9f-daae-473a-b077-39f533faf759": {
+    "status": 201,
+    "slug": "oceanbluelove",
+    "title": "OceanBlueLove"
+  },
+  "ad8daa63-6c24-4af3-aa9f-e23ad1921ec8": {
+    "status": 201,
+    "slug": "outta-sight",
+    "title": "Outta Sight"
+  },
+  "14e7501f-9a46-45de-98dd-d72c00bc99c5": {
+    "status": 201,
+    "slug": "outwithu",
+    "title": "OUTwithU"
+  },
+  "96c03deb-6b5e-49ad-b752-f9a91860671e": {
+    "status": 201,
+    "slug": "over-it",
+    "title": "Over It"
+  },
+  "5240719c-3c6a-4c48-8a61-718d63ddc65b": {
+    "status": 201,
+    "slug": "paint-what-i-feel",
+    "title": "Paint What I Feel"
+  },
+  "74d63cba-c781-4000-90a4-6665508ae32e": {
+    "status": 201,
+    "slug": "pirates-life",
+    "title": "Pirate's Life"
+  },
+  "129204c7-4cb8-4c6f-b544-bf2113a38867": {
+    "status": 201,
+    "slug": "pivotal-days-track",
+    "title": "Pivotal Days"
+  },
+  "c7f113cb-6dce-4c44-80ec-7c03c14ba6fc": {
+    "status": 201,
+    "slug": "plust",
+    "title": "Plust"
+  },
+  "5cc40fd1-0e6f-4816-ace8-004876ce6ab2": {
+    "status": 201,
+    "slug": "protector",
+    "title": "Protector"
+  },
+  "e9373ca8-f5db-4bea-a4e6-810d7d950849": {
+    "status": 201,
+    "slug": "radiate-piano-demo",
+    "title": "Radiate (Piano Demo)"
+  },
+  "2e1a1ea0-4896-48f3-b10a-f993531ecea6": {
+    "status": 201,
+    "slug": "regatta",
+    "title": "Regatta"
+  },
+  "0c772ddd-cb83-44d1-9698-e9aad2d01523": {
+    "status": 201,
+    "slug": "renegade",
+    "title": "Renegade"
+  },
+  "0d65a0fe-17cf-4ac3-a9a1-88bb0a171183": {
+    "status": 201,
+    "slug": "resonate",
+    "title": "Resonate"
+  },
+  "17e29f83-b3dc-4093-86fd-9bc2e587a1c5": {
+    "status": 201,
+    "slug": "riddim",
+    "title": "Riddim"
+  },
+  "56265fc1-7227-45cd-b628-46c64bce9e89": {
+    "status": 201,
+    "slug": "riptide-acoustic",
+    "title": "Riptide (Acoustic)"
+  },
+  "ed96b077-d561-405e-baf7-9038eed370ba": {
+    "status": 201,
+    "slug": "see-through-me",
+    "title": "See Through Me"
+  },
+  "3fc7a714-5286-488d-9640-64df70d2ce2a": {
+    "status": 201,
+    "slug": "settle-the-score",
+    "title": "Settle The Score"
+  },
+  "f80aab04-487b-4c2a-bc02-9e6c48e47191": {
+    "status": 201,
+    "slug": "sky-party",
+    "title": "Sky Party"
+  },
+  "034fe726-05d6-4d41-afca-153759de9bed": {
+    "status": 201,
+    "slug": "soul-agent",
+    "title": "Soul Agent"
+  },
+  "580c8ab1-685a-40d9-b1ef-64c605805739": {
+    "status": 201,
+    "slug": "sprout-track",
+    "title": "Sprout"
+  },
+  "e3bd4cdd-8c19-4e34-803a-863496bd5fa8": {
+    "status": 201,
+    "slug": "switch-it-up",
+    "title": "Switch It Up"
+  },
+  "97eedb32-313c-47c7-8e75-4c1fb0e1c9ac": {
+    "status": 201,
+    "slug": "t-g-a-the-gay-anthem",
+    "title": "T.G.A. (The Gay Anthem)"
+  },
+  "c9375676-28bf-40b3-8f40-4aab51fadf95": {
+    "status": 201,
+    "slug": "take-my-soul",
+    "title": "Take My Soul"
+  },
+  "5871bb8c-fb1d-4f2d-b977-7e68e7cbf2c0": {
+    "status": 201,
+    "slug": "the-divides-a-lie",
+    "title": "The Divide's A Lie"
+  },
+  "1d321c4a-f08d-42ac-aa11-fe644c20b169": {
+    "status": 201,
+    "slug": "the-human-link-track",
+    "title": "The Human Link"
+  },
+  "92239bf4-1738-4849-8b8e-e13524c2ce22": {
+    "status": 201,
+    "slug": "the-story-begins",
+    "title": "The Story Begins"
+  },
+  "87f6c70e-254b-46c5-a4b3-6641f35dd615": {
+    "status": 201,
+    "slug": "the-unbelievable",
+    "title": "The Unbelievable"
+  },
+  "ee09f32b-828a-47ba-9327-8c71139c27e3": {
+    "status": 201,
+    "slug": "this-is-a-raid",
+    "title": "This is a Raid!"
+  },
+  "712ae96e-08b7-48fe-a0b9-e1ebb774f5de": {
+    "status": 201,
+    "slug": "turn-the-mill",
+    "title": "Turn The Mill"
+  },
+  "39825b56-f346-4f65-b6a3-b85596c2fb13": {
+    "status": 201,
+    "slug": "unburying",
+    "title": "Unburying"
+  },
+  "6ad8ce13-805f-415c-8fc1-5034c52f0148": {
+    "status": 201,
+    "slug": "were-here",
+    "title": "We're Here"
+  },
+  "5e4202a8-644a-4399-8b53-e320f64c7235": {
+    "status": 201,
+    "slug": "what-have-i-come-for",
+    "title": "What Have I Come For?"
+  },
+  "1063aaa1-f4b9-44f1-a69c-c633b8b81494": {
+    "status": 201,
+    "slug": "white-lightning",
+    "title": "White Lightning"
+  },
+  "4f82cc09-e70f-4d4f-adfe-a5fbca8b0240": {
+    "status": 201,
+    "slug": "white-shirt",
+    "title": "White Shirt"
+  },
+  "7e6be5a6-56b3-4af3-813e-066554c9e7c8": {
+    "status": 201,
+    "slug": "words-of-loving",
+    "title": "Words of Loving"
+  },
+  "8766a187-050d-4482-b4b4-dc62c4e71fd3": {
+    "status": 201,
+    "slug": "you-make-me-wanna",
+    "title": "You Make Me Wanna"
+  },
+  "c6916580-f835-4acd-b4fe-43d90e5bc3f5": {
+    "status": 201,
+    "slug": "your-call",
+    "title": "Your Call"
+  }
+}

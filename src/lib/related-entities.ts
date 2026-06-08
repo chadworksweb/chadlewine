@@ -59,7 +59,7 @@ export async function resolveEntities(
       ? (() => { const q = supabase.from("art_pieces").select("id, slug, title, image_path, image_alt").in("id", idsByType.art); return all ? q : q.in("status", ["published", "unreleased"]); })()
       : Promise.resolve({ data: [] }),
     idsByType.observation.length
-      ? (() => { const q = supabase.from("observations").select("id, slug, title, art_image_path, art_alt, kind").in("id", idsByType.observation); return all ? q : q.eq("status", "published"); })()
+      ? (() => { const q = supabase.from("posts").select("id, slug, title, art_image_path, art_alt, kind").in("id", idsByType.observation); return all ? q : q.eq("status", "published"); })()
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -119,9 +119,9 @@ export async function resolveEntities(
       }
       case "observation": {
         const o = maps.observation.get(id); if (!o || !o.slug) break;
-        // observations + journal share this table; route by `kind` so journal
-        // entries resolve to /journal/... not /observations/...
-        const section = o.kind === "journal" ? "journal" : "observations";
+        // observation + journal posts share this table; route by `kind` so
+        // journal posts resolve to /writings/journal/... not /writings/observations/...
+        const section = o.kind === "journal" ? "writings/journal" : "writings/observations";
         out.push({ entity_type: "observation", id, slug: o.slug, title: o.title, image: o.art_image_path, alt: o.art_alt || o.title, href: `/${section}/${o.slug}` });
         break;
       }

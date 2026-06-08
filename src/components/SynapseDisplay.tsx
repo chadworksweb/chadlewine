@@ -17,9 +17,9 @@ interface ResolvedConnection {
 
 async function resolveTitle(supabase: ReturnType<typeof createPublicClient>, type: string, id: string): Promise<{ title: string; href: string } | null> {
   if (type === "observation") {
-    const { data } = await supabase.from("observations").select("title, slug, kind").eq("id", id).eq("status", "published").single();
+    const { data } = await supabase.from("posts").select("title, slug, kind").eq("id", id).eq("status", "published").single();
     if (!data) return null;
-    const section = data.kind === "journal" ? "journal" : "observations";
+    const section = data.kind === "journal" ? "writings/journal" : "writings/observations";
     return { title: data.title, href: `/${section}/${data.slug}` };
   }
   if (type === "meditation") {

@@ -31,13 +31,13 @@ export async function DELETE(
   const supabase = createAdminClient();
 
   const { count } = await supabase
-    .from("observation_thoughtlines")
+    .from("post_thoughtlines")
     .select("*", { count: "exact", head: true })
     .eq("thoughtline_id", id);
 
   if (count && count > 0) {
     return Response.json(
-      { error: `Cannot delete — ${count} observation(s) use this thoughtline. Reassign them first.` },
+      { error: `Cannot delete — ${count} post(s) use this thoughtline. Reassign them first.` },
       { status: 409 }
     );
   }

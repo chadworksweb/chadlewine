@@ -9,7 +9,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://chadlewine.com";
 const CONTENT_PATHS: Record<EntityType, (slug: string) => string> = {
   song: (s) => `/music/songs/${s}`,
   release: (s) => `/music/releases/${s}`,
-  observation: (s) => `/observations/${s}`,
+  observation: (s) => `/writings/observations/${s}`,
   art: (s) => `/art/${s}`,
   merch: (s) => `/merch/${s}`,
 };
@@ -18,13 +18,13 @@ export function buildContentUrl(
   type: EntityType,
   slug: string,
   absolute = false,
-  // observations + journal share the "observation" entity type but live under
-  // different sections; pass kind="journal" to route to /journal/...
+  // observation + journal posts share the "observation" entity type but live
+  // under different sections; pass kind="journal" to route to /writings/journal/...
   kind?: string | null,
 ): string {
   const path =
     type === "observation" && kind === "journal"
-      ? `/journal/${slug}`
+      ? `/writings/journal/${slug}`
       : CONTENT_PATHS[type]
         ? CONTENT_PATHS[type](slug)
         : "/";
@@ -53,8 +53,8 @@ export const STATIC_PAGES: StaticPage[] = [
   { label: "Lyrics", path: "/lyrics" },
   { label: "Art", path: "/art" },
   { label: "Merch", path: "/merch" },
-  { label: "Observations", path: "/observations" },
-  { label: "Journal", path: "/journal" },
+  { label: "Observations", path: "/writings/observations" },
+  { label: "Journal", path: "/writings/journal" },
   { label: "Music Videos", path: "/music-videos" },
   { label: "Meditations", path: "/meditations" },
   { label: "Curation", path: "/curation" },

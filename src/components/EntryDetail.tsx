@@ -17,7 +17,7 @@ import {
   type EntryKind,
 } from "@/lib/entries";
 
-// Shared detail renderer for both /observations/[slug] and /journal/[slug].
+// Shared detail renderer for both /writings/observations/[slug] and /writings/journal/[slug].
 // Same table, same layout; `kind` scopes every query and `basePath` prefixes
 // every internal link so cross-navigation stays within the section.
 interface EntryDetailProps {
@@ -38,7 +38,7 @@ export async function EntryDetail({ kind, basePath, slug, relatedLabel }: EntryD
 
   return (
     <div id="page-observation" className="page-observation" data-observation-id={entry.id}>
-      <AdminEditButton href={`/admin/observations/${entry.slug || entry.id}`} />
+      <AdminEditButton href={`/admin/writings/${entry.slug || entry.id}`} />
       <ObservationJsonLd
         title={entry.title}
         slug={entry.slug}

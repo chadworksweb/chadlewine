@@ -383,12 +383,12 @@ export function ObservationEditor({
 
   const { status: autosaveStatus } = useAutosave({
     data: form,
-    endpoint: "/api/admin/observations",
+    endpoint: "/api/admin/writings",
     id: form.id,
     buildPayload,
     onCreated: (newId) => {
       setForm((prev) => ({ ...prev, id: newId }));
-      router.replace(`/admin/observations/${form.slug || newId}`, { scroll: false });
+      router.replace(`/admin/writings/${form.slug || newId}`, { scroll: false });
     },
     enabled: !!form.title && !!form.slug && !!form.date_captured,
   });
@@ -433,12 +433,12 @@ export function ObservationEditor({
     if (!form.id) return;
     if (!confirm("Delete this observation? This cannot be undone.")) return;
 
-    const res = await fetch(`/api/admin/observations/${form.id}`, {
+    const res = await fetch(`/api/admin/writings/${form.id}`, {
       method: "DELETE",
     });
 
     if (res.ok) {
-      router.push("/admin/observations");
+      router.push("/admin/writings");
     }
   }
 

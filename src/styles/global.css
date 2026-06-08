@@ -456,6 +456,10 @@ body.art-immersive main ~ * {
   color: var(--text-primary);
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  /* Never let the wordmark wrap to two lines when the nav links crowd it on
+     tablet -- hold the logo at its intrinsic width and keep it on one line. */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .site-nav__logo-frame {
   /* Match .glyph-title-bar__label exactly so the same block-element
@@ -11433,6 +11437,14 @@ html {
   gap: var(--space-xl);
 }
 
+/* Center the card titles on the homepage grid (the base card-title is a
+   left-aligned 2-col layout; collapse to a single centered column). */
+.home-merch__grid .merch-shop__card-title {
+  grid-template-columns: 1fr;
+  text-align: center;
+  justify-items: center;
+}
+
 @media (max-width: 768px) {
   .home-merch__grid {
     /* 1up only on phones — desktop and tablet keep the 3-column layout. */
@@ -16962,6 +16974,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   .explore-songs__detail-row {
     grid-template-columns: 1fr;
     gap: var(--space-md);
+    /* Auto height on mobile means the fixed-row trick no longer supplies the
+       vertical breathing room, so add it back explicitly. */
+    padding: var(--space-md) var(--space-lg);
   }
 
   .explore-songs__detail-row .explore-songs__summary {
@@ -17060,13 +17075,23 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 24px rgba(64, 96, 255, 0.18);
 }
 
-/* Secondary "shuffle" CTA — ghost variant of the filled Listen button. */
+/* Secondary "shuffle" CTA — matches the View All Songs button (home-merch__view-all)
+   so the footer pair reads as one set. */
 .explore-songs__cta--shuffle {
-  background: transparent;
-  color: var(--text-accent);
   cursor: pointer;
   gap: 8px;
+  padding: 14px 32px;
+  font-size: 1rem;
+  /* Match View All Songs exactly: same weight + line-height so the two
+     buttons render identical type and the same height. */
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: 0.06em;
+  color: #fff;
+  border: 1px solid rgba(139, 156, 247, 0.45);
   border-radius: 4px;
+  background: rgba(139, 156, 247, 0.08);
+  box-shadow: none;
 }
 
 .explore-songs__shuffle-icon {
@@ -17074,8 +17099,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 }
 
 .explore-songs__cta--shuffle:hover {
-  background: rgba(64, 96, 255, 0.12);
-  color: var(--text-primary);
+  background: rgba(139, 156, 247, 0.18);
+  border-color: rgba(139, 156, 247, 0.75);
+  color: #fff;
 }
 
 .explore-songs__cta--shuffle:disabled {
@@ -17137,6 +17163,20 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 .explore-songs__cta:hover::before {
   width: 100%;
   opacity: 0.12;
+}
+
+/* On phones the footer stacks; give both buttons the same full width so the
+   shuffle + View All pair line up edge to edge. */
+@media (max-width: 768px) {
+  .explore-songs__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .explore-songs__footer .explore-songs__cta--shuffle,
+  .explore-songs__footer .home-merch__view-all {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .explore-songs__all {
@@ -18037,6 +18077,33 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   flex-direction: row;
   align-items: flex-start;
   gap: var(--space-md);
+}
+
+/* Song title + artist deep-link to their Rising Compass pages. Inherit the
+   title color; reveal an accent underline on hover. */
+.cl-stream-entry__link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.cl-stream-entry__link:hover {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* "Listen" out-link to the original source, sat in the meta row by the date. */
+.cl-stream-entry__listen {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+  text-decoration: none;
+}
+.cl-stream-entry__listen:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .cl-stream-entry-body__text {
@@ -22514,6 +22581,16 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   margin-top: clamp(2.5rem, 5vw, 4rem);
   display: grid;
   gap: var(--space-lg);
+}
+
+/* Read hub: Observations + Journal sit side by side, stacking on phones. */
+.read-hub__grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (max-width: 640px) {
+  .read-hub__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .irl-event-card {

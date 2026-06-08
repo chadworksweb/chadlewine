@@ -29,15 +29,15 @@ export async function DELETE(
   const { id } = await params;
   const supabase = createAdminClient();
 
-  // Check if any observations use this tag
+  // Check if any posts use this tag
   const { count } = await supabase
-    .from("observation_tags")
+    .from("post_tags")
     .select("*", { count: "exact", head: true })
     .eq("tag_id", id);
 
   if (count && count > 0) {
     return Response.json(
-      { error: `Cannot delete — ${count} observation(s) use this tag. Reassign them first.` },
+      { error: `Cannot delete — ${count} post(s) use this tag. Reassign them first.` },
       { status: 409 }
     );
   }

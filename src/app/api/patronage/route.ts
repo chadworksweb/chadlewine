@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       observation_id,
       observation_title,
       success_url: `${origin}/patronage/thank-you`,
-      cancel_url: `${origin}${observation_id ? `/observations/${observation_id}` : "/"}`,
+      cancel_url: `${origin}${observation_id ? `/writings/observations/${observation_id}` : "/"}`,
     });
 
     if (!session.url) {

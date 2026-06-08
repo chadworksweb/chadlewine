@@ -1,10 +1,10 @@
 import { createPublicClient } from "@/lib/supabase-server";
 
-// Observations and journal entries live in the SAME `observations` table,
-// discriminated by the `kind` column ('observation' | 'journal'). They share
-// every field, taxonomy table, revision, and SEO trigger -- only the subject
-// matter (and the public section they surface under) differs. These fetchers
-// are parametrized by kind so /observations and /journal reuse identical logic,
+// Observation and journal posts live in the SAME `posts` table, discriminated
+// by the `kind` column ('observation' | 'journal'). They share every field,
+// taxonomy table, revision, and SEO trigger -- only the subject matter (and the
+// public section they surface under) differs. These fetchers are parametrized
+// by kind so /writings/observations and /writings/journal reuse identical logic,
 // and every query filters by kind so cross-links stay WITHIN a section.
 export type EntryKind = "observation" | "journal";
 
@@ -12,7 +12,7 @@ export async function getEntriesArchive(kind: EntryKind) {
   const supabase = createPublicClient();
 
   const { data } = await supabase
-    .from("observations")
+    .from("posts")
     .select("id, title, slug, date_captured, art_image_path, art_alt, hook_line, status")
     .eq("status", "published")
     .eq("kind", kind)
@@ -25,7 +25,7 @@ export async function getEntry(kind: EntryKind, slug: string) {
   const supabase = createPublicClient();
 
   const { data: observation } = await supabase
-    .from("observations")
+    .from("posts")
     .select("*")
     .eq("slug", slug)
     .eq("status", "published")
@@ -35,19 +35,19 @@ export async function getEntry(kind: EntryKind, slug: string) {
   if (!observation) return null;
 
   const { data: thoughtlineLinks } = await supabase
-    .from("observation_thoughtlines")
+    .from("post_thoughtlines")
     .select("thoughtline_id")
-    .eq("observation_id", observation.id);
+    .eq("post_id", observation.id);
 
   const { data: categoryLinks } = await supabase
-    .from("observation_categories")
+    .from("post_categories")
     .select("category_id, categories(title, slug)")
-    .eq("observation_id", observation.id);
+    .eq("post_id", observation.id);
 
   const { data: tagLinks } = await supabase
-    .from("observation_tags")
+    .from("post_tags")
     .select("tag_id, tags(label, slug)")
-    .eq("observation_id", observation.id);
+    .eq("post_id", observation.id);
 
   return {
     ...observation,
@@ -67,7 +67,7 @@ export async function getAdjacentEntries(
   const supabase = createPublicClient();
 
   const { data: newer } = await supabase
-    .from("observations")
+    .from("posts")
     .select("title, slug")
     .eq("status", "published")
     .eq("kind", kind)
@@ -78,7 +78,7 @@ export async function getAdjacentEntries(
     .single();
 
   const { data: older } = await supabase
-    .from("observations")
+    .from("posts")
     .select("title, slug")
     .eq("status", "published")
     .eq("kind", kind)
@@ -100,14 +100,14 @@ export async function getSynapseEntries(
   if (thoughtlineIds.length === 0) return [];
   const supabase = createPublicClient();
   const { data: links } = await supabase
-    .from("observation_thoughtlines")
-    .select("observation_id")
+    .from("post_thoughtlines")
+    .select("post_id")
     .in("thoughtline_id", thoughtlineIds)
-    .neq("observation_id", entryId);
+    .neq("post_id", entryId);
   if (!links || links.length === 0) return [];
-  const ids = [...new Set(links.map((l) => l.observation_id))];
+  const ids = [...new Set(links.map((l) => l.post_id))];
   const { data } = await supabase
-    .from("observations")
+    .from("posts")
     .select("id, title, slug, art_image_path, art_alt")
     .eq("status", "published")
     .eq("kind", kind)
@@ -131,20 +131,20 @@ export async function getRelatedEntries(
 
   if (categoryIds.length > 0) {
     const { data: catLinks } = await supabase
-      .from("observation_categories")
-      .select("observation_id")
+      .from("post_categories")
+      .select("post_id")
       .in("category_id", categoryIds)
-      .neq("observation_id", entryId);
-    catLinks?.forEach((l) => candidateIds.add(l.observation_id));
+      .neq("post_id", entryId);
+    catLinks?.forEach((l) => candidateIds.add(l.post_id));
   }
 
   if (tagIds.length > 0) {
     const { data: tagLinks } = await supabase
-      .from("observation_tags")
-      .select("observation_id")
+      .from("post_tags")
+      .select("post_id")
       .in("tag_id", tagIds)
-      .neq("observation_id", entryId);
-    tagLinks?.forEach((l) => candidateIds.add(l.observation_id));
+      .neq("post_id", entryId);
+    tagLinks?.forEach((l) => candidateIds.add(l.post_id));
   }
 
   // Remove any already shown in Synapse Jumper
@@ -154,7 +154,7 @@ export async function getRelatedEntries(
 
   const ids = [...candidateIds];
   const { data } = await supabase
-    .from("observations")
+    .from("posts")
     .select("id, title, slug, art_image_path, art_alt")
     .eq("status", "published")
     .eq("kind", kind)
@@ -171,7 +171,7 @@ export async function getRelatedEntries(
 export async function getEntrySlugs(kind: EntryKind) {
   const supabase = createPublicClient();
   const { data } = await supabase
-    .from("observations")
+    .from("posts")
     .select("slug")
     .eq("status", "published")
     .eq("kind", kind)

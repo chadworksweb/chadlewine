@@ -45,6 +45,23 @@ export function rcBadgeHref(badge: RisingCompassBadgeData | null | undefined): s
   return "https://risingcompass.net";
 }
 
+// Lowercased, hyphen-joined, ascii-only -- matches RC's canonical artist slug
+// form (same derivation used by fetchAlbumBadgeFromArtistTrajectory).
+export function rcArtistSlug(artist: string): string {
+  return artist
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// Deep-link to an artist's trajectory page on RC, derived from the artist name.
+export function rcArtistHref(artist: string): string {
+  const slug = rcArtistSlug(artist);
+  return slug ? `https://risingcompass.net/artists/${slug}` : "https://risingcompass.net";
+}
+
 // 24-hour cache for stable badges (recalibrations are rare; caching at scale
 // cuts RC load by orders of magnitude). When a badge comes back with
 // pending=true, we re-fetch fresh on subsequent renders so recal resolutions

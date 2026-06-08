@@ -4,7 +4,7 @@ export async function GET() {
   const supabase = createAdminClient();
 
   const { data: observations } = await supabase
-    .from("observations")
+    .from("posts")
     .select(
       "id, title, slug, status, geo_readiness_score, focus_keyphrase, citation_summary, first_sentence_extractable, word_count, paa_pairs, entity_tags, art_image_path, art_alt, published_at, date_captured"
     )
