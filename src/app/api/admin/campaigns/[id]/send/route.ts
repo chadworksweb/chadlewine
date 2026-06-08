@@ -1,12 +1,12 @@
 import { createAdminClient } from "@/lib/supabase-server";
-import { sendCampaign, SYNC_SEND_AUDIENCE_LIMIT } from "@/lib/campaigns";
+import { enqueueCampaign } from "@/lib/campaigns";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Default 60s Vercel route timeout — but on Hobby it's 10s. Since this can
-// take longer than 10s even at modest list sizes, the in-route send is
-// best for self-hosted or Vercel Pro setups. For Hobby with >50 subscribers,
-// migrate to a background queue (see plans/abundant-whistling-wand.md).
+// "Send" only enqueues -- it locks the campaign and inserts queued rows, then
+// returns. Actual delivery runs in the background via the /api/cron/campaign-queue
+// worker, so this stays fast regardless of audience size. The insert is chunked
+// and finishes well within the default budget even for large lists.
 export const maxDuration = 60;
 
 export async function POST(
@@ -47,11 +47,19 @@ export async function POST(
   }
 
   try {
-    const result = await sendCampaign(id);
-    return Response.json({ ok: true, ...result });
+    const result = await enqueueCampaign(id);
+    // 202 Accepted: queued, the background worker delivers it.
+    return Response.json({ ok: true, ...result }, { status: 202 });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    const status = message.includes(`${SYNC_SEND_AUDIENCE_LIMIT}`) ? 409 : 500;
+    // State/limit problems are the operator's to fix -> 409; empty audience
+    // -> 400; anything else is a real server error.
+    const status =
+      /not in draft|exceeds the maximum/.test(message)
+        ? 409
+        : /No active subscribers/.test(message)
+          ? 400
+          : 500;
     return Response.json({ error: message }, { status });
   }
 }

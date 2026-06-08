@@ -25,17 +25,24 @@ export interface AudienceRow {
   first_name: string | null;
 }
 
-/** Max audience size for a synchronous send. Above this, the send route
-   returns 409 and the operator is expected to move to a background queue.
+/** Hard ceiling on a single campaign's audience. Sends of any size below this
+   drain reliably through the background queue (enqueueCampaign + the
+   /api/cron/campaign-queue worker), so this is just a sanity guard against a
+   filter mistake that would fan out to an absurd number of rows. */
+export const MAX_CAMPAIGN_AUDIENCE = 50000;
 
-   Sized to what the in-route send can actually finish inside the 60s Vercel
-   function budget (maxDuration on send/route.ts). At PACE_BATCH/PACE_MS plus
-   per-email render+Resend overhead, throughput is ~2.3 emails/sec, so the
-   function clears ~136 before it is killed. 120 leaves ~12s of headroom; going
-   higher risks the silent half-send this is meant to prevent (where the
-   function dies after dispatching some emails but before marking the campaign
-   sent). Raise this only alongside a real background queue. */
-export const SYNC_SEND_AUDIENCE_LIMIT = 120;
+/** Queued recipients are inserted in chunks to keep each insert payload sane
+   on very large audiences. */
+const INSERT_CHUNK = 500;
+
+/** Background-drain tuning. Each cron tick claims CLAIM_BATCH queued rows,
+   sends them paced, then stops if it's within RESERVE_MS of its deadline so a
+   started batch always finishes inside the function's maxDuration. A row left
+   in 'sending_row' (claimed but never resolved -- a crashed tick) is reclaimed
+   to 'queued' once its claim is older than STALE_CLAIM_MS. */
+const CLAIM_BATCH = 100;
+const RESERVE_MS = 30000;
+const STALE_CLAIM_MS = 2 * 60 * 1000;
 
 /** Resend's batch endpoint accepts up to 100 emails per call. */
 export const RESEND_BATCH_SIZE = 100;
@@ -292,19 +299,26 @@ export interface SendResult {
   failed: number;
 }
 
-export async function sendCampaign(campaignId: string): Promise<SendResult> {
+export interface EnqueueResult {
+  queued: number;
+}
+
+/** Enqueue-only "Send". Locks the campaign draft->sending and inserts one
+   queued campaign_sends row per recipient, then returns immediately -- the
+   actual delivery happens in the background via drainCampaignQueue (the
+   /api/cron/campaign-queue worker). This keeps "Send" fast and lets lists of
+   any size go out reliably instead of dying inside a single 60s function. */
+export async function enqueueCampaign(campaignId: string): Promise<EnqueueResult> {
   const supabase = createAdminClient();
 
   // 1. Lock the campaign by flipping to 'sending'. Only proceed if the
-  //    current row was actually a draft — prevents double-sends.
+  //    current row was actually a draft -- prevents double-enqueues.
   const { data: locked, error: lockErr } = await supabase
     .from("campaigns")
     .update({ status: "sending", updated_at: new Date().toISOString() })
     .eq("id", campaignId)
     .eq("status", "draft")
-    .select(
-      "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, category, status"
-    )
+    .select("id, audience_filter, category")
     .single();
 
   if (lockErr || !locked) {
@@ -312,11 +326,17 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
       "Campaign is not in draft status, or another send is in progress."
     );
   }
-  const campaign = locked as CampaignRow;
+  const lockedRow = locked as {
+    audience_filter: AudienceFilter;
+    category: string | null;
+  };
 
-  // 2. Pull the audience + load shared header/footer globals once.
-  const audience = await fetchAudience(supabase, campaign.audience_filter, campaign.category);
-  const globals = await loadGlobals(supabase);
+  // 2. Resolve the audience now (filters are evaluated at send time).
+  const audience = await fetchAudience(
+    supabase,
+    lockedRow.audience_filter,
+    lockedRow.category
+  );
   if (audience.length === 0) {
     await supabase
       .from("campaigns")
@@ -324,18 +344,19 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
       .eq("id", campaignId);
     throw new Error("No active subscribers in audience.");
   }
-  if (audience.length > SYNC_SEND_AUDIENCE_LIMIT) {
+  if (audience.length > MAX_CAMPAIGN_AUDIENCE) {
+    // Unlock back to draft so the operator can narrow the filter.
     await supabase
       .from("campaigns")
       .update({ status: "draft", updated_at: new Date().toISOString() })
       .eq("id", campaignId);
     throw new Error(
-      `Audience size ${audience.length} exceeds the synchronous send limit (${SYNC_SEND_AUDIENCE_LIMIT}). A background queue is required — see plans/abundant-whistling-wand.md.`
+      `Audience size ${audience.length} exceeds the maximum (${MAX_CAMPAIGN_AUDIENCE}). Narrow the filter.`
     );
   }
 
-  // 3. Pre-insert one queued row per recipient. We'll update each row after
-  //    its Resend call completes, so partial failures leave a clean log.
+  // 3. Insert one queued row per recipient (chunked). The worker claims and
+  //    sends these on its next tick.
   const queuedRows = audience.map((row) => ({
     campaign_id: campaignId,
     audience_id: row.id,
@@ -343,42 +364,234 @@ export async function sendCampaign(campaignId: string): Promise<SendResult> {
     status: "queued",
     is_test: false,
   }));
-  await supabase.from("campaign_sends").insert(queuedRows);
-
-  // 4. Send, paced under Resend's 5/sec limit.
-  const { sent, failed } = await sendPaced(campaign, globals, audience, async (r) => {
-    if (r.error) {
-      await supabase
-        .from("campaign_sends")
-        .update({ status: "failed", error: r.error })
-        .eq("campaign_id", campaignId)
-        .eq("audience_id", r.row.id);
-    } else {
-      await supabase
-        .from("campaign_sends")
-        .update({
-          status: "sent",
-          resend_id: r.resendId,
-          sent_at: new Date().toISOString(),
-        })
-        .eq("campaign_id", campaignId)
-        .eq("audience_id", r.row.id);
+  for (let i = 0; i < queuedRows.length; i += INSERT_CHUNK) {
+    const { error } = await supabase
+      .from("campaign_sends")
+      .insert(queuedRows.slice(i, i + INSERT_CHUNK));
+    if (error) {
+      throw new Error(`Failed to enqueue recipients: ${error.message}`);
     }
-  });
+  }
 
-  // 5. Finalize.
+  return { queued: queuedRows.length };
+}
+
+const CAMPAIGN_SELECT =
+  "id, subject, preheader, body_html, body_blocks, from_name, from_email, reply_to, audience_filter, category, status";
+
+interface ClaimedRow {
+  id: string;
+  audience_id: string | null;
+  email: string;
+}
+
+/** Atomically claim up to `limit` queued rows for a campaign. The two-step
+   select-then-guarded-update is race-safe under Postgres READ COMMITTED: a
+   concurrent tick's UPDATE re-checks `status = 'queued'` after acquiring the
+   row lock, so each claimed row is returned to exactly one caller. We stamp
+   sent_at with the claim time so a crashed tick's 'sending_row' rows can be
+   detected as stale and reclaimed (sent_at is meaningless until a row is
+   actually sent, when it's overwritten with the real send time). */
+async function claimQueuedRows(
+  supabase: ReturnType<typeof createAdminClient>,
+  campaignId: string,
+  limit: number
+): Promise<ClaimedRow[]> {
+  const { data: candidates } = await supabase
+    .from("campaign_sends")
+    .select("id")
+    .eq("campaign_id", campaignId)
+    .eq("status", "queued")
+    .eq("is_test", false)
+    .limit(limit);
+  const ids = (candidates || []).map((c) => c.id as string);
+  if (ids.length === 0) return [];
+
+  const { data: claimed } = await supabase
+    .from("campaign_sends")
+    .update({ status: "sending_row", sent_at: new Date().toISOString() })
+    .in("id", ids)
+    .eq("status", "queued")
+    .select("id, audience_id, email");
+  return (claimed || []) as ClaimedRow[];
+}
+
+/** Resolve first_name + unsubscribe_token for claimed rows (campaign_sends
+   only stores the email), shaping them into the AudienceRow the renderer
+   expects. Returns a map from the row key back to the campaign_sends id so
+   results can be written to the exact claimed row. */
+async function hydrateClaimedRows(
+  supabase: ReturnType<typeof createAdminClient>,
+  claimed: ClaimedRow[]
+): Promise<{ rows: AudienceRow[]; sendIdByKey: Map<string, string> }> {
+  const audIds = claimed
+    .map((c) => c.audience_id)
+    .filter((v): v is string => !!v);
+  const audById = new Map<string, { unsubscribe_token: string | null; first_name: string | null }>();
+  if (audIds.length > 0) {
+    const { data: auds } = await supabase
+      .from("audience")
+      .select("id, unsubscribe_token, first_name")
+      .in("id", audIds);
+    for (const a of auds || []) {
+      audById.set(a.id as string, {
+        unsubscribe_token: (a.unsubscribe_token as string) ?? null,
+        first_name: (a.first_name as string) ?? null,
+      });
+    }
+  }
+  const rows: AudienceRow[] = [];
+  const sendIdByKey = new Map<string, string>();
+  for (const c of claimed) {
+    const key = c.audience_id ?? c.id;
+    const a = c.audience_id ? audById.get(c.audience_id) : null;
+    rows.push({
+      id: key,
+      email: c.email,
+      unsubscribe_token: a?.unsubscribe_token ?? null,
+      first_name: a?.first_name ?? null,
+    });
+    sendIdByKey.set(key, c.id);
+  }
+  return { rows, sendIdByKey };
+}
+
+/** Recompute counts from campaign_sends (the source of truth) and flip the
+   campaign to its terminal status. Mirrors resendCampaignFailures' recount. */
+async function finalizeCampaign(
+  supabase: ReturnType<typeof createAdminClient>,
+  campaignId: string
+): Promise<void> {
+  const { data: rows } = await supabase
+    .from("campaign_sends")
+    .select("status")
+    .eq("campaign_id", campaignId)
+    .eq("is_test", false);
+  const all = rows || [];
+  const failedNow = all.filter((r) => r.status === "failed").length;
+  const sentNow = all.length - failedNow;
   await supabase
     .from("campaigns")
     .update({
-      status: sent > 0 ? "sent" : "failed",
+      status: sentNow > 0 ? "sent" : "failed",
       sent_at: new Date().toISOString(),
-      sent_count: sent,
-      failed_count: failed,
+      sent_count: sentNow,
+      failed_count: failedNow,
       updated_at: new Date().toISOString(),
     })
     .eq("id", campaignId);
+}
 
-  return { sent, failed };
+interface DrainCampaignResult {
+  processed: number;
+  sent: number;
+  failed: number;
+  finalized: boolean;
+}
+
+async function drainOneCampaign(
+  supabase: ReturnType<typeof createAdminClient>,
+  campaignId: string,
+  deadline: number
+): Promise<DrainCampaignResult> {
+  // Reclaim rows a crashed prior tick left mid-flight, so they re-send.
+  const staleCutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
+  await supabase
+    .from("campaign_sends")
+    .update({ status: "queued", sent_at: null })
+    .eq("campaign_id", campaignId)
+    .eq("status", "sending_row")
+    .lt("sent_at", staleCutoff);
+
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select(CAMPAIGN_SELECT)
+    .eq("id", campaignId)
+    .single();
+
+  let processed = 0;
+  let sent = 0;
+  let failed = 0;
+
+  if (campaign) {
+    const globals = await loadGlobals(supabase);
+    // Keep claiming + sending batches until we run low on time or the queue
+    // for this campaign is empty. RESERVE_MS guarantees a claimed batch always
+    // finishes inside the function's maxDuration.
+    while (Date.now() < deadline - RESERVE_MS) {
+      const claimed = await claimQueuedRows(supabase, campaignId, CLAIM_BATCH);
+      if (claimed.length === 0) break;
+      const { rows, sendIdByKey } = await hydrateClaimedRows(supabase, claimed);
+      const result = await sendPaced(
+        campaign as CampaignRow,
+        globals,
+        rows,
+        async (r) => {
+          const sendId = sendIdByKey.get(r.row.id);
+          if (!sendId) return;
+          if (r.error) {
+            await supabase
+              .from("campaign_sends")
+              .update({ status: "failed", error: r.error, sent_at: null })
+              .eq("id", sendId);
+          } else {
+            await supabase
+              .from("campaign_sends")
+              .update({
+                status: "sent",
+                resend_id: r.resendId,
+                sent_at: new Date().toISOString(),
+                error: null,
+              })
+              .eq("id", sendId);
+          }
+        }
+      );
+      sent += result.sent;
+      failed += result.failed;
+      processed += claimed.length;
+    }
+  }
+
+  // Finalize only once nothing is queued or mid-flight for this campaign.
+  const { count } = await supabase
+    .from("campaign_sends")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId)
+    .in("status", ["queued", "sending_row"]);
+  let finalized = false;
+  if ((count ?? 0) === 0) {
+    await finalizeCampaign(supabase, campaignId);
+    finalized = true;
+  }
+
+  return { processed, sent, failed, finalized };
+}
+
+export interface DrainSummary {
+  campaigns: Array<{ campaign_id: string } & DrainCampaignResult>;
+}
+
+/** Background worker: drains queued recipients for every campaign currently
+   in 'sending', pacing under Resend's 5/sec limit and stopping before the
+   given `deadline` (epoch ms). Campaigns are processed sequentially so global
+   throughput across the tick stays under the rate limit. Idempotent: row-level
+   claims prevent double-sends and stale claims self-heal on the next tick. */
+export async function drainCampaignQueue(deadline: number): Promise<DrainSummary> {
+  const supabase = createAdminClient();
+  const { data: sending } = await supabase
+    .from("campaigns")
+    .select("id")
+    .eq("status", "sending")
+    .order("updated_at", { ascending: true });
+
+  const out: DrainSummary["campaigns"] = [];
+  for (const c of sending || []) {
+    if (Date.now() >= deadline - RESERVE_MS) break;
+    const r = await drainOneCampaign(supabase, c.id as string, deadline);
+    out.push({ campaign_id: c.id as string, ...r });
+  }
+  return { campaigns: out };
 }
 
 /** Re-sends a campaign to only the recipients whose previous send failed

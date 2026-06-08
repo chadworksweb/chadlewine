@@ -112,6 +112,7 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
   const [testEmail, setTestEmail] = useState("");
   const [testStatus, setTestStatus] = useState<{ kind: "idle" | "sending" | "ok" | "err"; msg?: string }>({ kind: "idle" });
   const [sendStatus, setSendStatus] = useState<{ kind: "idle" | "confirm" | "sending" | "ok" | "err"; msg?: string }>({ kind: "idle" });
+  const [sendProgress, setSendProgress] = useState<{ done: number; total: number; failed: number } | null>(null);
   const [resendStatus, setResendStatus] = useState<{ kind: "idle" | "confirm" | "sending" | "ok" | "err"; msg?: string }>({ kind: "idle" });
   const [sentPreviewHtml, setSentPreviewHtml] = useState("");
   const [reusing, setReusing] = useState(false);
@@ -217,6 +218,56 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
     };
   }, [form.status, form.id]);
 
+  // While a campaign is draining in the background, poll the per-recipient
+  // log every few seconds and surface "X/Y sent". When nothing is left queued
+  // or mid-flight, flip into the sent view and let router.refresh() reconcile
+  // the authoritative server-side counts.
+  useEffect(() => {
+    if (form.status !== "sending") return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/admin/campaigns/${form.id}/sends`);
+        if (res.ok) {
+          const rows = (await res.json()) as SendRow[];
+          const real = rows.filter((r) => !r.is_test);
+          const remaining = real.filter(
+            (r) => r.status === "queued" || r.status === "sending_row",
+          ).length;
+          const failed = real.filter((r) => r.status === "failed").length;
+          const done = real.length - remaining;
+          if (!cancelled) {
+            setSendProgress({ done, total: real.length, failed });
+            if (real.length > 0 && remaining === 0) {
+              setForm((prev) => ({
+                ...prev,
+                status: "sent",
+                sent_count: done - failed,
+                failed_count: failed,
+                sent_at: new Date().toISOString(),
+                open_count: 0,
+                click_count: 0,
+                bounce_count: 0,
+                complaint_count: 0,
+              }));
+              router.refresh();
+              return; // stop polling
+            }
+          }
+        }
+      } catch {
+        // transient — keep polling
+      }
+      if (!cancelled) timer = setTimeout(poll, 3000);
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [form.status, form.id, router]);
+
   const isLocked = form.status !== "draft";
   const hasBody =
     (form.body_blocks && form.body_blocks.length > 0) ||
@@ -252,22 +303,14 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
     });
     const d = await res.json().catch(() => ({}));
     if (res.ok) {
-      setSendStatus({ kind: "ok", msg: `Sent to ${d.sent}, failed ${d.failed}` });
-      // Optimistically flip local state into the sent-view so the editor
-      // re-renders without a manual reload. router.refresh() in the
-      // background reconciles any server-side numbers (sent_at precision).
-      setForm((prev) => ({
-        ...prev,
-        status: "sent",
-        sent_count: d.sent ?? 0,
-        failed_count: d.failed ?? 0,
-        sent_at: new Date().toISOString(),
-        open_count: 0,
-        click_count: 0,
-        bounce_count: 0,
-        complaint_count: 0,
-      }));
-      router.refresh();
+      // Enqueue-only: the campaign now drains in the background. Flip into the
+      // 'sending' view; the polling effect below tracks progress until done.
+      setSendStatus({
+        kind: "ok",
+        msg: `Queued ${d.queued ?? ""} — sending in background`,
+      });
+      setSendProgress({ done: 0, total: d.queued ?? 0, failed: 0 });
+      setForm((prev) => ({ ...prev, status: "sending" }));
     } else {
       setSendStatus({ kind: "err", msg: d.error || "Send failed" });
     }
@@ -531,6 +574,31 @@ export function CampaignEditor({ initial }: CampaignEditorProps) {
                   {resendStatus.msg}
                 </p>
               )}
+            </section>
+          )}
+
+          {form.status === "sending" && (
+            <section className="campaign-editor__panel">
+              <h3 className="campaign-editor__panel-title">Sending</h3>
+              <p className="campaign-editor__stat">
+                {sendProgress && sendProgress.total > 0 ? (
+                  <>
+                    <strong>{sendProgress.done}</strong> / {sendProgress.total} sent
+                    {sendProgress.failed > 0 && (
+                      <>
+                        {", "}
+                        <strong>{sendProgress.failed}</strong> failed
+                      </>
+                    )}
+                  </>
+                ) : (
+                  "Queued — sending in background…"
+                )}
+              </p>
+              <p className="campaign-editor__hint">
+                This sends in the background. You can leave this page; progress
+                updates automatically.
+              </p>
             </section>
           )}
 
