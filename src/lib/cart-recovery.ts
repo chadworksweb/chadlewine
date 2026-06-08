@@ -8,7 +8,7 @@ import {
   type RecoverableCartSession,
 } from "@/lib/stripe";
 import { siteOrigin } from "@/lib/resend";
-import { unsubscribeUrl } from "@/lib/campaigns";
+import { unsubscribeUrl, unsubscribePostUrl } from "@/lib/campaigns";
 import { sendEmail, buildCartRecoveryEmailHtml } from "@/lib/email";
 
 /* Abandoned-cart recovery. A cron (or the admin "preview" button) sweeps Stripe
@@ -248,7 +248,7 @@ export async function runCartRecovery(
       subject: "You left something in your cart - chadlewine.com",
       html,
       headers: {
-        "List-Unsubscribe": `<${unsubscribeUrl(token)}>, <mailto:unsubscribe@chadlewine.com>`,
+        "List-Unsubscribe": `<${unsubscribePostUrl(token)}>, <mailto:unsubscribe@chadlewine.com>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });

@@ -36,12 +36,15 @@ export async function POST(request: Request) {
   return Response.json({ ok: true });
 }
 
+// A GET must NEVER unsubscribe -- email security scanners fetch every link on
+// delivery, and a mutating GET would let them silently unsubscribe real
+// recipients. Redirect to the confirm page instead; the actual unsubscribe is
+// the POST below (the confirm button, or an RFC 8058 one-click from the mail
+// client, which always POSTs).
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
-  if (!token) {
-    return Response.json({ error: "Token required" }, { status: 400 });
-  }
-  await markUnsubscribedByToken(token);
-  return Response.json({ ok: true });
+  const dest = new URL("/unsubscribe", url.origin);
+  if (token) dest.searchParams.set("token", token);
+  return Response.redirect(dest, 303);
 }

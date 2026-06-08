@@ -4,16 +4,31 @@ import Link from "next/link";
 import { useState } from "react";
 
 interface Props {
-  outcome: "ok" | "bad-token" | "no-token";
+  outcome: "valid" | "bad-token" | "no-token";
   token: string | null;
+  email: string | null;
 }
 
-export function UnsubscribeClient({ outcome, token }: Props) {
+export function UnsubscribeClient({ outcome, token, email }: Props) {
+  // The page no longer unsubscribes on load (so link-scanners can't). The
+  // actual unsubscribe is this explicit confirm POST.
+  const [confirmState, setConfirmState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [resubState, setResubState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [manualEmail, setManualEmail] = useState("");
   const [manualReason, setManualReason] = useState("");
   const [manualState, setManualState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [manualError, setManualError] = useState("");
+
+  const confirmUnsubscribe = async () => {
+    if (!token) return;
+    setConfirmState("loading");
+    const res = await fetch("/api/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    setConfirmState(res.ok ? "done" : "error");
+  };
 
   const resubscribe = async () => {
     if (!token) return;
@@ -52,7 +67,34 @@ export function UnsubscribeClient({ outcome, token }: Props) {
   return (
     <div className="page-static unsubscribe-page">
       <div className="unsubscribe-page__inner">
-        {outcome === "ok" && resubState !== "done" && (
+        {outcome === "valid" && confirmState !== "done" && (
+          <>
+            <h1 className="unsubscribe-page__title">Unsubscribe?</h1>
+            <p className="unsubscribe-page__body">
+              {email
+                ? <>Confirm you want to stop receiving emails sent to <strong>{email}</strong>.</>
+                : "Confirm you want to stop receiving emails from this list."}
+            </p>
+            <div className="unsubscribe-page__resub">
+              <button
+                type="button"
+                className="unsubscribe-page__submit"
+                onClick={confirmUnsubscribe}
+                disabled={confirmState === "loading" || !token}
+              >
+                {confirmState === "loading" ? "Unsubscribing..." : "Confirm unsubscribe"}
+              </button>
+              {confirmState === "error" && (
+                <p className="unsubscribe-page__err">
+                  Couldn&rsquo;t process that. Try again, or reply
+                  &ldquo;unsubscribe&rdquo; to a recent email.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
+        {outcome === "valid" && confirmState === "done" && resubState !== "done" && (
           <>
             <h1 className="unsubscribe-page__title">You&rsquo;re unsubscribed.</h1>
             <div className="unsubscribe-page__resub">
@@ -79,7 +121,7 @@ export function UnsubscribeClient({ outcome, token }: Props) {
           </>
         )}
 
-        {outcome === "ok" && resubState === "done" && (
+        {outcome === "valid" && resubState === "done" && (
           <>
             <h1 className="unsubscribe-page__title">You&rsquo;re back in.</h1>
             <p className="unsubscribe-page__body">
@@ -89,7 +131,7 @@ export function UnsubscribeClient({ outcome, token }: Props) {
           </>
         )}
 
-        {outcome !== "ok" && manualState !== "done" && (
+        {outcome !== "valid" && manualState !== "done" && (
           <>
             <h1 className="unsubscribe-page__title">
               {outcome === "bad-token"

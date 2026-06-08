@@ -1,5 +1,6 @@
 import { Webhook } from "svix";
 import { createAdminClient } from "@/lib/supabase-server";
+import { isLikelyBotUserAgent } from "@/lib/bot-detection";
 
 /* Resend → Svix webhook handler.
 
@@ -102,6 +103,15 @@ export async function POST(request: Request) {
         ? (data.ip as string)
         : null;
 
+  // Email security scanners "click"/"open" every link on delivery, which would
+  // inflate open/click counts and engagement. Flag those events so they're
+  // recorded for forensics but excluded from all aggregates below. Only
+  // opens/clicks can come from a link scanner; delivered/bounced/complained are
+  // server-to-server and always real.
+  const fromBot =
+    (eventType === "opened" || eventType === "clicked") &&
+    isLikelyBotUserAgent(userAgent);
+
   await supabase.from("campaign_events").insert({
     campaign_id: sendRow?.campaign_id ?? null,
     campaign_send_id: sendRow?.id ?? null,
@@ -111,8 +121,14 @@ export async function POST(request: Request) {
     url,
     user_agent: userAgent,
     ip_address: ipAddress,
-    metadata: event as unknown as Record<string, unknown>,
+    metadata: { ...(event as unknown as Record<string, unknown>), is_bot: fromBot },
   });
+
+  // A scanner open/click is logged above but must not touch any counter,
+  // timestamp, click-implies-open backfill, or audience engagement score.
+  if (fromBot) {
+    return Response.json({ ok: true, bot: true });
+  }
 
   // Update the send row aggregates. We track first-event timestamps and
   // total counts; "unique" opens/clicks on the campaign are derived from

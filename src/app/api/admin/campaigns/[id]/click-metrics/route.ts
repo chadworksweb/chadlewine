@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { isLikelyBotUserAgent } from "@/lib/bot-detection";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -6,7 +7,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // uniqueLinkClicks = distinct (recipient, link) -- each link a recipient clicks
 //   counts once; clicking the same link again does not.
 // totalClicks = every click event (same-link repeats included).
-// Reads campaign_events (indexed on campaign_id).
+// Reads campaign_events (indexed on campaign_id). Clicks from email security
+// scanners (by user-agent) are excluded so the numbers reflect humans.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -18,14 +20,15 @@ export async function GET(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("campaign_events")
-    .select("campaign_send_id, url")
+    .select("campaign_send_id, url, user_agent")
     .eq("campaign_id", id)
     .eq("event_type", "clicked");
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const rows = data || [];
+  // Drop scanner clicks so unique/total reflect real recipients.
+  const rows = (data || []).filter((r) => !isLikelyBotUserAgent(r.user_agent));
   const seen = new Set<string>();
   for (const r of rows) {
     seen.add(`${r.campaign_send_id ?? ""}|${r.url ?? ""}`);

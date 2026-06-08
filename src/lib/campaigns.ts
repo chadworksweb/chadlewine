@@ -26,8 +26,16 @@ export interface AudienceRow {
 }
 
 /** Max audience size for a synchronous send. Above this, the send route
-   returns 409 and the operator is expected to move to a background queue. */
-export const SYNC_SEND_AUDIENCE_LIMIT = 500;
+   returns 409 and the operator is expected to move to a background queue.
+
+   Sized to what the in-route send can actually finish inside the 60s Vercel
+   function budget (maxDuration on send/route.ts). At PACE_BATCH/PACE_MS plus
+   per-email render+Resend overhead, throughput is ~2.3 emails/sec, so the
+   function clears ~136 before it is killed. 120 leaves ~12s of headroom; going
+   higher risks the silent half-send this is meant to prevent (where the
+   function dies after dispatching some emails but before marking the campaign
+   sent). Raise this only alongside a real background queue. */
+export const SYNC_SEND_AUDIENCE_LIMIT = 120;
 
 /** Resend's batch endpoint accepts up to 100 emails per call. */
 export const RESEND_BATCH_SIZE = 100;
@@ -174,6 +182,15 @@ export function preferencesUrl(token: string): string {
   return `${siteOrigin()}/preferences?token=${encodeURIComponent(token)}`;
 }
 
+/** RFC 8058 one-click unsubscribe endpoint for the List-Unsubscribe header.
+   Compliant mail clients (Gmail, Apple Mail) POST here, which unsubscribes
+   immediately -- a deliberate user action. The visible in-body link uses
+   unsubscribeUrl() (the confirm page) instead, so email security scanners that
+   GET every link on delivery can't silently unsubscribe real recipients. */
+export function unsubscribePostUrl(token: string): string {
+  return `${siteOrigin()}/api/unsubscribe?token=${encodeURIComponent(token)}`;
+}
+
 /** Resend doesn't natively interpolate per-recipient links across a batch
    send, so we render each email individually and send through `emails.send`
    in parallel within a chunk. This is still well within free-tier rate
@@ -191,6 +208,7 @@ async function sendChunk(
     chunk.map(async (row) => {
       try {
         const unsub = unsubscribeUrl(row.unsubscribe_token || "");
+        const unsubPost = unsubscribePostUrl(row.unsubscribe_token || "");
         const prefs = preferencesUrl(row.unsubscribe_token || "");
         const { html, text } = useBlocks
           ? renderBlockEmail(
@@ -228,7 +246,7 @@ async function sendChunk(
           text,
           replyTo: campaign.reply_to || undefined,
           headers: {
-            "List-Unsubscribe": `<${unsub}>, <mailto:unsubscribe@chadlewine.com>`,
+            "List-Unsubscribe": `<${unsubPost}>, <mailto:unsubscribe@chadlewine.com>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           },
         });

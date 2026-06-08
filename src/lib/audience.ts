@@ -303,6 +303,23 @@ export async function upsertAudienceFromPurchase(opts: {
   return audienceId;
 }
 
+/* Non-mutating lookup: resolve an unsubscribe token to its row so the
+   confirm screen can show whose subscription it is. Does NOT change state --
+   unsubscribing happens only on an explicit POST (the confirm button or an
+   RFC 8058 one-click), so email link-scanners that merely GET the page cannot
+   unsubscribe anyone. */
+export async function lookupAudienceByToken(
+  token: string
+): Promise<{ email: string; subscriber_status: string } | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("audience")
+    .select("email, subscriber_status")
+    .eq("unsubscribe_token", token)
+    .maybeSingle();
+  return data ?? null;
+}
+
 /* Unsubscribe by token (token resolves against audience.unsubscribe_token).
    Returns true if a row was flipped from active → unsubscribed. */
 export async function markUnsubscribedByToken(token: string): Promise<boolean> {
