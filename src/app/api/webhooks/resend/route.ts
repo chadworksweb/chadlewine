@@ -1,6 +1,7 @@
 import { Webhook } from "svix";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isLikelyBotUserAgent } from "@/lib/bot-detection";
+import { CLICK_BURST_MIN, CLICK_BURST_WINDOW_MS } from "@/lib/click-analytics";
 
 /* Resend → Svix webhook handler.
 
@@ -108,9 +109,34 @@ export async function POST(request: Request) {
   // recorded for forensics but excluded from all aggregates below. Only
   // opens/clicks can come from a link scanner; delivered/bounced/complained are
   // server-to-server and always real.
+  //
+  // Resend stamps "Amazon CloudFront" on every click (it fronts the redirect),
+  // so the UA can't catch gateway storms. Catch them by TIMING instead: if this
+  // recipient already logged CLICK_BURST_MIN-1 clicks inside the burst window,
+  // this click is part of a pre-fetch storm -- keep it out of counters and
+  // engagement. (The authoritative human/scanner split is recomputed at display
+  // time in click-analytics; this just stops real-time engagement inflation.)
+  // Best-effort: a query failure falls back to UA-only detection.
+  let clickBurst = false;
+  if (eventType === "clicked" && sendRow?.id) {
+    try {
+      const since = new Date(Date.now() - CLICK_BURST_WINDOW_MS).toISOString();
+      const { count } = await supabase
+        .from("campaign_events")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_send_id", sendRow.id)
+        .eq("event_type", "clicked")
+        .gte("created_at", since);
+      if ((count ?? 0) >= CLICK_BURST_MIN - 1) clickBurst = true;
+    } catch {
+      /* non-fatal */
+    }
+  }
+
   const fromBot =
-    (eventType === "opened" || eventType === "clicked") &&
-    isLikelyBotUserAgent(userAgent);
+    ((eventType === "opened" || eventType === "clicked") &&
+      isLikelyBotUserAgent(userAgent)) ||
+    clickBurst;
 
   await supabase.from("campaign_events").insert({
     campaign_id: sendRow?.campaign_id ?? null,

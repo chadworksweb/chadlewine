@@ -24,8 +24,9 @@ export interface ClickEvent {
 
 // 3+ clicks to one recipient within 2s reads as a gateway pre-fetch storm, not
 // a person. A human clicking 3 links over several seconds stays under this.
-const BURST_MIN = 3;
-const BURST_WINDOW_MS = 2000;
+// Exported so the Resend webhook applies the SAME threshold in real time.
+export const CLICK_BURST_MIN = 3;
+export const CLICK_BURST_WINDOW_MS = 2000;
 
 function ts(iso: string): number {
   const t = Date.parse(iso);
@@ -58,9 +59,9 @@ export function filterHumanClicks<T extends ClickEvent>(events: T[]): T[] {
       // Cluster size = events on this recipient within +/- the burst window.
       let n = 0;
       for (let j = 0; j < sorted.length; j++) {
-        if (Math.abs(ts(sorted[j].created_at) - t) <= BURST_WINDOW_MS) n++;
+        if (Math.abs(ts(sorted[j].created_at) - t) <= CLICK_BURST_WINDOW_MS) n++;
       }
-      if (n < BURST_MIN) human.push(sorted[i]);
+      if (n < CLICK_BURST_MIN) human.push(sorted[i]);
     }
   }
   return human;
