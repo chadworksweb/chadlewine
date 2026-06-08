@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       process.env.EMAIL_FROM_ADDRESS ||
       process.env.EMAIL_FROM ||
       "site@chadlewine.com",
-    reply_to: body.reply_to ?? null,
+    reply_to: body.reply_to ?? process.env.EMAIL_REPLY_TO ?? null,
     status: "draft",
   };
 

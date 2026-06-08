@@ -251,7 +251,7 @@ async function sendChunk(
           subject: campaign.subject,
           html,
           text,
-          replyTo: campaign.reply_to || undefined,
+          replyTo: campaign.reply_to || process.env.EMAIL_REPLY_TO || undefined,
           headers: {
             "List-Unsubscribe": `<${unsubPost}>, <mailto:unsubscribe@chadlewine.com>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -743,7 +743,7 @@ export async function sendTest(
     subject: `[TEST] ${campaign.subject}`,
     html,
     text,
-    replyTo: campaign.reply_to || undefined,
+    replyTo: campaign.reply_to || process.env.EMAIL_REPLY_TO || undefined,
   });
 
   await supabase.from("campaign_sends").insert({
