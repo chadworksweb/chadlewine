@@ -27631,6 +27631,24 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   justify-content: center;
 }
 
+/* Static single-screen variant (the /contact page): same stage + field styling
+   as the booking form, but every field shown at once -- no steps, no slide. */
+.bkf__static {
+  width: 100%;
+  padding: clamp(var(--space-lg), 4vw, var(--space-2xl));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.bkf__form {
+  width: 100%;
+  max-width: 60ch;
+  margin-top: var(--space-lg);
+}
+.bkf__field { margin-bottom: var(--space-md); }
+.bkf__field:last-of-type { margin-bottom: var(--space-lg); }
+.bkf__field .bkf__label { margin-top: 0; }
+
 /* Welcome + done bookends -- left-aligned hero inside the stage. */
 .bkf__hero {
   width: 100%;

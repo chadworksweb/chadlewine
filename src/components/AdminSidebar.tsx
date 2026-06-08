@@ -62,9 +62,10 @@ const adminNav: NavItem[] = [
     ],
   },
   {
-    href: "/admin/inquiries",
-    label: "Inquiries",
+    href: "/admin/inbox",
+    label: "Inbox",
     children: [
+      { href: "/admin/inbox", label: "Front desk" },
       { href: "/admin/inquiries", label: "Songwriting" },
       { href: "/admin/booking-inquiries", label: "Bookings" },
     ],

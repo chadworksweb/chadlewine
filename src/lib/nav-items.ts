@@ -43,6 +43,7 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
       { href: "/super-individual", label: "Super Individual" },
       { href: "/songwriting", label: "Songwriting" },
       { href: "/super-individual-night", label: "Booking" },
+      { href: "/contact", label: "Contact" },
     ],
   },
 ];

@@ -8,6 +8,7 @@ export function Footer() {
       <div className="site-footer__inner">
         <span className="site-footer__tagline">Chad Lewine</span>
         <div className="site-footer__copyright-group">
+          <Link href="/contact" className="site-footer__link">Contact</Link>
           <Link href="/terms-of-service" className="site-footer__link">Terms of Service</Link>
           <Link href="/privacy-policy" className="site-footer__link">Privacy Policy</Link>
           <span className="site-footer__copyright">© {year}</span>
