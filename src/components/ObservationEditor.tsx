@@ -25,6 +25,7 @@ interface TagOption {
 
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { MediaLibrary } from "@/components/MediaLibrary";
+import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 import { EntityPicker } from "@/components/EntityPicker";
 import { GeoPanel } from "@/components/GeoPanel";
 import { RelatedMusicPanel } from "@/components/RelatedMusicPanel";
@@ -60,6 +61,16 @@ interface ObservationData {
   related_music: { type: "song" | "album"; id: string }[];
   art_fullres_print_path: string;
   art_fullres_wallpaper_path: string;
+  // Per-ratio focal crops (see FocalPointPicker). Percent 0-100; zoom >= 1.
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
+  portrait_focal_x: number | null;
+  portrait_focal_y: number | null;
+  portrait_zoom: number | null;
 }
 
 const emptyObservation: ObservationData = {
@@ -90,6 +101,15 @@ const emptyObservation: ObservationData = {
   related_music: [],
   art_fullres_print_path: "",
   art_fullres_wallpaper_path: "",
+  hero_focal_x: null,
+  hero_focal_y: null,
+  hero_zoom: 1,
+  card_focal_x: null,
+  card_focal_y: null,
+  card_zoom: 1,
+  portrait_focal_x: null,
+  portrait_focal_y: null,
+  portrait_zoom: 1,
 };
 
 function CoverArtPanel({
@@ -379,6 +399,15 @@ export function ObservationEditor({
     related_music: d.related_music,
     art_fullres_print_path: d.art_fullres_print_path,
     art_fullres_wallpaper_path: d.art_fullres_wallpaper_path,
+    hero_focal_x: d.hero_focal_x,
+    hero_focal_y: d.hero_focal_y,
+    hero_zoom: d.hero_zoom ?? 1,
+    card_focal_x: d.card_focal_x,
+    card_focal_y: d.card_focal_y,
+    card_zoom: d.card_zoom ?? 1,
+    portrait_focal_x: d.portrait_focal_x,
+    portrait_focal_y: d.portrait_focal_y,
+    portrait_zoom: d.portrait_zoom ?? 1,
   }), []);
 
   const { status: autosaveStatus } = useAutosave({
@@ -663,6 +692,28 @@ export function ObservationEditor({
             altText={form.art_alt}
             onImageChange={(url) => set("art_image_path", url)}
           />
+
+          {form.art_image_path && (
+            <div className="obsv-editor__panel">
+              <h3 className="obsv-editor__panel-title">Crop &amp; Focal Point</h3>
+              <FocalPointPicker
+                src={form.art_image_path}
+                alt={form.art_alt || form.title}
+                crops={{
+                  hero: { focalX: form.hero_focal_x, focalY: form.hero_focal_y, zoom: form.hero_zoom },
+                  card: { focalX: form.card_focal_x, focalY: form.card_focal_y, zoom: form.card_zoom },
+                  portrait: { focalX: form.portrait_focal_x, focalY: form.portrait_focal_y, zoom: form.portrait_zoom },
+                }}
+                onChange={(ratio: CropRatio, patch: CropPatch) => {
+                  const updates: Record<string, unknown> = {};
+                  if ("focalX" in patch) updates[`${ratio}_focal_x`] = patch.focalX;
+                  if ("focalY" in patch) updates[`${ratio}_focal_y`] = patch.focalY;
+                  if ("zoom" in patch) updates[`${ratio}_zoom`] = patch.zoom ?? 1;
+                  setForm((prev) => ({ ...prev, ...updates }));
+                }}
+              />
+            </div>
+          )}
 
           <FullResArtPanel
             slug={form.slug}

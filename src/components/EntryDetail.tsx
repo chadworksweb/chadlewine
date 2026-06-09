@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -36,6 +37,19 @@ export async function EntryDetail({ kind, basePath, slug, relatedLabel }: EntryD
   const synapseIds = synapseJumper.map((s: { id: string }) => s.id);
   const related = await getRelatedEntries(kind, entry.id, entry.category_ids || [], entry.tag_ids || [], synapseIds);
 
+  // Per-ratio focal crop: hero crop drives the desktop cover-hero, portrait
+  // crop drives the mobile (4:5) cover-hero. CSS swaps which vars apply at the
+  // 768px breakpoint (see .page-observation .cover-hero__art in global.css).
+  const pct = (v: number | null | undefined) => (v == null ? 50 : v);
+  const scale = (v: number | null | undefined) => (v != null && v >= 1 ? v : 1);
+  const heroCropVars = {
+    "--hero-pos": `${pct(entry.hero_focal_x)}% ${pct(entry.hero_focal_y)}%`,
+    "--hero-scale": String(scale(entry.hero_zoom)),
+    "--portrait-pos": `${pct(entry.portrait_focal_x)}% ${pct(entry.portrait_focal_y)}%`,
+    "--portrait-scale": String(scale(entry.portrait_zoom)),
+    position: "relative",
+  } as CSSProperties;
+
   return (
     <div id="page-observation" className="page-observation" data-observation-id={entry.id}>
       <AdminEditButton href={`/admin/writings/${entry.slug || entry.id}`} />
@@ -62,7 +76,7 @@ export async function EntryDetail({ kind, basePath, slug, relatedLabel }: EntryD
       <ProgressBar />
       <section className="cover-hero">
         {entry.art_image_path && (
-          <div className="cover-hero__art-wrap" style={{ position: "relative" }}>
+          <div className="cover-hero__art-wrap" style={heroCropVars}>
             <Image
               src={entry.art_image_path}
               alt={entry.art_alt || entry.title}

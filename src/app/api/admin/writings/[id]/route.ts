@@ -93,6 +93,15 @@ export async function PUT(
     related_music,
     art_fullres_print_path,
     art_fullres_wallpaper_path,
+    hero_focal_x,
+    hero_focal_y,
+    hero_zoom,
+    card_focal_x,
+    card_focal_y,
+    card_zoom,
+    portrait_focal_x,
+    portrait_focal_y,
+    portrait_zoom,
   } = body;
 
   const updateData: Record<string, unknown> = {
@@ -119,6 +128,15 @@ export async function PUT(
     related_music: related_music ?? [],
     art_fullres_print_path: art_fullres_print_path || null,
     art_fullres_wallpaper_path: art_fullres_wallpaper_path || null,
+    hero_focal_x: hero_focal_x ?? null,
+    hero_focal_y: hero_focal_y ?? null,
+    hero_zoom: hero_zoom ?? 1,
+    card_focal_x: card_focal_x ?? null,
+    card_focal_y: card_focal_y ?? null,
+    card_zoom: card_zoom ?? 1,
+    portrait_focal_x: portrait_focal_x ?? null,
+    portrait_focal_y: portrait_focal_y ?? null,
+    portrait_zoom: portrait_zoom ?? 1,
   };
 
   const { data: prev } = await supabase

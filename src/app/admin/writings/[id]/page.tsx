@@ -69,6 +69,15 @@ export default function EditObservationPage() {
         related_music: (data.related_music as { type: "song" | "album"; id: string }[]) || [],
         art_fullres_print_path: (data.art_fullres_print_path as string) || "",
         art_fullres_wallpaper_path: (data.art_fullres_wallpaper_path as string) || "",
+        hero_focal_x: (data.hero_focal_x as number | null) ?? null,
+        hero_focal_y: (data.hero_focal_y as number | null) ?? null,
+        hero_zoom: (data.hero_zoom as number | null) ?? 1,
+        card_focal_x: (data.card_focal_x as number | null) ?? null,
+        card_focal_y: (data.card_focal_y as number | null) ?? null,
+        card_zoom: (data.card_zoom as number | null) ?? 1,
+        portrait_focal_x: (data.portrait_focal_x as number | null) ?? null,
+        portrait_focal_y: (data.portrait_focal_y as number | null) ?? null,
+        portrait_zoom: (data.portrait_zoom as number | null) ?? 1,
       }}
     />
   );

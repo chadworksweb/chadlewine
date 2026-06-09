@@ -1632,6 +1632,19 @@ body.art-immersive main ~ * {
     aspect-ratio: 4 / 5;
   }
 
+  /* Post detail featured image: portrait (4:5) crop on phones, using the
+     independently-editable portrait focal point + zoom instead of the desktop
+     hero crop. Defaults to centered when unset. */
+  .page-observation .cover-hero__art-wrap {
+    aspect-ratio: 4 / 5;
+  }
+
+  .page-observation .cover-hero__art {
+    object-position: var(--portrait-pos, 50% 50%);
+    transform: scale(var(--portrait-scale, 1));
+    transform-origin: var(--portrait-pos, 50% 50%);
+  }
+
   .hero-lens__viewport {
     touch-action: pan-y;
     overflow: hidden;
@@ -1700,6 +1713,15 @@ body.art-immersive main ~ * {
   height: 100%;
   display: block;
   object-fit: cover;
+}
+
+/* Post detail hero crop: hero focal point + zoom on desktop. Vars are set
+   inline per-post in EntryDetail; the 768px block below swaps to the portrait
+   crop. Defaults (50% 50%, scale 1) reproduce the old centered cover-crop. */
+.page-observation .cover-hero__art {
+  object-position: var(--hero-pos, 50% 50%);
+  transform: scale(var(--hero-scale, 1));
+  transform-origin: var(--hero-pos, 50% 50%);
 }
 
 .cover-hero__content {
