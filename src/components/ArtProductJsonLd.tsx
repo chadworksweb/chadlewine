@@ -1,3 +1,5 @@
+import { MERCHANT_RETURN_POLICY, priceValidUntil, productDescription } from "@/lib/product-schema";
+
 interface ArtProductOffer {
   id: string;
   title: string;
@@ -60,6 +62,9 @@ export function ArtProductJsonLd({
     };
   }
 
+  offers.hasMerchantReturnPolicy = MERCHANT_RETURN_POLICY;
+  if (offers["@type"] === "Offer") offers.priceValidUntil = priceValidUntil();
+
   const product: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -67,10 +72,9 @@ export function ArtProductJsonLd({
     url,
     image,
     brand: { "@type": "Brand", name: "Chad Lewine" },
+    description: productDescription(description, `${title}, original art by Chad Lewine.`),
     offers,
   };
-
-  if (description) product.description = description;
 
   return (
     <script

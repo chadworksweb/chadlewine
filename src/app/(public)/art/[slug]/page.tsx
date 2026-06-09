@@ -8,6 +8,7 @@ import { ArtSkuBuyPanel, type ArtSku } from "@/components/ArtSkuBuyPanel";
 import { ArtFramedHero } from "@/components/ArtFramedHero";
 import { ArtPieceJsonLd } from "@/components/ArtPieceJsonLd";
 import { ArtProductJsonLd } from "@/components/ArtProductJsonLd";
+import { BreadcrumbJsonLd } from "@/components/BreadcrumbJsonLd";
 import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ArtLicensingSection } from "@/components/ArtLicensingSection";
 import { MuralTemplate, type MuralDetails } from "@/components/MuralTemplate";
@@ -227,6 +228,13 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
         description={art.citation_summary || art.art_summary || art.description}
         image={art.image_path}
         products={products}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", url: "https://chadlewine.com" },
+          { name: "Art", url: "https://chadlewine.com/art" },
+          { name: art.title, url: `https://chadlewine.com/art/${art.slug}` },
+        ]}
       />
     </>
   );

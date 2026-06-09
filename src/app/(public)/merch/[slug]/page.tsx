@@ -4,6 +4,7 @@ import { createPublicClient } from "@/lib/supabase-server";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { MerchProductDetail } from "@/components/MerchProductDetail";
 import { MerchProductJsonLd } from "@/components/MerchProductJsonLd";
+import { BreadcrumbJsonLd } from "@/components/BreadcrumbJsonLd";
 import { ExploreStrip } from "@/components/ExploreStrip";
 import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import type { ProductVariant } from "@/components/MerchProductCard";
@@ -129,6 +130,13 @@ export default async function MerchProductPage({
         images={gallery.map((g) => g.url)}
         price={product.price}
         variants={Array.isArray(product.variants) ? product.variants : []}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", url: "https://chadlewine.com" },
+          { name: "Merch", url: "https://chadlewine.com/merch" },
+          { name: product.title, url: `https://chadlewine.com/merch/${product.slug || product.id}` },
+        ]}
       />
       <AdminEditButton href={`/admin/merch/products/${product.slug || product.id}`} />
       <MerchProductDetail

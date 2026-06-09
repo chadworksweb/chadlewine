@@ -1,4 +1,5 @@
 import type { ProductVariant } from "@/components/MerchProductCard";
+import { MERCHANT_RETURN_POLICY, priceValidUntil, productDescription } from "@/lib/product-schema";
 
 interface MerchProductJsonLdProps {
   id: string;
@@ -69,6 +70,9 @@ export function MerchProductJsonLd({
 
   if (!offers) return null;
 
+  offers.hasMerchantReturnPolicy = MERCHANT_RETURN_POLICY;
+  if (offers["@type"] === "Offer") offers.priceValidUntil = priceValidUntil();
+
   const product: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -76,10 +80,10 @@ export function MerchProductJsonLd({
     url,
     sku: id,
     brand: { "@type": "Brand", name: "Chad Lewine" },
+    description: productDescription(description, `${title}, official merch from Chad Lewine.`),
     offers,
   };
 
-  if (description) product.description = description;
   if (images.length > 0) product.image = images;
 
   return (
