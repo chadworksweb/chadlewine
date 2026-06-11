@@ -319,6 +319,23 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
         <input className="obsv-editor__input" value={val("dimensions")} onChange={(e) => set({ dimensions: e.target.value })} placeholder="e.g. 24×30 in" />
       </div>
       <div className="obsv-editor__field">
+        <label className="obsv-editor__label">Real size in inches (turns on the in-room view)</label>
+        <div style={{ display: "flex", gap: 12 }}>
+          {(["width_in", "height_in", "depth_in"] as const).map((f) => (
+            <input
+              key={f}
+              className="obsv-editor__input"
+              type="number"
+              step="0.25"
+              min="0"
+              placeholder={f === "width_in" ? "W" : f === "height_in" ? "H" : "depth (opt)"}
+              value={num(f) ?? ""}
+              onChange={(e) => set({ [f]: e.target.value ? parseFloat(e.target.value) : null })}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="obsv-editor__field">
         <label className="obsv-editor__label">Year</label>
         <input
           className="obsv-editor__input"
@@ -476,7 +493,7 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
 const SAVE_FIELDS = [
   "title", "slug", "medium", "image_path", "image_alt", "description",
   "display_order", "status", "dimensions", "year_created", "gallery_paths",
-  "in_situ_paths",
+  "in_situ_paths", "width_in", "height_in", "depth_in",
   "art_summary", "chad_quote", "format_id",
   "hero_focal_x", "hero_focal_y", "hero_zoom",
   "card_focal_x", "card_focal_y", "card_zoom",
