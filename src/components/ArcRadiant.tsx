@@ -48,11 +48,79 @@ export type ArcLifeEvent = {
   body_html: string;
 };
 
+// ---------- Phase 2 layer shapes ----------
+
+export type ArcGeographyBand = {
+  id: string;
+  slug: string;
+  location_name: string;
+  region: string | null;
+  date_start: string;
+  date_end: string | null;
+};
+
+export type ArcRelationship = {
+  id: string;
+  slug: string;
+  full_name: string;
+  role: string | null;
+  first_contact_date: string | null;
+  last_contact_date: string | null;
+  still_active: boolean;
+};
+
+export type ArcThread = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
+// Polymorphic link from a thread to an entity it shows up in. entity_kind is
+// one of the rendered node kinds ("release" | "life_event" | "industry" | ...).
+export type ArcThreadLink = {
+  thread_id: string;
+  entity_kind: string;
+  entity_id: string;
+};
+
+export type ArcArtPiece = {
+  id: string;
+  slug: string;
+  title: string;
+  created_at_date: string | null;
+  year_created: number | null;
+};
+
+export type ArcWriting = {
+  id: string;
+  slug: string;
+  title: string;
+  date_captured: string | null;
+  kind: string | null;
+};
+
+export type ArcIndustryEncounter = {
+  id: string;
+  slug: string;
+  title: string;
+  date: string | null;
+  counterparty: string | null;
+  outcome: string | null;
+  body_html: string;
+};
+
 export type ArcInitialData = {
   songs: ArcSong[];
   albums: ArcRelease[];
   eras: ArcEra[];
   lifeEvents: ArcLifeEvent[];
+  geography: ArcGeographyBand[];
+  relationships: ArcRelationship[];
+  threads: ArcThread[];
+  threadLinks: ArcThreadLink[];
+  art: ArcArtPiece[];
+  writings: ArcWriting[];
+  industry: ArcIndustryEncounter[];
   yearRange: [number, number];
 };
 
@@ -60,6 +128,11 @@ type SelectedItem =
   | { type: "song"; data: ArcSong }
   | { type: "release"; data: ArcRelease }
   | { type: "event"; data: ArcLifeEvent }
+  | { type: "geography"; data: ArcGeographyBand }
+  | { type: "relationship"; data: ArcRelationship }
+  | { type: "art"; data: ArcArtPiece }
+  | { type: "writing"; data: ArcWriting }
+  | { type: "industry"; data: ArcIndustryEncounter }
   | null;
 
 // ---------- Constants ----------
@@ -89,7 +162,19 @@ const TIER_COLORS: Record<string, string> = {
 };
 const TIER_ORDER: ReadonlyArray<keyof typeof TIER_COLORS> = ["violet", "blue", "green", "orange", "red"];
 
-const LAYER_KEYS = ["music", "lifeEvents", "lifeEras", "releaseEras", "compass"] as const;
+const LAYER_KEYS = [
+  "music",
+  "lifeEvents",
+  "lifeEras",
+  "releaseEras",
+  "compass",
+  "geography",
+  "relationships",
+  "thematicThreads",
+  "visualArt",
+  "writing",
+  "industry",
+] as const;
 type LayerKey = (typeof LAYER_KEYS)[number];
 
 const LAYER_LABELS: Record<LayerKey, string> = {
@@ -98,7 +183,23 @@ const LAYER_LABELS: Record<LayerKey, string> = {
   lifeEras: "Life Eras",
   releaseEras: "Album Eras",
   compass: "Compass Charge",
+  geography: "Geography",
+  relationships: "Relationships",
+  thematicThreads: "Thematic Threads",
+  visualArt: "Visual Art",
+  writing: "Writing",
+  industry: "Industry",
 };
+
+// The five layers above (music...compass) are the tuned default view and stay
+// ON. The six Phase 2 layers are opt-in: OFF by default so the default canvas
+// reads exactly as before, each revealing its own lane/dots when toggled on.
+const DEFAULT_LAYERS_ON: ReadonlyArray<LayerKey> = ["music", "lifeEvents", "lifeEras", "releaseEras", "compass"];
+
+// Dot/span colors for the new layers live in CSS (global.css .arc-radiant__*).
+// They are deliberately OUTSIDE the RC tier palette (reserved for music CDs +
+// the compass curve) and away from the gold (music) / green (life events) hues:
+// art = violet, writing = sky cyan, industry = coral, relationships = rose.
 
 // Visual canvas height: graphics live above the centerline, year strip + spine
 // sit at the bottom (the "horizon"). Canvas height is FIXED so it's identical
@@ -133,15 +234,49 @@ const ALBUM_HEIGHT_PATTERN = [320, 285, 345, 305, 260, 330];
 // top of each other.
 const EVENT_HEIGHT_PATTERN = [135, 195, 160, 220, 145, 205, 175, 225, 140, 200, 180];
 
+// Phase 2 dot layers get their own height patterns, offset from the album and
+// life-event patterns so a toggled-on layer interleaves with the existing dots
+// rather than landing exactly on top of them.
+const ART_HEIGHT_PATTERN = [248, 296, 222, 268, 234, 282];
+const WRITING_HEIGHT_PATTERN = [152, 212, 172, 232, 162, 202, 188, 226, 168, 208];
+const INDUSTRY_HEIGHT_PATTERN = [312, 274, 336, 290];
+
+// Relationship spans live in a dedicated upper lane band (well above the dense
+// lower dot cloud) and stack into rows via greedy interval packing.
+const REL_LANE_BOTTOM = 232;   // px above spine for the first (lowest) row
+const REL_ROW_HEIGHT = 15;     // vertical step per stacked row
+const REL_MAX_ROWS = 6;
+
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // ---------- Component ----------
 
 export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialData; proseAvailable?: boolean }) {
   const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
-    music: true, lifeEvents: true, lifeEras: true, releaseEras: true, compass: true,
-  });
+  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(
+    () => Object.fromEntries(LAYER_KEYS.map((k) => [k, DEFAULT_LAYERS_ON.includes(k)])) as Record<LayerKey, boolean>,
+  );
+
+  // Thematic threads act as a highlight lens, not a band: picking a thread lits
+  // the nodes it shows up in (via thematic_thread_links) and dims the rest.
+  const [activeThread, setActiveThread] = useState<string | null>(null);
+  const threadMembers = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const l of data.threadLinks) {
+      const set = m.get(l.thread_id) ?? new Set<string>();
+      set.add(`${l.entity_kind}:${l.entity_id}`);
+      m.set(l.thread_id, set);
+    }
+    return m;
+  }, [data.threadLinks]);
+  const litSet = activeThread ? threadMembers.get(activeThread) ?? new Set<string>() : null;
+  function isLit(kind: string, id: string): boolean {
+    return litSet ? litSet.has(`${kind}:${id}`) : false;
+  }
+  // Turning the layer off clears any active lens so dimming never lingers.
+  useEffect(() => {
+    if (!layers.thematicThreads) setActiveThread(null);
+  }, [layers.thematicThreads]);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   // Gentle initial-load CTA that frames the music-dense years. Dismissible.
   const [showSkipCta, setShowSkipCta] = useState<boolean>(true);
@@ -174,7 +309,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
     // click point so the line lands cleanly even when the user clicks the
     // stalk or label region of the branch.
     const dot = target.querySelector(
-      ".arc-radiant__cd, .arc-radiant__branch-dot",
+      ".arc-radiant__cd, .arc-radiant__branch-dot, .arc-radiant__rel-dot",
     ) as HTMLElement | null;
     const dotRect = (dot ?? target).getBoundingClientRect();
     const rootRect = root.getBoundingClientRect();
@@ -283,6 +418,34 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
       ...chain(data.eras.filter((e) => e.kind === "release")),
     ];
   }, [data.eras]);
+
+  // Relationship spans run first-contact -> last-contact (or today when still
+  // active). Greedy interval packing assigns each to the lowest lane whose last
+  // span ended (with a small year gap for label breathing room) before this one
+  // starts, so overlapping relationships stack instead of colliding.
+  const relSpans = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const GAP_YEARS = 0.6;
+    const placed = data.relationships
+      .filter((r) => r.first_contact_date)
+      .map((r) => {
+        const startDate = r.first_contact_date as string;
+        const endDate = r.last_contact_date ?? (r.still_active ? today : startDate);
+        return { r, startDate, endDate, s: dateToYearFloat(startDate), e: dateToYearFloat(endDate) };
+      })
+      .sort((a, b) => a.s - b.s);
+    const laneEnds: number[] = [];
+    return placed.map((p) => {
+      let lane = laneEnds.findIndex((end) => end + GAP_YEARS <= p.s);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(p.e);
+      } else {
+        laneEnds[lane] = p.e;
+      }
+      return { ...p, lane: lane % REL_MAX_ROWS };
+    });
+  }, [data.relationships]);
 
   // Max zoom = visible span of 1 year. visibleSpan = yearSpan / zoom, so
   // zoom <= yearSpan keeps the visible window at >= 1 year wide.
@@ -583,7 +746,11 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
       <div className="arc-radiant__upper">
         <aside className="arc-radiant__key" aria-label="Layer key">
           <h3 className="arc-radiant__key-title">Key</h3>
-          {LAYER_KEYS.map((k) => (
+          {LAYER_KEYS.map((k) => {
+            // Hide the Thematic Threads toggle entirely when no threads are
+            // published (the lens would have nothing to drive).
+            if (k === "thematicThreads" && data.threads.length === 0) return null;
+            return (
             <label
               key={k}
               className={`arc-radiant__key-row arc-radiant__key-row--${k}${layers[k] ? "" : " is-off"}`}
@@ -598,7 +765,28 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
               </span>
               <span className="arc-radiant__key-label">{LAYER_LABELS[k]}</span>
             </label>
-          ))}
+            );
+          })}
+
+          {/* Thematic-thread lens: pick a thread to light up the songs, eras,
+              and moments it runs through; everything else dims. Pick again to
+              clear. Only shown while the Thematic Threads layer is on. */}
+          {layers.thematicThreads && data.threads.length > 0 && (
+            <div className="arc-radiant__thread-chips" role="group" aria-label="Thematic thread lens">
+              {data.threads.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`arc-radiant__thread-chip${activeThread === t.id ? " is-active" : ""}`}
+                  aria-pressed={activeThread === t.id}
+                  onClick={() => setActiveThread((cur) => (cur === t.id ? null : t.id))}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           <button
             type="button"
             className={`arc-radiant__copy-link${linkCopied ? " is-copied" : ""}`}
@@ -696,11 +884,47 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
           style={{ touchAction: "pan-x" }}
         >
           <div
-            className="arc-radiant__inner"
+            className={`arc-radiant__inner${litSet ? " has-lens" : ""}`}
             style={{ width: totalWidth, height: canvasHeight }}
           >
             {/* Horizontal centerline — the timeline / horizon */}
             <div className="arc-radiant__spine" style={{ bottom: SPINE_RESERVED_PX }} />
+
+            {/* Geography — faint full-height background bands segmenting the
+                timeline by where Chad lived. Sits behind every other layer; the
+                empty background area of each band is the click/hover target. */}
+            {layers.geography && (() => {
+              const today = new Date().toISOString().slice(0, 10);
+              return data.geography.map((g) => {
+                const x1 = dateToX(g.date_start);
+                const x2 = dateToX(g.date_end ?? today);
+                if (x1 == null || x2 == null) return null;
+                const width = Math.max(6, x2 - x1);
+                const isSelected = selectedItem?.type === "geography" && selectedItem.data.id === g.id;
+                return (
+                  <div
+                    key={g.id}
+                    className={`arc-radiant__geo-band${isSelected ? " is-selected" : ""}`}
+                    style={{ left: x1, width, bottom: SPINE_RESERVED_PX, height: branchTop - SPINE_RESERVED_PX }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={g.location_name}
+                    onClick={(e) => selectNode({ type: "geography", data: g }, e)}
+                    onPointerEnter={(e) => setHover({ title: g.location_name, x: e.clientX, y: e.clientY })}
+                    onPointerMove={(e) => setHover({ title: g.location_name, x: e.clientX, y: e.clientY })}
+                    onPointerLeave={() => setHover(null)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        selectNode({ type: "geography", data: g }, e as unknown as React.MouseEvent<HTMLElement>);
+                      }
+                    }}
+                  >
+                    <span className="arc-radiant__geo-label">{g.location_name}</span>
+                  </div>
+                );
+              });
+            })()}
 
             {/* Year ticks rise from the centerline; labels sit just below it */}
             <div className="arc-radiant__years">
@@ -886,7 +1110,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                     <button
                       key={`cp-${a.id}`}
                       type="button"
-                      className={`arc-radiant__charge-point${isSelected ? " is-selected" : ""}`}
+                      className={`arc-radiant__charge-point${isSelected ? " is-selected" : ""}${isLit("release", a.id) ? " is-lit" : ""}`}
                       style={{ left: x, bottom: pointBottom, ["--pt-color" as string]: TIER_COLORS[a.tier ?? "green"] }}
                       onClick={(e) => selectNode({ type: "release", data: a }, e)}
                       onPointerEnter={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
@@ -913,7 +1137,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                   <button
                     key={a.id}
                     type="button"
-                    className={`arc-radiant__branch arc-radiant__branch--album${isSelected ? " is-selected" : ""}`}
+                    className={`arc-radiant__branch arc-radiant__branch--album${isSelected ? " is-selected" : ""}${isLit("release", a.id) ? " is-lit" : ""}`}
                     style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
                     onClick={(e) => selectNode({ type: "release", data: a }, e)}
                     onPointerEnter={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
@@ -969,7 +1193,7 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                       <button
                         key={ev.id}
                         type="button"
-                        className={`arc-radiant__branch arc-radiant__branch--event${isSelected ? " is-selected" : ""}`}
+                        className={`arc-radiant__branch arc-radiant__branch--event${isSelected ? " is-selected" : ""}${isLit("life_event", ev.id) ? " is-lit" : ""}`}
                         style={{ left: fx, bottom: SPINE_RESERVED_PX, height: branchHeight }}
                         onClick={(e) => selectNode({ type: "event", data: ev }, e)}
                         onPointerEnter={(e) => setHover({ title: ev.title, x: e.clientX, y: e.clientY })}
@@ -984,6 +1208,125 @@ export function ArcRadiant({ data, proseAvailable = false }: { data: ArcInitialD
                 hi += n;
               }
               return nodes;
+            })()}
+
+            {/* Relationships — horizontal spans (first contact -> last contact,
+                or today when still active) packed into stacked lanes in an upper
+                band, with a dot at the start and a label trailing it. */}
+            {layers.relationships && relSpans.map(({ r, startDate, endDate, lane }) => {
+              const x1 = dateToX(startDate);
+              const x2 = dateToX(endDate);
+              if (x1 == null || x2 == null) return null;
+              const width = Math.max(8, x2 - x1);
+              const bottom = clamp(scalePattern(REL_LANE_BOTTOM + lane * REL_ROW_HEIGHT));
+              const isSelected = selectedItem?.type === "relationship" && selectedItem.data.id === r.id;
+              return (
+                <div
+                  key={r.id}
+                  className={`arc-radiant__rel-span${isSelected ? " is-selected" : ""}${r.still_active ? " is-active" : ""}`}
+                  style={{ left: x1, width, bottom }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={r.full_name}
+                  onClick={(e) => selectNode({ type: "relationship", data: r }, e)}
+                  onPointerEnter={(e) => setHover({ title: r.full_name, x: e.clientX, y: e.clientY })}
+                  onPointerMove={(e) => setHover({ title: r.full_name, x: e.clientX, y: e.clientY })}
+                  onPointerLeave={() => setHover(null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      selectNode({ type: "relationship", data: r }, e as unknown as React.MouseEvent<HTMLElement>);
+                    }
+                  }}
+                >
+                  <span className="arc-radiant__rel-dot" />
+                  <span className="arc-radiant__rel-label">{r.full_name}</span>
+                </div>
+              );
+            })}
+
+            {/* Visual art — dots placed at created_at_date (or year_created). */}
+            {layers.visualArt && (() => {
+              const items = data.art
+                .map((a, i) => {
+                  const d = a.created_at_date ?? (a.year_created ? `${a.year_created}-06-15` : null);
+                  return { a, i, x: d ? dateToX(d) : null };
+                })
+                .filter((e): e is { a: ArcArtPiece; i: number; x: number } => e.x != null)
+                .sort((p, q) => p.x - q.x);
+              return items.map(({ a, i, x }) => {
+                const branchHeight = clamp(scalePattern(ART_HEIGHT_PATTERN[i % ART_HEIGHT_PATTERN.length]));
+                const isSelected = selectedItem?.type === "art" && selectedItem.data.id === a.id;
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className={`arc-radiant__branch arc-radiant__branch--art${isSelected ? " is-selected" : ""}${isLit("art", a.id) ? " is-lit" : ""}`}
+                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
+                    onClick={(e) => selectNode({ type: "art", data: a }, e)}
+                    onPointerEnter={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
+                    onPointerMove={(e) => setHover({ title: a.title, x: e.clientX, y: e.clientY })}
+                    onPointerLeave={() => setHover(null)}
+                  >
+                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
+                    <span className="arc-radiant__branch-dot arc-radiant__branch-dot--art" />
+                  </button>
+                );
+              });
+            })()}
+
+            {/* Writing — dots at posts.date_captured. */}
+            {layers.writing && (() => {
+              const items = data.writings
+                .map((w, i) => ({ w, i, x: dateToX(w.date_captured) }))
+                .filter((e): e is { w: ArcWriting; i: number; x: number } => e.x != null)
+                .sort((p, q) => p.x - q.x);
+              return items.map(({ w, i, x }) => {
+                const branchHeight = clamp(scalePattern(WRITING_HEIGHT_PATTERN[i % WRITING_HEIGHT_PATTERN.length]));
+                const isSelected = selectedItem?.type === "writing" && selectedItem.data.id === w.id;
+                return (
+                  <button
+                    key={w.id}
+                    type="button"
+                    className={`arc-radiant__branch arc-radiant__branch--writing${isSelected ? " is-selected" : ""}${isLit("writing", w.id) ? " is-lit" : ""}`}
+                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
+                    onClick={(e) => selectNode({ type: "writing", data: w }, e)}
+                    onPointerEnter={(e) => setHover({ title: w.title, x: e.clientX, y: e.clientY })}
+                    onPointerMove={(e) => setHover({ title: w.title, x: e.clientX, y: e.clientY })}
+                    onPointerLeave={() => setHover(null)}
+                  >
+                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
+                    <span className="arc-radiant__branch-dot arc-radiant__branch-dot--writing" />
+                  </button>
+                );
+              });
+            })()}
+
+            {/* Industry encounters — dots at the encounter date. */}
+            {layers.industry && (() => {
+              const items = data.industry
+                .map((enc, i) => ({ enc, i, x: dateToX(enc.date) }))
+                .filter((e): e is { enc: ArcIndustryEncounter; i: number; x: number } => e.x != null)
+                .sort((p, q) => p.x - q.x);
+              return items.map(({ enc, i, x }) => {
+                const branchHeight = clamp(scalePattern(INDUSTRY_HEIGHT_PATTERN[i % INDUSTRY_HEIGHT_PATTERN.length]));
+                const isSelected = selectedItem?.type === "industry" && selectedItem.data.id === enc.id;
+                return (
+                  <button
+                    key={enc.id}
+                    type="button"
+                    className={`arc-radiant__branch arc-radiant__branch--industry${isSelected ? " is-selected" : ""}${isLit("industry", enc.id) ? " is-lit" : ""}`}
+                    style={{ left: x, bottom: SPINE_RESERVED_PX, height: branchHeight }}
+                    onClick={(e) => selectNode({ type: "industry", data: enc }, e)}
+                    onPointerEnter={(e) => setHover({ title: enc.title, x: e.clientX, y: e.clientY })}
+                    onPointerMove={(e) => setHover({ title: enc.title, x: e.clientX, y: e.clientY })}
+                    onPointerLeave={() => setHover(null)}
+                  >
+                    <span className="arc-radiant__branch-line" style={{ height: branchHeight - 8 }} />
+                    <span className="arc-radiant__branch-dot arc-radiant__branch-dot--industry" />
+                  </button>
+                );
+              });
             })()}
           </div>
         </div>
@@ -1087,6 +1430,90 @@ function EventDetail({ event, onClose }: { event: ArcLifeEvent; onClose: () => v
   );
 }
 
+function GeographyDetail({ band, onClose }: { band: ArcGeographyBand; onClose: () => void }) {
+  const range = `${band.date_start.slice(0, 4)}-${band.date_end ? band.date_end.slice(0, 4) : "now"}`;
+  return (
+    <div className="arc-radiant__detail">
+      <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
+      <div className="arc-radiant__detail-meta">
+        <span className="arc-radiant__detail-kind">Place</span>
+        <span>{range}</span>
+        {band.region && <span>{band.region}</span>}
+      </div>
+      <h3 className="arc-radiant__detail-title">{band.location_name}</h3>
+    </div>
+  );
+}
+
+function RelationshipDetail({ person, onClose }: { person: ArcRelationship; onClose: () => void }) {
+  const start = person.first_contact_date?.slice(0, 4);
+  const end = person.still_active ? "now" : person.last_contact_date?.slice(0, 4);
+  const range = start ? `${start}-${end ?? start}` : null;
+  return (
+    <div className="arc-radiant__detail">
+      <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
+      <div className="arc-radiant__detail-meta">
+        <span className="arc-radiant__detail-kind">Person</span>
+        {range && <span>{range}</span>}
+      </div>
+      <h3 className="arc-radiant__detail-title">{person.full_name}</h3>
+      {person.role && <p className="arc-radiant__detail-sub">{person.role}</p>}
+    </div>
+  );
+}
+
+function ArtDetail({ art, onClose }: { art: ArcArtPiece; onClose: () => void }) {
+  const year = art.created_at_date?.slice(0, 4) ?? (art.year_created ? String(art.year_created) : null);
+  return (
+    <div className="arc-radiant__detail">
+      <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
+      <div className="arc-radiant__detail-meta">
+        <span className="arc-radiant__detail-kind">Visual Art</span>
+        {year && <span>{year}</span>}
+      </div>
+      <h3 className="arc-radiant__detail-title">{art.title}</h3>
+      <Link href={`/art/${art.slug}`} className="arc-radiant__detail-cta">
+        Open art page →
+      </Link>
+    </div>
+  );
+}
+
+function WritingDetail({ writing, onClose }: { writing: ArcWriting; onClose: () => void }) {
+  const segment = writing.kind === "journal" ? "journal" : "observations";
+  return (
+    <div className="arc-radiant__detail">
+      <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
+      <div className="arc-radiant__detail-meta">
+        <span className="arc-radiant__detail-kind">Writing</span>
+        {writing.date_captured && <span>{writing.date_captured}</span>}
+      </div>
+      <h3 className="arc-radiant__detail-title">{writing.title}</h3>
+      <Link href={`/writings/${segment}/${writing.slug}`} className="arc-radiant__detail-cta">
+        Open writing →
+      </Link>
+    </div>
+  );
+}
+
+function IndustryDetail({ encounter, onClose }: { encounter: ArcIndustryEncounter; onClose: () => void }) {
+  return (
+    <div className="arc-radiant__detail">
+      <button className="arc-radiant__detail-close" onClick={onClose} aria-label="Close">×</button>
+      <div className="arc-radiant__detail-meta">
+        <span className="arc-radiant__detail-kind">Industry</span>
+        {encounter.date && <span>{encounter.date}</span>}
+        {encounter.counterparty && <span>{encounter.counterparty}</span>}
+      </div>
+      <h3 className="arc-radiant__detail-title">{encounter.title}</h3>
+      {encounter.outcome && <p className="arc-radiant__detail-sub">{encounter.outcome}</p>}
+      {encounter.body_html && (
+        <div className="arc-radiant__detail-body" dangerouslySetInnerHTML={{ __html: encounter.body_html }} />
+      )}
+    </div>
+  );
+}
+
 // ---------- Key swatch ----------
 
 function KeySwatch({ layer }: { layer: LayerKey }) {
@@ -1114,6 +1541,24 @@ function KeySwatch({ layer }: { layer: LayerKey }) {
   }
   if (layer === "releaseEras") {
     return <span className="arc-radiant__swatch-band arc-radiant__swatch-band--release" />;
+  }
+  if (layer === "geography") {
+    return <span className="arc-radiant__swatch-band arc-radiant__swatch-band--geo" />;
+  }
+  if (layer === "relationships") {
+    return <span className="arc-radiant__swatch-span" aria-hidden="true" />;
+  }
+  if (layer === "thematicThreads") {
+    return <span className="arc-radiant__swatch-thread" aria-hidden="true" />;
+  }
+  if (layer === "visualArt") {
+    return <span className="arc-radiant__swatch-dot arc-radiant__swatch-dot--art" />;
+  }
+  if (layer === "writing") {
+    return <span className="arc-radiant__swatch-dot arc-radiant__swatch-dot--writing" />;
+  }
+  if (layer === "industry") {
+    return <span className="arc-radiant__swatch-dot arc-radiant__swatch-dot--industry" />;
   }
   return (
     <svg className="arc-radiant__swatch-curve" viewBox="0 0 24 12" preserveAspectRatio="none">
@@ -1556,8 +2001,18 @@ function ArcRadiantModal({
           <SongDetail song={item.data} onClose={onClose} />
         ) : item.type === "release" ? (
           <ReleaseDetail album={item.data} onClose={onClose} />
-        ) : (
+        ) : item.type === "event" ? (
           <EventDetail event={item.data} onClose={onClose} />
+        ) : item.type === "geography" ? (
+          <GeographyDetail band={item.data} onClose={onClose} />
+        ) : item.type === "relationship" ? (
+          <RelationshipDetail person={item.data} onClose={onClose} />
+        ) : item.type === "art" ? (
+          <ArtDetail art={item.data} onClose={onClose} />
+        ) : item.type === "writing" ? (
+          <WritingDetail writing={item.data} onClose={onClose} />
+        ) : (
+          <IndustryDetail encounter={item.data} onClose={onClose} />
         )}
       </div>
     </div>
