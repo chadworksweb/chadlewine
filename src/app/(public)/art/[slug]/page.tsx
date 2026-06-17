@@ -160,7 +160,7 @@ async function getArtData(slug: string) {
     const { data: scenes } = await supabase
       .from("room_scenes")
       .select(
-        "slug, name, image_path, px_per_inch, anchor_x_pct, anchor_y_pct, wall_max_width_in, light_warmth",
+        "slug, name, image_path, px_per_inch, anchor_x_pct, anchor_y_pct, wall_min_width_in, wall_max_width_in, light_warmth",
       )
       .eq("is_active", true)
       .order("display_order");

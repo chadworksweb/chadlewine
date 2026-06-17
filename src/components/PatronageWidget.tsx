@@ -80,9 +80,9 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
             here. You are giving because you believe in me, my vision and my mission.
           </p>
           <p>
-            You aren&rsquo;t buying a product, you&rsquo;re supporting my livelihood so
-            that I can keep creating the songs, music and art that brought you here.
-            Thank you for that.
+            Patronage is the act or state of directly contributing to an artist&rsquo;s
+            livelihood so that they may focus on creating instead of making financial
+            ends meet in a STEM and finance-driven socio-economy.
           </p>
           </div>
         </div>

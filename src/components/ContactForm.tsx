@@ -92,19 +92,13 @@ export function ContactForm() {
                 </p>
               </div>
             ) : (
-              <>
-                <p className="bkf__step-eyebrow">Write to me</p>
-                <h2 className="bkf__q">Say what you came to say</h2>
-                <p className="bkf__sub">
-                  This goes to my desk, not a black hole. I read it. I won&rsquo;t always
-                  reply, but real notes and real opportunities reach me.
-                </p>
+              <div className="contact-split">
+                <div className="contact-split__main">
+                <p className="bkf__step-eyebrow">Write to Chad</p>
+                <h1 className="bkf__q">Contact Chad Lewine</h1>
 
                 <form ref={formRef} className="bkf__form" onSubmit={onSubmit}>
                   <div className="bkf__field">
-                    <label className="bkf__label" htmlFor="ct-name">
-                      Name
-                    </label>
                     <input
                       id="ct-name"
                       name="name"
@@ -114,13 +108,11 @@ export function ContactForm() {
                       maxLength={200}
                       autoComplete="name"
                       placeholder="Your name"
+                      aria-label="Your name"
                     />
                   </div>
 
                   <div className="bkf__field">
-                    <label className="bkf__label" htmlFor="ct-email">
-                      Email
-                    </label>
                     <input
                       id="ct-email"
                       name="email"
@@ -130,27 +122,23 @@ export function ContactForm() {
                       maxLength={200}
                       autoComplete="email"
                       placeholder="you@example.com"
+                      aria-label="Email"
                     />
                   </div>
 
                   <div className="bkf__field">
-                    <label className="bkf__label" htmlFor="ct-subject">
-                      Subject <span className="bkf__opt">(optional)</span>
-                    </label>
                     <input
                       id="ct-subject"
                       name="subject"
                       className="bkf__input"
                       type="text"
                       maxLength={200}
-                      placeholder="What's this about?"
+                      placeholder="What's this about? (optional)"
+                      aria-label="Subject (optional)"
                     />
                   </div>
 
                   <div className="bkf__field">
-                    <label className="bkf__label" htmlFor="ct-message">
-                      Message
-                    </label>
                     <textarea
                       id="ct-message"
                       name="message"
@@ -159,6 +147,7 @@ export function ContactForm() {
                       maxLength={6000}
                       rows={7}
                       placeholder="Whatever you want to tell me."
+                      aria-label="Message"
                     />
                   </div>
 
@@ -191,7 +180,16 @@ export function ContactForm() {
                     </button>
                   </div>
                 </form>
-              </>
+                </div>
+                <div className="contact-split__media" aria-hidden="true">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/images/contact/super-individual-stack.webp"
+                    alt=""
+                    className="contact-split__img"
+                  />
+                </div>
+              </div>
             )}
           </div>
         </div>

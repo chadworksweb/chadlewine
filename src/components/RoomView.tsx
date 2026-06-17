@@ -17,6 +17,7 @@ export interface RoomScene {
   px_per_inch: number;
   anchor_x_pct: number;
   anchor_y_pct: number;
+  wall_min_width_in: number | null;
   wall_max_width_in: number | null;
   light_warmth: string | null;
 }
@@ -37,7 +38,17 @@ function fmt(n: number): string {
 }
 
 export function RoomView({ imagePath, imageAlt, title, widthIn, heightIn, scenes }: Props) {
-  const usable = scenes.filter((s) => s.image_path && s.px_per_inch);
+  // Size tiering: a piece only sees rooms that flatter its size. Keep a scene when the
+  // piece width falls inside its [wall_min_width_in, wall_max_width_in] window; a null
+  // bound is open on that side. A small piece lands in intimate situations, a statement
+  // piece on big walls, and the math stays the same -- this only curates which scenes show.
+  const usable = scenes.filter(
+    (s) =>
+      s.image_path &&
+      s.px_per_inch &&
+      widthIn >= (s.wall_min_width_in ?? 0) &&
+      (s.wall_max_width_in == null || widthIn <= s.wall_max_width_in),
+  );
   const [activeSlug, setActiveSlug] = useState(usable[0]?.slug ?? "");
   const [framed, setFramed] = useState(true);
   const [natW, setNatW] = useState<Record<string, number>>({});
@@ -56,7 +67,6 @@ export function RoomView({ imagePath, imageAlt, title, widthIn, heightIn, scenes
 
   const nw = natW[scene.slug];
   const widthPct = nw ? ((widthIn * scene.px_per_inch) / nw) * 100 : null;
-  const tooWide = scene.wall_max_width_in != null && widthIn > scene.wall_max_width_in;
 
   return (
     <figure className="room-view">
@@ -73,7 +83,7 @@ export function RoomView({ imagePath, imageAlt, title, widthIn, heightIn, scenes
           onLoad={(e) => captureNat(e.currentTarget)}
         />
 
-        {widthPct != null && !tooWide && (
+        {widthPct != null && (
           <div
             className={`room-view__art${framed ? " is-framed" : ""}`}
             style={{
@@ -85,12 +95,6 @@ export function RoomView({ imagePath, imageAlt, title, widthIn, heightIn, scenes
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imagePath} alt={imageAlt || title} className="room-view__art-img" draggable={false} />
-          </div>
-        )}
-
-        {tooWide && (
-          <div className="room-view__toobig" role="note">
-            This piece is larger than this wall. Try another room.
           </div>
         )}
       </div>

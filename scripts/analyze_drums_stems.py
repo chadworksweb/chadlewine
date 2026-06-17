@@ -243,6 +243,13 @@ def main() -> None:
     for dest, _key, label in STEM_KEYS:
         flag = "--" + dest.replace("_", "-")
         ap.add_argument(flag, default=None, help=f"Path to the isolated {label} stem (audio file)")
+    ap.add_argument(
+        "--synth", action="append", default=None, metavar="KEY=PATH",
+        help="Extra continuous synth-envelope channel, repeatable. e.g. "
+             "--synth chord=a044.wav --synth warp=l022.wav. RMS envelope only "
+             "(sustained/polyphonic synths). The game wires 'chord' -> harmonic "
+             "glow and 'warp' -> spatial warp.",
+    )
     args = ap.parse_args()
 
     requested = [(dest, key, label) for dest, key, label in STEM_KEYS if getattr(args, dest)]
@@ -300,6 +307,25 @@ def main() -> None:
         update["bass_synth_pitch"] = bs_pitch
         print(f"[envelope bass synth] {len(bs_env)} frames @ {bs_hz:.2f} Hz")
         print(f"[pitch    bass synth] {len(bs_pitch)} frames (normalized 0..1)")
+
+    # Extra continuous synth channels (chord, warp, ...). Envelope only - these
+    # are sustained / polyphonic synths, so an RMS follower fits (no onset
+    # detection, no monophonic pitch track). Written to songs.synth_envelopes.
+    if args.synth:
+        synth_env: dict = {}
+        for spec in args.synth:
+            if "=" not in spec:
+                print(f"--synth expects KEY=PATH, got {spec!r}", file=sys.stderr); sys.exit(1)
+            key, path = spec.split("=", 1)
+            key = key.strip()
+            sp = Path(path)
+            if not sp.exists():
+                print(f"Synth stem not found: {sp}", file=sys.stderr); sys.exit(1)
+            env, hz = compute_envelope(sp)
+            synth_env[key] = {"env": env, "hz": round(hz, 4)}
+            print(f"[envelope synth:{key}] {len(env)} frames @ {hz:.2f} Hz")
+        if synth_env:
+            update["synth_envelopes"] = synth_env
 
     sb.table("songs").update(update).eq("slug", args.slug).execute()
     print(f"  -> written to songs for slug={args.slug}")

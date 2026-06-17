@@ -17,6 +17,7 @@ export const runtime = "nodejs";
 interface InboundPayload {
   type?: string;
   data?: {
+    email_id?: string;
     from?: string | { address?: string; email?: string; name?: string | null };
     to?: string | string[] | Array<{ address?: string; email?: string }>;
     subject?: string;
@@ -25,6 +26,39 @@ interface InboundPayload {
     headers?: Record<string, unknown>;
     [k: string]: unknown;
   };
+}
+
+// The parsed content of a received email, fetched by id from the Receiving API.
+interface ReceivedEmail {
+  from?: string;
+  to?: string | string[];
+  subject?: string | null;
+  text?: string | null;
+  html?: string | null;
+  headers?: Record<string, unknown>;
+}
+
+// Resend's email.received webhook is METADATA ONLY -- it carries no body. The
+// actual text/html lives behind the Receiving API and must be fetched by id.
+// Requires RESEND_API_KEY to have received-email read access (a send-only key
+// returns 401). On any failure we return null so the caller falls back to the
+// (bodyless) webhook payload rather than dropping the message.
+async function fetchReceivedEmail(id: string): Promise<ReceivedEmail | null> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(`https://api.resend.com/emails/receiving/${id}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) {
+      console.error(`[inbound webhook] receiving fetch ${id} -> ${res.status}`);
+      return null;
+    }
+    return (await res.json()) as ReceivedEmail;
+  } catch (e) {
+    console.error("[inbound webhook] receiving fetch failed", e);
+    return null;
+  }
 }
 
 type FromField = string | { address?: string; email?: string; name?: string | null } | undefined;
@@ -127,29 +161,38 @@ export async function POST(request: Request) {
   }
 
   const data = event.data || {};
-  const { email, name } = parseFrom(data.from);
+
+  // The webhook is metadata-only; pull the actual body + parsed headers by id.
+  // Falls back to the webhook payload if the fetch is unavailable (e.g. a
+  // send-only key) so we still record the message, just without its body.
+  const emailId = typeof data.email_id === "string" ? data.email_id : null;
+  const content = emailId ? await fetchReceivedEmail(emailId) : null;
+
+  const { email, name } = parseFrom((content?.from ?? data.from) as FromField);
   if (!email) {
     // Nothing to attribute -- acknowledge so Resend doesn't retry forever.
     return Response.json({ ok: true, skipped: "no from address" });
   }
 
+  const text = content?.text ?? (typeof data.text === "string" ? data.text : null);
+  const html = content?.html ?? (typeof data.html === "string" ? data.html : null);
   const rawText =
-    (typeof data.text === "string" && data.text.trim())
-      ? data.text
-      : typeof data.html === "string"
-        ? htmlToText(data.html)
-        : "";
+    text && text.trim() ? text : html ? htmlToText(html) : "";
   const cleaned = stripQuotedReply(rawText);
+
+  const subject =
+    (content?.subject ?? (typeof data.subject === "string" ? data.subject : null)) || null;
+  const to = content?.to ?? data.to;
 
   try {
     await ingestInboundMessage({
       channel: "campaign_reply",
       from_email: email,
       from_name: name,
-      subject: typeof data.subject === "string" ? data.subject : null,
+      subject,
       body: cleaned,
-      raw: event as unknown as Record<string, unknown>,
-      source: firstTo(data.to) || "campaign_reply",
+      raw: { event, content } as unknown as Record<string, unknown>,
+      source: firstTo(to) || "campaign_reply",
     });
   } catch (e) {
     console.error("[inbound webhook] ingest failed", e);

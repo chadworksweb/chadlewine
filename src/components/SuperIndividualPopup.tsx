@@ -1,6 +1,19 @@
 import Link from "next/link";
 import { PopupCalendarSplit } from "@/components/PopupCalendarSplit";
 
+/**
+ * Master switch for the Super Individual Pop-Up event. ONE-CLICK REINSTATEMENT:
+ * flip this to `true` to bring the event back everywhere at once -- the
+ * /irl/super-individual-pop-up detail page, the /irl listing card, and the
+ * embedded teaser + schedule + floating "come see me" tag on /super-individual.
+ *
+ * When `false` (unpublished): the detail page returns 404, the /irl listing
+ * hides the card, and the teaser/schedule/floating tag do not render. NOTHING
+ * is deleted -- every layout, element, and copy block is preserved below and on
+ * the consuming pages, gated behind this flag. Set to `true` to relaunch.
+ */
+export const POPUP_EVENT_LIVE = false;
+
 // Event constants. When the page is cloned to a dedicated event detail
 // route, lift these into a shared module. Edit them in one place to keep
 // the JSON-LD schema, the human copy, and the calendar link in sync.
