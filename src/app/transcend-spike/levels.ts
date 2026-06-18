@@ -31,7 +31,8 @@ export type BeatEvent = {
   k?: number; // kick   -> pillar throb
   s?: number; // snare  -> rune / accent strobe
   h?: number; // hat
-  to?: number; // tom
+  to?: number; // tom -> cube position shake
+  cl?: number; // clap -> particle burst
   bp?: number; // bass pulse -> void brightness pump
   bs?: number; // bass synth -> grid breathe (discrete fallback)
 };
@@ -56,6 +57,8 @@ export type ReactiveData = {
 export type Pulse = {
   kick: number; // 0..1, decays fast
   snare: number; // 0..1, decays fast
+  tom: number; // 0..1, decays fast (cube/corridor position shake - full kit)
+  clap: number; // 0..1, decays fast (rising edge fires a particle burst)
   bass: number; // 0..1, continuous bass-synth envelope (grid breathe)
   bassPulse: number; // 0..1, decays slow (void brightness)
   charge: number; // 0..1, active level charge (ambient brightness floor)
@@ -118,6 +121,7 @@ export type LevelConfig = {
   shatterColor: string; // shard color when the blocker breaks
   completeSub?: string; // subline on the completion card (L5 prefers the player's own closing reflection)
   word?: WordChallenge; // present for "treadmill" / "facade" levels
+  comfortWord?: WordChallenge; // L1 post-shatter comfort wall (gauntlet stage B)
   collect?: CollectChallenge; // present for "collect" levels
   ride?: RideChallenge; // present for "ride" levels
   ego?: EgoChallenge; // present for "ego" levels
@@ -137,6 +141,15 @@ export const LEVELS: LevelConfig[] = [
       hint: "HINT: it is glass - say what you do to glass",
       idleLine: "YOU ARE NOT ADVANCING",
       openLine: "THE EXIT WAS ALWAYS THERE - FLY INTO THE LIGHT",
+    },
+    // Gauntlet stage B: the comfort wall past the slalom. You do not smash
+    // comfort - you leave it. A correct verb dissolves it (warm shards).
+    comfortWord: {
+      accept: ["leave", "walk", "quit", "go", "rise"],
+      prompt: "COMFORT SAYS STAY. TYPE WHAT YOU DO.",
+      hint: "you don't break comfort - you leave it",
+      idleLine: "COMFORT SAYS STAY",
+      openLine: "YOU DIDN'T FIGHT IT - YOU WALKED",
     },
   },
   {
@@ -297,11 +310,145 @@ export function buildPillars(levelId: number, periodic = false): Pillar[] {
   return out;
 }
 
-// AABB colliders derived from the pillar footprints. The fly controller
-// resolves the camera against these so you cannot pass through a pillar
-// (unless you fly over its top).
-export type Collider = { x: number; z: number; hw: number; top: number };
+// AABB colliders. The fly controller resolves the camera against these so you
+// cannot pass through (unless you fly over the top). Footprints are rectangular
+// (hwx in x, hwz in z) so the same model serves square pillars and the wide
+// barrier gates of the post-shatter gauntlet.
+export type Collider = { x: number; z: number; hwx: number; hwz: number; top: number };
 
 export function buildColliders(pillars: Pillar[]): Collider[] {
-  return pillars.map((p) => ({ x: p.x, z: p.z, hw: p.w * 0.5, top: FLOOR_Y + p.h }));
+  return pillars.map((p) => ({ x: p.x, z: p.z, hwx: p.w * 0.5, hwz: p.w * 0.5, top: FLOOR_Y + p.h }));
+}
+
+// ----- Post-shatter gauntlet (L1) ---------------------------------------
+// Once the glass shatters, the loop fights to pull you back. You weave through
+// vector barrier gates - each blocks one side of the aisle, themed as a daily
+// pull (alarm, commute, inbox, bills) - then hit the comfort wall. dz is the
+// offset beyond the shattered wall (more negative z = further along the escape).
+export type GateSide = "left" | "right";
+export type JourneyGate = { dz: number; block: GateSide; label: string };
+
+export const GATE_AISLE = 7; // a gate's blocked half reaches out to here in x
+export const GATE_TOP = FLOOR_Y + 30; // near-ceiling: you weave around, not over
+export const GATE_HWZ = 0.8; // gate thickness in z
+
+// L1 stretch 1: four pulls, alternating sides -> a slalom.
+export const L1_GAUNTLET: JourneyGate[] = [
+  { dz: -16, block: "right", label: "ALARM" },
+  { dz: -30, block: "left", label: "COMMUTE" },
+  { dz: -44, block: "right", label: "INBOX" },
+  { dz: -58, block: "left", label: "BILLS" },
+];
+// The comfort wall (second verb wall) sits just past the last pull. Unlike the
+// slalom gates you weave around, it spans the whole aisle floor-to-ceiling - the
+// only way past is to speak the verb. Stretch 2 + the finish run beyond it.
+export const L1_COMFORT_DZ = -74;
+
+// L1 stretch 2 lives in the side LEG - the ending run AFTER the turn. The workday
+// grinds on as a +x slalom: each gate blocks the near or far half of the leg's
+// depth, so you weave as you fly out to the exit. Hidden behind the comfort wall
+// until you break through and round the corner. Swap labels freely.
+export type LegGate = { dx: number; block: "near" | "far"; label: string };
+export const L1_LEG_GATES: LegGate[] = [
+  { dx: 11, block: "near", label: "MEETINGS" },
+  { dx: 24, block: "far", label: "DEADLINES" },
+  { dx: 37, block: "near", label: "OVERTIME" },
+  { dx: 50, block: "far", label: "TRAFFIC" },
+];
+
+// The escape corridor turns RIGHT immediately behind the comfort wall (the second
+// gate). The main corridor dead-ends just past it; the side leg is the ending run,
+// holding stretch 2 + the exit, all boxed by real walls (start cap behind spawn,
+// finish cap past the exit). These replace the invisible Field during L1's open phase.
+export const CORRIDOR_HW = 8; // main corridor half-width (walls sit at +/- this)
+export const ESCAPE_WALL_HW = 0.6; // wall slab thickness (half)
+export const ESCAPE_TOP = FLOOR_Y + 36; // taller than the ceiling - cannot fly over
+export const L1_START_Z = 22; // start cap, just behind spawn (z = 16)
+export const L1_TURN_DZ = -90; // turn cap, just past the comfort wall (-74)
+export const L1_LEG_W = 16; // leg depth in z; the leg's near wall lands at the comfort wall
+export const L1_LEG_LEN = 62; // how far the leg reaches in +x (room for stretch 2 + the exit)
+export const L1_EXIT_INSET = 6; // exit sits this far in from the leg's end cap
+export const LEG_GATE_BLOCK_Z = L1_LEG_W / 2; // a leg gate blocks this much of the leg depth
+
+// Comfort-wall footprint: full aisle width, taller than the Field ceiling
+// (FLOOR_Y + 34) so you cannot fly over it - you must dissolve it by speaking.
+export const COMFORT_HALF_W = WALL_WIDTH / 2; // spans the aisle, like the glass wall
+export const COMFORT_HWZ = 1.0;
+export const COMFORT_TOP = FLOOR_Y + 36;
+
+// Rectangular colliders for the gauntlet gates, placed relative to the shattered
+// wall's z. A "right" gate blocks x in [0, GATE_AISLE]; the gap is the left half.
+export function buildGateColliders(gates: JourneyGate[], wallZ: number): Collider[] {
+  return gates.map((g) => {
+    const hwx = GATE_AISLE / 2;
+    const cx = g.block === "right" ? hwx : -hwx;
+    return { x: cx, z: wallZ + g.dz, hwx, hwz: GATE_HWZ, top: GATE_TOP };
+  });
+}
+
+// The comfort wall's collider: a full-aisle, near-ceiling barrier at L1_COMFORT_DZ.
+// Joins the collider set during the escape run until the verb dissolves it.
+export function buildComfortCollider(wallZ: number): Collider {
+  return { x: 0, z: wallZ + L1_COMFORT_DZ, hwx: COMFORT_HALF_W, hwz: COMFORT_HWZ, top: COMFORT_TOP };
+}
+
+// ----- Escape-corridor walls (L1 open phase) ----------------------------
+// A wall segment is an axis-aligned vertical slab, thin along `axis` (its normal)
+// and spanning [from, to] along its tangent. axis "z" => a cross wall (spans x);
+// axis "x" => a side wall (spans z). The same list drives both the colliders and
+// the visible vector meshes, so they can never drift apart.
+export type WallSeg = { axis: "x" | "z"; c: number; from: number; to: number; top: number };
+
+// Build the boxed route relative to the shattered wall, split into the MAIN
+// corridor (always visible during the escape) and the LEG (the ending run, hidden
+// behind the comfort wall until you break through). The main corridor dead-ends at
+// the turn cap just past the comfort wall; the right wall stops short to open the
+// doorway into the leg; the leg is capped at its far end (behind the exit).
+export function buildEscapeWalls(wallZ: number): { main: WallSeg[]; leg: WallSeg[] } {
+  const turnZ = wallZ + L1_TURN_DZ; // dead-end of the main corridor
+  const legNearZ = turnZ + L1_LEG_W; // near side of the leg (the doorway's near edge)
+  const legEndX = CORRIDOR_HW + L1_LEG_LEN; // far end (finish cap) of the leg
+  const top = ESCAPE_TOP;
+  const main: WallSeg[] = [
+    { axis: "z", c: L1_START_Z, from: -CORRIDOR_HW, to: CORRIDOR_HW, top }, // start cap (behind spawn)
+    { axis: "x", c: -CORRIDOR_HW, from: turnZ, to: L1_START_Z, top }, // main left wall
+    { axis: "x", c: CORRIDOR_HW, from: legNearZ, to: L1_START_Z, top }, // main right wall (stops at the doorway)
+    { axis: "z", c: turnZ, from: -CORRIDOR_HW, to: CORRIDOR_HW, top }, // main corridor dead-end cap
+  ];
+  const leg: WallSeg[] = [
+    { axis: "z", c: turnZ, from: CORRIDOR_HW, to: legEndX, top }, // leg far wall (continues the cap)
+    { axis: "z", c: legNearZ, from: CORRIDOR_HW, to: legEndX, top }, // leg near wall
+    { axis: "x", c: legEndX, from: turnZ, to: legNearZ, top }, // finish cap (behind the exit)
+  ];
+  return { main, leg };
+}
+
+export function buildEscapeColliders(walls: WallSeg[]): Collider[] {
+  return walls.map((w) => {
+    const mid = (w.from + w.to) / 2;
+    const halfLen = Math.abs(w.to - w.from) / 2;
+    return w.axis === "z"
+      ? { x: mid, z: w.c, hwx: halfLen, hwz: ESCAPE_WALL_HW, top: w.top }
+      : { x: w.c, z: mid, hwx: ESCAPE_WALL_HW, hwz: halfLen, top: w.top };
+  });
+}
+
+// Colliders for the leg's stretch-2 slalom: each gate blocks the near or far half
+// of the leg's depth (thin in x, you fly +x past them), full height.
+export function buildLegGateColliders(wallZ: number): Collider[] {
+  const turnZ = wallZ + L1_TURN_DZ;
+  const legCz = turnZ + L1_LEG_W / 2; // the leg's centerline in z
+  const legNearZ = turnZ + L1_LEG_W;
+  return L1_LEG_GATES.map((g) => {
+    const x = CORRIDOR_HW + g.dx;
+    const z = g.block === "near" ? (legCz + legNearZ) / 2 : (turnZ + legCz) / 2;
+    return { x, z, hwx: GATE_HWZ, hwz: LEG_GATE_BLOCK_Z / 2, top: GATE_TOP };
+  });
+}
+
+// The exit portal sits at the far end of the side leg (centered in its depth),
+// inset from the end cap.
+export function l1ExitPos(wallZ: number): { x: number; z: number } {
+  const turnZ = wallZ + L1_TURN_DZ;
+  return { x: CORRIDOR_HW + L1_LEG_LEN - L1_EXIT_INSET, z: turnZ + L1_LEG_W / 2 };
 }

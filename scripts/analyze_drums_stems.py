@@ -45,6 +45,7 @@ KEY MAP (matches the jsonb schema):
   --snare       -> "s"     corner strobe
   --hat         -> "h"     rim brightness pulse
   --tom         -> "to"    cube position shake
+  --clap        -> "cl"    particle burst
   --bass-pulse  -> "bp"    uBass spike
   --bass-synth  -> "bs"    ambient palette shift
 """
@@ -67,6 +68,7 @@ STEM_KEYS: list[tuple[str, str, str]] = [
     ("snare",      "s",  "snare"),
     ("hat",        "h",  "hat"),
     ("tom",        "to", "tom"),
+    ("clap",       "cl", "clap"),
     ("bass_pulse", "bp", "bass pulse"),
     ("bass_synth", "bs", "bass synth"),
 ]
