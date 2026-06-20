@@ -14,6 +14,7 @@ const ADMIN_INBOX = process.env.ADMIN_NOTIFICATION_EMAIL || "portal@chadlewine.c
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://chadlewine.com";
 
 export type MemberTier =
+  | "pending"
   | "subscriber"
   | "subscriber+account"
   | "customer"
@@ -41,6 +42,7 @@ function escapeHtml(s: string | null | undefined): string {
 
 function tierLabel(tier: MemberTier): string {
   switch (tier) {
+    case "pending": return "Pending (unconfirmed)";
     case "subscriber": return "Subscriber";
     case "subscriber+account": return "Subscriber (account)";
     case "customer": return "Customer";
@@ -107,7 +109,8 @@ export async function notifyTierChange(
   // No admin notification when a member unsubscribes (per preference). Covers
   // the token-unsubscribe path and the bounce/complaint auto-unsubscribe.
   // Resubscribes and tier-ups still notify.
-  if (ctx.tier === "unsubscribed") return;
+  // Pending (unconfirmed) is a transient pre-opt-in state -- never notify on it.
+  if (ctx.tier === "unsubscribed" || ctx.tier === "pending") return;
   try {
     await sendEmail({
       to: ADMIN_INBOX,
@@ -130,6 +133,8 @@ export function deriveTier(opts: {
   lifetime_orders: number;
 }): MemberTier {
   if (opts.subscriber_status === "unsubscribed") return "unsubscribed";
+  // Unconfirmed double opt-in row -- not yet a real subscriber.
+  if (opts.subscriber_status === "pending") return "pending";
   if (opts.lifetime_orders >= 2) return "repeat-customer";
   if (opts.lifetime_orders >= 1) {
     return opts.user_id ? "customer+account" : "customer";

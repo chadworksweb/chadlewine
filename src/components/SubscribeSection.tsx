@@ -125,7 +125,9 @@ export function SubscribeSection() {
 
     if (res.ok) {
       setStatus("success");
-      setMessage("You're in.");
+      setMessage(
+        "Thank you. NOTE: To protect your privacy and prevent spam, I use a double opt-in email system. Please check your email to confirm you want to be on this list."
+      );
       setEmail("");
       // Footer subscribers should never get the engagement popup.
       try {
