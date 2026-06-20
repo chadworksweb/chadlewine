@@ -986,9 +986,18 @@ body.art-immersive main ~ * {
 }
 
 .subscribe-section__success {
-  font-family: var(--font-ui);
-  font-size: var(--text-body);
-  color: #16a34a;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--text-accent);
+  display: inline-block;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: var(--space-md) var(--space-lg);
+  line-height: 1.45;
+  border: 1px solid rgba(139, 156, 247, 0.45);
+  border-radius: 10px;
+  background: rgba(139, 156, 247, 0.08);
+  box-shadow: 0 0 28px rgba(139, 156, 247, 0.15);
 }
 
 .subscribe-section__error {

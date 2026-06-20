@@ -4,6 +4,7 @@ import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import { HomepageFeed } from "@/components/HomepageFeed";
 import { ExploreSongs } from "@/components/ExploreSongs";
+import { GalleryWall, type GalleryPiece } from "@/components/GalleryWall";
 import { SongBriefCard, type SongBriefData } from "@/components/SongBriefCard";
 import { MerchProductCard } from "@/components/MerchProductCard";
 import { fetchBadge } from "@/lib/rising-compass";
@@ -329,13 +330,38 @@ async function getExploreSongs(excludedIdsPromise: Promise<string[]>) {
   }));
 }
 
+/* Gallery-wall art for the homepage. Features pieces that carry a `dimensions`
+   value, so the wall hangs everything at true architectural scale. We pull a
+   RANDOM 30 (rotates each ISR regen) rather than the whole catalogue, so the
+   browser payload stays bounded and the client only scatters whatever fits.
+   Open this up (drop the dimensions filter) once more pieces are measured. */
+const GALLERY_WALL_POOL = 30;
+
+async function getGalleryArt(): Promise<GalleryPiece[]> {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("art_pieces")
+    .select("id, slug, title, image_path, dimensions, medium, year_created")
+    .in("status", ["unreleased", "published"])
+    .not("dimensions", "is", null);
+  const all = (data as GalleryPiece[] | null) || [];
+  // Fisher-Yates shuffle, then take the pool. (Server-side; fine at this scale.
+  // Move to a DB-level `order by random() limit` via RPC if the catalogue ever
+  // grows into the thousands.)
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all.slice(0, GALLERY_WALL_POOL);
+}
+
 export default async function HomePage() {
   // Compute the browse-excluded song ids ONCE and share the promise across both
   // consumers (getExploreSongs + getSongBriefs). Previously each recomputed it --
   // two redundant Supabase round trips on every render (and these pages render
   // live on every request, so it was paid every time, not just on regen).
   const excludedIdsPromise = getBrowseExcludedSongIds(createPublicClient());
-  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems] = await Promise.all([
+  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, galleryArt] = await Promise.all([
     getHomepageSongs(),
     getFeaturedTrack(),
     getCLStreamSongs(),
@@ -343,6 +369,7 @@ export default async function HomePage() {
     getSongBriefs(excludedIdsPromise),
     getHomepageMerch(),
     getCuratedHeroItems(),
+    getGalleryArt(),
   ]);
 
   const featuredPlaybackMode = featuredTrack
@@ -384,6 +411,8 @@ export default async function HomePage() {
       )}
 
       <ExploreSongs songs={exploreSongs} />
+
+      {galleryArt.length > 0 && <GalleryWall pieces={galleryArt} />}
 
       {songBriefs.length > 0 && (
         <section className="song-brief-feed">

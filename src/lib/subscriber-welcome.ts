@@ -33,10 +33,17 @@ export async function sendSubscriberWelcome(opts: {
     const unsubscribeUrl = row?.unsubscribe_token
       ? `${siteUrl}/unsubscribe?token=${encodeURIComponent(row.unsubscribe_token)}`
       : "";
+    // Reuses the same token as unsubscribe; the /preferences page resolves it to
+    // the audience row. Without this the footer's "Manage preferences" link stays
+    // hidden (hidden_if_unset_var), and the welcome copy promises that link.
+    const preferencesUrl = row?.unsubscribe_token
+      ? `${siteUrl}/preferences?token=${encodeURIComponent(row.unsubscribe_token)}`
+      : "";
 
     const rendered = await renderTemplateBySlug(WELCOME_SLUG, {
       first_name: row?.first_name ?? null,
       unsubscribe_url: unsubscribeUrl,
+      preferences_url: preferencesUrl,
     });
     if (!rendered) {
       console.error(`[subscriber-welcome] template "${WELCOME_SLUG}" not found`);
@@ -47,6 +54,11 @@ export async function sendSubscriberWelcome(opts: {
       to: opts.email,
       subject: rendered.subject,
       html: rendered.html,
+      // Route replies to the same front-desk receiving address campaigns use,
+      // so a subscriber's "hello" flows through ingest -> triage -> ping/queue
+      // instead of falling to the From mailbox. Also the strongest signal that
+      // trains the recipient's inbox to file us as a real correspondent.
+      replyTo: process.env.EMAIL_REPLY_TO || undefined,
     });
     if (!ok) {
       console.error("[subscriber-welcome] sendEmail returned false for", opts.email);

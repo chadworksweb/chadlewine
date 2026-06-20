@@ -6,6 +6,7 @@ import {
   type MemberTier,
 } from "@/lib/audience-notify";
 import { sendSubscriberWelcome } from "@/lib/subscriber-welcome";
+import { sendSubscriberConfirm } from "@/lib/subscriber-confirm";
 import {
   OPTIONAL_CATEGORIES,
   categoryColumn,
@@ -81,11 +82,14 @@ export async function findAudienceByUserId(
   return data ?? null;
 }
 
-/* Public subscribe form → upsert audience. Idempotent. */
+/* Public subscribe form → upsert audience. Idempotent. Returns the audience id
+   plus the resolved subscriber_status so the caller's legacy `subscribers`
+   mirror reflects reality (e.g. an already-active subscriber re-submitting must
+   NOT be downgraded to 'pending'). */
 export async function upsertAudienceFromSubscribe(opts: {
   email: string;
   source_page?: string | null;
-}): Promise<string> {
+}): Promise<{ audienceId: string; status: string }> {
   const supabase = createAdminClient();
   const email = normalizeEmail(opts.email);
 
@@ -98,35 +102,48 @@ export async function upsertAudienceFromSubscribe(opts: {
   let audienceId: string;
   const now = new Date().toISOString();
   const isNew = !existing;
-  // Send the welcome email only when this is a genuine new opt-in: a brand-new
-  // contact, or an existing contact who had never subscribed (e.g. a customer
-  // who opted out of marketing at checkout, status 'never', now subscribing).
-  // An already-active subscriber re-submitting, or an explicitly unsubscribed
-  // row (which we don't auto-resubscribe), does NOT re-trigger it.
-  const becameSubscriber = isNew || existing?.subscriber_status === "never";
+  // Double opt-in: a genuine new opt-in goes to 'pending' and gets a confirm
+  // email -- NOT the welcome, and NOT the admin new-member ping. Both of those
+  // fire later in confirmSubscriptionByToken() once they click the link.
+  //   - brand-new contact            -> insert pending, send confirm
+  //   - existing 'never'             -> move to pending, send confirm
+  //   - existing 'pending' resubmit  -> stays pending, resend confirm
+  //   - existing 'active'            -> already confirmed, do nothing
+  //   - existing 'unsubscribed'      -> don't auto-resubscribe; leave as-is
+  const needsConfirm =
+    isNew ||
+    existing?.subscriber_status === "never" ||
+    existing?.subscriber_status === "pending";
+
+  // The status the row ends up in -- returned so the legacy mirror matches.
+  let resultStatus: string;
 
   if (existing) {
     audienceId = existing.id;
-    if (existing.subscriber_status !== "unsubscribed") {
-      // Don't auto-resubscribe a row that explicitly opted out — they
-      // can come back via /account/preferences or the resubscribe link.
+    if (existing.subscriber_status === "never") {
+      // First opt-in for a contact that already existed (e.g. a customer who
+      // declined marketing at checkout). Move to pending; the opt-in only
+      // completes (marketing_opt_in_at) when they confirm.
       await supabase
         .from("audience")
         .update({
-          subscriber_status: "active",
-          marketing_opt_in_at: now,
+          subscriber_status: "pending",
           marketing_opt_in_source: "subscribe",
           updated_at: now,
         })
         .eq("id", audienceId);
+      resultStatus = "pending";
+    } else {
+      // 'active' and 'unsubscribed' are intentionally left untouched. 'pending'
+      // stays pending; we simply resend the confirm email below.
+      resultStatus = existing.subscriber_status;
     }
   } else {
     const { data: inserted, error } = await supabase
       .from("audience")
       .insert({
         email,
-        subscriber_status: "active",
-        marketing_opt_in_at: now,
+        subscriber_status: "pending",
         marketing_opt_in_source: "subscribe",
       })
       .select("id")
@@ -135,6 +152,7 @@ export async function upsertAudienceFromSubscribe(opts: {
       throw new Error(`audience upsert failed: ${error?.message}`);
     }
     audienceId = inserted.id;
+    resultStatus = "pending";
   }
 
   await emitEvent(supabase, audienceId, "subscribed", {
@@ -142,20 +160,59 @@ export async function upsertAudienceFromSubscribe(opts: {
   });
   await refreshTags(supabase, audienceId);
 
-  // Notify admin — new member only (existing subscribers don't re-trigger).
-  if (isNew) {
-    void notifyNewMember({
-      audience_id: audienceId,
-      email,
-      tier: "subscriber",
-      source: opts.source_page ? `subscribe — ${opts.source_page}` : "subscribe",
-    });
+  // Confirm email (welcome + admin ping wait for the click).
+  if (needsConfirm) {
+    void sendSubscriberConfirm({ audienceId, email });
   }
-  // Thank the subscriber with the editable welcome-01 template.
-  if (becameSubscriber) {
-    void sendSubscriberWelcome({ audienceId, email });
-  }
-  return audienceId;
+  return { audienceId, status: resultStatus };
+}
+
+/* Double opt-in confirmation. The /confirm button POSTs here with the token
+   (which resolves against audience.unsubscribe_token). Flips a 'pending' (or
+   legacy 'never') row to 'active', completes the opt-in, then fires the welcome
+   email and the admin new-member ping -- i.e. the things we held back at
+   subscribe time. Idempotent: a second click on an already-active row is a
+   no-op. An unsubscribed row is NOT silently reactivated by a stale link. */
+export async function confirmSubscriptionByToken(
+  token: string
+): Promise<"confirmed" | "already" | "unsubscribed" | "not-found"> {
+  const supabase = createAdminClient();
+  const { data: existing } = await supabase
+    .from("audience")
+    .select("id, email, subscriber_status")
+    .eq("unsubscribe_token", token)
+    .maybeSingle();
+  if (!existing) return "not-found";
+  if (existing.subscriber_status === "active") return "already";
+  if (existing.subscriber_status === "unsubscribed") return "unsubscribed";
+
+  const now = new Date().toISOString();
+  await supabase
+    .from("audience")
+    .update({
+      subscriber_status: "active",
+      marketing_opt_in_at: now,
+      updated_at: now,
+    })
+    .eq("id", existing.id);
+  // Mirror to legacy subscribers row(s).
+  await supabase
+    .from("subscribers")
+    .update({ status: "active", unsubscribed_at: null })
+    .eq("audience_id", existing.id);
+  await emitEvent(supabase, existing.id, "confirmed", { via: "token" });
+  await refreshTags(supabase, existing.id);
+
+  // Now the held-back actions: thank them, and ping the admin -- this is the
+  // real "new confirmed subscriber" event worth an interruption.
+  void sendSubscriberWelcome({ audienceId: existing.id, email: existing.email });
+  void notifyNewMember({
+    audience_id: existing.id,
+    email: existing.email,
+    tier: "subscriber",
+    source: "subscribe (confirmed)",
+  });
+  return "confirmed";
 }
 
 /* Stripe webhook → upsert audience on purchase. */

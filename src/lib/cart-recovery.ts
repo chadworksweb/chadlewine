@@ -147,7 +147,14 @@ export async function runCartRecovery(
       .eq("email", email)
       .maybeSingle();
 
-    if (aud && (aud.subscriber_status === "unsubscribed" || aud.unsubscribed_at)) {
+    // Skip unsubscribed AND pending (double opt-in: an unconfirmed contact
+    // gets no marketing mail until they click the confirm link).
+    if (
+      aud &&
+      (aud.subscriber_status === "unsubscribed" ||
+        aud.subscriber_status === "pending" ||
+        aud.unsubscribed_at)
+    ) {
       skipped++;
       continue;
     }
