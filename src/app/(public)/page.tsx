@@ -6,6 +6,8 @@ import { HomepageFeed } from "@/components/HomepageFeed";
 import { ExploreSongs } from "@/components/ExploreSongs";
 import { GalleryWall, type GalleryPiece } from "@/components/GalleryWall";
 import { SongBriefCard, type SongBriefData } from "@/components/SongBriefCard";
+import { FeedEntry } from "@/components/FeedEntry";
+import { CelestialOrbit } from "@/components/CelestialOrbit";
 import { MerchProductCard } from "@/components/MerchProductCard";
 import { fetchBadge } from "@/lib/rising-compass";
 import { getCuratedHeroItems } from "@/lib/homepage-hero";
@@ -245,6 +247,52 @@ async function getSongBriefs(excludedIdsPromise: Promise<string[]>): Promise<Son
   });
 }
 
+// Pull the opening sentence out of a post's HTML body for use as a feed lede.
+function firstSentence(html: string | null): string {
+  if (!html) return "";
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
+    .replace(/&rsquo;|&lsquo;/g, "'")
+    .replace(/&ldquo;|&rdquo;/g, '"')
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+([.!?,;:])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text) return "";
+  const match = text.match(/^.*?[.!?](?=\s|$)/);
+  return (match ? match[0] : text).trim();
+}
+
+// Combined "Latest Posts" feed: observations + journal entries interleaved by
+// date, each tagged with its kind so the card can show a chip + link to the
+// right section.
+async function getLatestPosts() {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("posts")
+    .select("id, title, slug, kind, date_captured, art_image_path, art_alt, hook_line, body")
+    .eq("status", "published")
+    .in("kind", ["observation", "journal"])
+    .order("date_captured", { ascending: false })
+    .limit(12);
+  return ((data || []) as Array<{
+    id: string;
+    title: string;
+    slug: string;
+    kind: "observation" | "journal";
+    date_captured: string | null;
+    art_image_path: string | null;
+    art_alt: string | null;
+    hook_line: string | null;
+    body: string | null;
+  }>).map((p) => ({ ...p, lede: firstSentence(p.body) }));
+}
+
 async function getHomepageMerch() {
   const supabase = createPublicClient();
   const { data } = await supabase
@@ -361,7 +409,7 @@ export default async function HomePage() {
   // two redundant Supabase round trips on every render (and these pages render
   // live on every request, so it was paid every time, not just on regen).
   const excludedIdsPromise = getBrowseExcludedSongIds(createPublicClient());
-  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, galleryArt] = await Promise.all([
+  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, galleryArt, latestPosts] = await Promise.all([
     getHomepageSongs(),
     getFeaturedTrack(),
     getCLStreamSongs(),
@@ -370,6 +418,7 @@ export default async function HomePage() {
     getHomepageMerch(),
     getCuratedHeroItems(),
     getGalleryArt(),
+    getLatestPosts(),
   ]);
 
   const featuredPlaybackMode = featuredTrack
@@ -429,6 +478,41 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+      )}
+
+      {latestPosts.length > 0 && (
+        <div className="home-split home-split--posts">
+          <section className="home-split__observations">
+            <h2 className="home-split__section-heading">Latest Posts</h2>
+            <div className="archive__feed">
+              {latestPosts.map((p) => {
+                const isJournal = p.kind === "journal";
+                const basePath = isJournal ? "/writings/journal" : "/writings/observations";
+                return (
+                  <div key={p.id} className="archive__feed-item">
+                    <FeedEntry
+                      title={p.title}
+                      slug={p.slug}
+                      dateCaptured={p.date_captured || undefined}
+                      chipLabel={isJournal ? "Journal" : "Observation"}
+                      chipTone={p.kind}
+                      lede={p.lede}
+                      artImageUrl={p.art_image_path || ""}
+                      artAlt={p.art_alt || p.title}
+                      href={`${basePath}/${p.slug}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="home-posts__orbit" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="home-posts__starfield" src="/celestial/dust-field.svg" alt="" />
+            <CelestialOrbit idPrefix="home-posts" />
+          </div>
+        </div>
       )}
 
     </div>

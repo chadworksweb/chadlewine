@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -100 480 600" fill="none">
+  <defs>
+    <filter id="df-blur"><feGaussianBlur stdDeviation="1"/></filter>
+  </defs>
+  <circle cx="50" cy="80" r="2" fill="#00d4aa" opacity="0.6"/>
+  <circle cx="120" cy="45" r="1.5" fill="#00d4aa" opacity="0.4"/>
+  <circle cx="200" cy="70" r="2.5" fill="#00d4aa" opacity="0.7"/>
+  <circle cx="280" cy="55" r="1" fill="#00d4aa" opacity="0.5"/>
+  <circle cx="350" cy="90" r="2" fill="#00d4aa" opacity="0.6"/>
+  <circle cx="80" cy="150" r="1" fill="#00d4aa" opacity="0.5"/>
+  <circle cx="160" cy="130" r="2" fill="#00d4aa" opacity="0.6" filter="url(#df-blur)"/>
+  <circle cx="240" cy="160" r="1.5" fill="#00d4aa" opacity="0.4"/>
+  <circle cx="320" cy="140" r="2" fill="#00d4aa" opacity="0.7"/>
+  <circle cx="60" cy="220" r="1.5" fill="#00d4aa" opacity="0.5"/>
+  <circle cx="140" cy="250" r="2" fill="#00d4aa" opacity="0.6"/>
+  <circle cx="200" cy="200" r="3" fill="#00d4aa" opacity="0.8" filter="url(#df-blur)"/>
+  <circle cx="260" cy="230" r="1" fill="#00d4aa" opacity="0.4"/>
+  <circle cx="340" cy="210" r="2" fill="#00d4aa" opacity="0.6"/>
+  <circle cx="90" cy="300" r="2" fill="#00d4aa" opacity="0.5"/>
+  <circle cx="180" cy="320" r="1.5" fill="#00d4aa" opacity="0.6"/>
+  <circle cx="250" cy="290" r="2" fill="#00d4aa" opacity="0.7" filter="url(#df-blur)"/>
+  <circle cx="320" cy="330" r="1" fill="#00d4aa" opacity="0.4"/>
+  <circle cx="50" cy="360" r="1.5" fill="#00d4aa" opacity="0.5"/>
+  <circle cx="150" cy="380" r="2" fill="#00d4aa" opacity="0.6"/>
+  <circle cx="280" cy="370" r="1.5" fill="#00d4aa" opacity="0.5"/>
+  <circle cx="380" cy="350" r="2" fill="#00d4aa" opacity="0.7"/>
+</svg>
