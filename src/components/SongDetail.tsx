@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MiniPlayer } from "@/components/MiniPlayer";
+import { FrutigerMiniPlayer } from "@/components/FrutigerMiniPlayer";
 import { CubeVisualizer } from "@/components/CubeVisualizer";
 import { CompassIcon } from "@/components/RisingCompassMark";
 import { useCart } from "@/components/Cart";
@@ -13,6 +14,11 @@ import { focalCropStyle } from "@/lib/focal-crop";
 import { ExploreGrid } from "@/components/ExploreGrid";
 import { FitText } from "@/components/FitText";
 import { creditRoleLabel } from "@/lib/song-credits";
+
+const DEMO_FORMAT_LABEL: Record<string, string> = {
+  diy_production: "DIY Production",
+  acapella_sketch: "Acapella Sketch",
+};
 
 interface SongProps {
   id: string;
@@ -62,6 +68,14 @@ interface SongProps {
    *  song's own MIDI range. Same sample rate + length as envelope.
    *  Drives ambient/glow hue rotation per note. */
   bass_synth_pitch?: number[] | null;
+  /** Visibility status (published/unreleased). The demo box surfaces only on
+   *  released songs. */
+  status?: string | null;
+  /** Demo recording subtype, preserved from the song's demo state. */
+  demo_format?: string | null;
+  /** The demo recording itself — separate from the released streaming_path. */
+  demo_streaming_path?: string | null;
+  demo_duration_seconds?: number | null;
 }
 
 type BeatDataEvent = {
@@ -290,6 +304,11 @@ export function SongDetail({
 
         {/* Right column — Content */}
         <div className="track-detail__content-col">
+          {song.demo_format && DEMO_FORMAT_LABEL[song.demo_format] && (
+            <span className={`track-detail__demo-chip track-detail__demo-chip--${song.demo_format}`}>
+              {DEMO_FORMAT_LABEL[song.demo_format]}
+            </span>
+          )}
           <h1 className="track-detail__title">{song.title}</h1>
 
           {/* Info bar */}
@@ -483,6 +502,30 @@ export function SongDetail({
               </div>
             </div>
           )}
+
+          {/* Demo version — surfaced below the summary on released songs that
+              kept their original demo recording. */}
+          {song.demo_streaming_path &&
+            (song.status === "published" || song.status === "unreleased") && (
+              <div className="track-detail__demo-box">
+                <div className="track-detail__demo-box-head">
+                  <span className="track-detail__demo-box-label">Demo Version</span>
+                  {song.demo_format && DEMO_FORMAT_LABEL[song.demo_format] && (
+                    <span className={`track-detail__demo-chip track-detail__demo-chip--${song.demo_format}`}>
+                      {DEMO_FORMAT_LABEL[song.demo_format]}
+                    </span>
+                  )}
+                </div>
+                <FrutigerMiniPlayer
+                  songTitle={song.title}
+                  songSlug={song.slug}
+                  streamingUrl={song.demo_streaming_path}
+                  durationSeconds={song.demo_duration_seconds ?? 0}
+                  artUrl={coverArtPath}
+                  artAlt={coverArtAlt}
+                />
+              </div>
+            )}
 
           {/* Credits */}
           {credits.length > 0 && (

@@ -41,6 +41,10 @@ interface SongData {
   instrumental: boolean;
   status: string;
   demo_type: string;
+  demo_format: string;
+  demo_streaming_path: string | null;
+  demo_duration_seconds: number | null;
+  song_state: string | null;
   release_date: string | null;
   song_summary: string | null;
   chorus: string | null;
@@ -76,6 +80,25 @@ interface TopicOption {
   slug: string;
 }
 
+interface StateHistoryRow {
+  id?: string;
+  prev_state: string | null;
+  new_state: string | null;
+  source?: string;
+  note?: string | null;
+  changed_at?: string | null;
+}
+
+const SONG_STATE_OPTIONS: { value: string; label: string }[] = [
+  { value: "demo", label: "Demo" },
+  { value: "released", label: "Released" },
+  { value: "unreleased", label: "Unreleased" },
+  { value: "reissued", label: "Reissued" },
+  { value: "in-progress", label: "In progress" },
+  { value: "lost", label: "Lost" },
+  { value: "shelved", label: "Shelved" },
+];
+
 const emptySong: SongData = {
   release_id: "",
   title: "",
@@ -90,6 +113,10 @@ const emptySong: SongData = {
   instrumental: false,
   status: "draft",
   demo_type: "vote",
+  demo_format: "",
+  demo_streaming_path: null,
+  demo_duration_seconds: null,
+  song_state: null,
   release_date: null,
   song_summary: null,
   chorus: null,
@@ -301,6 +328,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       ...initial,
       release_id: initial.release_id || "",
       demo_type: initial.demo_type || "vote",
+      demo_format: initial.demo_format || "",
       focus_keyphrase: initial.focus_keyphrase || "",
       secondary_keyphrases: initial.secondary_keyphrases || [],
       search_intent: initial.search_intent || "informational",
@@ -314,6 +342,9 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
   });
   const [albums, setAlbums] = useState<AlbumOption[]>([]);
   const [allTopics, setAllTopics] = useState<TopicOption[]>([]);
+  const [stateHistory, setStateHistory] = useState<StateHistoryRow[]>(
+    () => ((initial as unknown as { state_history?: StateHistoryRow[] })?.state_history) || []
+  );
   const [expansions, setExpansions] = useState<ExpansionSummary[]>([]);
   const [linkedDoors, setLinkedDoors] = useState<
     { id: string; title: string; slug: string; status: string }[]
@@ -361,6 +392,21 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     }
   }
 
+  // Catalog-state change: update the field and optimistically prepend the
+  // transition to the displayed history. The server writes the authoritative
+  // row on save (source 'admin'); a reload reconciles to the persisted log.
+  function handleStateChange(value: string) {
+    const next = value || null;
+    const prev = form.song_state ?? null;
+    if (next !== prev) {
+      setStateHistory((h) => [
+        { prev_state: prev, new_state: next, source: "admin", changed_at: new Date().toISOString() },
+        ...h,
+      ]);
+    }
+    set("song_state", next);
+  }
+
   const buildPayload = useCallback(
     (d: SongData) => ({
       release_id: d.release_id,
@@ -376,6 +422,11 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       instrumental: d.instrumental,
       status: d.status,
       demo_type: d.demo_type,
+      // Empty -> null so the demo_format CHECK constraint isn't violated.
+      demo_format: d.demo_format || null,
+      demo_streaming_path: d.demo_streaming_path,
+      demo_duration_seconds: d.demo_duration_seconds,
+      song_state: d.song_state,
       release_date: d.release_date,
       song_summary: d.song_summary,
       chorus: d.chorus,
@@ -714,7 +765,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
 
             {form.status === "demo" && (
               <div className="obsv-editor__field">
-                <label className="obsv-editor__label" htmlFor="demo_type">Demo Type</label>
+                <label className="obsv-editor__label" htmlFor="demo_type">Demo Pathway</label>
                 <select
                   id="demo_type"
                   className="obsv-editor__input"
@@ -731,6 +782,49 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
           {form.status === "demo" && form.demo_type === "sponsor" && (
             <SponsorshipPanel songId={form.id} songTitle={form.title} />
           )}
+
+          {/* Catalog State — the song's single current state, plus the history
+              of every transition (logged on save, source 'admin'). */}
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">Catalog State</h3>
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="song_state">Current State</label>
+              <select
+                id="song_state"
+                className="obsv-editor__input"
+                value={form.song_state ?? ""}
+                onChange={(e) => handleStateChange(e.target.value)}
+              >
+                <option value="">Unset</option>
+                {SONG_STATE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {stateHistory.length > 0 && (
+              <ol style={{ listStyle: "none", margin: "var(--space-xs) 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                {stateHistory.map((h, i) => (
+                  <li
+                    key={h.id ?? `opt-${i}`}
+                    style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", fontFamily: "var(--font-mono)", fontSize: "0.7rem", color: "var(--text-tertiary)" }}
+                  >
+                    <span style={{ color: "var(--text-secondary)" }}>
+                      {(h.prev_state ?? "created")} &rarr; {h.new_state ?? "unset"}
+                    </span>
+                    {h.changed_at && (
+                      <span style={{ marginLeft: "auto" }}>
+                        {new Date(h.changed_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                    {h.source && h.source !== "admin" && (
+                      <span style={{ opacity: 0.7 }}>({h.source})</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
 
           {/* Content Freshness */}
           {form.updated_at && (() => {
@@ -882,6 +976,58 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
                 onChange={(e) => set("streaming_path", e.target.value || null)}
                 placeholder="https://cdn.bunny.net/..."
               />
+            </div>
+          </div>
+
+          {/* Demo Version — the song's demo recording + its type. Persists
+              across states (a released song keeps its demo so it can surface
+              below the public summary). Editable regardless of status. */}
+          <div className="obsv-editor__panel">
+            <h3 className="obsv-editor__panel-title">Demo Version</h3>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="demo_format">Demo Type</label>
+              <select
+                id="demo_format"
+                className="obsv-editor__input"
+                value={form.demo_format}
+                onChange={(e) => set("demo_format", e.target.value)}
+              >
+                <option value="">Unspecified</option>
+                <option value="diy_production">DIY production</option>
+                <option value="acapella_sketch">Acapella sketch</option>
+              </select>
+            </div>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="demo_streaming_path">Demo File Path</label>
+              <input
+                id="demo_streaming_path"
+                className="obsv-editor__input obsv-editor__input--mono"
+                type="text"
+                value={form.demo_streaming_path || ""}
+                onChange={(e) => set("demo_streaming_path", e.target.value || null)}
+                placeholder="https://cdn.bunny.net/..."
+              />
+            </div>
+
+            <div className="obsv-editor__field">
+              <label className="obsv-editor__label" htmlFor="demo_duration_seconds">Demo Duration (seconds)</label>
+              <div style={{ display: "flex", gap: "var(--space-xs)", alignItems: "center" }}>
+                <input
+                  id="demo_duration_seconds"
+                  className="obsv-editor__input"
+                  type="number"
+                  min={0}
+                  value={form.demo_duration_seconds ?? ""}
+                  onChange={(e) => set("demo_duration_seconds", e.target.value ? parseInt(e.target.value) : null)}
+                  style={{ flex: 1 }}
+                />
+                <FindDurationButton
+                  streamingPath={form.demo_streaming_path}
+                  onDetected={(d) => set("demo_duration_seconds", d)}
+                />
+              </div>
             </div>
           </div>
 
