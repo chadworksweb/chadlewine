@@ -11546,6 +11546,145 @@ html {
   transform: translateY(-2px);
 }
 
+/* --- Latest Posts (reuses the .home-split sticky layout) --- */
+
+.home-split--posts {
+  position: relative;
+  padding-top: var(--space-2xl);
+}
+
+/* Feed sits above the free-floating orbit so it overlaps it. Both are pinned
+   to grid row 1 so they share the row and overlap (otherwise the row-spanning
+   orbit would push the feed down to row 2). */
+.home-split--posts .home-split__observations {
+  position: relative;
+  z-index: 1;
+  grid-row: 1;
+  grid-column: 1 / 2;
+}
+
+/* Post titles run 20% smaller than the shared feed-entry title. */
+.home-split--posts .feed-entry__title {
+  font-size: calc(var(--text-xl) * 0.8);
+}
+
+/* Opening-sentence lede under the post title. */
+.feed-entry__lede {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* See-through fix: when the nav auto-hides, the sticky heading pins at
+   --nav-height and the strip above it would otherwise show feed content
+   scrolling behind. This opaque pseudo-element masks that gap. The Latest
+   Songs feed sidesteps it by keeping the nav pinned (data-nav-keep-until). */
+.home-split--posts .home-split__observations .home-split__section-heading::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-1 * var(--nav-height));
+  height: var(--nav-height);
+  background: var(--bg-primary, #000);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Kind chip on a post feed card (Observation / Journal). Square corners. */
+.feed-entry__chip {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-accent, #8b9cf7);
+  border: 1px solid var(--text-accent, #8b9cf7);
+  border-radius: 0;
+  padding: 1px 7px;
+  line-height: 1.35;
+  opacity: 0.72;
+}
+
+/* Per-kind chip colors. */
+.feed-entry__chip--observation {
+  color: #8b9cf7;
+  border-color: #8b9cf7;
+}
+
+.feed-entry__chip--journal {
+  color: #c084fc;
+  border-color: #c084fc;
+}
+
+/* Free-floating orbit: spans the whole grid row (so it isn't boxed into the
+   narrow right column) and is pulled right via margin so its center lands in
+   the red-box region, overlapping the feed's right edge. Sticky so it stays
+   pinned while the tall feed scrolls past; behind the feed (z-index 0). */
+.home-posts__orbit {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  justify-self: start;
+  align-self: start;
+  position: sticky;
+  top: var(--nav-height);
+  margin-left: 33%;
+  width: min(60vw, 748px);
+  transform: translate(20%, -15%);
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.home-posts__orbit .obsv-celestial {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+
+/* Starfield (AES celestial composer dust-field) scattered behind the orbit,
+   spread wider than the planet and kept dim so it reads as ambient depth. */
+.home-posts__starfield {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  height: auto;
+  transform: translate(-50%, -50%);
+  opacity: 0.35;
+  z-index: -1;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-posts__orbit .obsv-celestial__ring {
+    animation: none;
+  }
+}
+
+/* Mobile: the right column collapses, so the orbit + starfield drop straight
+   behind the single-column feed (centered, dimmer) and scroll past behind it. */
+@media (max-width: 768px) {
+  .home-posts__orbit {
+    margin-left: 0;
+    justify-self: center;
+    transform: translateY(-8%);
+    width: min(82vw, 360px);
+    opacity: 0.5;
+  }
+
+  /* More breathing room between posts on mobile (posts feed only). */
+  .home-split--posts .archive__feed-item + .archive__feed-item {
+    margin-top: var(--space-xl);
+  }
+}
+
 /* --- Format picker + buy button pairing --- */
 .format-buy {
   display: flex;
@@ -11611,7 +11750,7 @@ html {
 }
 
 .patronage__inner {
-  max-width: 1080px;
+  max-width: var(--site-width);
   margin: 0 auto;
   text-align: left;
   position: relative;
@@ -11653,7 +11792,6 @@ html {
   flex-direction: column;
   gap: var(--space-sm);
   text-align: left;
-  max-width: 46ch;
   margin: 0;
 }
 .patronage__copy p {

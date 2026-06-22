@@ -17,8 +17,11 @@ interface FeedEntryProps {
   title: string;
   slug: string;
   dateCaptured?: string;
+  chipLabel?: string; // small kind tag shown above the title (e.g. "Observation")
+  chipTone?: string; // modifier suffix -> .feed-entry__chip--{tone} for per-kind color
   songSummary?: string;
   hookLine?: string;
+  lede?: string; // opening sentence of the post body
   artImageUrl?: string;
   artAlt?: string;
   href?: string;
@@ -31,8 +34,11 @@ export function FeedEntry({
   title,
   slug,
   dateCaptured,
+  chipLabel,
+  chipTone,
   songSummary,
   hookLine,
+  lede,
   artImageUrl,
   artAlt,
   href,
@@ -60,17 +66,30 @@ export function FeedEntry({
       </div>
 
       <div className="feed-entry__content">
-        {dateCaptured && (
+        {(chipLabel || dateCaptured) && (
           <div className="feed-entry__meta">
-            <time className="feed-entry__date">
-              {formatDate(dateCaptured)}
-            </time>
+            {dateCaptured && (
+              <time className="feed-entry__date">
+                {formatDate(dateCaptured)}
+              </time>
+            )}
+            {chipLabel && (
+              <span className={`feed-entry__chip${chipTone ? ` feed-entry__chip--${chipTone}` : ""}`}>
+                {chipLabel}
+              </span>
+            )}
           </div>
         )}
 
         <h2 className="feed-entry__title">
           {title}
         </h2>
+
+        {lede && (
+          <p className="feed-entry__lede">
+            {lede}
+          </p>
+        )}
 
         {songSummary && (
           <p className="feed-entry__song-summary">

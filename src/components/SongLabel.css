@@ -1,0 +1,148 @@
+/* Psyche Facts — clinical "Drug Facts" panel.
+   Monospace, hairline rules, hard top/active borders. A discrete artifact
+   (capped width is intentional and allowed for a label card, not a page
+   wrapper). Reads as the back of an OTC box, skinned to the dark site. */
+
+.song-label {
+  --song-label-warn: #e8b04b;
+  max-width: 34rem;
+  border: 1px solid var(--text-primary);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.song-label__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 3px solid var(--text-primary);
+}
+
+.song-label__kicker {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+
+.song-label__track {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.song-label__active {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 6px solid var(--text-primary);
+}
+
+.song-label__active-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.song-label__k {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.song-label__v {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  text-align: right;
+}
+
+.song-label__charge-sum {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.song-label__field {
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--border-medium);
+}
+
+.song-label__field:last-child {
+  border-bottom: 0;
+}
+
+.song-label__label {
+  display: block;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--text-xs);
+  margin-bottom: 0.3rem;
+}
+
+.song-label__sub {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+}
+
+.song-label__body {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+.song-label__p {
+  margin: 0 0 0.5rem;
+}
+
+.song-label__p:last-child {
+  margin-bottom: 0;
+}
+
+.song-label__bullets {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.song-label__bullets li {
+  margin-bottom: 0.25rem;
+}
+
+.song-label__bullets li:last-child {
+  margin-bottom: 0;
+}
+
+.song-label__tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.song-label__tags li {
+  border: 1px solid var(--border-medium);
+  padding: 0.1rem 0.45rem;
+  font-size: var(--text-xs);
+  text-transform: lowercase;
+  color: var(--text-secondary);
+}
+
+.song-label__field--warn .song-label__label {
+  color: var(--song-label-warn);
+}
+
+.song-label__field--warn .song-label__body {
+  color: var(--text-primary);
+}

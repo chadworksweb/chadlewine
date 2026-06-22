@@ -75,14 +75,14 @@ export function PatronageWidget({ observationId, observationTitle }: PatronageWi
 
           <div className="patronage__copy">
           <p>
+            Patronage is the act or state of{" "}
+            <strong>directly</strong>{" "}
+            contributing to an artist&rsquo;s livelihood.
+          </p>
+          <p>
             Before streaming, labels, and the capitalization of art, the work got made
             because patrons believed it should exist. There are no perks and no tiers
             here. You are giving because you believe in me, my vision and my mission.
-          </p>
-          <p>
-            Patronage is the act or state of directly contributing to an artist&rsquo;s
-            livelihood so that they may focus on creating instead of making financial
-            ends meet in a STEM and finance-driven socio-economy.
           </p>
           </div>
         </div>
