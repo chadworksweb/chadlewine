@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createPublicClient, getPlaybackMode, getSponsorDemosEnabled } from "@/lib/supabase-server";
 import { SongDetail } from "@/components/SongDetail";
+import type { PsycheFactsMeta } from "@/components/SongLabel";
 import { SponsorDemoDetail } from "@/components/SponsorDemoDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
 import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
@@ -484,7 +485,12 @@ export default async function SongDetailPage({
           contaminationNote: badge.contamination_note,
           pending: badge.pending ?? false,
           songSlug: badge.song_slug ?? null,
+          listenerProse: badge.listener_effects_prose ?? badge.effects_prose ?? null,
+          societalProse: badge.societal_effects_prose ?? null,
+          deadpan: badge.deadpan_line ?? null,
+          topics: badge.topics ?? null,
         } : null}
+        labelMeta={(song.label_meta as PsycheFactsMeta | null) ?? null}
         merchSlot={<YouMightAlsoLike sourceType="song" sourceId={song.id} />}
       />
       <ExploreStrip wrap />

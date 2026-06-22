@@ -28,8 +28,12 @@ export interface RisingCompassBadgeData {
   deadpan_line?: string | null;
   // Ether Art Chart: taxonomy slugs, dominant-first.
   topics?: string[] | null;
-  // 3-paragraph per-song description of what the song transmits.
+  // 3-paragraph per-song description of what the song transmits (legacy single field).
   effects_prose?: string | null;
+  // "Effects (per listen)" prose — what one listen transmits to the individual.
+  listener_effects_prose?: string | null;
+  // "At scale" prose — what the song does at population scale.
+  societal_effects_prose?: string | null;
   // 0..1 calibration confidence.
   confidence?: number | null;
   // Which calibration table matched (compass | library | submitted).

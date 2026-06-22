@@ -14,6 +14,7 @@ import { focalCropStyle } from "@/lib/focal-crop";
 import { ExploreGrid } from "@/components/ExploreGrid";
 import { FitText } from "@/components/FitText";
 import { creditRoleLabel } from "@/lib/song-credits";
+import { SongLabel, type PsycheFactsMeta } from "@/components/SongLabel";
 
 const DEMO_FORMAT_LABEL: Record<string, string> = {
   diy_production: "DIY Production",
@@ -154,6 +155,14 @@ interface BadgeProps {
   contaminationNote: string | null;
   pending?: boolean;
   songSlug?: string | null;
+  /** RC "Effects (per listen)" prose — feeds the Psyche Facts label. */
+  listenerProse?: string | null;
+  /** RC "At scale" prose — feeds the Psyche Facts label. */
+  societalProse?: string | null;
+  /** RC deadpan line — fallback for the label Warning field. */
+  deadpan?: string | null;
+  /** RC topic slugs — fallback for the label "Indicated for" field. */
+  topics?: string[] | null;
 }
 
 interface PairedArtProps {
@@ -191,6 +200,7 @@ export function SongDetail({
   releaseSkus = [],
   merchSlot = null,
   renderConfig = null,
+  labelMeta = null,
 }: {
   song: SongProps;
   album: AlbumProps | null;
@@ -209,6 +219,8 @@ export function SongDetail({
   merchSlot?: React.ReactNode;
   /** Effective render-lever config for the cube (see librosa-levers.ts). */
   renderConfig?: Record<string, number> | null;
+  /** Authored "prescription" layer for the Psyche Facts label. */
+  labelMeta?: PsycheFactsMeta | null;
 }) {
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [openExpansions, setOpenExpansions] = useState<Set<string>>(new Set());
@@ -217,6 +229,12 @@ export function SongDetail({
   const cart = useCart();
   const ringtoneInCart = cart.hasItem({ type: "ringtone", id: song.id, format: null });
   const ringtoneAvailable = !!song.ringtone_available && !!song.ringtone_price;
+
+  // The Psyche Facts label renders when RC has charged the song (tier /
+  // charge / effects prose) or when an authored label layer exists.
+  const labelHasContent =
+    !!(badge && (typeof badge.charge === "number" || badge.listenerProse || badge.societalProse)) ||
+    !!(labelMeta && Object.keys(labelMeta).length > 0);
 
   function toggleExpansion(id: string) {
     setOpenExpansions((prev) => {
@@ -586,7 +604,7 @@ export function SongDetail({
            2. prose <div> — citation-worthy narrative depth (ChatGPT, all engines)
            3. key-points <ul> — structured extraction (Perplexity, Gemini)
            Plus FAQPage schema in JSON-LD for machine-readable (Google AI Overview) */}
-      {(visibilitySections.length > 0 || geoFields || (ifYouLike && (ifYouLike.blurb || ifYouLike.entries.length > 0))) && (() => {
+      {(labelHasContent || visibilitySections.length > 0 || geoFields || (ifYouLike && (ifYouLike.blurb || ifYouLike.entries.length > 0))) && (() => {
         const sectionMap = new Map(visibilitySections.map((s) => [s.category, s]));
         const story = sectionMap.get("story");
         const breakdown = sectionMap.get("breakdown");
@@ -601,6 +619,32 @@ export function SongDetail({
 
         return (
           <div className="song-landing">
+            {/* 0. The Label — Psyche Facts (RC-derived charge/prose + authored prescription) */}
+            {labelHasContent && (
+              <section className="song-landing__section song-landing__section--label">
+                <div className="song-landing__container">
+                  <aside className="song-landing__aside">
+                    <h2 className="song-landing__heading">What does &ldquo;{song.title}&rdquo; do to you?</h2>
+                    <p className="song-landing__direct-answer">Read it like a label: the charge it carries, and what a single listen does to you and to the culture.</p>
+                  </aside>
+                  <div className="song-landing__main">
+                    <SongLabel
+                      title={song.title}
+                      runtimeSeconds={song.duration_seconds}
+                      tierLabel={badge?.tierLabel ?? null}
+                      tierHex={badge?.tierHex ?? null}
+                      charge={badge?.charge ?? null}
+                      chargeSummary={badge?.chargeSummary ?? null}
+                      listenerProse={badge?.listenerProse ?? null}
+                      societalProse={badge?.societalProse ?? null}
+                      deadpan={badge?.deadpan ?? null}
+                      topics={badge?.topics ?? null}
+                      meta={labelMeta}
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
             {/* 1. What Is "[Title]"? — citation summary + entity tags + Chad quote */}
             {(geoFields?.citation_summary || geoFields?.chad_quote || (geoFields?.entity_tags && geoFields.entity_tags.length > 0)) && (
               <section className="song-landing__section song-landing__section--about">
