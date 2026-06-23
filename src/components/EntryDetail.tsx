@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import type { CSSProperties } from "react";
 import Image from "next/image";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -18,7 +17,7 @@ import {
   type EntryKind,
 } from "@/lib/entries";
 
-// Shared detail renderer for both /writings/observations/[slug] and /writings/journal/[slug].
+// Shared detail renderer for both /observations/[slug] and /journal/[slug].
 // Same table, same layout; `kind` scopes every query and `basePath` prefixes
 // every internal link so cross-navigation stays within the section.
 interface EntryDetailProps {
@@ -36,19 +35,6 @@ export async function EntryDetail({ kind, basePath, slug, relatedLabel }: EntryD
   const synapseJumper = await getSynapseEntries(kind, entry.id, entry.thoughtline_ids || []);
   const synapseIds = synapseJumper.map((s: { id: string }) => s.id);
   const related = await getRelatedEntries(kind, entry.id, entry.category_ids || [], entry.tag_ids || [], synapseIds);
-
-  // Per-ratio focal crop: hero crop drives the desktop cover-hero, portrait
-  // crop drives the mobile (4:5) cover-hero. CSS swaps which vars apply at the
-  // 768px breakpoint (see .page-observation .cover-hero__art in global.css).
-  const pct = (v: number | null | undefined) => (v == null ? 50 : v);
-  const scale = (v: number | null | undefined) => (v != null && v >= 1 ? v : 1);
-  const heroCropVars = {
-    "--hero-pos": `${pct(entry.hero_focal_x)}% ${pct(entry.hero_focal_y)}%`,
-    "--hero-scale": String(scale(entry.hero_zoom)),
-    "--portrait-pos": `${pct(entry.portrait_focal_x)}% ${pct(entry.portrait_focal_y)}%`,
-    "--portrait-scale": String(scale(entry.portrait_zoom)),
-    position: "relative",
-  } as CSSProperties;
 
   return (
     <div id="page-observation" className="page-observation" data-observation-id={entry.id}>
@@ -76,14 +62,19 @@ export async function EntryDetail({ kind, basePath, slug, relatedLabel }: EntryD
       <ProgressBar />
       <section className="cover-hero">
         {entry.art_image_path && (
-          <div className="cover-hero__art-wrap" style={heroCropVars}>
+          <div className="cover-hero__art-wrap cover-hero__art-wrap--native">
             <Image
               src={entry.art_image_path}
               alt={entry.art_alt || entry.title}
-              className="cover-hero__art"
-              fill
-              sizes="(max-width: 1200px) 100vw, 1200px"
+              className="cover-hero__art cover-hero__art--native"
+              // Observation/journal art is uniformly 1920x970. Explicit dims
+              // reserve the right space (no layout shift); height:auto keeps
+              // the rendered image at its native ratio across all widths.
+              width={1920}
+              height={970}
+              sizes="100vw"
               priority
+              style={{ width: "100%", height: "auto" }}
             />
           </div>
         )}

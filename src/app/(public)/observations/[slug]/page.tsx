@@ -25,7 +25,7 @@ export async function generateMetadata({
     title: obsv.seo_title || obsv.title,
     description,
     alternates: {
-      canonical: `https://chadlewine.com/writings/observations/${slug}`,
+      canonical: `https://chadlewine.com/observations/${slug}`,
     },
     openGraph: {
       type: "article",
@@ -49,7 +49,7 @@ export default async function ObservationPage({
   return (
     <EntryDetail
       kind="observation"
-      basePath="/writings/observations"
+      basePath="/observations"
       slug={slug}
       relatedLabel="Related Observations"
     />

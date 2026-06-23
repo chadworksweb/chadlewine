@@ -21,12 +21,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const SECTIONS = [
   {
-    href: "/writings/observations",
+    href: "/observations",
     title: "Observations",
     desc: "Short essays on what I observe and think about things not directly related to my personal endeavors",
   },
   {
-    href: "/writings/journal",
+    href: "/journal",
     title: "Journal",
     desc: "News, updates, and thoughts on my own life or work.",
   },

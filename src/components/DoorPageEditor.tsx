@@ -380,7 +380,7 @@ export function DoorPageEditor({ initial }: { initial?: DoorPageData }) {
             className="obsv-editor__input"
             value={funnelInput}
             onChange={(e) => setFunnelInput(e.target.value)}
-            placeholder="/writings/observations/the-razor"
+            placeholder="/observations/the-razor"
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addFunnel())}
             style={{ flex: 1 }}
           />

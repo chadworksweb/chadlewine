@@ -19,7 +19,7 @@ async function resolveTitle(supabase: ReturnType<typeof createPublicClient>, typ
   if (type === "observation") {
     const { data } = await supabase.from("posts").select("title, slug, kind").eq("id", id).eq("status", "published").single();
     if (!data) return null;
-    const section = data.kind === "journal" ? "writings/journal" : "writings/observations";
+    const section = data.kind === "journal" ? "journal" : "observations";
     return { title: data.title, href: `/${section}/${data.slug}` };
   }
   if (type === "meditation") {

@@ -10,8 +10,8 @@ interface ObservationJsonLdProps {
   articleType?: string | null;
   paaPairs?: { question: string; answer: string }[] | null;
   /** URL prefix for the section this entry lives under (e.g.
-      "/writings/observations" or "/writings/journal"). Defaults to
-      "/writings/observations". */
+      "/observations" or "/journal"). Defaults to
+      "/observations". */
   basePath?: string;
 }
 
@@ -26,7 +26,7 @@ export function ObservationJsonLd({
   artAlt,
   articleType,
   paaPairs,
-  basePath = "/writings/observations",
+  basePath = "/observations",
 }: ObservationJsonLdProps) {
   const isNews = articleType === "news_article";
   const canonicalUrl = `https://chadlewine.com${basePath}/${slug}`;

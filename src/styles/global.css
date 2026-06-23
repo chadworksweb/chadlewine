@@ -1733,6 +1733,27 @@ body.art-immersive main ~ * {
   transform-origin: var(--hero-pos, 50% 50%);
 }
 
+/* Single observation/journal detail hero: show the art at its NATIVE ratio,
+   never cropped, at every breakpoint. Scoped to .page-observation with the
+   --native modifier so the landing CoverHero and hero-lens carousels keep
+   their fixed-ratio crop. Higher specificity + later source order beats both
+   the base .cover-hero__art-wrap crop and the 768px portrait-crop block. */
+.page-observation .cover-hero__art-wrap--native {
+  aspect-ratio: auto;
+  overflow: visible;
+}
+
+.page-observation .cover-hero__art-wrap--native > img,
+.page-observation .cover-hero__art--native {
+  position: static;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  transform: none;
+}
+
 .cover-hero__content {
   max-width: var(--site-width);
   padding-top: var(--space-xl);
