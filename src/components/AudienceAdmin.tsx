@@ -32,7 +32,7 @@ export interface UnsubRequestRow {
   created_at: string;
 }
 
-type Tab = "all" | "subscribers" | "customers" | "requests" | "archive";
+type Tab = "all" | "subscribers" | "pending" | "customers" | "requests" | "archive";
 
 function fmtMoney(n: number): string {
   if (!n) return "$0";
@@ -73,6 +73,7 @@ export function AudienceAdmin({
   const filtered = useMemo(() => {
     let rows = audience;
     if (tab === "subscribers") rows = rows.filter((r) => r.subscriber_status === "active");
+    else if (tab === "pending") rows = rows.filter((r) => r.subscriber_status === "pending");
     else if (tab === "customers") rows = rows.filter((r) => r.lifetime_orders > 0);
     else if (tab === "archive") rows = rows.filter((r) => r.subscriber_status === "unsubscribed");
 
@@ -123,6 +124,7 @@ export function AudienceAdmin({
   };
 
   const activeCount = audience.filter((r) => r.subscriber_status === "active").length;
+  const pendingSubsCount = audience.filter((r) => r.subscriber_status === "pending").length;
   const customerCount = audience.filter((r) => r.lifetime_orders > 0).length;
   const archiveCount = audience.filter((r) => r.subscriber_status === "unsubscribed").length;
 
@@ -142,6 +144,10 @@ export function AudienceAdmin({
           <span className="admin-stats__label">Subscribers</span>
         </div>
         <div className="admin-stats__card">
+          <span className="admin-stats__value">{pendingSubsCount}</span>
+          <span className="admin-stats__label">Pending</span>
+        </div>
+        <div className="admin-stats__card">
           <span className="admin-stats__value">{customerCount}</span>
           <span className="admin-stats__label">Customers</span>
         </div>
@@ -158,6 +164,7 @@ export function AudienceAdmin({
       <div className="admin-tabs">
         {([
           ["subscribers", `Subscribers ${activeCount}`],
+          ["pending", `Pending ${pendingSubsCount}`],
           ["customers", `Customers ${customerCount}`],
           ["requests", `Requests ${pendingRequests.length}`],
           ["archive", `Archive ${archiveCount}`],

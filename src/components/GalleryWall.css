@@ -1,0 +1,278 @@
+/* Browse Chad Lewine Art -- full-viewport digitized gallery wall.
+   Frames read as tech wireframe; the art flickers; the whole wall is subtly
+   glitchy. Pieces are positioned in JS at real architectural scale. */
+
+.gallery-wall {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: #060609;
+  overflow: hidden;
+}
+
+/* Glowing accent rails top + bottom, matching the explore-songs section. */
+.gallery-wall::before,
+.gallery-wall::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--text-accent) 50%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px rgba(139, 156, 247, 0.5), 0 0 48px rgba(139, 156, 247, 0.2);
+  z-index: 6;
+  pointer-events: none;
+}
+.gallery-wall::before { top: 0; }
+.gallery-wall::after { bottom: 0; }
+
+.gallery-wall__title {
+  position: relative;
+  z-index: 7;
+  flex: 0 0 auto;
+}
+
+/* The wall surface: dark plaster + faint digital grid + center vignette. */
+.gallery-wall__surface {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background:
+    radial-gradient(125% 95% at 50% 42%, rgba(42, 50, 78, 0.34), transparent 68%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 4px),
+    #08080e;
+}
+
+/* Drifting scanlines over everything. */
+.gallery-wall__scan {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.16) 0 1px,
+    transparent 1px 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  animation: gw-scan 7s linear infinite;
+}
+@keyframes gw-scan {
+  from { background-position: 0 0; }
+  to { background-position: 0 6px; }
+}
+
+/* Occasional full-wall glitch band. */
+.gallery-wall__glitch {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  animation: gw-wall-glitch 9s steps(1) infinite;
+}
+@keyframes gw-wall-glitch {
+  0%, 90%, 100% { opacity: 0; transform: translateX(0); background: transparent; }
+  91% {
+    opacity: 0.1;
+    transform: translateX(-2px);
+    background: linear-gradient(
+      0deg,
+      transparent 46%,
+      rgba(139, 156, 247, 0.45) 48%,
+      transparent 52%
+    );
+  }
+  92% { opacity: 0.08; transform: translateX(3px); }
+  93% { opacity: 0; transform: translateX(0); }
+}
+
+.gallery-wall__hint {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(182, 194, 255, 0.45);
+  pointer-events: none;
+}
+
+/* ---- A hung piece ---- */
+.gw-piece {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 220ms ease, z-index 0s;
+}
+.gw-piece:hover,
+.gw-piece:focus-visible {
+  transform: translateY(-4px) scale(1.018);
+  z-index: 5;
+  outline: none;
+}
+
+/* The digitized frame -- tech border, inner bevel, accent corner brackets. */
+.gw-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 3px;
+  background: linear-gradient(135deg, #2b3464 0%, #11152f 100%);
+  border: 1px solid rgba(139, 156, 247, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 18px 34px -12px rgba(0, 0, 0, 0.72),
+    inset 0 0 0 1px rgba(182, 194, 255, 0.14);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.gw-piece:hover .gw-frame,
+.gw-piece:focus-visible .gw-frame {
+  border-color: var(--text-accent);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 24px 48px -10px rgba(0, 0, 0, 0.78),
+    0 0 26px rgba(139, 156, 247, 0.45),
+    inset 0 0 0 1px rgba(182, 194, 255, 0.3);
+}
+.gw-frame::before,
+.gw-frame::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--text-accent);
+  pointer-events: none;
+  opacity: 0.9;
+}
+.gw-frame::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.gw-frame::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+
+.gw-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  animation: gw-flicker 6s steps(1, end) infinite;
+}
+/* Subtle CRT flicker -- the art, not the frame. animationDelay is randomized
+   per piece inline so they never pulse in unison. */
+@keyframes gw-flicker {
+  0%, 96%, 100% { opacity: 1; filter: none; }
+  96.5% { opacity: 0.86; filter: brightness(1.22) saturate(0.92); }
+  97% { opacity: 1; }
+  97.6% { opacity: 0.92; filter: brightness(0.96); }
+}
+
+/* ---- Lightbox ---- */
+.gw-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6vh 6vw;
+  background: rgba(4, 4, 9, 0.86);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  animation: gw-fade 180ms ease;
+}
+@keyframes gw-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.gw-lightbox__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  max-width: min(92vw, 920px);
+  max-height: 90vh;
+}
+.gw-lightbox__img {
+  max-width: 100%;
+  max-height: 68vh;
+  object-fit: contain;
+  border: 1px solid rgba(139, 156, 247, 0.5);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+.gw-lightbox__close {
+  position: absolute;
+  top: -42px;
+  right: -4px;
+  width: 36px;
+  height: 36px;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--text-primary);
+  background: none;
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.gw-lightbox__close:hover {
+  border-color: var(--text-accent);
+  color: var(--text-accent);
+}
+.gw-lightbox__meta {
+  text-align: center;
+}
+.gw-lightbox__title {
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+.gw-lightbox__sub {
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-md);
+}
+.gw-lightbox__cta {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 22px;
+  background: var(--text-accent);
+  border-radius: 4px;
+  transition: opacity 160ms ease;
+}
+.gw-lightbox__cta:hover { opacity: 0.85; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-wall__scan,
+  .gallery-wall__glitch,
+  .gw-art {
+    animation: none;
+  }
+}

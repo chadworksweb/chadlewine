@@ -159,7 +159,7 @@ export async function PUT(
   if (prev?.slug && slug && prev.slug !== slug) {
     // observation + journal posts share this table; redirect under the right section.
     const effectiveKind = kind === "observation" || kind === "journal" ? kind : prev.kind;
-    const section = effectiveKind === "journal" ? "writings/journal" : "writings/observations";
+    const section = effectiveKind === "journal" ? "journal" : "observations";
     await captureSlugChange(
       `/${section}/${prev.slug}`,
       `/${section}/${slug}`,

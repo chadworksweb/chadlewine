@@ -9,7 +9,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://chadlewine.com";
 const CONTENT_PATHS: Record<EntityType, (slug: string) => string> = {
   song: (s) => `/music/songs/${s}`,
   release: (s) => `/music/releases/${s}`,
-  observation: (s) => `/writings/observations/${s}`,
+  observation: (s) => `/observations/${s}`,
   art: (s) => `/art/${s}`,
   merch: (s) => `/merch/${s}`,
 };
@@ -19,12 +19,12 @@ export function buildContentUrl(
   slug: string,
   absolute = false,
   // observation + journal posts share the "observation" entity type but live
-  // under different sections; pass kind="journal" to route to /writings/journal/...
+  // under different sections; pass kind="journal" to route to /journal/...
   kind?: string | null,
 ): string {
   const path =
     type === "observation" && kind === "journal"
-      ? `/writings/journal/${slug}`
+      ? `/journal/${slug}`
       : CONTENT_PATHS[type]
         ? CONTENT_PATHS[type](slug)
         : "/";
@@ -49,12 +49,13 @@ export const STATIC_PAGES: StaticPage[] = [
   { label: "Music", path: "/music" },
   { label: "Pillar Songs", path: "/pillar-songs" },
   { label: "Super Individual", path: "/super-individual" },
+  { label: "Call for Music", path: "/call-for-music" },
   { label: "Songwriting", path: "/songwriting" },
   { label: "Lyrics", path: "/lyrics" },
   { label: "Art", path: "/art" },
   { label: "Merch", path: "/merch" },
-  { label: "Observations", path: "/writings/observations" },
-  { label: "Journal", path: "/writings/journal" },
+  { label: "Observations", path: "/observations" },
+  { label: "Journal", path: "/journal" },
   { label: "Music Videos", path: "/music-videos" },
   { label: "Meditations", path: "/meditations" },
   { label: "Curation", path: "/curation" },

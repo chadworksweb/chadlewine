@@ -40,12 +40,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const singleIds = await getSingleSongIds(supabase);
 
+  // Catalog-state audit trail, newest first, for the editor's history view.
+  const { data: stateHistory } = await supabase
+    .from("song_state_history")
+    .select("id, prev_state, new_state, source, note, changed_at")
+    .eq("song_id", songId)
+    .order("changed_at", { ascending: false });
+
   return Response.json({
     ...song,
     release_id: assoc?.release_id || null,
     track_number: assoc?.track_number || null,
     topic_ids: (topicLinks || []).map((t) => t.topic_id),
     is_single: singleIds.has(songId),
+    state_history: stateHistory || [],
   });
 }
 
@@ -59,15 +67,31 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!resolved) return Response.json({ error: "Song not found" }, { status: 404 });
   const id = resolved.id;
 
-  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "ringtone_path_m4r", "ringtone_path_mp3", "ringtone_price", "lyrics", "instrumental", "status", "demo_type", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote"];
+  const songFields = ["title", "slug", "duration_seconds", "streaming_path", "ringtone_path_m4r", "ringtone_path_mp3", "ringtone_price", "lyrics", "instrumental", "status", "demo_type", "demo_format", "demo_streaming_path", "demo_duration_seconds", "song_state", "release_date", "song_summary", "isrc", "playback_mode", "focus_keyphrase", "secondary_keyphrases", "search_intent", "citation_summary", "paa_pairs", "entity_tags", "seo_title", "seo_description", "art_image_path", "art_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "card_focal_x", "card_focal_y", "card_zoom", "portrait_focal_x", "portrait_focal_y", "portrait_zoom", "chorus", "chad_quote"];
   const updates: Record<string, unknown> = {};
   for (const f of songFields) { if (f in body) updates[f] = body[f]; }
 
   const prevSlug = resolved.slug as string | null;
+  const prevState = (resolved.song_state as string | null) ?? null;
 
   if (Object.keys(updates).length > 0) {
     const { error } = await supabase.from("songs").update(updates).eq("id", id);
     if (error) return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  // Catalog-state transitions get appended to the audit trail. Only a real
+  // change vs. the prior DB value logs a row, so autosave (which resends the
+  // full payload) does not create duplicates.
+  if ("song_state" in body) {
+    const newState = (body.song_state as string | null) || null;
+    if (newState !== prevState) {
+      await supabase.from("song_state_history").insert({
+        song_id: id,
+        prev_state: prevState,
+        new_state: newState,
+        source: "admin",
+      });
+    }
   }
 
   if (typeof updates.slug === "string" && prevSlug && prevSlug !== updates.slug) {

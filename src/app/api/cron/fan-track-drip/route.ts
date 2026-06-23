@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     .gte("first_purchase_at", windowStart)
     .lte("first_purchase_at", windowEnd)
     .is("fan_ode_drip_sent_at", null)
-    .neq("subscriber_status", "unsubscribed")
+    .eq("subscriber_status", "active")
     .not("user_id", "is", null);
 
   if (qErr) {

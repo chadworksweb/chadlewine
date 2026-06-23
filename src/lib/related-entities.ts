@@ -120,8 +120,8 @@ export async function resolveEntities(
       case "observation": {
         const o = maps.observation.get(id); if (!o || !o.slug) break;
         // observation + journal posts share this table; route by `kind` so
-        // journal posts resolve to /writings/journal/... not /writings/observations/...
-        const section = o.kind === "journal" ? "writings/journal" : "writings/observations";
+        // journal posts resolve to /journal/... not /observations/...
+        const section = o.kind === "journal" ? "journal" : "observations";
         out.push({ entity_type: "observation", id, slug: o.slug, title: o.title, image: o.art_image_path, alt: o.art_alt || o.title, href: `/${section}/${o.slug}` });
         break;
       }

@@ -10,11 +10,12 @@ export async function POST(request: Request) {
   }
 
   let audienceId: string;
+  let status: string;
   try {
-    audienceId = await upsertAudienceFromSubscribe({
+    ({ audienceId, status } = await upsertAudienceFromSubscribe({
       email,
       source_page: source_page || null,
-    });
+    }));
   } catch (e) {
     return Response.json(
       { error: e instanceof Error ? e.message : "Subscribe failed" },
@@ -24,6 +25,8 @@ export async function POST(request: Request) {
 
   // Keep the legacy `subscribers` row in sync for backwards compat
   // (admin lists, exports). The audience row is the source of truth.
+  // Double opt-in: a fresh signup is 'pending' until they click the confirm
+  // link; confirmSubscriptionByToken() flips this mirror to 'active' then.
   const supabase = createAdminClient();
   await supabase
     .from("subscribers")
@@ -31,7 +34,7 @@ export async function POST(request: Request) {
       {
         email: email.toLowerCase().trim(),
         source_page: source_page || null,
-        status: "active",
+        status,
         audience_id: audienceId,
       },
       { onConflict: "email" }

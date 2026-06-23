@@ -33,7 +33,20 @@ function tierForCharge(charge: number): string {
 async function getArcData(): Promise<ArcInitialData> {
   const supabase = createPublicClient();
 
-  const [songsRes, albumsRes, erasRes, lifeEventsRes, releaseSongsRes] = await Promise.all([
+  const [
+    songsRes,
+    albumsRes,
+    erasRes,
+    lifeEventsRes,
+    releaseSongsRes,
+    geographyRes,
+    relationshipsRes,
+    threadsRes,
+    threadLinksRes,
+    artRes,
+    writingsRes,
+    industryRes,
+  ] = await Promise.all([
     supabase
       .from("songs")
       .select("id, slug, title, release_date, write_date, song_state, status, instrumental, rc_charge, rc_tier")
@@ -53,12 +66,50 @@ async function getArcData(): Promise<ArcInitialData> {
     supabase
       .from("release_songs")
       .select("release_id, song_id"),
+    // Phase 2 layers (each renders only when its Key toggle is on)
+    supabase
+      .from("geography_bands")
+      .select("id, slug, location_name, region, date_start, date_end")
+      .eq("status", "published"),
+    supabase
+      .from("relationships")
+      .select("id, slug, full_name, role, first_contact_date, last_contact_date, still_active")
+      .eq("status", "published"),
+    supabase
+      .from("thematic_threads")
+      .select("id, slug, name")
+      .eq("status", "published"),
+    supabase
+      .from("thematic_thread_links")
+      .select("thread_id, entity_kind, entity_id"),
+    supabase
+      .from("art_pieces")
+      .select("id, slug, title, created_at_date, year_created")
+      .eq("status", "published")
+      .not("created_at_date", "is", null),
+    supabase
+      .from("posts")
+      .select("id, slug, title, date_captured, kind")
+      .eq("status", "published")
+      .not("date_captured", "is", null),
+    supabase
+      .from("industry_encounters")
+      .select("id, slug, title, date, counterparty, outcome, body_html")
+      .eq("status", "published")
+      .not("date", "is", null),
   ]);
 
   const songs = (songsRes.data ?? []) as ArcInitialData["songs"];
   const albums = (albumsRes.data ?? []) as ArcInitialData["albums"];
   const eras = (erasRes.data ?? []) as ArcInitialData["eras"];
   const lifeEvents = (lifeEventsRes.data ?? []) as ArcInitialData["lifeEvents"];
+  const geography = (geographyRes.data ?? []) as ArcInitialData["geography"];
+  const relationships = (relationshipsRes.data ?? []) as ArcInitialData["relationships"];
+  const threads = (threadsRes.data ?? []) as ArcInitialData["threads"];
+  const threadLinks = (threadLinksRes.data ?? []) as ArcInitialData["threadLinks"];
+  const art = (artRes.data ?? []) as ArcInitialData["art"];
+  const writings = (writingsRes.data ?? []) as ArcInitialData["writings"];
+  const industry = (industryRes.data ?? []) as ArcInitialData["industry"];
 
   // Per-release charge = mean of its non-instrumental, calibrated track charges
   // (RC's compute_release_charge). Each release is one trajectory point; the
@@ -103,6 +154,22 @@ async function getArcData(): Promise<ArcInitialData> {
   for (const ev of lifeEvents) {
     if (ev.date_start) dateYears.push(parseInt(ev.date_start.slice(0, 4), 10));
   }
+  for (const g of geography) {
+    if (g.date_start) dateYears.push(parseInt(g.date_start.slice(0, 4), 10));
+  }
+  for (const r of relationships) {
+    if (r.first_contact_date) dateYears.push(parseInt(r.first_contact_date.slice(0, 4), 10));
+  }
+  for (const a of art) {
+    const d = a.created_at_date ?? (a.year_created ? `${a.year_created}` : null);
+    if (d) dateYears.push(parseInt(d.slice(0, 4), 10));
+  }
+  for (const w of writings) {
+    if (w.date_captured) dateYears.push(parseInt(w.date_captured.slice(0, 4), 10));
+  }
+  for (const enc of industry) {
+    if (enc.date) dateYears.push(parseInt(enc.date.slice(0, 4), 10));
+  }
 
   const currentYear = new Date().getFullYear();
   const yearStart = dateYears.length ? Math.min(...dateYears) : 1989;
@@ -110,7 +177,20 @@ async function getArcData(): Promise<ArcInitialData> {
   // the canvas with a little future runway, rather than on the clipped edge.
   const yearEnd = Math.max(currentYear + 1, dateYears.length ? Math.max(...dateYears) : currentYear + 1);
 
-  return { songs, albums, eras, lifeEvents, yearRange: [yearStart, yearEnd] };
+  return {
+    songs,
+    albums,
+    eras,
+    lifeEvents,
+    geography,
+    relationships,
+    threads,
+    threadLinks,
+    art,
+    writings,
+    industry,
+    yearRange: [yearStart, yearEnd],
+  };
 }
 
 export default async function RadiantArcPage() {

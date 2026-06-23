@@ -4,7 +4,7 @@ import { createPublicClient } from "@/lib/supabase-server";
 // by the `kind` column ('observation' | 'journal'). They share every field,
 // taxonomy table, revision, and SEO trigger -- only the subject matter (and the
 // public section they surface under) differs. These fetchers are parametrized
-// by kind so /writings/observations and /writings/journal reuse identical logic,
+// by kind so /observations and /journal reuse identical logic,
 // and every query filters by kind so cross-links stay WITHIN a section.
 export type EntryKind = "observation" | "journal";
 

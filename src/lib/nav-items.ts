@@ -14,6 +14,7 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
       { href: "/music/songs", label: "Songs" },
       { href: "/lyrics", label: "Lyrics" },
       { href: "/curation", label: "Curation" },
+      { href: "/call-for-music", label: "Call for Music" },
     ],
   },
   { href: "/merch", label: "Merch" },
@@ -30,8 +31,8 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
     href: "/read",
     label: "Read",
     children: [
-      { href: "/writings/observations", label: "Observations" },
-      { href: "/writings/journal", label: "Journal" },
+      { href: "/observations", label: "Observations" },
+      { href: "/journal", label: "Journal" },
     ],
   },
   {

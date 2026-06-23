@@ -54,7 +54,7 @@ export function SubscribeModal({ sourcePage, onClose, onSubscribed }: Props) {
 
       if (res.ok) {
         setStatus("success");
-        setMessage("You're in. I'll be in touch.");
+        setMessage("Almost there. Check your email and click confirm, then you're in.");
         setEmail("");
         onSubscribed();
       } else {

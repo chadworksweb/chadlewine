@@ -72,6 +72,7 @@ async function fetchPages(): Promise<SitemapEntry[]> {
     { url: `${BASE_URL}/lyrics`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE_URL}/art`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE_URL}/curation`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/call-for-music`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/discography`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE_URL}/archive/xanga`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/merch`, changeFrequency: "weekly", priority: 0.6 },
@@ -160,11 +161,11 @@ async function fetchEntries(kind: "observation" | "journal", section: string): P
 }
 
 function fetchObservations(): Promise<SitemapEntry[]> {
-  return fetchEntries("observation", "writings/observations");
+  return fetchEntries("observation", "observations");
 }
 
 function fetchJournal(): Promise<SitemapEntry[]> {
-  return fetchEntries("journal", "writings/journal");
+  return fetchEntries("journal", "journal");
 }
 
 async function fetchArt(): Promise<SitemapEntry[]> {

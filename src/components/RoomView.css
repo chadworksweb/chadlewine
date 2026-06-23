@@ -1,0 +1,136 @@
+/* Custom in-situ "View In A Room". Frame + mat thickness use cqw (1% of the stage
+   width) so the framing stays proportional to the room at any viewport. The artwork
+   image itself is held at true scale; the molding sits just outside it, the way a real
+   frame extends past the canvas. */
+
+.room-view {
+  margin: 0;
+  width: 100%;
+}
+
+.room-view__stage {
+  position: relative;
+  container-type: inline-size;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--reading-border, #e6e1d8);
+  line-height: 0;
+}
+
+.room-view__bg {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.room-view__art {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  /* canvas-on-wall cast shadow (unframed default depth) */
+  box-shadow: 0 1.1cqw 2.4cqw rgba(20, 16, 10, 0.34);
+  transition: box-shadow 200ms ease;
+  line-height: 0;
+}
+
+.room-view__art-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+
+/* Framed: a dark molding (border) plus a cream mat line (inset shadow) plus a deeper
+   cast shadow. No layout shift, so the artwork stays true-to-scale. */
+.room-view__art.is-framed {
+  border: 0.9cqw solid #2a2622;
+  box-shadow:
+    inset 0 0 0 0.7cqw var(--reading-bg, #f5f3ef),
+    inset 0 0 0 0.78cqw rgba(0, 0, 0, 0.18),
+    0 1.6cqw 3cqw rgba(20, 16, 10, 0.4);
+}
+
+.room-view__toobig {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  padding: 0.6rem 1rem;
+  background: rgba(20, 16, 10, 0.72);
+  color: #f5f3ef;
+  font-size: 0.82rem;
+  border-radius: 4px;
+  line-height: 1.3;
+  text-align: center;
+  max-width: 60%;
+}
+
+.room-view__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.room-view__scenes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.room-view__chip {
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid var(--reading-border, #d9d3c8);
+  background: transparent;
+  color: var(--reading-secondary, #5b5347);
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+  padding: 0.34rem 0.7rem;
+  border-radius: 999px;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.room-view__chip:hover {
+  border-color: var(--reading-text, #2a2622);
+  color: var(--reading-text, #2a2622);
+}
+
+.room-view__chip.is-active {
+  background: var(--reading-text, #2a2622);
+  border-color: var(--reading-text, #2a2622);
+  color: var(--reading-bg, #f5f3ef);
+}
+
+.room-view__toggle {
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--reading-tertiary, #8a8170);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0.34rem 0.2rem;
+}
+
+.room-view__toggle:hover {
+  color: var(--reading-text, #2a2622);
+}
+
+.room-view__caption {
+  margin-top: 0.6rem;
+  color: var(--reading-tertiary, #8a8170);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 640px) {
+  .room-view__controls {
+    justify-content: flex-start;
+  }
+}

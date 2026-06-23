@@ -25,7 +25,7 @@ export async function generateMetadata({
     title: entry.seo_title || entry.title,
     description,
     alternates: {
-      canonical: `https://chadlewine.com/writings/journal/${slug}`,
+      canonical: `https://chadlewine.com/journal/${slug}`,
     },
     openGraph: {
       type: "article",
@@ -49,7 +49,7 @@ export default async function JournalPage({
   return (
     <EntryDetail
       kind="journal"
-      basePath="/writings/journal"
+      basePath="/journal"
       slug={slug}
       relatedLabel="Related Entries"
     />

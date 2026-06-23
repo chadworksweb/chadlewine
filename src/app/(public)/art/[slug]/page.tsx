@@ -6,6 +6,7 @@ import { AdminEditButton } from "@/components/AdminEditButton";
 import { ArtBuyPanel } from "@/components/ArtBuyPanel";
 import { ArtSkuBuyPanel, type ArtSku } from "@/components/ArtSkuBuyPanel";
 import { ArtFramedHero } from "@/components/ArtFramedHero";
+import { RoomView, type RoomScene } from "@/components/RoomView";
 import { ArtPieceJsonLd } from "@/components/ArtPieceJsonLd";
 import { ArtProductJsonLd } from "@/components/ArtProductJsonLd";
 import { BreadcrumbJsonLd } from "@/components/BreadcrumbJsonLd";
@@ -34,6 +35,9 @@ type ArtRow = {
   image_alt: string | null;
   medium: string | null;
   dimensions: string | null;
+  width_in: number | null;
+  height_in: number | null;
+  depth_in: number | null;
   year_created: number | null;
   art_summary: string | null;
   description: string | null;
@@ -147,6 +151,22 @@ async function getArtData(slug: string) {
 
   const licensingHtml = art.licensing_content ? await markdownToHtml(art.licensing_content) : null;
 
+  // Custom in-situ: load calibrated room scenes only when the piece has no hand-shot
+  // in-room photos (those win), has real dimensions to scale against, and is not a
+  // mural (murals keep their own MuralTemplate location treatment).
+  let roomScenes: RoomScene[] = [];
+  const hasManualInsitu = Array.isArray(art.in_situ_paths) && art.in_situ_paths.length > 0;
+  if (!hasManualInsitu && art.width_in && art.height_in && formatSlug !== "mural") {
+    const { data: scenes } = await supabase
+      .from("room_scenes")
+      .select(
+        "slug, name, image_path, px_per_inch, anchor_x_pct, anchor_y_pct, wall_max_width_in, light_warmth",
+      )
+      .eq("is_active", true)
+      .order("display_order");
+    roomScenes = ((scenes as RoomScene[] | null) || []).filter((s) => s.image_path && s.px_per_inch);
+  }
+
   return {
     art: art as ArtRow,
     products: (products as ProductRow[] | null) || [],
@@ -155,6 +175,7 @@ async function getArtData(slug: string) {
     formatSlug,
     muralDetails,
     licensingHtml,
+    roomScenes,
   };
 }
 
@@ -187,7 +208,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
   const { slug } = await params;
   const data = await getArtData(slug);
   if (!data) notFound();
-  const { art, products, artSkus, compositionHtml, formatSlug, muralDetails, licensingHtml } = data;
+  const { art, products, artSkus, compositionHtml, formatSlug, muralDetails, licensingHtml, roomScenes } = data;
 
   const isMural = formatSlug === "mural" && muralDetails;
   const muralLocation = isMural && muralDetails ? {
@@ -331,7 +352,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
             </section>
           )}
 
-          {art.in_situ_paths && art.in_situ_paths.length > 0 && (
+          {art.in_situ_paths && art.in_situ_paths.length > 0 ? (
             <section className="art-detail__section">
               <h2>In the room</h2>
               <div className="art-detail__in-situ">
@@ -348,7 +369,20 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
                 ))}
               </div>
             </section>
-          )}
+          ) : roomScenes.length > 0 && art.width_in && art.height_in ? (
+            <section className="art-detail__section">
+              <h2>In the room</h2>
+              <RoomView
+                imagePath={art.image_path}
+                imageAlt={art.image_alt}
+                title={art.title}
+                widthIn={art.width_in}
+                heightIn={art.height_in}
+                depthIn={art.depth_in}
+                scenes={roomScenes}
+              />
+            </section>
+          ) : null}
 
           {compositionHtml && (
             <section className="art-detail__section">

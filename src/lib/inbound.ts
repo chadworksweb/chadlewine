@@ -150,6 +150,16 @@ export async function ingestInboundMessage(input: IngestInput): Promise<IngestRe
   }
   const id = (inserted as { id: string }).id;
 
+  // No classifier configured: skip triage and leave the message queued in the
+  // front desk (triaged=false, triage_error=null -- the clean "not yet looked
+  // at" state, NOT the failure state). The row is already inserted, so it still
+  // reaches the admin inbox + weekly digest for a human to review. A present-
+  // but-failing API call still fails closed below, with triage_error set.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.info("[inbound] ANTHROPIC_API_KEY empty; skipping triage, message queued to front desk:", id);
+    return { id, triaged: false, category: null, is_priority: false, pinged: false };
+  }
+
   // Triage -- fail closed. Any error queues the message without a ping.
   let triaged = false;
   let category: InboundCategory | null = null;
