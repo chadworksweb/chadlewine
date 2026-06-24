@@ -24,7 +24,7 @@ export async function GET(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("campaign_events")
-    .select("campaign_send_id, url, user_agent, created_at")
+    .select("campaign_send_id, url, user_agent, ip_address, created_at")
     .eq("campaign_id", id)
     .eq("event_type", "clicked");
   if (error) {

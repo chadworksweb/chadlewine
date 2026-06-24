@@ -37,3 +37,67 @@ export function isLikelyBotUserAgent(ua: string | null | undefined): boolean {
   if (!ua) return false;
   return BOT_UA_PATTERNS.some((re) => re.test(ua));
 }
+
+// Datacenter / cloud IPv4 ranges. Mail-security gateways (Microsoft 365
+// Defender / ATP Safe Links is by far the largest) pre-fetch every link in a
+// message from cloud IPs the instant it is delivered. A click from a
+// datacenter IP is a scanner; a real reader is on a home/mobile ISP. This is
+// the same signal Mailchimp/SendGrid lean on, and we CAN use it here even
+// though Resend hides the user-agent behind "Amazon CloudFront", because the
+// click webhook still carries the originating IP.
+//
+// Curated and high-confidence on purpose -- only well-established cloud
+// aggregates, never residential/mobile ISP space, so we never flag a real
+// reader. It does NOT need to be exhaustive: scanners on ISP-looking IPs are
+// caught behaviorally (per-recipient burst) in click-analytics.ts. Extend this
+// list as new datacenter sources show up in campaign_events.ip_address.
+//
+// Each entry is [first-octet-prefixed base, prefix length]. IPv6 is treated as
+// non-datacenter (real readers here are on IPv6 home/mobile ISPs).
+const DATACENTER_CIDRS: Array<[string, number]> = [
+  // Microsoft Azure (covers the observed 135.232.x and 172.186.x scanners)
+  ["135.224.0.0", 12],
+  ["172.160.0.0", 11],
+  ["13.64.0.0", 11],
+  ["20.33.0.0", 16],
+  ["40.64.0.0", 10],
+  ["104.40.0.0", 13],
+  ["168.61.0.0", 16],
+  ["191.232.0.0", 13],
+  // Amazon AWS
+  ["3.0.0.0", 9],
+  ["18.32.0.0", 11],
+  ["52.0.0.0", 10],
+  ["54.224.0.0", 11],
+  // Google Cloud
+  ["34.0.0.0", 9],
+  ["35.184.0.0", 13],
+  ["35.192.0.0", 12],
+];
+
+function ipv4ToInt(ip: string): number | null {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return null;
+  let n = 0;
+  for (const p of parts) {
+    const o = Number(p);
+    if (!Number.isInteger(o) || o < 0 || o > 255) return null;
+    n = n * 256 + o;
+  }
+  return n >>> 0;
+}
+
+/** True when the click IP belongs to a known cloud/datacenter range, i.e. a
+    mail-security scanner pre-fetching links rather than a person on an ISP. */
+export function isLikelyDatacenterIp(ip: string | null | undefined): boolean {
+  if (!ip) return false;
+  const addr = ipv4ToInt(ip.trim());
+  if (addr === null) return false; // IPv6 / malformed -> not flagged here
+  for (const [base, bits] of DATACENTER_CIDRS) {
+    const baseInt = ipv4ToInt(base);
+    if (baseInt === null) continue;
+    const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+    if ((addr & mask) === (baseInt & mask)) return true;
+  }
+  return false;
+}
