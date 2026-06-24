@@ -1733,6 +1733,27 @@ body.art-immersive main ~ * {
   transform-origin: var(--hero-pos, 50% 50%);
 }
 
+/* Single observation/journal detail hero: show the art at its NATIVE ratio,
+   never cropped, at every breakpoint. Scoped to .page-observation with the
+   --native modifier so the landing CoverHero and hero-lens carousels keep
+   their fixed-ratio crop. Higher specificity + later source order beats both
+   the base .cover-hero__art-wrap crop and the 768px portrait-crop block. */
+.page-observation .cover-hero__art-wrap--native {
+  aspect-ratio: auto;
+  overflow: visible;
+}
+
+.page-observation .cover-hero__art-wrap--native > img,
+.page-observation .cover-hero__art--native {
+  position: static;
+  inset: auto;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  transform: none;
+}
+
 .cover-hero__content {
   max-width: var(--site-width);
   padding-top: var(--space-xl);
@@ -28627,4 +28648,472 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 @media (max-width: 700px) {
   .seo-serp__title { -webkit-line-clamp: 2; }
   .seo-serp__desc { -webkit-line-clamp: 3; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Call for Music (/call-for-music) — sibling page to Super Individual.
+   Participates in the same page-shell grid system as the SI page, so its
+   sections bleed full-width while content re-anchors to --site-width.
+   Reuses .si-banner-bar + .si-prose primitives; everything below is the
+   page's own chrome (hero, roles, the seed gallery, the submission form).
+   ───────────────────────────────────────────────────────────────────── */
+:where(.page-call-for-music, .cfm-hero, .cfm-section) {
+  display: grid;
+  grid-template-columns:
+    [full-start] 1fr
+    [content-start] var(--site-width) [content-end]
+    1fr [full-end];
+  align-content: start;
+}
+:where(.page-call-for-music, .cfm-hero, .cfm-section) > * {
+  grid-column: content;
+  min-width: 0;
+}
+:where(.page-call-for-music, .cfm-hero, .cfm-section) > .full-bleed {
+  grid-column: full;
+}
+.page-call-for-music > :where(.cfm-hero, .cfm-section) {
+  grid-column: full;
+}
+main > .page-call-for-music,
+main > #page-call-for-music {
+  grid-column: full;
+}
+
+/* --- Hero --- */
+.cfm-hero {
+  padding-top: clamp(2rem, 5vw, 4rem);
+  background: var(--bg-deep);
+}
+.cfm-hero__inner { text-align: center; }
+.cfm-hero__eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: clamp(0.95rem, 1.4vw, 1.2rem);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-md);
+  text-indent: 0.175em;
+}
+.cfm-hero__headline {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(3.4rem, 7vw, 6.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  margin: 0 0 var(--space-lg);
+  background-image: linear-gradient(120deg, #6e8fff 0%, #b6c3ff 45%, #8b9cf7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.cfm-hero__sub {
+  font-family: var(--font-body);
+  font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+  line-height: 1.4;
+  color: var(--text-primary);
+  max-width: 760px;
+  margin: 0 auto var(--space-md);
+}
+.cfm-hero__not-contest {
+  font-family: var(--font-ui);
+  font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 680px;
+  margin: 0 auto;
+}
+.cfm-hero__nav {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-md) var(--space-lg);
+  margin-top: var(--space-2xl);
+  padding: clamp(2rem, 4vw, 2.75rem) var(--space-lg);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cfm-hero__nav::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--border-subtle) 0,
+    var(--border-subtle) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 72%, transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 72%, transparent 100%);
+}
+.cfm-hero__nav-link {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-ui);
+  font-size: clamp(1.05rem, 1.9vw, 1.6rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6e8fff;
+  text-shadow: 0 0 18px rgba(64, 96, 255, 0.45);
+  text-decoration: none;
+  padding: 0.15rem 1rem;
+  transition: color var(--duration-base) var(--ease-out),
+              text-shadow var(--duration-base) var(--ease-out);
+}
+.cfm-hero__nav-link:hover {
+  color: #ffffff;
+  text-shadow: 0 0 22px rgba(110, 143, 255, 0.85), 0 0 40px rgba(64, 96, 255, 0.45);
+}
+@media (max-width: 640px) {
+  .cfm-hero__nav { gap: var(--space-sm); padding-block: var(--space-lg); }
+  .cfm-hero__nav-link { padding: 0.15rem 0.5rem; }
+}
+
+/* --- Section shell --- */
+.cfm-section {
+  padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(2rem, 5vw, 4rem);
+  background: var(--bg-deep);
+}
+.cfm-prose--centered { text-align: center; }
+/* Style the link-bearing role copy (not wrapped in .si-prose). */
+.cfm-role p a,
+.cfm-prose a { color: var(--text-accent); text-decoration: none; }
+.cfm-role p a:hover,
+.cfm-prose a:hover { text-decoration: underline; }
+
+/* --- Roles: RC measures / Chad curates --- */
+.cfm-roles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2xl);
+  align-items: start;
+  margin-bottom: var(--space-2xl);
+}
+@media (max-width: 880px) {
+  .cfm-roles { grid-template-columns: 1fr; gap: var(--space-xl); }
+}
+.cfm-role {
+  padding: var(--space-xl);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+.cfm-role__kicker {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+  margin: 0 0 var(--space-sm);
+}
+.cfm-role__title {
+  font-family: var(--font-body);
+  font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md);
+}
+.cfm-role p {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* --- The seed gallery --- */
+.cfm-gallery__intro,
+.cfm-submit__intro {
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 760px;
+  margin: 0 0 var(--space-2xl);
+}
+/* Handoff: the inline form moved to LEAM's High Vibe Song DB; this card sends
+   submitters there while the rest of the Call for Music copy stays put. */
+.cfm-handoff {
+  max-width: 680px;
+  padding: var(--space-2xl);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+.cfm-handoff__eyebrow {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+  margin: 0 0 var(--space-sm);
+}
+.cfm-handoff__head {
+  font-family: var(--font-body);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md);
+}
+.cfm-handoff__body {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-lg);
+}
+.cfm-handoff__cta {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: linear-gradient(120deg, #4060ff, #6e8fff);
+  border-radius: 6px;
+  padding: 0.85rem 1.8rem;
+  text-decoration: none;
+  transition: filter var(--duration-base) var(--ease-out);
+}
+.cfm-handoff__cta:hover { filter: brightness(1.12); }
+.cfm-handoff__alt {
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  color: var(--text-tertiary);
+  margin: var(--space-md) 0 0;
+}
+.cfm-handoff__alt a { color: var(--text-accent); }
+.cfm-gallery {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-xl);
+}
+.cfm-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+}
+.cfm-card:hover {
+  border-color: var(--text-accent);
+  transform: translateY(-3px);
+}
+.cfm-card__link { display: block; text-decoration: none; color: inherit; }
+.cfm-card__art {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--bg-deep);
+  overflow: hidden;
+}
+.cfm-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cfm-card__img--placeholder {
+  background: linear-gradient(135deg, var(--bg-elevated), var(--bg-deep));
+}
+.cfm-card__seed {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(64, 96, 255, 0.85);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  box-shadow: 0 0 14px rgba(64, 96, 255, 0.5);
+}
+.cfm-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+}
+.cfm-card__title {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+.cfm-card__artist {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+.cfm-card__rc {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+.cfm-card__tier {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cfm-card__charge {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.cfm-gallery__empty,
+.cfm-gallery__intro { color: var(--text-secondary); }
+
+/* --- Submission form --- */
+.cfm-submit-section .cfm-form { margin-top: var(--space-xl); }
+.cfm-form {
+  max-width: 760px;
+  display: grid;
+  gap: var(--space-lg);
+}
+.cfm-form__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+@media (max-width: 640px) {
+  .cfm-form__grid { grid-template-columns: 1fr; }
+}
+.cfm-form__field { display: grid; gap: 0.4rem; }
+.cfm-form__label {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.cfm-form__opt {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.cfm-form__input,
+.cfm-form__textarea {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.7rem 0.85rem;
+  transition: border-color var(--duration-base) var(--ease-out);
+}
+.cfm-form__input:focus,
+.cfm-form__textarea:focus {
+  outline: none;
+  border-color: var(--text-accent);
+}
+.cfm-form__textarea { resize: vertical; min-height: 4.5rem; }
+.cfm-form__hint {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+.cfm-form__check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  align-items: start;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.cfm-form__check input { margin-top: 0.2rem; }
+.cfm-form__turnstile { margin-top: 0.25rem; }
+.cfm-form__error {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  color: #ff6b8a;
+  margin: 0;
+}
+.cfm-form__submit {
+  justify-self: start;
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: linear-gradient(120deg, #4060ff, #6e8fff);
+  border: none;
+  border-radius: 6px;
+  padding: 0.85rem 1.8rem;
+  cursor: pointer;
+  transition: filter var(--duration-base) var(--ease-out), opacity var(--duration-base) var(--ease-out);
+}
+.cfm-form__submit:hover:not(:disabled) { filter: brightness(1.12); }
+.cfm-form__submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cfm-form--done {
+  max-width: 680px;
+  padding: var(--space-2xl);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+.cfm-form__done-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+  margin: 0 0 var(--space-sm);
+}
+.cfm-form__done-head {
+  font-family: var(--font-body);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-md);
+}
+.cfm-form__done-body {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-md);
+}
+.cfm-form__done-body a { color: var(--text-accent); }
+.cfm-form__again {
+  font: inherit;
+  color: var(--text-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
 }

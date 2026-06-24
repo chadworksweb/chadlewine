@@ -49,7 +49,7 @@ export function FeedEntry({
   const artStyle = focalCropStyle(focalX, focalY, zoom);
   return (
     <Link
-      href={href ?? `/writings/observations/${slug}`}
+      href={href ?? `/observations/${slug}`}
       className="feed-entry"
     >
       <div className="feed-entry__art-wrap">

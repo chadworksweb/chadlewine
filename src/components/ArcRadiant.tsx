@@ -1489,7 +1489,7 @@ function WritingDetail({ writing, onClose }: { writing: ArcWriting; onClose: () 
         {writing.date_captured && <span>{writing.date_captured}</span>}
       </div>
       <h3 className="arc-radiant__detail-title">{writing.title}</h3>
-      <Link href={`/writings/${segment}/${writing.slug}`} className="arc-radiant__detail-cta">
+      <Link href={`/${segment}/${writing.slug}`} className="arc-radiant__detail-cta">
         Open writing →
       </Link>
     </div>

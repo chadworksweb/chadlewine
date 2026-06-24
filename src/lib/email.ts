@@ -498,7 +498,7 @@ export function buildObservationEmailHtml(observation: {
   citation_summary: string | null;
   kind?: string | null;
 }): string {
-  const section = observation.kind === "journal" ? "writings/journal" : "writings/observations";
+  const section = observation.kind === "journal" ? "journal" : "observations";
   const url = `${SITE_URL}/${section}/${observation.slug}`;
   const preview = observation.hook_line || observation.citation_summary || "";
 

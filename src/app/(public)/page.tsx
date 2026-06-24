@@ -487,7 +487,7 @@ export default async function HomePage() {
             <div className="archive__feed">
               {latestPosts.map((p) => {
                 const isJournal = p.kind === "journal";
-                const basePath = isJournal ? "/writings/journal" : "/writings/observations";
+                const basePath = isJournal ? "/journal" : "/observations";
                 return (
                   <div key={p.id} className="archive__feed-item">
                     <FeedEntry
