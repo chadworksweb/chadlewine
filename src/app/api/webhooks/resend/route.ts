@@ -1,6 +1,6 @@
 import { Webhook } from "svix";
 import { createAdminClient } from "@/lib/supabase-server";
-import { isLikelyBotUserAgent } from "@/lib/bot-detection";
+import { isLikelyBotUserAgent, isLikelyDatacenterIp } from "@/lib/bot-detection";
 import { CLICK_BURST_MIN, CLICK_BURST_WINDOW_MS } from "@/lib/click-analytics";
 
 /* Resend → Svix webhook handler.
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
 
   const fromBot =
     ((eventType === "opened" || eventType === "clicked") &&
-      isLikelyBotUserAgent(userAgent)) ||
+      (isLikelyBotUserAgent(userAgent) || isLikelyDatacenterIp(ipAddress))) ||
     clickBurst;
 
   await supabase.from("campaign_events").insert({

@@ -13,20 +13,24 @@
 // non-CloudFront scanner/fetcher user-agents (curl, Proofpoint, ...) are still
 // dropped up front via isLikelyBotUserAgent.
 
-import { isLikelyBotUserAgent } from "@/lib/bot-detection";
+import { isLikelyBotUserAgent, isLikelyDatacenterIp } from "@/lib/bot-detection";
 
 export interface ClickEvent {
   campaign_send_id: string | null;
   url: string | null;
   user_agent: string | null;
+  ip_address: string | null;
   created_at: string;
 }
 
-// 3+ clicks to one recipient within 2s reads as a gateway pre-fetch storm, not
-// a person. A human clicking 3 links over several seconds stays under this.
-// Exported so the Resend webhook applies the SAME threshold in real time.
-export const CLICK_BURST_MIN = 3;
-export const CLICK_BURST_WINDOW_MS = 2000;
+// Burst backstop for scanners that sit on ISP-looking IPs (the datacenter-IP
+// check in bot-detection catches cloud gateways directly). 2+ clicks to one
+// recipient within the window reads as a gateway pre-fetch storm, not a person:
+// real readers in the data click a single link. Window is wide enough to span
+// a storm whose clicks dribble out over a minute or two. Exported so the Resend
+// webhook applies the SAME threshold in real time.
+export const CLICK_BURST_MIN = 2;
+export const CLICK_BURST_WINDOW_MS = 120000;
 
 function ts(iso: string): number {
   const t = Date.parse(iso);
@@ -36,8 +40,11 @@ function ts(iso: string): number {
 /** Returns the subset of click events that look like real human clicks --
     genuine-bot UAs removed, then per-recipient burst storms removed. */
 export function filterHumanClicks<T extends ClickEvent>(events: T[]): T[] {
-  // 1. Drop clearly non-human fetchers by UA (curl, Proofpoint, etc.).
-  const byUa = events.filter((e) => !isLikelyBotUserAgent(e.user_agent));
+  // 1. Drop clearly non-human fetchers by UA (curl, Proofpoint, etc.) and any
+  //    click from a cloud/datacenter IP (Microsoft 365 / ATP Safe Links etc.).
+  const byUa = events.filter(
+    (e) => !isLikelyBotUserAgent(e.user_agent) && !isLikelyDatacenterIp(e.ip_address)
+  );
 
   // 2. Drop burst clusters per recipient (gateway pre-fetch storms).
   const bySend = new Map<string, T[]>();

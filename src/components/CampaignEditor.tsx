@@ -824,8 +824,11 @@ function SendsTable({ rows, clicksBySend }: { rows: SendRow[] | null; clicksBySe
     return <p className="campaign-editor__hint">No recipients yet.</p>;
   }
   // Per-recipient human click count (scanner/CloudFront pre-fetch storms
-  // removed), falling back to the raw stored counter until metrics load.
-  const clicksFor = (r: SendRow) => clicksBySend?.[r.id] ?? r.click_count;
+  // removed). Once metrics have loaded, a recipient missing from bySend had ALL
+  // its clicks filtered as scanner -> show 0, NOT the raw scanner-inclusive
+  // counter. Only fall back to the raw count while metrics are still loading.
+  const clicksFor = (r: SendRow) =>
+    clicksBySend ? (clicksBySend[r.id] ?? 0) : r.click_count;
 
   const realRows = rows.filter((r) => !r.is_test);
   const testRows = rows.filter((r) => r.is_test);
