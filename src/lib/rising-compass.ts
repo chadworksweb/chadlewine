@@ -1,3 +1,5 @@
+import { createAdminClient } from "@/lib/supabase-server";
+
 const RC_API_URL = process.env.RISING_COMPASS_API_URL || "https://api.risingcompass.net";
 const RC_API_KEY = process.env.RISING_COMPASS_API_KEY || "";
 const RC_SERVICE_KEY = process.env.RISING_COMPASS_SERVICE_KEY || "";
@@ -66,11 +68,82 @@ export function rcArtistHref(artist: string): string {
   return slug ? `https://risingcompass.net/artists/${slug}` : "https://risingcompass.net";
 }
 
-// 24-hour cache for stable badges (recalibrations are rare; caching at scale
-// cuts RC load by orders of magnitude). When a badge comes back with
-// pending=true, we re-fetch fresh on subsequent renders so recal resolutions
-// surface quickly instead of sitting behind a stale cached response.
-const BADGE_CACHE_SECONDS = 86400;
+// Local-first badge cache. Badges almost never change, so the render path reads
+// from our own `rc_badge_cache` table (populated lazily on first lookup and kept
+// fresh by RC's classification webhook) instead of calling RC live every render.
+// RC is only ever hit on a cold miss or after the TTL backstop expires; that one
+// miss then populates the cache, so steady-state RC traffic is ~zero. See
+// /api/webhooks/rc-classification for the push side.
+const BADGE_CACHE_TABLE = "rc_badge_cache";
+// Positive entries are trusted for 30 days (the webhook refreshes them in real
+// time; this is only a backstop for a missed push). Negative ("RC has no
+// calibration") entries re-check daily, so a newly-calibrated song surfaces
+// within a day even with no webhook.
+const BADGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const BADGE_NEG_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Canonical, case-insensitive key for a (title, artist) pair. Must match the
+// derivation the webhook receiver uses so a push lands on the same row.
+export function badgeCacheKey(title: string, artist: string): string {
+  return `${title.trim().toLowerCase()}${artist.trim().toLowerCase()}`;
+}
+
+interface BadgeCacheRow {
+  badge: RisingCompassBadgeData | null;
+  not_found: boolean;
+  fetched_at: string;
+}
+
+// Live RC lookup. Returns the full record, or null when RC has no calibration
+// (404) or the call fails. Split out so both the read-through path and any
+// direct caller share one implementation.
+async function fetchBadgeLive(
+  title: string,
+  artist: string,
+): Promise<{ badge: RisingCompassBadgeData | null; ok: boolean }> {
+  if (!RC_KEY) return { badge: null, ok: false };
+  const params = new URLSearchParams({ title, artist });
+  const url = `${RC_API_URL}/api/badge/lookup?${params}`;
+  try {
+    const res = await fetch(url, {
+      headers: { "X-Api-Key": RC_KEY },
+      cache: "no-store",
+      signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
+    });
+    if (res.status === 404) return { badge: null, ok: true }; // RC has no calibration
+    if (!res.ok) return { badge: null, ok: false }; // transient; don't poison the cache
+    return { badge: (await res.json()) as RisingCompassBadgeData, ok: true };
+  } catch {
+    return { badge: null, ok: false };
+  }
+}
+
+// Write-through to the cache. Fail-soft: a missing table or any error must never
+// break rendering (the live result is already in hand).
+async function writeBadgeCache(
+  title: string,
+  artist: string,
+  badge: RisingCompassBadgeData | null,
+): Promise<void> {
+  try {
+    const supabase = createAdminClient();
+    await supabase.from(BADGE_CACHE_TABLE).upsert(
+      {
+        cache_key: badgeCacheKey(title, artist),
+        title: title.trim(),
+        artist: artist.trim(),
+        rc_song_id: null,
+        badge,
+        not_found: badge === null,
+        source: "lookup",
+        fetched_at: new Date().toISOString(),
+      },
+      { onConflict: "cache_key" },
+    );
+  } catch {
+    /* fail-soft: cache is an optimization, never a hard dependency */
+  }
+}
 
 export async function fetchBadge(
   title: string,
@@ -78,32 +151,39 @@ export async function fetchBadge(
 ): Promise<RisingCompassBadgeData | null> {
   if (!RC_KEY) return null;
 
-  const params = new URLSearchParams({ title, artist });
-  const url = `${RC_API_URL}/api/badge/lookup?${params}`;
-
+  // 1. Read-through the local cache.
+  let cached: BadgeCacheRow | null = null;
   try {
-    const res = await fetch(url, {
-      headers: { "X-Api-Key": RC_KEY },
-      next: { revalidate: BADGE_CACHE_SECONDS },
-      signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as RisingCompassBadgeData;
-
-    // Pending badges bypass the cache so an admin-applied recalibration
-    // surfaces on the next render instead of 24 hours later.
-    if (data.pending) {
-      const fresh = await fetch(url, {
-        headers: { "X-Api-Key": RC_KEY },
-        cache: "no-store",
-        signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
-      });
-      if (fresh.ok) return (await fresh.json()) as RisingCompassBadgeData;
-    }
-    return data;
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from(BADGE_CACHE_TABLE)
+      .select("badge, not_found, fetched_at")
+      .eq("cache_key", badgeCacheKey(title, artist))
+      .maybeSingle();
+    cached = (data as BadgeCacheRow | null) ?? null;
   } catch {
-    return null;
+    cached = null; // table missing / read error -> behave as a cold miss
   }
+
+  if (cached) {
+    const age = Date.now() - new Date(cached.fetched_at).getTime();
+    const ttl = cached.not_found ? BADGE_NEG_TTL_MS : BADGE_TTL_MS;
+    const fresh = age < ttl;
+    // A pending (contested) reading always re-validates so a resolution surfaces
+    // immediately instead of waiting out the TTL.
+    if (fresh && !cached.badge?.pending) {
+      return cached.not_found ? null : cached.badge;
+    }
+  }
+
+  // 2. Cold miss / stale / pending -> one live RC call, then populate the cache.
+  const { badge, ok } = await fetchBadgeLive(title, artist);
+  if (ok) {
+    await writeBadgeCache(title, artist, badge);
+    return badge;
+  }
+  // Transient RC failure: serve a stale cached value if we have one.
+  return cached && !cached.not_found ? cached.badge : null;
 }
 
 export interface RisingCompassAlbumBadgeData extends RisingCompassBadgeData {

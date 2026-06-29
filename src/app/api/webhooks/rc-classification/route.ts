@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { badgeCacheKey, type RisingCompassBadgeData } from "@/lib/rising-compass";
 
 /**
  * Webhook receiver for Rising Compass classification pushes.
@@ -38,8 +39,12 @@ export async function POST(request: Request) {
 
   type WebhookBody = {
     rc_song_id?: unknown;
-    match?: { isrc?: unknown; slug?: unknown; title?: unknown };
+    match?: { isrc?: unknown; slug?: unknown; title?: unknown; artist?: unknown };
     classification?: Record<string, unknown>;
+    // Full badge record (same shape as GET /api/badge/lookup). When present,
+    // it's written straight into rc_badge_cache so the render path serves this
+    // calibration from local state without ever calling RC.
+    badge?: RisingCompassBadgeData;
     action?: string;
   };
   let body: WebhookBody;
@@ -83,6 +88,25 @@ export async function POST(request: Request) {
     action,
     payload: body,
   });
+
+  // Populate the local badge cache (keyed by title+artist, independent of
+  // whether a chadlewine song row matched) so the render path serves this
+  // calibration from local state instead of calling RC live.
+  if (typeof match.title === "string" && match.title && typeof match.artist === "string" && match.artist && body.badge) {
+    await supabase.from("rc_badge_cache").upsert(
+      {
+        cache_key: badgeCacheKey(match.title, match.artist),
+        title: match.title.trim(),
+        artist: match.artist.trim(),
+        rc_song_id,
+        badge: body.badge,
+        not_found: false,
+        source: "webhook",
+        fetched_at: new Date().toISOString(),
+      },
+      { onConflict: "cache_key" },
+    );
+  }
 
   if (!songId) {
     return Response.json({ ok: true, matched: false, message: "No song matched; logged only" }, { status: 202 });
