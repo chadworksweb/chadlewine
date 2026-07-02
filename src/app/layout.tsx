@@ -46,15 +46,20 @@ export const metadata: Metadata = {
 // every analytics surface (PostHog, GA, custom analytics, song-play recorder)
 // reads the correct state on first paint. Reads the saved choice from the
 // cl_cookie_consent cookie; for first-time visitors it reads cl_geo_default
-// (set at the edge by proxy.ts: "deny" for EU/UK/EEA, "allow" elsewhere),
-// defaulting to deny when absent. This runs in the browser, so the layout no
-// longer calls cookies()/headers() server-side -- which is what forced every
-// public page to dynamic rendering and defeated ISR.
+// (set at the edge by proxy.ts: "deny" for EU/UK/EEA + California, "allow"
+// elsewhere), defaulting to deny when absent. A Global Privacy Control or Do
+// Not Track browser signal then forces every optional category off, regardless
+// of saved choice (CPRA recognizes GPC as a binding opt-out) -- this covers GA
+// too, not just PostHog's own respect_dnt. This runs in the browser, so the
+// layout no longer calls cookies()/headers() server-side -- which is what
+// forced every public page to dynamic rendering and defeated ISR.
 const CONSENT_BOOTSTRAP =
   "(function(){try{function r(n){var m=document.cookie.match(new RegExp('(?:^|; )'+n+'=([^;]*)'));return m?decodeURIComponent(m[1]):null;}" +
   "var raw=r('cl_cookie_consent'),w;" +
   "if(raw){var o={functional:0,analytics:0,marketing:0};raw.split('|').forEach(function(p){var kv=p.split(':');if(kv[0] in o)o[kv[0]]=parseInt(kv[1],10)?1:0;});w={decided:true,functional:o.functional,analytics:o.analytics,marketing:o.marketing};}" +
   "else{var allow=r('cl_geo_default')==='allow';w={decided:false,functional:allow?1:0,analytics:allow?1:0,marketing:0};}" +
+  "var gpc=(navigator.globalPrivacyControl===true)||(navigator.doNotTrack=='1')||(navigator.doNotTrack==='yes')||(window.doNotTrack=='1');" +
+  "if(gpc){w.functional=0;w.analytics=0;w.marketing=0;}" +
   "window.__CL_CONSENT__=w;}catch(e){window.__CL_CONSENT__={decided:false,functional:0,analytics:0,marketing:0};}})();";
 
 export default function RootLayout({

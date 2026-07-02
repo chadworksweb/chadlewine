@@ -7,8 +7,10 @@
  *
  * A tiny inline script in the root layout sets window.__CL_CONSENT__ from the
  * cookie (or the geo default) BEFORE hydration, so analyticsAllowed() is correct
- * on first paint. Geo: EU/UK/EEA default to opt-in (analytics off until accept);
- * everywhere else defaults to opt-out (analytics on unless rejected).
+ * on first paint. Geo: EU/UK/EEA and California default to opt-in (analytics off
+ * until accept); everywhere else defaults to opt-out (analytics on unless
+ * rejected). California is opt-in because CIPA treats pre-consent third-party
+ * analytics as a per-visit wiretap/pen-register liability.
  */
 
 export const CONSENT_COOKIE = "cl_cookie_consent";
@@ -32,6 +34,25 @@ export const OPT_IN_COUNTRIES = new Set<string>([
   "GB", "CH",     // UK + Switzerland
 ]);
 
+// US states that get opt-in (default-deny), keyed by ISO-3166-2 subdivision
+// code from x-vercel-ip-country-region. Only consulted when country === "US"
+// (so it never collides with Canada's "CA" country code). California is here
+// because CIPA's private right of action makes pre-consent analytics a
+// per-visit liability. Add more states as their laws warrant.
+export const OPT_IN_US_REGIONS = new Set<string>([
+  "CA", // California -- CIPA / CPRA
+]);
+
+/** True when the visitor's geo requires opt-in (analytics off until accepted). */
+export function isOptInGeo(
+  country?: string | null,
+  region?: string | null,
+): boolean {
+  if (country && OPT_IN_COUNTRIES.has(country)) return true;
+  if (country === "US" && region && OPT_IN_US_REGIONS.has(region)) return true;
+  return false;
+}
+
 export function parseConsent(str?: string | null): Consent {
   const c: Consent = { essential: 1, functional: 0, analytics: 0, marketing: 0 };
   if (str) {
@@ -51,8 +72,11 @@ export function serializeConsent(c: Consent): string {
 }
 
 /** Default consent BEFORE the visitor chooses, based on region. */
-export function defaultConsentForCountry(country: string | null | undefined): Consent {
-  return country && OPT_IN_COUNTRIES.has(country) ? DEFAULT_DENY : DEFAULT_ALLOW;
+export function defaultConsentForCountry(
+  country: string | null | undefined,
+  region?: string | null,
+): Consent {
+  return isOptInGeo(country, region) ? DEFAULT_DENY : DEFAULT_ALLOW;
 }
 
 export type ConsentWindow = {

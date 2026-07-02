@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { mergeMetadata } from "@/lib/page-meta";
-import { POPUP_EVENT } from "@/components/SuperIndividualPopup";
+import { POPUP_EVENT, POPUP_EVENT_LIVE } from "@/components/SuperIndividualPopup";
 
 const DEFAULT_METADATA: Metadata = {
   title: "IRL Events",
@@ -56,25 +56,31 @@ export default function IRLPage() {
       </section>
 
       <section className="irl-events">
-        <Link href={POPUP_EVENT.pathname} className="irl-event-card" aria-label={`${POPUP_EVENT.name} — view event details`}>
-          <div className="irl-event-card__status">
-            <span className="irl-event-card__status-dot" aria-hidden="true" />
-            Upcoming
-          </div>
-          <h2 className="irl-event-card__title">{POPUP_EVENT.name}</h2>
-          <div className="irl-event-card__meta">
-            <span className="irl-event-card__date">{dateLine}</span>
-            <span className="irl-event-card__sep" aria-hidden="true">/</span>
-            <span className="irl-event-card__venue">{venueLine}</span>
-          </div>
-          <p className="irl-event-card__desc">
-            Three days at Montgomery Mall. The wearable thesis on display,
-            live painting all weekend, original songs performed in full,
-            and the Rising Compass listening zone in the back of the
-            room. A physical manifestation of the Super Individual Series.
+        {POPUP_EVENT_LIVE ? (
+          <Link href={POPUP_EVENT.pathname} className="irl-event-card" aria-label={`${POPUP_EVENT.name} — view event details`}>
+            <div className="irl-event-card__status">
+              <span className="irl-event-card__status-dot" aria-hidden="true" />
+              Upcoming
+            </div>
+            <h2 className="irl-event-card__title">{POPUP_EVENT.name}</h2>
+            <div className="irl-event-card__meta">
+              <span className="irl-event-card__date">{dateLine}</span>
+              <span className="irl-event-card__sep" aria-hidden="true">/</span>
+              <span className="irl-event-card__venue">{venueLine}</span>
+            </div>
+            <p className="irl-event-card__desc">
+              Three days at Montgomery Mall. The wearable thesis on display,
+              live painting all weekend, original songs performed in full,
+              and the Rising Compass listening zone in the back of the
+              room. A physical manifestation of the Super Individual Series.
+            </p>
+            <span className="irl-event-card__cta">See event details &rarr;</span>
+          </Link>
+        ) : (
+          <p className="irl-page__intro">
+            No upcoming events right now. Check back soon.
           </p>
-          <span className="irl-event-card__cta">See event details &rarr;</span>
-        </Link>
+        )}
       </section>
     </div>
   );

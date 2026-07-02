@@ -107,10 +107,14 @@ export default function PrivacyPolicyPage() {
         and improve the experience. For signed-out visitors this data is
         not linked to your identity; if you sign in, we associate it with
         your account. We ask for your consent before loading analytics and
-        apply it by region; you can change it anytime (see &ldquo;Your
-        Choices&rdquo; below), and PostHog honors your browser&rsquo;s Do
-        Not Track signal. PostHog and Google Analytics store this data in
-        the United States.
+        apply it by region: visitors in the EU, UK, EEA, and California are
+        opt-in (analytics stay off until you choose &ldquo;Accept&rdquo;),
+        and elsewhere analytics are on by default with an easy opt-out. You
+        can change it anytime (see &ldquo;Your Choices&rdquo; below). We also
+        honor your browser&rsquo;s Global Privacy Control and Do Not Track
+        signals: with either enabled, no analytics or session-replay data is
+        collected, whatever your saved choice. PostHog and Google Analytics
+        store this data in the United States.
       </p>
 
       <h2>2. How We Use Information</h2>
@@ -244,13 +248,15 @@ export default function PrivacyPolicyPage() {
       <p>
         <strong>Analytics and cookie choices.</strong> We ask for your
         consent before loading analytics (PostHog, Google Analytics, and
-        Vercel) and apply it by region &mdash; opt-in in the EU, UK, and
-        EEA; on by default with an easy opt-out elsewhere. You can change
-        it anytime via{" "}
+        Vercel) and apply it by region. Visitors in the EU, UK, EEA, and
+        California are opt-in (analytics stay off until you accept);
+        elsewhere analytics are on by default with an easy opt-out. You can
+        change it anytime via{" "}
         <ManageCookiesButton /> or the Privacy and cookies panel on{" "}
         <Link href="/account">your account</Link> (your choice follows you
-        across devices when signed in). PostHog also honors your
-        browser&rsquo;s Do Not Track signal.
+        across devices when signed in). We honor your browser&rsquo;s Global
+        Privacy Control and Do Not Track signals: with either enabled, no
+        analytics data is collected, whatever your saved choice.
       </p>
       <p>
         <strong>California residents (CCPA/CPRA).</strong> If you are a
@@ -313,13 +319,15 @@ export default function PrivacyPolicyPage() {
         and we will delete it.
       </p>
 
-      <h2>10. Do Not Track</h2>
+      <h2>10. Global Privacy Control and Do Not Track</h2>
       <p>
-        Our analytics provider (PostHog) honors your browser&rsquo;s Do
-        Not Track signal: with Do Not Track enabled, no analytics or
-        session-replay data is collected from you. We do not use
-        cross-site tracking and do not sell or share personal information
-        for behavioral advertising, regardless of any DNT setting.
+        We honor both the Global Privacy Control (GPC) and Do Not Track
+        signals sent by your browser. With either enabled, we load no
+        analytics at all: Google Analytics, PostHog, and session replay
+        stay off, whatever your saved cookie choice. California residents
+        can treat GPC as a valid opt-out of any sale or sharing under the
+        CPRA. We do not use cross-site tracking and do not sell or share
+        personal information for behavioral advertising in any case.
       </p>
 
       <h2>11. Changes to This Policy</h2>

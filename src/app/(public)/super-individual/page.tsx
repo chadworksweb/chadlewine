@@ -9,7 +9,7 @@ import { DiscographyCubeRadiant, type DiscographyCubeFace } from "@/components/D
 import { CompassCard } from "@/components/CompassCard";
 import { RCTop10Card } from "@/components/RCTop10Card";
 import { MiniLyricalCharger } from "@/components/MiniLyricalCharger";
-import { SuperIndividualPopupSection } from "@/components/SuperIndividualPopup";
+import { SuperIndividualPopupSection, POPUP_EVENT_LIVE } from "@/components/SuperIndividualPopup";
 import { SuperIndividualFloatingTag } from "@/components/SuperIndividualFloatingTag";
 import { FrutigerMiniPlayer } from "@/components/FrutigerMiniPlayer";
 import { releaseTypeLabel, releaseFormatLabel } from "@/lib/release-labels";
@@ -177,6 +177,10 @@ async function fetchReleases(): Promise<{ heroItems: ReleaseHeroItem[]; discoIte
         "id, title, slug, release_date, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, release_type"
       )
       .eq("status", "published")
+      // Exclude single-type releases: each single is already surfaced via its
+      // song (discoFromSingles / heroFromSingles). Showing the single release
+      // too produced duplicate cards. Matches the sitemap/discography convention.
+      .neq("release_type", "single")
       .order("release_date", { ascending: false }),
     singleIdsList.length === 0
       ? Promise.resolve({ data: [] as SongRow[] })
@@ -423,7 +427,9 @@ export default async function SuperIndividualPage() {
             <a href="#thesis" className="si-hero__nav-link">My Thesis</a>
             <a href="#door-merch" className="si-hero__nav-link">Merch</a>
             <a href="#door-music" className="si-hero__nav-link">My Music</a>
-            <a href="#popup" className="si-hero__nav-link">Pop-Up</a>
+            {POPUP_EVENT_LIVE && (
+              <a href="#popup" className="si-hero__nav-link">Pop-Up</a>
+            )}
           </div>
         </div>
       </section>
@@ -536,7 +542,7 @@ export default async function SuperIndividualPage() {
         />
         <div className="si-prose si-doors-intro__prose">
           <p>
-            It is with this awareness that I create and present the following three pathways to offer individuals an entry point to reclaiming their power on the road to becoming the Super Individual that they were already born as.
+            It is with this awareness that I create and present the following pathways to offer individuals an entry point to reclaiming their power on the road to becoming the Super Individual that they were already born as.
           </p>
         </div>
       </section>
@@ -704,8 +710,10 @@ export default async function SuperIndividualPage() {
 
       {/* Section 5 — The Pop-Up teaser. The JSON-LD lives on the canonical
           event page at /irl/super-individual-pop-up (set there via
-          includeEventSchema). The teaser links there via showEventPageLink. */}
-      <SuperIndividualPopupSection showEventPageLink />
+          includeEventSchema). The teaser links there via showEventPageLink.
+          Gated behind POPUP_EVENT_LIVE so the pop-up + schedule sections can be
+          unpublished/reinstated in one switch. */}
+      {POPUP_EVENT_LIVE && <SuperIndividualPopupSection showEventPageLink />}
 
       {/* Section 6 — Who Is Chad Lewine? The about-the-author closer. */}
       <section className="si-section si-who" id="who-is-chad-lewine" aria-labelledby="si-who-heading">
@@ -790,7 +798,7 @@ export default async function SuperIndividualPage() {
         </div>
       </section>
 
-      <SuperIndividualFloatingTag />
+      {POPUP_EVENT_LIVE && <SuperIndividualFloatingTag />}
     </div>
   );
 }

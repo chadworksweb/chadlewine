@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { mergeMetadata } from "@/lib/page-meta";
 import {
   POPUP_EVENT,
+  POPUP_EVENT_LIVE,
   SuperIndividualPopupSection,
 } from "@/components/SuperIndividualPopup";
 
@@ -25,6 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function SuperIndividualPopUpPage() {
+  // Event is unpublished. Flip POPUP_EVENT_LIVE to reinstate this page.
+  if (!POPUP_EVENT_LIVE) notFound();
+
   return (
     <div className="event-page">
       <nav aria-label="Breadcrumb" className="event-page__breadcrumb">

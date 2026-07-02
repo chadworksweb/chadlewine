@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
-import { CONSENT_COOKIE, OPT_IN_COUNTRIES } from "@/lib/consent";
+import { CONSENT_COOKIE, isOptInGeo } from "@/lib/consent";
 
 type AuthResult = {
   ok: boolean;
@@ -140,7 +140,8 @@ export async function proxy(request: NextRequest) {
   // reads flags). Gate by not merging to master, not by flags.
   //
   // Consent geo-default (edge): first-time visitors with no saved consent choice
-  // get a cl_geo_default cookie ("deny" for EU/UK/EEA, "allow" elsewhere). The
+  // get a cl_geo_default cookie ("deny" for EU/UK/EEA + California, "allow"
+  // elsewhere -- California is default-deny for CIPA). The
   // root-layout inline script reads it to set the pre-hydration consent default
   // WITHOUT the layout calling cookies()/headers() -- which would force every
   // public page to dynamic rendering and defeat ISR. Only set on the first hit
@@ -152,7 +153,8 @@ export async function proxy(request: NextRequest) {
     !request.cookies.get("cl_geo_default")?.value
   ) {
     const country = request.headers.get("x-vercel-ip-country");
-    const def = country && OPT_IN_COUNTRIES.has(country) ? "deny" : "allow";
+    const region = request.headers.get("x-vercel-ip-country-region");
+    const def = isOptInGeo(country, region) ? "deny" : "allow";
     res.cookies.set("cl_geo_default", def, {
       httpOnly: false,
       sameSite: "lax",
