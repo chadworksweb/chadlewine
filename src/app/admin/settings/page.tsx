@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const ITEMS = [
   { href: "/admin/launch-control", label: "Launch Control", blurb: "Toggle site sections live." },
+  { href: "/admin/homepage-hero", label: "Homepage Hero", blurb: "Pin + order songs, releases, merch, art, observations, videos in the hero." },
   { href: "/admin/analytics", label: "Analytics", blurb: "Traffic, conversions, events." },
   { href: "/admin/voice-profile", label: "Voice Profile", blurb: "Chad Lewine voice persona." },
   { href: "/admin/seo", label: "SEO", blurb: "Metadata, structured data, GEO scores." },

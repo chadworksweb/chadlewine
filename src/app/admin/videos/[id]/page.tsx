@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { SeoFieldsPanel } from "@/components/SeoFieldsPanel";
+import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 
 // timestamptz (ISO) <-> the value a datetime-local input expects (local time).
 function toLocalInput(iso: unknown): string {
@@ -71,6 +72,34 @@ export default function EditVideoPage() {
       <div className="obsv-editor__field"><label className="obsv-editor__label"><input type="checkbox" checked={!!form.is_featured} onChange={e => setForm({...form, is_featured: e.target.checked})} style={{ marginRight: 8 }} />Featured</label></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Status</label><select className="obsv-editor__input" value={(form.status as string) || "draft"} onChange={e => setForm({...form, status: e.target.value})}><option value="draft">Draft</option><option value="published">Published</option></select></div>
       <div className="obsv-editor__field"><label className="obsv-editor__label">Publish date</label><input type="datetime-local" className="obsv-editor__input" value={toLocalInput(form.published_at)} onChange={e => setForm({...form, published_at: fromLocalInput(e.target.value)})} /><p style={{ fontSize: "var(--text-xs)", color: "var(--text-tertiary)", margin: "4px 0 0" }}>Controls newest/oldest sort order on the public page.</p></div>
+
+      {typeof form.thumbnail_path === "string" && form.thumbnail_path && (
+        <div className="obsv-editor__panel">
+          <h3 className="obsv-editor__panel-title">Homepage hero crop &amp; focal point</h3>
+          <FocalPointPicker
+            src={form.thumbnail_path}
+            alt={(form.title as string) || "Video thumbnail"}
+            ratios={["hero"]}
+            crops={{
+              hero: {
+                focalX: (form.hero_focal_x as number | null) ?? null,
+                focalY: (form.hero_focal_y as number | null) ?? null,
+                zoom: (form.hero_zoom as number | null) ?? 1,
+              },
+              card: { focalX: null, focalY: null, zoom: 1 },
+              portrait: { focalX: null, focalY: null, zoom: 1 },
+            }}
+            onChange={(ratio: CropRatio, patch: CropPatch) => {
+              if (ratio !== "hero") return;
+              const updates: Record<string, unknown> = {};
+              if ("focalX" in patch) updates.hero_focal_x = patch.focalX;
+              if ("focalY" in patch) updates.hero_focal_y = patch.focalY;
+              if ("zoom" in patch) updates.hero_zoom = patch.zoom ?? 1;
+              setForm({ ...form, ...updates });
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

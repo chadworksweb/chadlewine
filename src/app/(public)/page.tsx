@@ -378,20 +378,20 @@ async function getExploreSongs(excludedIdsPromise: Promise<string[]>) {
   }));
 }
 
-/* Gallery-wall art for the homepage. Features pieces that carry a `dimensions`
-   value, so the wall hangs everything at true architectural scale. We pull a
+/* Gallery-wall art for the homepage. Features pieces with measured width_in and
+   height_in, so the wall hangs everything at true architectural scale. We pull a
    RANDOM 30 (rotates each ISR regen) rather than the whole catalogue, so the
-   browser payload stays bounded and the client only scatters whatever fits.
-   Open this up (drop the dimensions filter) once more pieces are measured. */
-const GALLERY_WALL_POOL = 30;
+   browser payload stays bounded and the client only scatters whatever fits. */
+const GALLERY_WALL_POOL = 20;
 
 async function getGalleryArt(): Promise<GalleryPiece[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from("art_pieces")
-    .select("id, slug, title, image_path, dimensions, medium, year_created")
+    .select("id, slug, title, image_path, width_in, height_in, depth_in, medium, year_created")
     .in("status", ["unreleased", "published"])
-    .not("dimensions", "is", null);
+    .not("width_in", "is", null)
+    .not("height_in", "is", null);
   const all = (data as GalleryPiece[] | null) || [];
   // Fisher-Yates shuffle, then take the pool. (Server-side; fine at this scale.
   // Move to a DB-level `order by random() limit` via RPC if the catalogue ever
@@ -403,13 +403,27 @@ async function getGalleryArt(): Promise<GalleryPiece[]> {
   return all.slice(0, GALLERY_WALL_POOL);
 }
 
+// How many slides the hero shows. Curated pins lead; latest songs backfill the
+// rest up to this number (see HomepageFeed). Stored in site_settings; defaults
+// to 10 and is capped to what the song feed can backfill.
+async function getHeroSlideCount(): Promise<number> {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("site_settings")
+    .select("value")
+    .eq("key", "hero_slide_count")
+    .maybeSingle();
+  const n = data?.value ? parseInt(data.value, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 15) : 10;
+}
+
 export default async function HomePage() {
   // Compute the browse-excluded song ids ONCE and share the promise across both
   // consumers (getExploreSongs + getSongBriefs). Previously each recomputed it --
   // two redundant Supabase round trips on every render (and these pages render
   // live on every request, so it was paid every time, not just on regen).
   const excludedIdsPromise = getBrowseExcludedSongIds(createPublicClient());
-  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, galleryArt, latestPosts] = await Promise.all([
+  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, heroSlideCount, galleryArt, latestPosts] = await Promise.all([
     getHomepageSongs(),
     getFeaturedTrack(),
     getCLStreamSongs(),
@@ -417,6 +431,7 @@ export default async function HomePage() {
     getSongBriefs(excludedIdsPromise),
     getHomepageMerch(),
     getCuratedHeroItems(),
+    getHeroSlideCount(),
     getGalleryArt(),
     getLatestPosts(),
   ]);
@@ -432,6 +447,7 @@ export default async function HomePage() {
         featuredTrack={featuredTrack ? { ...featuredTrack, playbackMode: featuredPlaybackMode } : null}
         clStreamSongs={clStreamSongs}
         curatedHeroItems={curatedHeroItems}
+        heroSlideCount={heroSlideCount}
       />
 
       {homepageMerch.length > 0 && (

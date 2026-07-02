@@ -1,14 +1,15 @@
 import { createAdminClient } from "@/lib/supabase-server";
 
-const ENTITY_TYPES = ["song", "release", "merch", "observation", "art"] as const;
+const ENTITY_TYPES = ["song", "release", "merch", "observation", "art", "video"] as const;
 type EntityType = (typeof ENTITY_TYPES)[number];
 
 const TABLE_BY_TYPE: Record<EntityType, string> = {
   song: "songs",
   release: "releases",
-  merch: "products",
-  observation: "observations",
+  merch: "merch",
+  observation: "posts",
   art: "art_pieces",
+  video: "videos",
 };
 
 export async function GET() {
@@ -22,7 +23,7 @@ export async function GET() {
 
   // Hydrate each row with the entity's title + slug for display in the admin
   // table. Group ids by type, batch-fetch, then merge.
-  const byType: Record<EntityType, string[]> = { song: [], release: [], merch: [], observation: [], art: [] };
+  const byType: Record<EntityType, string[]> = { song: [], release: [], merch: [], observation: [], art: [], video: [] };
   for (const r of rows || []) {
     if ((ENTITY_TYPES as readonly string[]).includes(r.entity_type)) {
       byType[r.entity_type as EntityType].push(r.entity_id);

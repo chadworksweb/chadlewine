@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { WaterRipple } from "@/components/WaterRipple";
+import { WaterRipple, type WaterRippleHandle } from "@/components/WaterRipple";
 import { TitleReveal } from "@/components/TitleReveal";
 
 // HeroLens shows the album-cover slider for SONGS on the homepage. Songs
@@ -11,7 +11,7 @@ import { TitleReveal } from "@/components/TitleReveal";
 // (albums.concept_statement), and observations have hooks (observations.hook_line).
 // Don't reintroduce a generic "hook" field here — pick the entity-specific
 // name when this slider is reused in a different context.
-export type HeroKind = "song" | "release" | "merch" | "observation" | "art";
+export type HeroKind = "song" | "release" | "merch" | "observation" | "art" | "video";
 
 export interface HeroLensItem {
   slug: string;
@@ -38,6 +38,7 @@ const TRANSITION_MS = 1100;
 const TRANSITION_MS_MOBILE = 500;
 
 function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boolean }) {
+  const rippleRef = useRef<WaterRippleHandle>(null);
   const fx = item.focalX ?? 0.5;
   const fy = item.focalY ?? 0.5;
   const z = item.zoom && item.zoom >= 1 ? item.zoom : 1;
@@ -68,6 +69,7 @@ function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boo
             {isCurrent && (
               <div className="hero-lens__ripple-layer">
                 <WaterRipple
+                  ref={rippleRef}
                   src={item.artImagePath}
                   alt={item.artAlt || item.title}
                   focalX={item.focalX}
@@ -83,7 +85,22 @@ function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boo
       <div className="hero-lens__slide-content">
         <div className="cover-hero__title-col">
           <TitleReveal artImageUrl={item.artImagePath || ""}>
-            <Link href={item.href} className="cover-hero__title-link">
+            {/* On the current slide the title is NOT a way out -- clicking it
+                ripples the image like the rest of the surface. The CTA is the
+                only navigation. (Peek titles keep their href; their pointer
+                events are disabled in CSS so the peel advances instead.) */}
+            <Link
+              href={item.href}
+              className="cover-hero__title-link"
+              onClick={
+                isCurrent
+                  ? (e) => {
+                      e.preventDefault();
+                      rippleRef.current?.splashAt(e.clientX, e.clientY);
+                    }
+                  : undefined
+              }
+            >
               <h2 className="cover-hero__title">{item.title}</h2>
             </Link>
           </TitleReveal>
@@ -319,13 +336,32 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
   // straight to the node so mouse moves don't re-render the slides.
   const cursorHintRef = useRef<HTMLDivElement>(null);
   const [cursorHintOn, setCursorHintOn] = useState(false);
+  // The hint only belongs over the CURRENT slide (the centered, clickable image)
+  // -- not over the dark side peek strips or the paddles that sit in them. Cache
+  // the peek width (the --hero-peek CSS var, 0 on narrow screens) rather than
+  // reading computed style on every mouse move.
+  const peekRef = useRef(0);
+  useEffect(() => {
+    const measure = () => {
+      const vp = viewportRef.current;
+      if (!vp) return;
+      peekRef.current = parseFloat(getComputedStyle(vp).getPropertyValue("--hero-peek")) || 0;
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
   const handleHeroMouseMove = useCallback((e: React.MouseEvent) => {
     const vp = viewportRef.current;
     const el = cursorHintRef.current;
     if (!vp || !el) return;
     const r = vp.getBoundingClientRect();
-    el.style.transform = `translate(${e.clientX - r.left}px, ${e.clientY - r.top}px)`;
-    setCursorHintOn(true); // no-op re-render once already true
+    const x = e.clientX - r.left;
+    el.style.transform = `translate(${x}px, ${e.clientY - r.top}px)`;
+    // On over the current slide (between the peek strips); off over the strips
+    // and paddles at the left/right edges.
+    const peek = peekRef.current;
+    setCursorHintOn(x >= peek && x <= r.width - peek);
   }, []);
   const handleHeroMouseLeave = useCallback(() => setCursorHintOn(false), []);
 

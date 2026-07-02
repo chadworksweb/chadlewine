@@ -1840,6 +1840,7 @@ body.art-immersive main ~ * {
    transparent and only its children render visible chrome. */
 .cover-hero__bar > .hero-lens__cta-row {
   display: flex !important;
+  flex-direction: column;
   align-items: stretch;
   gap: var(--space-sm);
   padding: 0 !important;
@@ -1856,11 +1857,11 @@ body.art-immersive main ~ * {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 var(--space-md);
+  padding: 10px var(--space-md);
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1871,9 +1872,11 @@ body.art-immersive main ~ * {
 .hero-lens__kind--single { color: var(--text-accent); border-color: rgba(64, 96, 255, 0.5); }
 .hero-lens__kind--album { color: #d8b25c; border-color: rgba(255, 209, 102, 0.5); }
 .hero-lens__kind--ep { color: #d8b25c; border-color: rgba(255, 209, 102, 0.5); }
+.hero-lens__kind--release { color: #d8b25c; border-color: rgba(255, 209, 102, 0.5); }
 .hero-lens__kind--merch { color: #06d6a0; border-color: rgba(6, 214, 160, 0.5); }
 .hero-lens__kind--observation { color: #ef476f; border-color: rgba(239, 71, 111, 0.5); }
 .hero-lens__kind--art { color: #c084fc; border-color: rgba(192, 132, 252, 0.5); }
+.hero-lens__kind--video { color: #ff8c42; border-color: rgba(255, 140, 66, 0.5); }
 
 /* Hero Lens CTA — standalone, no inheritance */
 .hero-lens__cta {
@@ -1881,6 +1884,7 @@ body.art-immersive main ~ * {
   display: flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap;
   position: relative;
   overflow: hidden;
   padding: 10px var(--space-md);

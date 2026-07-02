@@ -15,7 +15,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ slug
   const body = await request.json();
   const fields = [
     "title", "slug", "medium", "image_path", "image_alt", "description",
-    "display_order", "status", "dimensions", "year_created", "gallery_paths",
+    "display_order", "status", "year_created", "gallery_paths",
     "in_situ_paths", "width_in", "height_in", "depth_in",
     "art_summary", "chad_quote", "format_id",
     "hero_focal_x", "hero_focal_y", "hero_zoom",

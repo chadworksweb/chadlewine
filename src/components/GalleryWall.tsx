@@ -2,37 +2,44 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { formatDimensions } from "@/lib/art-dimensions";
 import "./GalleryWall.css";
 
 /* Browse Chad Lewine Art -- a full-viewport virtual gallery wall.
 
    The wall is modeled at a real architectural scale (22ft x 14ft). Each piece
-   is sized from its REAL dimensions (parsed from the `dimensions` text), so a
-   5ft canvas dwarfs an 8x10. Pieces are scattered like a salon hang and the
-   whole thing is subtly digitized/glitchy -- the FRAMES read as tech wireframe,
-   the art itself just flickers. Click a piece for a clean lightbox + a link to
-   its detail page.
+   is sized from its REAL measured size (width_in / height_in), so a 5ft canvas
+   dwarfs an 8x10. Pieces are scattered like a salon hang and the whole thing is
+   subtly digitized/glitchy -- the FRAMES read as tech wireframe, the art itself
+   just flickers. Click a piece for a clean lightbox + a link to its detail page.
 
-   Pieces without parseable dimensions fall back to a believable assumed size
-   driven by the image's own aspect ratio, so the wall still hangs cleanly. */
+   Pieces without measured size fall back to a believable assumed size driven by
+   the image's own aspect ratio, so the wall still hangs cleanly. */
 
 export interface GalleryPiece {
   id: string;
   slug: string;
   title: string;
   image_path: string;
-  dimensions: string | null;
+  width_in: number | null;
+  height_in: number | null;
+  depth_in: number | null;
   medium: string | null;
   year_created: number | null;
 }
 
-// Real wall, in inches.
-const WALL_W_IN = 22 * 12; // 264
-const WALL_H_IN = 14 * 12; // 168
-const EDGE_IN = 7; // keep pieces off the wall edges
-const GAP_IN = 6; // minimum air between pieces
+// Real wall, in inches. Kept intentionally tight so a modest hang fills it -- a
+// bigger wall just reads as empty space around small pieces.
+const WALL_W_IN = 14 * 12; // 168
+const WALL_H_IN = 9 * 12; // 108
+const EDGE_IN = 6; // keep pieces off the wall edges
+const GAP_IN = 5; // minimum air between pieces
 const PLACE_TRIES = 500; // rejection-sampling attempts per piece
-const FALLBACK_LONGEST_IN = 26; // assumed size when dimensions don't parse
+const FALLBACK_LONGEST_IN = 26; // assumed size when a piece has no measured size
+
+// A single piece glitches at a time, on a global cadence (ms).
+const GLITCH_INTERVAL_MS = 3000;
+const GLITCH_HOLD_MS = 360; // matches the gw-flicker keyframe duration
 
 interface Placed {
   piece: GalleryPiece;
@@ -40,37 +47,17 @@ interface Placed {
   yIn: number;
   wIn: number;
   hIn: number;
-  delay: string; // flicker desync
 }
 
-// "36x48in" | "36 x 48 in" | "3ft x 2ft" | '36"x48"' -> { w, h } inches.
-function parseDims(s: string | null): { w: number; h: number } | null {
-  if (!s) return null;
-  const m = s
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .match(/(\d+(?:\.\d+)?)(in|"|cm|ft|')?(?:x|×|by)(\d+(?:\.\d+)?)(in|"|cm|ft|')?/);
-  if (!m) return null;
-  let w = parseFloat(m[1]);
-  let h = parseFloat(m[3]);
-  const unit = m[4] || m[2];
-  if (unit === "ft" || unit === "'") {
-    w *= 12;
-    h *= 12;
-  } else if (unit === "cm") {
-    w /= 2.54;
-    h /= 2.54;
-  }
-  if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
-  return { w, h };
-}
-
-// Real-world size in inches: the LONGEST side comes from the dimensions (so
-// scale varies believably), the SHAPE comes from the actual image so nothing
+// Real-world size in inches: the LONGEST side comes from the measured dimensions
+// (so scale varies believably), the SHAPE comes from the actual image so nothing
 // is cropped or stretched.
 function realSize(piece: GalleryPiece, aspect: number): { wIn: number; hIn: number } {
-  const dims = parseDims(piece.dimensions);
-  const longest = dims ? Math.max(dims.w, dims.h) : FALLBACK_LONGEST_IN;
+  const measured =
+    piece.width_in != null && piece.height_in != null
+      ? Math.max(piece.width_in, piece.height_in)
+      : null;
+  const longest = measured ?? FALLBACK_LONGEST_IN;
   if (aspect >= 1) return { wIn: longest, hIn: longest / aspect };
   return { wIn: longest * aspect, hIn: longest };
 }
@@ -90,6 +77,7 @@ export function GalleryWall({ pieces }: { pieces: GalleryPiece[] }) {
   const [aspects, setAspects] = useState<Record<string, number>>({});
   const [placed, setPlaced] = useState<Placed[]>([]);
   const [selected, setSelected] = useState<GalleryPiece | null>(null);
+  const [glitchId, setGlitchId] = useState<string | null>(null);
 
   // Measure the wall surface (drives the px-per-inch scale; re-runs on resize).
   useEffect(() => {
@@ -143,14 +131,7 @@ export function GalleryWall({ pieces }: { pieces: GalleryPiece[] }) {
         const x = EDGE_IN + Math.random() * (maxX - EDGE_IN);
         const y = EDGE_IN + Math.random() * (maxY - EDGE_IN);
         if (result.every((p) => !overlaps(p, x, y, wIn, hIn))) {
-          result.push({
-            piece,
-            xIn: x,
-            yIn: y,
-            wIn,
-            hIn,
-            delay: `-${(Math.random() * 8).toFixed(2)}s`,
-          });
+          result.push({ piece, xIn: x, yIn: y, wIn, hIn });
           done = true;
         }
       }
@@ -158,6 +139,24 @@ export function GalleryWall({ pieces }: { pieces: GalleryPiece[] }) {
     setPlaced(result);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
+
+  // One piece at a time glitches, on a steady global cadence -- so the wall reads
+  // as a calm hang with a single occasional flicker, not a field of constant
+  // blinking. Honors reduced-motion by never starting the cycle.
+  useEffect(() => {
+    if (placed.length === 0) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    let holdTimer: ReturnType<typeof setTimeout>;
+    const tick = window.setInterval(() => {
+      const pick = placed[Math.floor(Math.random() * placed.length)];
+      setGlitchId(pick.piece.id);
+      holdTimer = setTimeout(() => setGlitchId(null), GLITCH_HOLD_MS);
+    }, GLITCH_INTERVAL_MS);
+    return () => {
+      window.clearInterval(tick);
+      clearTimeout(holdTimer);
+    };
+  }, [placed]);
 
   // px-per-inch: contain the whole wall in the surface; center the hang region.
   const layout = useMemo(() => {
@@ -202,10 +201,9 @@ export function GalleryWall({ pieces }: { pieces: GalleryPiece[] }) {
                 <span className="gw-frame">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    className="gw-art"
+                    className={"gw-art" + (glitchId === pl.piece.id ? " gw-art--glitch" : "")}
                     src={pl.piece.image_path}
                     alt={pl.piece.title}
-                    style={{ animationDelay: pl.delay }}
                     draggable={false}
                   />
                 </span>
@@ -237,7 +235,7 @@ function Lightbox({ piece, onClose }: { piece: GalleryPiece; onClose: () => void
     };
   }, [onClose]);
 
-  const meta = [piece.medium, piece.dimensions, piece.year_created]
+  const meta = [piece.medium, formatDimensions(piece.width_in, piece.height_in, piece.depth_in), piece.year_created]
     .filter(Boolean)
     .join(" · ");
 

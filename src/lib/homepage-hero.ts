@@ -37,6 +37,9 @@ interface ProductRow {
   title: string;
   image_url: string | null;
   image_alt: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
 }
 
 interface ObservationRow {
@@ -46,6 +49,9 @@ interface ObservationRow {
   art_image_path: string | null;
   art_alt: string | null;
   kind: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
 }
 
 interface ArtRow {
@@ -54,6 +60,29 @@ interface ArtRow {
   title: string;
   image_path: string | null;
   image_alt: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
+}
+
+interface VideoRow {
+  id: string;
+  slug: string;
+  title: string;
+  thumbnail_path: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
+}
+
+// Focal columns are stored 0-100 (object-position percent); the hero consumes
+// 0-1. Missing focal falls back to centered; zoom below 1 is clamped to 1.
+function heroFocal(x: number | null, y: number | null, z: number | null) {
+  return {
+    focalX: x != null ? x / 100 : 0.5,
+    focalY: y != null ? y / 100 : 0.5,
+    zoom: z != null && z >= 1 ? z : 1,
+  };
 }
 
 interface AlbumFallback {
@@ -74,10 +103,10 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
   const heroRows = (rows || []) as HeroRow[];
   if (heroRows.length === 0) return [];
 
-  const idsByType: Record<HeroKind, string[]> = { song: [], release: [], merch: [], observation: [], art: [] };
+  const idsByType: Record<HeroKind, string[]> = { song: [], release: [], merch: [], observation: [], art: [], video: [] };
   for (const r of heroRows) idsByType[r.entity_type].push(r.entity_id);
 
-  const [songsRes, albumsRes, productsRes, observationsRes, artRes] = await Promise.all([
+  const [songsRes, albumsRes, productsRes, observationsRes, artRes, videosRes] = await Promise.all([
     idsByType.song.length
       ? supabase.from("songs").select("id, slug, title, art_image_path, art_alt, hero_focal_x, hero_focal_y, hero_zoom, release_date").in("id", idsByType.song)
       : Promise.resolve({ data: [] }),
@@ -85,13 +114,16 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
       ? supabase.from("releases").select("id, slug, title, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom").in("id", idsByType.release)
       : Promise.resolve({ data: [] }),
     idsByType.merch.length
-      ? supabase.from("merch").select("id, slug, title, image_url, image_alt").in("id", idsByType.merch)
+      ? supabase.from("merch").select("id, slug, title, image_url, image_alt, hero_focal_x, hero_focal_y, hero_zoom").in("id", idsByType.merch)
       : Promise.resolve({ data: [] }),
     idsByType.observation.length
-      ? supabase.from("posts").select("id, slug, title, art_image_path, art_alt, kind").in("id", idsByType.observation)
+      ? supabase.from("posts").select("id, slug, title, art_image_path, art_alt, kind, hero_focal_x, hero_focal_y, hero_zoom").in("id", idsByType.observation)
       : Promise.resolve({ data: [] }),
     idsByType.art.length
-      ? supabase.from("art_pieces").select("id, slug, title, image_path, image_alt").in("id", idsByType.art)
+      ? supabase.from("art_pieces").select("id, slug, title, image_path, image_alt, hero_focal_x, hero_focal_y, hero_zoom").in("id", idsByType.art)
+      : Promise.resolve({ data: [] }),
+    idsByType.video.length
+      ? supabase.from("videos").select("id, slug, title, thumbnail_path, hero_focal_x, hero_focal_y, hero_zoom").eq("status", "published").in("id", idsByType.video)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -100,6 +132,7 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
   const productMap = new Map<string, ProductRow>(((productsRes.data || []) as ProductRow[]).map((r) => [r.id, r]));
   const obsMap = new Map<string, ObservationRow>(((observationsRes.data || []) as ObservationRow[]).map((r) => [r.id, r]));
   const artMap = new Map<string, ArtRow>(((artRes.data || []) as ArtRow[]).map((r) => [r.id, r]));
+  const videoMap = new Map<string, VideoRow>(((videosRes.data || []) as VideoRow[]).map((r) => [r.id, r]));
 
   // Album-cover fallback for songs without per-track art — same logic the
   // homepage already uses so curated songs render identically to the auto feed.
@@ -168,6 +201,7 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
         artAlt: p.image_alt || p.title,
         href: `/merch/${p.slug}`,
         ctaLabel: "Shop →",
+        ...heroFocal(p.hero_focal_x, p.hero_focal_y, p.hero_zoom),
         kind: "merch",
       });
     } else if (r.entity_type === "observation") {
@@ -181,6 +215,7 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
         artAlt: o.art_alt || o.title,
         href: `/${o.kind === "journal" ? "journal" : "observations"}/${o.slug}`,
         ctaLabel: "Read →",
+        ...heroFocal(o.hero_focal_x, o.hero_focal_y, o.hero_zoom),
         kind: "observation",
       });
     } else if (r.entity_type === "art") {
@@ -194,7 +229,22 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
         artAlt: a.image_alt || a.title,
         href: `/art/${a.slug}`,
         ctaLabel: "View →",
+        ...heroFocal(a.hero_focal_x, a.hero_focal_y, a.hero_zoom),
         kind: "art",
+      });
+    } else if (r.entity_type === "video") {
+      const v = videoMap.get(r.entity_id);
+      if (!v) continue;
+      items.push({
+        slug: v.slug,
+        title: v.title,
+        date: null,
+        artImagePath: v.thumbnail_path || "",
+        artAlt: v.title,
+        href: `/music-videos?v=${v.slug}`,
+        ctaLabel: "Watch →",
+        ...heroFocal(v.hero_focal_x, v.hero_focal_y, v.hero_zoom),
+        kind: "video",
       });
     }
   }
