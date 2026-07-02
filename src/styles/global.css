@@ -2519,10 +2519,10 @@ body.art-immersive main ~ * {
   padding-top: var(--space-sm);
 }
 
-/* No mobile --sticky-top override: it must stay >= --nav-height (80px) or the
-   heading pins BEHIND the fixed nav and reads as "not sticky". The base rule's
-   --sticky-top: var(--nav-height) already lands it flush at the nav's bottom,
-   which is correct at every width. */
+/* Desktop/tablet: --sticky-top stays var(--nav-height) so the heading pins
+   flush under the nav (which is kept visible over this section). On mobile the
+   nav auto-hides, so the 768px block drops --sticky-top to 0 and the heading
+   pins at the viewport top instead -- see that block. */
 
 
 /* Visible accent — sits ON TOP of the heading's transparent border-top
@@ -2539,6 +2539,43 @@ body.art-immersive main ~ * {
   background: var(--text-accent);
   z-index: 2;
   pointer-events: none;
+}
+
+/* See-through fix (desktop/tablet only): the Latest Posts feed does not keep the
+   nav pinned, so when the nav auto-hides its sticky heading pins at --nav-height
+   with an empty strip above it that would otherwise show feed content scrolling
+   behind. This opaque pseudo-element masks that gap. Latest Songs sidesteps it
+   by keeping the nav pinned (data-nav-keep-until). On mobile both headings pin
+   at the viewport top instead, so this mask is disabled there (see the 768px
+   block).
+   The heading has a 2px transparent border-top, and absolute children are
+   positioned from the padding box (inside that border), so the mask is extended
+   up + taller by 2px to cover the very top strip the border offset would
+   otherwise leave uncovered. */
+.home-split--posts .home-split__observations .home-split__section-heading::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-1 * var(--nav-height) - 2px);
+  height: calc(var(--nav-height) + 2px);
+  background: var(--bg-primary, #000);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Mobile: the nav auto-hides everywhere (Nav ignores data-nav-keep-until below
+   768px), so both feed headings pin flush at the viewport TOP with no nav
+   offset, and the see-through mask is unnecessary. This block sits AFTER the
+   base sticky rule + mask above so it wins the cascade (media queries add no
+   specificity, so source order decides). */
+@media (max-width: 768px) {
+  .home-split__observations .home-split__section-heading {
+    top: 0;
+  }
+  .home-split--posts .home-split__observations .home-split__section-heading::before {
+    display: none;
+  }
 }
 
 /* Feed item — active highlight synced with hero lens */
@@ -11602,22 +11639,6 @@ html {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* See-through fix: when the nav auto-hides, the sticky heading pins at
-   --nav-height and the strip above it would otherwise show feed content
-   scrolling behind. This opaque pseudo-element masks that gap. The Latest
-   Songs feed sidesteps it by keeping the nav pinned (data-nav-keep-until). */
-.home-split--posts .home-split__observations .home-split__section-heading::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(-1 * var(--nav-height));
-  height: var(--nav-height);
-  background: var(--bg-primary, #000);
-  z-index: 1;
-  pointer-events: none;
 }
 
 /* Kind chip on a post feed card (Observation / Journal). Square corners. */

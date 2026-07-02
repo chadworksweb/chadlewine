@@ -166,7 +166,7 @@ async function getSongBriefs(excludedIdsPromise: Promise<string[]>): Promise<Son
   }
   const { data: songs } = await query
     .order("release_date", { ascending: false, nullsFirst: false })
-    .limit(9);
+    .limit(6);
 
   if (!songs || songs.length === 0) return [];
 
