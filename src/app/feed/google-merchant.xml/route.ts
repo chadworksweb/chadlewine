@@ -42,12 +42,29 @@ function absImage(url: string | null): string | null {
   return /^https?:\/\//.test(url) ? url : `${SITE}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
+// Google's "images per offer" store-quality signal wants more than the single
+// main image. Absolutize the gallery, drop the main image and any dupes, and cap
+// at 10 (Google ignores additional_image_link entries beyond that).
+function buildAdditionalImages(rawUrls: (string | null)[], mainAbs: string | null): string[] {
+  const seen = new Set<string>(mainAbs ? [mainAbs] : []);
+  const out: string[] = [];
+  for (const raw of rawUrls) {
+    const abs = absImage(raw);
+    if (!abs || seen.has(abs)) continue;
+    seen.add(abs);
+    out.push(abs);
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
 interface FeedItem {
   id: string;
   title: string;
   description: string;
   link: string;
   image: string;
+  additionalImages?: string[];
   price: number;
   available: boolean;
   mpn: string;
@@ -66,6 +83,9 @@ function renderItem(it: FeedItem): string {
     `      <g:description>${xmlEscape(it.description)}</g:description>`,
     `      <g:link>${xmlEscape(it.link)}</g:link>`,
     `      <g:image_link>${xmlEscape(it.image)}</g:image_link>`,
+    ...(it.additionalImages || []).map(
+      (u) => `      <g:additional_image_link>${xmlEscape(u)}</g:additional_image_link>`,
+    ),
     `      <g:availability>${it.available ? "in_stock" : "out_of_stock"}</g:availability>`,
     `      <g:price>${money(it.price)}</g:price>`,
     `      <g:brand>${xmlEscape(BRAND)}</g:brand>`,
@@ -108,6 +128,7 @@ interface ArtPieceRow {
   seo_description: string | null;
   citation_summary: string | null;
   art_summary: string | null;
+  gallery_paths: string[] | null;
 }
 
 interface ArtSkuRow {
@@ -140,21 +161,49 @@ export async function GET() {
       .eq("status", "active"),
     supabase
       .from("art_pieces")
-      .select("id, slug, title, image_path, description, seo_description, citation_summary, art_summary")
+      .select(
+        "id, slug, title, image_path, description, seo_description, citation_summary, art_summary, gallery_paths",
+      )
       .eq("status", "published"),
   ]);
 
   const items: FeedItem[] = [];
+
+  // Gallery images per merch product, primary first then by position -- the same
+  // source the product page uses. Batched over all products so the feed stays a
+  // fixed number of queries. Feeds the additional_image_link entries.
+  const merchRows = (merchRes.data as MerchRow[] | null) || [];
+  const galleryByProduct = new Map<string, string[]>();
+  if (merchRows.length > 0) {
+    const { data: imgRows } = await supabase
+      .from("product_images")
+      .select("product_id, url")
+      .in(
+        "product_id",
+        merchRows.map((r) => r.id),
+      )
+      .eq("is_hidden", false)
+      .is("deleted_at", null)
+      .order("is_primary", { ascending: false })
+      .order("position", { ascending: true });
+    for (const r of (imgRows as { product_id: string; url: string }[] | null) || []) {
+      const list = galleryByProduct.get(r.product_id);
+      if (list) list.push(r.url);
+      else galleryByProduct.set(r.product_id, [r.url]);
+    }
+  }
 
   // --- Merch ---
   // One feed item per purchasable variant (size/color), grouped under the
   // product via item_group_id. Products with no priced variants fall back to a
   // single item using the row price. Printify goods are print-on-demand, so
   // availability is in_stock.
-  for (const row of (merchRes.data as MerchRow[] | null) || []) {
+  for (const row of merchRows) {
     if (!row.slug) continue;
-    const image = absImage(row.image_url);
+    const gallery = galleryByProduct.get(row.id) || [];
+    const image = absImage(gallery[0] ?? row.image_url);
     if (!image) continue;
+    const extraImages = buildAdditionalImages(gallery, image);
     const link = `${SITE}/merch/${row.slug}`;
     const desc = plain(row.seo_description || row.description) || `${row.title}, official merch from ${BRAND}.`;
 
@@ -172,6 +221,7 @@ export async function GET() {
           description: desc,
           link,
           image,
+          additionalImages: extraImages,
           price: (v.price_cents as number) / 100,
           available: true,
           mpn: `${row.id}-${v.id}`,
@@ -191,6 +241,7 @@ export async function GET() {
       description: desc,
       link,
       image,
+      additionalImages: extraImages,
       price,
       available: true,
       mpn: row.id,
@@ -238,6 +289,7 @@ export async function GET() {
         description: desc,
         link: `${SITE}/art/${art.slug}`,
         image,
+        additionalImages: buildAdditionalImages(art.gallery_paths || [], image),
         price: sellable.price,
         available: sellable.available,
         mpn: art.id,
