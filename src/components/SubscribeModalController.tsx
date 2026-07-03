@@ -40,6 +40,7 @@ const SUPPRESS_PREFIXES = [
   "/account",
   "/preferences",
   "/unsubscribe",
+  "/subscribe",
 ];
 
 type PersistedState = { subscribed?: boolean; dismissedAt?: number };
