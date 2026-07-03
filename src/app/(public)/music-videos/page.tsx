@@ -3,6 +3,7 @@ import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { VideoPantheon } from "@/components/VideoPantheon";
 import { ARTIST_ID, absoluteImage, isoDuration, recordingId } from "@/lib/artist-schema";
+import { streamIframeUrl } from "@/lib/bunny-stream";
 
 const VIDEOS_URL = "https://chadlewine.com/music-videos";
 
@@ -55,6 +56,12 @@ export default async function VideoPage() {
     const thumb = absoluteImage(v.thumbnail_path);
     const uploaded = uploadIso(v.published_at);
     const dur = isoDuration(v.duration_seconds);
+    // Player URL, mirroring PantheonStage's playback fallback: a third-party
+    // embed if we have one, else the Bunny Stream iframe built from stream_id.
+    // Google requires every VideoObject to carry contentUrl or embedUrl, so a
+    // row with no playable source at all is not emitted as a video node.
+    const embed = v.embed_url || streamIframeUrl(v.stream_id);
+    if (!embed) return null;
     // When the video is linked to a catalog song (and that song's page exists),
     // point about/subjectOf at the song's MusicRecording @id -- says "this video
     // is OF this song", merging the two into one entity in the graph.
@@ -73,12 +80,12 @@ export default async function VideoPage() {
       ...(thumb ? { thumbnailUrl: thumb } : {}),
       ...(uploaded ? { uploadDate: uploaded } : {}),
       ...(dur ? { duration: dur } : {}),
-      ...(v.embed_url ? { embedUrl: v.embed_url } : {}),
+      embedUrl: embed,
       author: { "@id": ARTIST_ID },
       creator: { "@id": ARTIST_ID },
       ...(songRef ? { about: songRef, subjectOf: songRef } : {}),
     };
-  });
+  }).filter((node): node is NonNullable<typeof node> => node !== null);
 
   // Collection wrapper, each entry pointing at its VideoObject node by @id.
   const itemListJsonLd = {

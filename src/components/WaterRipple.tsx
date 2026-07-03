@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { getCoverCropRect } from "@/lib/coverCrop";
 
 interface WaterRippleProps {
@@ -12,7 +12,16 @@ interface WaterRippleProps {
   zoom?: number; // >= 1, defaults to 1
 }
 
-export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 }: WaterRippleProps) {
+// Lets a caller trigger a ripple from a click that lands OUTSIDE the canvas
+// (e.g. on the title overlay), so the whole slide reads as one ripple surface.
+export interface WaterRippleHandle {
+  splashAt: (clientX: number, clientY: number) => void;
+}
+
+export const WaterRipple = forwardRef<WaterRippleHandle, WaterRippleProps>(function WaterRipple(
+  { src, alt, className, focalX = 0.5, focalY = 0.5, zoom = 1 },
+  ref,
+) {
   const focalRef = useRef({ x: focalX, y: focalY, z: zoom });
   focalRef.current = { x: focalX, y: focalY, z: zoom };
   const containerRef = useRef<HTMLDivElement>(null);
@@ -212,6 +221,15 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
     dropAt(x, y, 16, 55);
   }, []);
 
+  useImperativeHandle(ref, () => ({
+    splashAt(clientX: number, clientY: number) {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      dropAt(clientX - rect.left, clientY - rect.top, 16, 55);
+    },
+  }), []);
+
   return (
     <div
       ref={containerRef}
@@ -227,4 +245,4 @@ export function WaterRipple({ src, alt, className, focalX = 0.5, focalY = 0.5, z
       />
     </div>
   );
-}
+});

@@ -14,6 +14,7 @@ import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
 import { ArtLicensingSection } from "@/components/ArtLicensingSection";
 import { MuralTemplate, type MuralDetails } from "@/components/MuralTemplate";
 import { markdownToHtml } from "@/lib/markdown";
+import { formatDimensions } from "@/lib/art-dimensions";
 
 export const revalidate = 60;
 
@@ -34,7 +35,6 @@ type ArtRow = {
   image_path: string;
   image_alt: string | null;
   medium: string | null;
-  dimensions: string | null;
   width_in: number | null;
   height_in: number | null;
   depth_in: number | null;
@@ -210,6 +210,8 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
   if (!data) notFound();
   const { art, products, artSkus, compositionHtml, formatSlug, muralDetails, licensingHtml, roomScenes } = data;
 
+  const displayDims = formatDimensions(art.width_in, art.height_in, art.depth_in);
+
   const isMural = formatSlug === "mural" && muralDetails;
   const muralLocation = isMural && muralDetails ? {
     venueName: muralDetails.venue_name,
@@ -236,7 +238,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
         description={art.description}
         citationSummary={art.citation_summary}
         medium={art.medium}
-        dimensions={art.dimensions}
+        dimensions={displayDims}
         yearCreated={art.year_created}
         focusKeyphrase={art.focus_keyphrase}
         secondaryKeyphrases={art.secondary_keyphrases || []}
@@ -280,7 +282,7 @@ export default async function ArtDetailPage({ params }: { params: Promise<{ slug
 
   const metaCells = [
     art.medium ? { label: "Medium", value: art.medium } : null,
-    art.dimensions ? { label: "Dimensions", value: art.dimensions } : null,
+    displayDims ? { label: "Dimensions", value: displayDims } : null,
     art.year_created ? { label: "Year", value: String(art.year_created) } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 

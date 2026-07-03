@@ -25,7 +25,6 @@ const EMPTY: Form = {
   image_alt: "",
   description: "",
   status: "draft",
-  dimensions: "",
   year_created: null,
   gallery_paths: [],
   art_summary: "",
@@ -315,11 +314,7 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
         <input className="obsv-editor__input" value={val("medium")} onChange={(e) => set({ medium: e.target.value })} placeholder="e.g. Acrylic on canvas" />
       </div>
       <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Dimensions</label>
-        <input className="obsv-editor__input" value={val("dimensions")} onChange={(e) => set({ dimensions: e.target.value })} placeholder="e.g. 24×30 in" />
-      </div>
-      <div className="obsv-editor__field">
-        <label className="obsv-editor__label">Real size in inches (turns on the in-room view)</label>
+        <label className="obsv-editor__label">Real size in inches (drives the shown dimensions, the gallery wall, and the in-room view)</label>
         <div style={{ display: "flex", gap: 12 }}>
           {(["width_in", "height_in", "depth_in"] as const).map((f) => (
             <input
@@ -492,7 +487,7 @@ export function ArtPieceEditor({ slug: initialSlug }: Props) {
 
 const SAVE_FIELDS = [
   "title", "slug", "medium", "image_path", "image_alt", "description",
-  "display_order", "status", "dimensions", "year_created", "gallery_paths",
+  "display_order", "status", "year_created", "gallery_paths",
   "in_situ_paths", "width_in", "height_in", "depth_in",
   "art_summary", "chad_quote", "format_id",
   "hero_focal_x", "hero_focal_y", "hero_zoom",

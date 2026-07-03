@@ -22,7 +22,6 @@ export async function POST(request: Request) {
     description: body.description || null,
     display_order: body.display_order || 0,
     status: body.status || "draft",
-    dimensions: body.dimensions || null,
     year_created: body.year_created ?? null,
     gallery_paths: Array.isArray(body.gallery_paths) ? body.gallery_paths : [],
     art_summary: body.art_summary || null,

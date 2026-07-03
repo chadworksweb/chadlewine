@@ -2,10 +2,11 @@ import { createAdminClient } from "@/lib/supabase-server";
 
 const TABLE_BY_TYPE: Record<string, { table: string; orderBy: string }> = {
   song: { table: "songs", orderBy: "release_date" },
-  album: { table: "albums", orderBy: "release_date" },
-  merch: { table: "products", orderBy: "created_at" },
-  observation: { table: "observations", orderBy: "date_captured" },
+  release: { table: "releases", orderBy: "release_date" },
+  merch: { table: "merch", orderBy: "created_at" },
+  observation: { table: "posts", orderBy: "date_captured" },
   art: { table: "art_pieces", orderBy: "display_order" },
+  video: { table: "videos", orderBy: "published_at" },
 };
 
 // Lightweight pickers for the admin Add UI — returns id+title+slug per type.

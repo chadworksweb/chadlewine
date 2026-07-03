@@ -1,0 +1,14 @@
+-- Retire the free-text art_pieces.dimensions column.
+--
+-- Structured width_in / height_in / depth_in are now the single source of truth
+-- for every surface that shows or scales a piece: the detail-page meta row,
+-- JSON-LD, the art index cards, the in-room RoomView, and the homepage gallery
+-- wall. The old free-text values had drifted out of sync with the measured
+-- numerics (e.g. a piece tagged 24x18in that is really 8x10in, another tagged
+-- 36x60in that is really 16x20in), so they are dropped rather than backfilled --
+-- the numerics are the good data and must not be overwritten from the text.
+--
+-- Deploy ordering: ship the application code that no longer selects or writes
+-- `dimensions` BEFORE running this migration, so no live query references the
+-- dropped column.
+ALTER TABLE art_pieces DROP COLUMN IF EXISTS dimensions;

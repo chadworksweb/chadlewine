@@ -7,6 +7,7 @@ import { MerchGalleryPanel } from "@/components/admin/MerchGalleryPanel";
 import { LinkedPrintPicker } from "@/components/admin/LinkedPrintPicker";
 import { EntityPicker } from "@/components/EntityPicker";
 import { SeoFieldsPanel } from "@/components/SeoFieldsPanel";
+import { FocalPointPicker, type CropRatio, type CropPatch } from "@/components/FocalPointPicker";
 
 const STATUSES = ["active", "inactive", "pending_review"] as const;
 const FULFILLMENTS = ["manual", "printify_curated"] as const;
@@ -44,6 +45,9 @@ interface ProductData {
   printify_product_id: string | null;
   image_url: string | null;
   image_alt: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
   linked_art_piece_id: string | null;
   merch_type_id: string | null;
   release_sku_id: string | null;
@@ -70,6 +74,9 @@ const emptyProduct: ProductData = {
   printify_product_id: null,
   image_url: null,
   image_alt: null,
+  hero_focal_x: null,
+  hero_focal_y: null,
+  hero_zoom: 1,
   linked_art_piece_id: null,
   merch_type_id: null,
   release_sku_id: null,
@@ -129,6 +136,9 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           printify_product_id: d.printify_product_id ?? null,
           image_url: d.image_url ?? null,
           image_alt: d.image_alt ?? null,
+          hero_focal_x: d.hero_focal_x ?? null,
+          hero_focal_y: d.hero_focal_y ?? null,
+          hero_zoom: d.hero_zoom ?? 1,
           linked_art_piece_id: d.linked_art_piece_id ?? null,
           merch_type_id: d.merch_type_id ?? null,
           release_sku_id: d.release_sku_id ?? null,
@@ -160,6 +170,9 @@ export function MerchProductEditor({ idOrSlug }: Props) {
       printify_product_id: data.printify_product_id,
       image_url: data.image_url,
       image_alt: data.image_alt,
+      hero_focal_x: data.hero_focal_x,
+      hero_focal_y: data.hero_focal_y,
+      hero_zoom: data.hero_zoom,
       linked_art_piece_id: data.linked_art_piece_id,
       merch_type_id: data.merch_type_id,
       release_sku_id: data.release_sku_id,
@@ -466,6 +479,30 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           fulfillment={form.fulfillment}
           slug={form.slug || null}
         />
+      )}
+
+      {form.image_url && (
+        <div className="obsv-editor__panel">
+          <h3 className="obsv-editor__panel-title">Homepage hero crop &amp; focal point</h3>
+          <FocalPointPicker
+            src={form.image_url}
+            alt={form.image_alt || form.title}
+            ratios={["hero"]}
+            crops={{
+              hero: { focalX: form.hero_focal_x, focalY: form.hero_focal_y, zoom: form.hero_zoom },
+              card: { focalX: null, focalY: null, zoom: 1 },
+              portrait: { focalX: null, focalY: null, zoom: 1 },
+            }}
+            onChange={(ratio: CropRatio, patch: CropPatch) => {
+              if (ratio !== "hero") return;
+              const updates: Partial<ProductData> = {};
+              if ("focalX" in patch) updates.hero_focal_x = patch.focalX;
+              if ("focalY" in patch) updates.hero_focal_y = patch.focalY;
+              if ("zoom" in patch) updates.hero_zoom = patch.zoom ?? 1;
+              setForm((prev) => (prev ? { ...prev, ...updates } : prev));
+            }}
+          />
+        </div>
       )}
 
       <LinkedPrintPicker

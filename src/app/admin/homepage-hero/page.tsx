@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 interface Entry {
   id: string;
-  entity_type: "song" | "release" | "merch" | "observation" | "art";
+  entity_type: "song" | "release" | "merch" | "observation" | "art" | "video";
   entity_id: string;
   display_order: number;
   title: string;
@@ -17,7 +17,7 @@ interface LookupRow {
   slug: string | null;
 }
 
-const ENTITY_TYPES = ["song", "release", "merch", "observation", "art"] as const;
+const ENTITY_TYPES = ["song", "release", "merch", "observation", "art", "video"] as const;
 type EntityType = (typeof ENTITY_TYPES)[number];
 
 export default function HomepageHeroAdmin() {
@@ -28,6 +28,8 @@ export default function HomepageHeroAdmin() {
   const [pickerLoading, setPickerLoading] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [slideCount, setSlideCount] = useState("");
+  const [slideSaved, setSlideSaved] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,10 +38,31 @@ export default function HomepageHeroAdmin() {
     setLoading(false);
   }, []);
 
+  const loadSlideCount = useCallback(async () => {
+    const res = await fetch("/api/admin/site-settings");
+    if (res.ok) {
+      const s = await res.json();
+      setSlideCount(s.hero_slide_count || "10");
+    }
+  }, []);
+
+  async function saveSlideCount(raw: string) {
+    const n = Math.max(1, Math.min(15, parseInt(raw, 10) || 10));
+    setSlideCount(String(n));
+    await fetch("/api/admin/site-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hero_slide_count: String(n) }),
+    });
+    setSlideSaved(true);
+    setTimeout(() => setSlideSaved(false), 1500);
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side data load on mount
     load();
-  }, [load]);
+    loadSlideCount();
+  }, [load, loadSlideCount]);
 
   const loadPicker = useCallback(async (type: EntityType) => {
     setPickerLoading(true);
@@ -106,11 +129,27 @@ export default function HomepageHeroAdmin() {
         <h1 className="admin-page__title">Homepage Hero</h1>
       </div>
 
-      <p className="admin-empty" style={{ marginBottom: "1.5rem" }}>
-        Pin entities to the homepage hero carousel. When the list is empty, the
-        hero falls back to the latest 10 songs automatically. Order top-to-bottom
-        is the order shown on the site.
+      <p className="admin-empty" style={{ marginBottom: "1rem" }}>
+        Pin entities to the homepage hero carousel. Your pins lead, then the
+        latest songs backfill the rest up to the slide count below. Order
+        top-to-bottom is the order shown on the site. To show ONLY your pins,
+        set the slide count to the number of pins.
       </p>
+
+      <div className="obsv-editor__field" style={{ maxWidth: 260, marginBottom: "1.5rem" }}>
+        <label className="obsv-editor__label">
+          Number of slides {slideSaved && <span style={{ color: "var(--text-accent)" }}>· saved</span>}
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={15}
+          className="obsv-editor__input"
+          value={slideCount}
+          onChange={(e) => setSlideCount(e.target.value)}
+          onBlur={(e) => saveSlideCount(e.target.value)}
+        />
+      </div>
 
       <div
         style={{

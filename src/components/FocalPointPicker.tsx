@@ -20,6 +20,9 @@ interface FocalPointPickerProps {
   alt: string;
   crops: Crops;
   onChange: (ratio: CropRatio, patch: CropPatch) => void;
+  /** Which crop ratios to expose. Defaults to all three. Pass e.g. ["hero"]
+   *  for entities that only have a hero crop target (merch, video). */
+  ratios?: CropRatio[];
 }
 
 const RATIO_META: Record<CropRatio, { label: string; aspect: string; className: string }> = {
@@ -28,8 +31,8 @@ const RATIO_META: Record<CropRatio, { label: string; aspect: string; className: 
   portrait: { label: "Portrait · 4:5", aspect: "4 / 5", className: "focal-picker__preview--portrait" },
 };
 
-export function FocalPointPicker({ src, alt, crops, onChange }: FocalPointPickerProps) {
-  const [active, setActive] = useState<CropRatio>("hero");
+export function FocalPointPicker({ src, alt, crops, onChange, ratios = ["hero", "card", "portrait"] }: FocalPointPickerProps) {
+  const [active, setActive] = useState<CropRatio>(ratios[0] ?? "hero");
   const wrapRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -64,8 +67,6 @@ export function FocalPointPicker({ src, alt, crops, onChange }: FocalPointPicker
     if (e.touches.length === 0) return;
     updateFromPoint(e.touches[0].clientX, e.touches[0].clientY);
   };
-
-  const ratios: CropRatio[] = ["hero", "card", "portrait"];
 
   return (
     <div className="focal-picker">

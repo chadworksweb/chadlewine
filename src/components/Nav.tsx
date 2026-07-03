@@ -57,7 +57,13 @@ export function Nav({
     // one-shot scroll) tucks it away, and scroll-up brings it back.
     function onScroll() {
       const y = window.scrollY;
-      const keepUntil = document.querySelector<HTMLElement>("[data-nav-keep-until]");
+      // data-nav-keep-until keeps the nav pinned through a section (homepage
+      // Latest Songs) on desktop/tablet. On mobile (<=768px) we want the nav to
+      // auto-hide everywhere so the feed headings can pin flush at the viewport
+      // top, so the marker is ignored below that width.
+      const keepUntil = window.innerWidth > 768
+        ? document.querySelector<HTMLElement>("[data-nav-keep-until]")
+        : null;
       const threshold = onArtRef.current
         ? 40
         : keepUntil

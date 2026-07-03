@@ -3,6 +3,7 @@ import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient } from "@/lib/supabase-server";
 import { ArtBrowser } from "@/components/ArtBrowser";
 import type { PortfolioItem } from "@/lib/sliding-portfolio";
+import { formatDimensions } from "@/lib/art-dimensions";
 
 export const revalidate = 60;
 
@@ -22,7 +23,9 @@ type ArtRow = {
   title: string;
   image_path: string;
   medium: string | null;
-  dimensions: string | null;
+  width_in: number | null;
+  height_in: number | null;
+  depth_in: number | null;
   year_created: number | null;
   gallery_paths: string[] | null;
   card_focal_x: number | null;
@@ -37,7 +40,7 @@ export default async function ArtPage() {
   const { data: pieces } = await supabase
     .from("art_pieces")
     .select(
-      "id, slug, title, image_path, medium, dimensions, year_created, gallery_paths, " +
+      "id, slug, title, image_path, medium, width_in, height_in, depth_in, year_created, gallery_paths, " +
         "card_focal_x, card_focal_y, card_zoom, hero_focal_x, hero_focal_y",
     )
     .in("status", ["unreleased", "published"])
@@ -47,7 +50,7 @@ export default async function ArtPage() {
     const extras = Array.isArray(p.gallery_paths) ? p.gallery_paths.filter(Boolean) : [];
     const meta = {
       line1: p.medium || undefined,
-      line2: p.dimensions || undefined,
+      line2: formatDimensions(p.width_in, p.height_in, p.depth_in) || undefined,
       line3: p.year_created ? String(p.year_created) : undefined,
     };
     return {
