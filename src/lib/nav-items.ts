@@ -14,7 +14,6 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
       { href: "/music/songs", label: "Songs" },
       { href: "/lyrics", label: "Lyrics" },
       { href: "/curation", label: "Curation" },
-      { href: "/call-for-music", label: "Call for Music" },
     ],
   },
   { href: "/merch", label: "Merch" },

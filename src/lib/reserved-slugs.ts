@@ -8,7 +8,6 @@ export const RESERVED_SLUGS = new Set<string>([
   "archive",
   "art",
   "business",
-  "call-for-music",
   "chad-d",
   "chad-lewine",
   "chad-rising",
