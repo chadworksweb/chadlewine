@@ -186,6 +186,16 @@ export async function confirmSubscriptionByToken(
   if (existing.subscriber_status === "active") return "already";
   if (existing.subscriber_status === "unsubscribed") return "unsubscribed";
 
+  // The page they signed up on was captured at subscribe time and lives on the
+  // `subscribers` mirror row; the notification below fires now (at confirm), so
+  // pull it back in to keep the admin ping showing the origin page.
+  const { data: mirror } = await supabase
+    .from("subscribers")
+    .select("source_page")
+    .eq("audience_id", existing.id)
+    .maybeSingle();
+  const sourcePage = mirror?.source_page || null;
+
   const now = new Date().toISOString();
   await supabase
     .from("audience")
@@ -210,7 +220,9 @@ export async function confirmSubscriptionByToken(
     audience_id: existing.id,
     email: existing.email,
     tier: "subscriber",
-    source: "subscribe (confirmed)",
+    source: sourcePage
+      ? `${sourcePage} (confirmed)`
+      : "subscribe (confirmed)",
   });
   return "confirmed";
 }
