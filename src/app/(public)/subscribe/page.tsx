@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { SubscribeSection } from "@/components/SubscribeSection";
 
 export const metadata: Metadata = {
   title: "Subscribe - Chad Lewine",
@@ -7,10 +6,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://chadlewine.com/subscribe" },
 };
 
+// Intentionally empty body: the public layout already renders the subscribe
+// form (SubscribeSection) directly below <main>, so this page lets the nav sit
+// straight above that form with no duplicate content.
 export default function SubscribePage() {
-  return (
-    <main className="page-static" style={{ paddingBlock: "var(--space-2xl)" }}>
-      <SubscribeSection />
-    </main>
-  );
+  return null;
 }
