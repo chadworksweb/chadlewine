@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Subscribe - Chad Lewine",
+  title: "Subscribe",
   description: "Subscribe to email updates from Chad Lewine and find out where I'm headed.",
   alternates: { canonical: "https://chadlewine.com/subscribe" },
 };
