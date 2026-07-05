@@ -15,18 +15,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-        NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY}
-        NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST}
-        NEXT_PUBLIC_BUNNY_PULL_ZONE_SITE_IMAGES: ${NEXT_PUBLIC_BUNNY_PULL_ZONE_SITE_IMAGES}
-        NEXT_PUBLIC_BUNNY_PULL_ZONE_COVER_ART: ${NEXT_PUBLIC_BUNNY_PULL_ZONE_COVER_ART}
-        NEXT_PUBLIC_BUNNY_PULL_ZONE_MUSIC_STREAMING: ${NEXT_PUBLIC_BUNNY_PULL_ZONE_MUSIC_STREAMING}
-        NEXT_PUBLIC_BUNNY_STREAM_PULL_ZONE: ${NEXT_PUBLIC_BUNNY_STREAM_PULL_ZONE}
+      # The full .env is mounted (as a BuildKit secret) during `next build` so
+      # module-scope server-env reads (e.g. media-config.ts) don't throw, and
+      # NEXT_PUBLIC_* bake with the right per-instance values. See Dockerfile.
+      secrets:
+        - buildenv
     container_name: ${CL_CONTAINER}
     networks:
       default: {}
@@ -55,3 +48,8 @@ services:
 networks:
   le-proxy:
     external: true
+
+secrets:
+  # The instance's .env, mounted only during the build (never in a layer).
+  buildenv:
+    file: .env

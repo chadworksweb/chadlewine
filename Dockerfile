@@ -1,64 +1,47 @@
 # chadlewine.com -- production image (migrated off Vercel to le-projects-01).
 #
 # Multi-stage: install deps -> build Next (output: "standalone") -> lean runner
-# that serves .next/standalone/server.js. NEXT_PUBLIC_* are BAKED into the client
-# bundle at build time, so they arrive as build ARGs and differ per instance
-# (staging vs prod each build their own image). SERVER secrets are injected at
-# RUNTIME via the compose env_file and are never present in the image.
+# that serves .next/standalone/server.js. Base node:22-slim matches Lyric
+# Transformer (glibc -> sharp's prebuilt binary works). Joined to the shared
+# le-proxy network; the central le-nginx proxies to it. See deploy/DEPLOY.md.
 #
-# Base image node:22-slim matches Lyric Transformer (glibc -> sharp's prebuilt
-# binary works without alpine/musl gymnastics). Joined to the shared le-proxy
-# network; the central le-nginx proxies to it. See deploy/DEPLOY.md.
+# ENV MODEL: the FULL env (public + server) must be present during `next build`,
+# because several modules read server env at MODULE scope -- e.g.
+# src/lib/media-config.ts builds MEDIA_TYPE_CONFIG at import time via an env()
+# helper that throws on any missing BUNNY_* var, and Next evaluates it during
+# "collect page data". So the per-instance .env is mounted as a BuildKit secret
+# and written to .env.production for Next's own dotenv loader. Only NEXT_PUBLIC_*
+# get inlined into the client bundle; server process.env reads stay dynamic and
+# are supplied at RUNTIME from the compose env_file. The secret is never stored
+# in an image layer.
 
-# --- 1) deps: install with the committed lockfile ---
+# --- 1) deps ---
 FROM node:22-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# --- 2) build: bake NEXT_PUBLIC_* and run next build ---
+# --- 2) build ---
 FROM node:22-slim AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# .env.production is created + removed inside this single RUN, so it never lands
+# in a persisted layer; the secret itself is tmpfs-mounted, never in a layer.
+RUN --mount=type=secret,id=buildenv,mode=0400 \
+    cp /run/secrets/buildenv .env.production \
+ && NEXT_TELEMETRY_DISABLED=1 npm run build \
+ && rm -f .env.production
 
-# Public values baked into the client bundle. The full set the app references
-# (verified via grep of src/ + .env.local). SITE_URL and TURNSTILE are NOT in
-# the local .env.local -- they come from the deployed env, so they MUST be passed
-# here or the client bundle bakes `undefined`.
-ARG NEXT_PUBLIC_SITE_URL
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
-ARG NEXT_PUBLIC_POSTHOG_KEY
-ARG NEXT_PUBLIC_POSTHOG_HOST
-ARG NEXT_PUBLIC_BUNNY_PULL_ZONE_SITE_IMAGES
-ARG NEXT_PUBLIC_BUNNY_PULL_ZONE_COVER_ART
-ARG NEXT_PUBLIC_BUNNY_PULL_ZONE_MUSIC_STREAMING
-ARG NEXT_PUBLIC_BUNNY_STREAM_PULL_ZONE
-ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
-    NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY \
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
-    NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY \
-    NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST \
-    NEXT_PUBLIC_BUNNY_PULL_ZONE_SITE_IMAGES=$NEXT_PUBLIC_BUNNY_PULL_ZONE_SITE_IMAGES \
-    NEXT_PUBLIC_BUNNY_PULL_ZONE_COVER_ART=$NEXT_PUBLIC_BUNNY_PULL_ZONE_COVER_ART \
-    NEXT_PUBLIC_BUNNY_PULL_ZONE_MUSIC_STREAMING=$NEXT_PUBLIC_BUNNY_PULL_ZONE_MUSIC_STREAMING \
-    NEXT_PUBLIC_BUNNY_STREAM_PULL_ZONE=$NEXT_PUBLIC_BUNNY_STREAM_PULL_ZONE \
-    NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
-
-# --- 3) runner: minimal standalone runtime ---
+# --- 3) runner ---
 FROM node:22-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0
 # Standalone bundles server.js + traced node_modules; static + public are NOT
-# folded in, so copy them alongside.
+# folded in, so copy them alongside. No env file is copied -- runtime env comes
+# from the compose env_file.
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
