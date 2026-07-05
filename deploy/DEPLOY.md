@@ -127,19 +127,50 @@ Certs: `staging.chadlewine.com` (single), `chadlewine.com` (SAN: apex + www).
 | campaign-queue | `* * * * *` |
 | inbound-digest | `0 14 * * 1` |
 
-## DNS (GoDaddy)
+## DNS + CDN (Cloudflare)
 
-| Host | Type | Value |
-|---|---|---|
-| staging | A | 138.197.111.66 |
-| @ | A | 138.197.111.66 |
-| www | A | 138.197.111.66 |
+DNS authority was moved from GoDaddy to **Cloudflare** (free plan) on 2026-07-05;
+GoDaddy remains only the registrar (nameservers -> `cloe`/`decker.ns.cloudflare.com`).
+The full zone was imported from the GoDaddy export (`Downloads/chadlewine.com (1).txt`)
+-- notably the Google Workspace MX + all Resend/Amazon SES records (`reply`/`send`/
+`send.reply` MX, `dc-*._spfm*` SPF, `resend._domainkey[.reply]` DKIM, `click` CNAME).
 
-## Rollback (to Vercel)
+| Host | Type | Value | Cloudflare proxy |
+|---|---|---|---|
+| @ | A | 138.197.111.66 | Proxied (orange) |
+| www | A | 138.197.111.66 | Proxied (orange) |
+| staging | A | 138.197.111.66 | Proxied (orange) |
+| MX (Google + SES) | MX | ... | DNS only (never proxy MX) |
+| `click` | CNAME | links1.resend-dns.com | **DNS only** (Resend tracking) |
+| DKIM/SPF/DMARC/verif | TXT | ... | DNS only |
 
-Repoint GoDaddy `@` and `www` back to Vercel (apex A `216.150.1.1`; www was a Vercel
-CNAME). The Vercel project is still live. NOTE: Vercel crons are emptied -- if rolling
-back for more than a short window, restore the `crons` array in `vercel.json`.
+Cloudflare settings: **SSL/TLS = Full (strict)** (origin has a valid LE cert),
+**Always Use HTTPS = on**. Cloudflare gives visitors HTTP/2 + HTTP/3 + Brotli at the
+edge, so the origin `le-nginx` HTTP/1.1 is now only the CF<->origin hop.
+
+Edge caching: `_next/static` (immutable) caches at the edge automatically (MISS->HIT).
+**`/_next/image` does NOT edge-cache** -- Next sends `Vary: Accept` (AVIF/WebP/JPEG by
+browser) and Cloudflare free won't cache non-`Accept-Encoding` Vary responses. A
+Cache Rule for `/_next/image` was created but is inert for this reason. Images are
+still fine (origin disk-cached + Bunny-sourced). To make images globally edge-fast,
+the clean fix is app-side: serve Bunny (`b-cdn.net`) images directly via a custom
+Next image loader / plain `<img>`, bypassing the optimizer entirely (Bunny is already
+a global CDN and sources are pre-compressed at quality 100).
+
+TLS renewal note: the origin LE cert renews via HTTP-01 through Cloudflare; verify the
+first auto-renewal (~2026-10-03 window). If it fails behind the proxy, switch the
+droplet to DNS-01 (Cloudflare API token) or install a Cloudflare Origin Certificate.
+
+## Rollback
+
+- **Off Cloudflare (back to GoDaddy DNS):** repoint the domain's nameservers at GoDaddy
+  back to `ns23`/`ns24.domaincontrol.com` (the GoDaddy zone still has the pre-move
+  records). Or, within Cloudflare, set the A records to "DNS only" (grey) to bypass the
+  proxy while keeping CF DNS.
+- **Off the droplet (back to Vercel):** in Cloudflare DNS, point `@`/`www` back to Vercel
+  (apex A `216.150.1.1`; www CNAME to Vercel). The Vercel project is still live. NOTE:
+  Vercel crons are emptied -- if rolling back for more than a short window, restore the
+  `crons` array in `vercel.json`.
 
 ## Resources / notes
 
