@@ -3,6 +3,10 @@ import path from "node:path";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Self-hosted on le-projects-01 behind le-nginx (migrated off Vercel). Standalone
+  // emits .next/standalone with a minimal server.js + traced node_modules, so the
+  // runtime Docker image stays lean. Harmless on Vercel (ignored there).
+  output: "standalone",
   // Don't 308 trailing-slash variants -- PostHog hits /ingest/e/ etc. and the
   // redirect would break the proxied POSTs.
   skipTrailingSlashRedirect: true,
