@@ -28,10 +28,14 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # .env.production is created + removed inside this single RUN, so it never lands
 # in a persisted layer; the secret itself is tmpfs-mounted, never in a layer.
+# CRITICAL: Next's standalone output copies root .env* files into
+# .next/standalone/, so we must ALSO delete the copy there -- otherwise the
+# server secrets would be baked into the runtime image (and the standalone
+# server would hit EACCES loading a root-owned .env.production at startup).
 RUN --mount=type=secret,id=buildenv,mode=0400 \
     cp /run/secrets/buildenv .env.production \
  && NEXT_TELEMETRY_DISABLED=1 npm run build \
- && rm -f .env.production
+ && rm -f .env.production .next/standalone/.env.production
 
 # --- 3) runner ---
 FROM node:22-slim AS runner
