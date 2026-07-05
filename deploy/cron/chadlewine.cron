@@ -1,0 +1,14 @@
+# chadlewine.com PRODUCTION crons -- le-projects-01. PROD ONLY (never staging).
+# Installed on the droplet at /etc/cron.d/chadlewine (root:root, 644).
+# Migrated from vercel.json 2026-07-05. UTC schedules match the former Vercel crons
+# (the droplet is Etc/UTC; CRON_TZ pins it regardless). The wrapper reads
+# CRON_SECRET from /home/deploy/chadlewine-prod/.env and runs as the deploy user.
+CRON_TZ=UTC
+SHELL=/bin/bash
+PATH=/usr/bin:/bin:/usr/local/bin
+0 12 * * * deploy /usr/local/bin/cl-cron-hit.sh printify-sync >/dev/null 2>&1
+0 13 * * * deploy /usr/local/bin/cl-cron-hit.sh merch-image-cleanup >/dev/null 2>&1
+0 * * * * deploy /usr/local/bin/cl-cron-hit.sh fan-track-drip >/dev/null 2>&1
+0 * * * * deploy /usr/local/bin/cl-cron-hit.sh cart-recovery >/dev/null 2>&1
+* * * * * deploy /usr/local/bin/cl-cron-hit.sh campaign-queue >/dev/null 2>&1
+0 14 * * 1 deploy /usr/local/bin/cl-cron-hit.sh inbound-digest >/dev/null 2>&1
