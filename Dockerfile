@@ -45,10 +45,12 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0
 # Standalone bundles server.js + traced node_modules; static + public are NOT
 # folded in, so copy them alongside. No env file is copied -- runtime env comes
-# from the compose env_file.
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# from the compose env_file. --chown=node:node is REQUIRED: the runtime writes
+# the ISR prerender cache under .next/server + .next/cache, so the `node` user
+# must own that tree (otherwise EACCES on every revalidation).
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
 # node:22-slim ships a non-root `node` user (UID 1000); use it.
 USER node
 # Actual port comes from PORT (set by compose per instance). EXPOSE is docs only.
