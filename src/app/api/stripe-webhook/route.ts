@@ -324,6 +324,10 @@ export async function POST(request: Request) {
         let imageUrl: string | undefined;
         let availableFormats: FormatKey[] = [];
         let ringtonePlatforms: RingtoneFormat[] = [];
+        // Digital line bought against a preorder SKU: files aren't up yet, so
+        // the confirmation shows a preorder note and Deliver Preorder emails
+        // the links later.
+        let linePreorder = false;
 
         // SKU resolution. When the cart line carries `sk`, prefer the SKU
         // row's data (price, format, download paths, stock) over the parent
@@ -338,12 +342,13 @@ export async function POST(request: Request) {
           if (line.sk) {
             const { data: sku } = await supabase
               .from("song_skus")
-              .select("id, song_id, format, fulfillment_method, download_path_mp3, download_path_flac, download_path_wav, stock")
+              .select("id, song_id, format, status, fulfillment_method, download_path_mp3, download_path_flac, download_path_wav, stock")
               .eq("id", line.sk)
               .single();
             if (sku) {
               resolvedSongSkuId = sku.id;
               resolvedItemId = sku.song_id;
+              linePreorder = sku.format === "digital" && sku.status === "preorder";
               if (sku.format !== "digital") {
                 if (sku.fulfillment_method === "printify") sawPrintifyLine = true;
                 else sawManualPhysicalLine = true;
@@ -420,12 +425,13 @@ export async function POST(request: Request) {
           if (line.sk) {
             const { data: sku } = await supabase
               .from("release_skus")
-              .select("id, release_id, format, fulfillment_method, download_path_mp3, download_path_flac, download_path_wav, stock")
+              .select("id, release_id, format, status, fulfillment_method, download_path_mp3, download_path_flac, download_path_wav, stock")
               .eq("id", line.sk)
               .single();
             if (sku) {
               resolvedReleaseSkuId = sku.id;
               resolvedItemId = sku.release_id;
+              linePreorder = sku.format === "digital" && sku.status === "preorder";
               if (sku.format !== "digital") {
                 if (sku.fulfillment_method === "printify") sawPrintifyLine = true;
                 else sawManualPhysicalLine = true;
@@ -722,6 +728,7 @@ export async function POST(request: Request) {
           imageUrl,
           formatLinks,
           fulfillmentNote,
+          preorder: linePreorder,
         });
       }
 

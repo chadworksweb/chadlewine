@@ -5,7 +5,7 @@
  * each row to the right server-side render based on category.kind:
  *  - narrative → renders direct_answer / prose / key_points (Concept, Story, ...)
  *  - data      → renders the category's specific layout (lyrics, art, video,
- *                merch, you-might-also-like, related-observations, song-slider)
+ *                merch, you-might-also-like, related-observations, track-grid)
  *
  * No tagline / lede copy — only the section heading and content.
  */
@@ -19,10 +19,8 @@ import {
   type ReleaseVisibilitySection,
   type ReleaseArtAspect,
 } from "@/lib/release-visibility";
-import { AlbumSongSliderSection } from "@/components/AlbumSongSliderSection";
 import { ReleaseTrackGrid, type ReleaseTrackGridTrack } from "@/components/ReleaseTrackGrid";
 import { fetchBadge, rcBadgeHref } from "@/lib/rising-compass";
-import type { HeroLensItem } from "@/components/HeroLens";
 
 interface SongRow {
   id: string;
@@ -78,7 +76,7 @@ export async function ReleaseSections({
   // Bail only when none of them would produce output.
   if (sections.length === 0 && !album.concept_statement && !hasGeoFields) return null;
 
-  // Tracklist songs (used by song-slider, lyrics, art).
+  // Tracklist songs (used by track-grid, lyrics, art).
   const { data: junctions } = await supabase
     .from("release_songs")
     .select("track_number, song:songs(id, title, slug, lyrics, chorus, release_date, duration_seconds, art_image_path, art_alt, song_summary, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, status)")
@@ -178,15 +176,6 @@ export async function ReleaseSections({
 
         // Data sections
         switch (s.category) {
-          case "song-slider":
-            return (
-              <SongSlider
-                key={s.id}
-                albumSongs={albumSongs}
-                album={album}
-                payload={s.data_payload}
-              />
-            );
           case "release-track-grid":
             return <ReleaseTrackGrid key={s.id} tracks={trackGridTracks} />;
           case "lyrics":
@@ -235,49 +224,6 @@ function NarrativeSection({ section, label }: { section: ReleaseVisibilitySectio
       </div>
     </section>
   );
-}
-
-// ─── Song Slider ────────────────────────────────────────────────────────────
-
-function SongSlider({
-  albumSongs,
-  album,
-  payload,
-}: {
-  albumSongs: Array<SongRow & { track_number: number }>;
-  album: AlbumLite;
-  payload: Record<string, unknown>;
-}) {
-  const pickedIds = (payload as { song_ids?: string[] | null }).song_ids;
-  const ordered: Array<SongRow & { track_number: number }> = (() => {
-    if (Array.isArray(pickedIds) && pickedIds.length > 0) {
-      const map = new Map(albumSongs.map((s) => [s.id, s]));
-      return pickedIds.map((id) => map.get(id)).filter(Boolean) as Array<SongRow & { track_number: number }>;
-    }
-    return albumSongs;
-  })();
-
-  // Fallback to the album cover when a song has no per-track art (most tracks).
-  const items: HeroLensItem[] = ordered
-    .map((s): HeroLensItem | null => {
-      const art = s.art_image_path || album.cover_art_path;
-      if (!art) return null;
-      return {
-        slug: s.slug,
-        title: s.title,
-        date: s.release_date,
-        artImagePath: art,
-        artAlt: s.art_alt || album.cover_art_alt || s.title,
-        href: `/music/songs/${s.slug}`,
-        ctaLabel: "Listen",
-        focalX: s.hero_focal_x != null ? s.hero_focal_x / 100 : 0.5,
-        focalY: s.hero_focal_y != null ? s.hero_focal_y / 100 : 0.5,
-        zoom: s.hero_zoom != null && s.hero_zoom >= 1 ? s.hero_zoom : 1,
-      };
-    })
-    .filter(Boolean) as HeroLensItem[];
-
-  return <AlbumSongSliderSection items={items} />;
 }
 
 // ─── Track Grid ─────────────────────────────────────────────────────────────

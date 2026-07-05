@@ -105,6 +105,8 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
   const [openSkus, setOpenSkus] = useState<Record<string, boolean>>({});
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState<DraftSku>(emptyDraft(parentSlug));
+  const [delivering, setDelivering] = useState(false);
+  const [deliverMsg, setDeliverMsg] = useState<string | null>(null);
 
   const listUrl =
     kind === "release"
@@ -140,6 +142,40 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
     if (!parentId) return;
     void load();
   }, [parentId, load]);
+
+  // Manual preorder delivery: email every preorder buyer their download links
+  // and open the SKU for sale. Independent of the album's publish status.
+  async function deliverPreorder() {
+    if (
+      !confirm(
+        "Email every preorder buyer their download links and open this album for sale now?\n\nThis does NOT change the album's publish/release status.",
+      )
+    )
+      return;
+    setDelivering(true);
+    setDeliverMsg(null);
+    try {
+      const res = await fetch(`/api/admin/releases/${parentId}/fulfill-preorder`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeliverMsg(data.error || "Delivery failed");
+      } else {
+        const parts = [`${data.emailed} emailed`];
+        if (data.skipped) parts.push(`${data.skipped} skipped (no email/files)`);
+        if (data.failed) parts.push(`${data.failed} failed`);
+        setDeliverMsg(
+          `Done: ${parts.join(", ")}. ${data.opened_skus} format(s) opened for sale.`,
+        );
+        await load();
+      }
+    } catch (e) {
+      setDeliverMsg(e instanceof Error ? e.message : "Delivery failed");
+    } finally {
+      setDelivering(false);
+    }
+  }
 
   function patchSku(id: string, patch: Partial<SkuRow>) {
     setSkus((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -326,6 +362,41 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
           {error}
         </p>
       )}
+
+      {kind === "release" &&
+        skus.some((s) => s.format === "digital" && s.status === "preorder") && (
+          <div
+            style={{
+              border: "1px solid rgba(139,156,247,0.35)",
+              background: "rgba(139,156,247,0.08)",
+              padding: "var(--space-sm)",
+              marginBottom: "var(--space-sm)",
+              borderRadius: 4,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ fontFamily: "var(--font-ui)", fontSize: "0.75rem", color: "var(--text-secondary)", maxWidth: 380 }}>
+                <strong>On preorder.</strong> Upload the digital files, then deliver:
+                emails every preorder buyer their download links and opens sales.
+                Does not change the album&rsquo;s publish status.
+              </div>
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary"
+                onClick={deliverPreorder}
+                disabled={delivering}
+                style={{ fontSize: "0.75rem", padding: "6px 14px", whiteSpace: "nowrap" }}
+              >
+                {delivering ? "Delivering..." : "Deliver preorder"}
+              </button>
+            </div>
+            {deliverMsg && (
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: "0.72rem", color: "var(--text-secondary)", margin: "8px 0 0" }}>
+                {deliverMsg}
+              </p>
+            )}
+          </div>
+        )}
 
       {adding && (
         <div
