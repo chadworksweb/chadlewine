@@ -2,16 +2,19 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { createAdminClient } from "@/lib/supabase-server";
 
-// librosa is Python + ffmpeg; it cannot run in a Vercel serverless function.
-// This route only works when the dev server is running locally (where the
-// analyzer, librosa, and ffmpeg live). On Vercel it returns a clear 400.
+// librosa is Python + ffmpeg; it is not installed in the deployed build (Vercel
+// serverless nor the le-projects-01 container). This route only works when the dev
+// server runs locally (where the analyzer, librosa, and ffmpeg live). Any deployed
+// build returns a clear 400. Gate is NODE_ENV (was `process.env.VERCEL`, which stopped
+// firing once the site left Vercel for the droplet on 2026-07-05, letting the route
+// spawn a missing python and fail messily instead of degrading cleanly).
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (process.env.VERCEL) {
+  if (process.env.NODE_ENV === "production") {
     return Response.json(
       { error: "Scanning runs locally only. Run the site on your machine to analyze." },
       { status: 400 },

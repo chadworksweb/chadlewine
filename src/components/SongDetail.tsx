@@ -15,6 +15,7 @@ import { ExploreGrid } from "@/components/ExploreGrid";
 import { FitText } from "@/components/FitText";
 import { creditRoleLabel } from "@/lib/song-credits";
 import { SongLabel, type PsycheFactsMeta } from "@/components/SongLabel";
+import { PsycheAura } from "@/components/PsycheAura";
 
 const DEMO_FORMAT_LABEL: Record<string, string> = {
   diy_production: "DIY Production",
@@ -293,6 +294,64 @@ export function SongDetail({
     });
   }
 
+  // Rising Compass badge, extracted so it can live in one of two places:
+  //  - beside the mini player (released songs, player present), or
+  //  - in the action row to the right of the CTA (unreleased songs with no
+  //    player), mirroring the release template. Never both.
+  const showPlayer = !!song.streaming_path;
+  const badgeBlock = badge ? (
+    <div className="track-detail__rc-badge">
+      {badge.pending && (
+        <span
+          className="track-detail__rc-pending-stamp"
+          aria-label="Pending recalibration"
+          title="This score is being contested — a recalibration is pending review."
+        >
+          PENDING
+        </span>
+      )}
+      <a
+        href={badge.songSlug ? `https://risingcompass.net/songs/${encodeURIComponent(badge.songSlug)}` : "https://risingcompass.net"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="track-detail__rc-compass-link"
+      >
+        <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
+      </a>
+      <div className="track-detail__rc-data">
+        <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
+          {badge.tierLabel}
+        </span>
+        <div className="track-detail__rc-charge-row">
+          <span className="track-detail__rc-charge">
+            {badge.charge > 0 ? "+" : ""}{badge.charge}
+          </span>
+          {badge.chargeSummary && (
+            <div className="track-detail__rc-summary-wrap">
+              <button
+                type="button"
+                className="track-detail__rc-summary-btn"
+                onClick={() => setSummaryOpen((v) => !v)}
+                aria-label="Read charge summary"
+                title="Charge summary"
+              >
+                &#x1F4AC;
+              </button>
+              {summaryOpen && (
+                <div className="track-detail__rc-summary-tooltip">
+                  <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
+                  {badge.contaminated && badge.contaminationNote && (
+                    <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="track-detail">
       <div className="track-detail__grid">
@@ -343,80 +402,36 @@ export function SongDetail({
           </div>
 
           {/* Mini player + Rising Compass badge (badge sits to the right,
-              shrinking the player to fit) */}
-          {(song.streaming_path || badge) && (
+              shrinking the player to fit). Only renders when the song has a
+              streaming path; unreleased songs put the badge in the action row
+              instead so it never orphans on its own line. */}
+          {showPlayer && (
             <div className="track-detail__player-row">
-              {song.streaming_path && (
-                <MiniPlayer
-                  songId={song.id}
-                  songSlug={song.slug}
-                  streamingUrl={song.streaming_path}
-                  trackNumber={song.track_number}
-                  trackTitle={song.title}
-                  durationSeconds={song.duration_seconds ?? 0}
-                  artImagePath={coverArtPath}
-                  artAlt={coverArtAlt}
-                  playbackMode={playbackMode}
-                  hideTitle
-                />
-              )}
-              {badge && (
-                <div className="track-detail__rc-badge">
-                  {badge.pending && (
-                    <span
-                      className="track-detail__rc-pending-stamp"
-                      aria-label="Pending recalibration"
-                      title="This score is being contested — a recalibration is pending review."
-                    >
-                      PENDING
-                    </span>
-                  )}
-                  <a
-                    href={badge.songSlug ? `https://risingcompass.net/songs/${encodeURIComponent(badge.songSlug)}` : "https://risingcompass.net"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="track-detail__rc-compass-link"
-                  >
-                    <CompassIcon charge={badge.charge} tierHex={badge.tierHex} />
-                  </a>
-                  <div className="track-detail__rc-data">
-                    <span className="track-detail__rc-tier" style={{ color: badge.tierHex }}>
-                      {badge.tierLabel}
-                    </span>
-                    <div className="track-detail__rc-charge-row">
-                      <span className="track-detail__rc-charge">
-                        {badge.charge > 0 ? "+" : ""}{badge.charge}
-                      </span>
-                      {badge.chargeSummary && (
-                        <div className="track-detail__rc-summary-wrap">
-                          <button
-                            type="button"
-                            className="track-detail__rc-summary-btn"
-                            onClick={() => setSummaryOpen((v) => !v)}
-                            aria-label="Read charge summary"
-                            title="Charge summary"
-                          >
-                            &#x1F4AC;
-                          </button>
-                          {summaryOpen && (
-                            <div className="track-detail__rc-summary-tooltip">
-                              <p className="track-detail__rc-summary-text">{badge.chargeSummary}</p>
-                              {badge.contaminated && badge.contaminationNote && (
-                                <p className="track-detail__rc-contam">{badge.contaminationNote}</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+              <MiniPlayer
+                songId={song.id}
+                songSlug={song.slug}
+                streamingUrl={song.streaming_path!}
+                trackNumber={song.track_number}
+                trackTitle={song.title}
+                durationSeconds={song.duration_seconds ?? 0}
+                artImagePath={coverArtPath}
+                artAlt={coverArtAlt}
+                playbackMode={playbackMode}
+                hideTitle
+              />
+              {badgeBlock}
             </div>
           )}
 
-          {/* Action row: CTA buttons (full width) */}
-          <div className="track-detail__action-row track-detail__action-row--full">
+          {/* Action row: CTA buttons. When the player rendered above, the badge
+              already sits beside it, so the CTAs take the full row. When there
+              is no player, the badge sits to the right of the CTAs (release
+              template): grid 1fr auto. */}
+          <div
+            className={`track-detail__action-row${
+              showPlayer ? " track-detail__action-row--full" : ""
+            }`}
+          >
             <div className="track-detail__actions">
               {songSkus.length > 0 && (
                 <FormatShowcase
@@ -462,6 +477,8 @@ export function SongDetail({
                 </button>
               )}
             </div>
+
+            {!showPlayer && badgeBlock}
           </div>
 
           {/* Collapsible album-format carousel -- expanded by the "Choose
@@ -627,20 +644,23 @@ export function SongDetail({
                     <h2 className="song-landing__heading">What does &ldquo;{song.title}&rdquo; do to you?</h2>
                     <p className="song-landing__direct-answer">Read it like a label: the charge it carries, and what a single listen does to you and to the culture.</p>
                   </aside>
-                  <div className="song-landing__main">
+                  <div className="song-landing__main song-landing__main--label">
                     <SongLabel
                       title={song.title}
                       runtimeSeconds={song.duration_seconds}
                       tierLabel={badge?.tierLabel ?? null}
                       tierHex={badge?.tierHex ?? null}
                       charge={badge?.charge ?? null}
-                      chargeSummary={badge?.chargeSummary ?? null}
+                      summary={song.song_summary}
                       listenerProse={badge?.listenerProse ?? null}
                       societalProse={badge?.societalProse ?? null}
                       deadpan={badge?.deadpan ?? null}
                       topics={badge?.topics ?? null}
                       meta={labelMeta}
                     />
+                    <div className="psyche-aura">
+                      <PsycheAura hex={badge?.tierHex ?? null} seed={song.slug} />
+                    </div>
                   </div>
                 </div>
               </section>

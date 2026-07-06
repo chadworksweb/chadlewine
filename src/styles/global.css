@@ -16165,6 +16165,77 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   margin: 0 !important;
 }
 
+/* Label section: the Psyche Facts card (capped ~34rem) sits left, the ambient
+   PsycheAura field takes the empty column to its right. */
+.song-landing__main--label {
+  display: grid;
+  grid-template-columns: minmax(0, 34rem) 1fr;
+  gap: var(--space-xl);
+  align-items: stretch;
+}
+
+.psyche-aura {
+  position: relative;
+  min-width: 0;
+}
+
+/* Sticky so the field trails the reader down the long label, mirroring the
+   sticky aside on the left. */
+.psyche-aura__host {
+  position: sticky;
+  top: calc(var(--nav-height, 80px) + var(--space-lg));
+  display: block;
+  width: 100%;
+  height: min(72vh, 34rem);
+}
+
+.psyche-aura__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Pause/Resume tooltip -- shown only while the cursor is over the field's
+   centre hotspot. pointer-events:none so the click falls through to the canvas. */
+.psyche-aura__tip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* left/top are set to the cursor in JS; float the bubble just up-right of it */
+  transform: translate(0.7rem, calc(-100% - 0.3rem));
+  padding: 0.08rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid var(--border-medium);
+  border-radius: 3px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s var(--ease-out, ease);
+}
+
+.psyche-aura__tip.is-visible {
+  opacity: 1;
+}
+
+/* Below wide-desktop the side strip gets too thin (the content width caps at
+   ~1260px), so the label stacks over the field and the field drops below the
+   card at full column width. */
+@media (max-width: 1200px) {
+  .song-landing__main--label {
+    display: flex;
+    flex-direction: column;
+  }
+  .psyche-aura__host {
+    position: static;
+    height: clamp(16rem, 40vw, 24rem);
+  }
+}
+
 @media (max-width: 768px) {
   .song-landing__section:not(.song-landing__section--about) .song-landing__container {
     grid-template-columns: 1fr;
@@ -17501,6 +17572,239 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   margin: 0;
 }
 
+/* ── Explorer layout: sticky facet sidebar + results ──────────────────── */
+.songs-explorer__layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+.songs-explorer__sidebar {
+  position: sticky;
+  top: calc(var(--nav-height, 80px) + var(--space-md));
+  /* Constrain to the viewport so ONLY the sidebar scrolls, never the page too:
+     the bottom sits one gap above the fold. */
+  max-height: calc(100dvh - var(--nav-height, 80px) - var(--space-md) - var(--space-md));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* On-brand panel (mirrors .merch-shop__controls). */
+  background: #0a0d12;
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-md);
+}
+
+.songs-explorer__results { min-width: 0; }
+
+.songs-explorer__resultbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.songs-explorer__resultbar .songs-explorer__count { margin-bottom: 0; }
+
+/* Filter panel (shared by the sidebar and the phone sheet) */
+.songs-explorer__filter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+.songs-explorer__filter-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.songs-explorer__clear {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text-accent);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.songs-explorer__clear:hover { text-decoration: underline; }
+
+.songs-explorer__facet { margin-bottom: var(--space-lg); }
+
+.songs-explorer__facet-heading {
+  display: block;
+  margin: 0 0 var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #00d4ff;
+}
+
+.songs-explorer__facet--sort .songs-explorer__sort-select { width: 100%; }
+
+.songs-explorer__facet-subhead {
+  margin: var(--space-sm) 0 4px;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.songs-explorer__facet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Options are branded toggles (mirrors .merch-shop__chip): outlined, uppercase,
+   accent-fill when selected. The native checkbox is kept for keyboard/a11y but
+   visually hidden -- the fill is the selected state. */
+.songs-explorer__opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  /* Outer frame only on hover -- at rest the checkbox is the sole border, so
+     the option doesn't read as a double-bordered chip. */
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.songs-explorer__opt input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.songs-explorer__opt:focus-within {
+  outline: 1px solid var(--text-accent);
+  outline-offset: 1px;
+}
+
+/* Custom checkbox — empty outline when off, accent-filled with a check when on. */
+.songs-explorer__opt-box {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.songs-explorer__opt:hover .songs-explorer__opt-box {
+  border-color: var(--text-accent);
+  background: rgba(139, 156, 247, 0.18);
+}
+.songs-explorer__opt.is-checked .songs-explorer__opt-box {
+  background: var(--text-accent);
+  border-color: var(--text-accent);
+}
+.songs-explorer__opt.is-checked .songs-explorer__opt-box::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border: solid #0a0d12;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.songs-explorer__opt:hover {
+  border-color: var(--text-accent);
+  background: rgba(139, 156, 247, 0.14);
+}
+.songs-explorer__opt.is-checked {
+  background: rgba(139, 156, 247, 0.22);
+}
+.songs-explorer__opt-label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.3;
+}
+.songs-explorer__opt.is-checked .songs-explorer__opt-label {
+  color: #ffffff;
+  font-weight: 600;
+}
+.songs-explorer__opt-count {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
+}
+.songs-explorer__opt.is-checked .songs-explorer__opt-count { color: rgba(255, 255, 255, 0.75); }
+.songs-explorer__opt.is-disabled { opacity: 0.3; cursor: default; }
+.songs-explorer__opt.is-disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Shadow effects toggle amber so they stay distinct from the seekable set. */
+.songs-explorer__opt--shadow .songs-explorer__opt-label { color: var(--song-label-warn, #e8b04b); }
+.songs-explorer__opt--shadow:hover {
+  border-color: var(--song-label-warn, #e8b04b);
+  background: rgba(232, 176, 75, 0.12);
+}
+.songs-explorer__opt--shadow.is-checked {
+  background: rgba(232, 176, 75, 0.20);
+}
+.songs-explorer__opt--shadow.is-checked .songs-explorer__opt-label { color: #f4d089; }
+.songs-explorer__opt--shadow:hover .songs-explorer__opt-box { border-color: var(--song-label-warn, #e8b04b); }
+.songs-explorer__opt--shadow.is-checked .songs-explorer__opt-box {
+  background: var(--song-label-warn, #e8b04b);
+  border-color: var(--song-label-warn, #e8b04b);
+}
+
+.songs-explorer__facet-more {
+  margin-top: 6px;
+  background: none;
+  border: 0;
+  padding: 4px 6px;
+  color: var(--text-accent);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.75rem);
+  cursor: pointer;
+}
+.songs-explorer__facet-more:hover { text-decoration: underline; }
+
+/* Effect chips in the row drawer */
+.songs-explorer__card-effect {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--border-medium);
+  border-radius: 3px;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs, 0.72rem);
+  color: var(--text-secondary);
+}
+.songs-explorer__card-effect--shadow {
+  border-color: color-mix(in srgb, var(--song-label-warn, #e8b04b) 55%, transparent);
+  color: var(--song-label-warn, #e8b04b);
+}
+
+.songs-explorer__sheet-body {
+  overflow-y: auto;
+  padding: var(--space-md);
+}
+
 .songs-explorer__controls {
   display: flex;
   flex-wrap: wrap;
@@ -17601,9 +17905,8 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 }
 
 .songs-explorer__table col.col--art     { width: 60px; }
-.songs-explorer__table col.col--title   { width: 32%; }
-.songs-explorer__table col.col--release { width: 22%; }
-.songs-explorer__table col.col--topics  { width: auto; }
+.songs-explorer__table col.col--title   { width: 44%; }
+.songs-explorer__table col.col--release { width: auto; }
 .songs-explorer__table col.col--action  { width: 140px; }
 
 .songs-explorer__td--title,
@@ -18115,11 +18418,16 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 
 /* ---- Topic filter: inline cloud (desktop) vs. bottom sheet (phone) ---- */
 
-/* The trigger button only exists on phones; the inline cloud only on desktop. */
+/* The trigger button only exists once the sidebar collapses. */
 .songs-explorer__filter-trigger { display: none; }
 
-@media (max-width: 640px) {
-  .songs-explorer__topics { display: none; }
+/* Below this width the sticky sidebar collapses into the trigger + sheet, and
+   the results take the full row. */
+@media (max-width: 860px) {
+  .songs-explorer__layout { grid-template-columns: 1fr; }
+  .songs-explorer__sidebar { display: none; }
+  /* Swap order: count on the left, filter trigger on the right. */
+  .songs-explorer__resultbar { flex-direction: row-reverse; }
 
   .songs-explorer__filter-trigger {
     display: inline-flex;
@@ -28675,470 +28983,3 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   .seo-serp__desc { -webkit-line-clamp: 3; }
 }
 
-/* ─────────────────────────────────────────────────────────────────────
-   Call for Music (/call-for-music) — sibling page to Super Individual.
-   Participates in the same page-shell grid system as the SI page, so its
-   sections bleed full-width while content re-anchors to --site-width.
-   Reuses .si-banner-bar + .si-prose primitives; everything below is the
-   page's own chrome (hero, roles, the seed gallery, the submission form).
-   ───────────────────────────────────────────────────────────────────── */
-:where(.page-call-for-music, .cfm-hero, .cfm-section) {
-  display: grid;
-  grid-template-columns:
-    [full-start] 1fr
-    [content-start] var(--site-width) [content-end]
-    1fr [full-end];
-  align-content: start;
-}
-:where(.page-call-for-music, .cfm-hero, .cfm-section) > * {
-  grid-column: content;
-  min-width: 0;
-}
-:where(.page-call-for-music, .cfm-hero, .cfm-section) > .full-bleed {
-  grid-column: full;
-}
-.page-call-for-music > :where(.cfm-hero, .cfm-section) {
-  grid-column: full;
-}
-main > .page-call-for-music,
-main > #page-call-for-music {
-  grid-column: full;
-}
-
-/* --- Hero --- */
-.cfm-hero {
-  padding-top: clamp(2rem, 5vw, 4rem);
-  background: var(--bg-deep);
-}
-.cfm-hero__inner { text-align: center; }
-.cfm-hero__eyebrow {
-  font-family: var(--font-ui);
-  font-weight: 500;
-  font-size: clamp(0.95rem, 1.4vw, 1.2rem);
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin: 0 0 var(--space-md);
-  text-indent: 0.175em;
-}
-.cfm-hero__headline {
-  font-family: var(--font-body);
-  font-weight: 400;
-  font-size: clamp(3.4rem, 7vw, 6.5rem);
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-  margin: 0 0 var(--space-lg);
-  background-image: linear-gradient(120deg, #6e8fff 0%, #b6c3ff 45%, #8b9cf7 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-}
-.cfm-hero__sub {
-  font-family: var(--font-body);
-  font-size: clamp(1.15rem, 2.2vw, 1.65rem);
-  line-height: 1.4;
-  color: var(--text-primary);
-  max-width: 760px;
-  margin: 0 auto var(--space-md);
-}
-.cfm-hero__not-contest {
-  font-family: var(--font-ui);
-  font-size: clamp(0.95rem, 1.5vw, 1.15rem);
-  line-height: 1.5;
-  color: var(--text-secondary);
-  max-width: 680px;
-  margin: 0 auto;
-}
-.cfm-hero__nav {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-md) var(--space-lg);
-  margin-top: var(--space-2xl);
-  padding: clamp(2rem, 4vw, 2.75rem) var(--space-lg);
-  background: var(--bg-elevated);
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.cfm-hero__nav::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.55;
-  background-image: repeating-linear-gradient(
-    90deg,
-    var(--border-subtle) 0,
-    var(--border-subtle) 1px,
-    transparent 1px,
-    transparent 12px
-  );
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 72%, transparent 100%);
-          mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 72%, transparent 100%);
-}
-.cfm-hero__nav-link {
-  position: relative;
-  z-index: 2;
-  font-family: var(--font-ui);
-  font-size: clamp(1.05rem, 1.9vw, 1.6rem);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #6e8fff;
-  text-shadow: 0 0 18px rgba(64, 96, 255, 0.45);
-  text-decoration: none;
-  padding: 0.15rem 1rem;
-  transition: color var(--duration-base) var(--ease-out),
-              text-shadow var(--duration-base) var(--ease-out);
-}
-.cfm-hero__nav-link:hover {
-  color: #ffffff;
-  text-shadow: 0 0 22px rgba(110, 143, 255, 0.85), 0 0 40px rgba(64, 96, 255, 0.45);
-}
-@media (max-width: 640px) {
-  .cfm-hero__nav { gap: var(--space-sm); padding-block: var(--space-lg); }
-  .cfm-hero__nav-link { padding: 0.15rem 0.5rem; }
-}
-
-/* --- Section shell --- */
-.cfm-section {
-  padding: clamp(3rem, 7vw, 5.5rem) 0 clamp(2rem, 5vw, 4rem);
-  background: var(--bg-deep);
-}
-.cfm-prose--centered { text-align: center; }
-/* Style the link-bearing role copy (not wrapped in .si-prose). */
-.cfm-role p a,
-.cfm-prose a { color: var(--text-accent); text-decoration: none; }
-.cfm-role p a:hover,
-.cfm-prose a:hover { text-decoration: underline; }
-
-/* --- Roles: RC measures / Chad curates --- */
-.cfm-roles {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-2xl);
-  align-items: start;
-  margin-bottom: var(--space-2xl);
-}
-@media (max-width: 880px) {
-  .cfm-roles { grid-template-columns: 1fr; gap: var(--space-xl); }
-}
-.cfm-role {
-  padding: var(--space-xl);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-}
-.cfm-role__kicker {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-accent);
-  margin: 0 0 var(--space-sm);
-}
-.cfm-role__title {
-  font-family: var(--font-body);
-  font-size: clamp(1.3rem, 2.2vw, 1.7rem);
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--text-primary);
-  margin: 0 0 var(--space-md);
-}
-.cfm-role p {
-  font-family: var(--font-body);
-  font-size: var(--text-body);
-  line-height: 1.6;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-/* --- The seed gallery --- */
-.cfm-gallery__intro,
-.cfm-submit__intro {
-  font-family: var(--font-body);
-  font-size: clamp(1rem, 1.6vw, 1.2rem);
-  line-height: 1.6;
-  color: var(--text-secondary);
-  max-width: 760px;
-  margin: 0 0 var(--space-2xl);
-}
-/* Handoff: the inline form moved to LEAM's High Vibe Song DB; this card sends
-   submitters there while the rest of the Call for Music copy stays put. */
-.cfm-handoff {
-  max-width: 680px;
-  padding: var(--space-2xl);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-}
-.cfm-handoff__eyebrow {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-accent);
-  margin: 0 0 var(--space-sm);
-}
-.cfm-handoff__head {
-  font-family: var(--font-body);
-  font-size: clamp(1.5rem, 3vw, 2.1rem);
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--text-primary);
-  margin: 0 0 var(--space-md);
-}
-.cfm-handoff__body {
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  line-height: 1.6;
-  color: var(--text-secondary);
-  margin: 0 0 var(--space-lg);
-}
-.cfm-handoff__cta {
-  display: inline-block;
-  font-family: var(--font-ui);
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: #fff;
-  background: linear-gradient(120deg, #4060ff, #6e8fff);
-  border-radius: 6px;
-  padding: 0.85rem 1.8rem;
-  text-decoration: none;
-  transition: filter var(--duration-base) var(--ease-out);
-}
-.cfm-handoff__cta:hover { filter: brightness(1.12); }
-.cfm-handoff__alt {
-  font-family: var(--font-body);
-  font-size: 0.98rem;
-  color: var(--text-tertiary);
-  margin: var(--space-md) 0 0;
-}
-.cfm-handoff__alt a { color: var(--text-accent); }
-.cfm-gallery {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-xl);
-}
-.cfm-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  overflow: hidden;
-  transition: border-color var(--duration-base) var(--ease-out),
-              transform var(--duration-base) var(--ease-out);
-}
-.cfm-card:hover {
-  border-color: var(--text-accent);
-  transform: translateY(-3px);
-}
-.cfm-card__link { display: block; text-decoration: none; color: inherit; }
-.cfm-card__art {
-  position: relative;
-  aspect-ratio: 1 / 1;
-  background: var(--bg-deep);
-  overflow: hidden;
-}
-.cfm-card__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.cfm-card__img--placeholder {
-  background: linear-gradient(135deg, var(--bg-elevated), var(--bg-deep));
-}
-.cfm-card__seed {
-  position: absolute;
-  top: 0.6rem;
-  left: 0.6rem;
-  font-family: var(--font-ui);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #fff;
-  background: rgba(64, 96, 255, 0.85);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  box-shadow: 0 0 14px rgba(64, 96, 255, 0.5);
-}
-.cfm-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: var(--space-md) var(--space-lg) var(--space-lg);
-}
-.cfm-card__title {
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--text-primary);
-}
-.cfm-card__artist {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-}
-.cfm-card__rc {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-}
-.cfm-card__tier {
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.cfm-card__charge {
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-.cfm-gallery__empty,
-.cfm-gallery__intro { color: var(--text-secondary); }
-
-/* --- Submission form --- */
-.cfm-submit-section .cfm-form { margin-top: var(--space-xl); }
-.cfm-form {
-  max-width: 760px;
-  display: grid;
-  gap: var(--space-lg);
-}
-.cfm-form__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-lg);
-}
-@media (max-width: 640px) {
-  .cfm-form__grid { grid-template-columns: 1fr; }
-}
-.cfm-form__field { display: grid; gap: 0.4rem; }
-.cfm-form__label {
-  font-family: var(--font-ui);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
-}
-.cfm-form__opt {
-  font-weight: 400;
-  color: var(--text-tertiary);
-  text-transform: none;
-  letter-spacing: 0;
-}
-.cfm-form__input,
-.cfm-form__textarea {
-  width: 100%;
-  font-family: var(--font-body);
-  font-size: 1rem;
-  color: var(--text-primary);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 0.7rem 0.85rem;
-  transition: border-color var(--duration-base) var(--ease-out);
-}
-.cfm-form__input:focus,
-.cfm-form__textarea:focus {
-  outline: none;
-  border-color: var(--text-accent);
-}
-.cfm-form__textarea { resize: vertical; min-height: 4.5rem; }
-.cfm-form__hint {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-.cfm-form__check {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.65rem;
-  align-items: start;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--text-secondary);
-}
-.cfm-form__check input { margin-top: 0.2rem; }
-.cfm-form__turnstile { margin-top: 0.25rem; }
-.cfm-form__error {
-  font-family: var(--font-ui);
-  font-size: 0.9rem;
-  color: #ff6b8a;
-  margin: 0;
-}
-.cfm-form__submit {
-  justify-self: start;
-  font-family: var(--font-ui);
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: #fff;
-  background: linear-gradient(120deg, #4060ff, #6e8fff);
-  border: none;
-  border-radius: 6px;
-  padding: 0.85rem 1.8rem;
-  cursor: pointer;
-  transition: filter var(--duration-base) var(--ease-out), opacity var(--duration-base) var(--ease-out);
-}
-.cfm-form__submit:hover:not(:disabled) { filter: brightness(1.12); }
-.cfm-form__submit:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.cfm-form--done {
-  max-width: 680px;
-  padding: var(--space-2xl);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-}
-.cfm-form__done-eyebrow {
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-accent);
-  margin: 0 0 var(--space-sm);
-}
-.cfm-form__done-head {
-  font-family: var(--font-body);
-  font-size: clamp(1.5rem, 3vw, 2.1rem);
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 var(--space-md);
-}
-.cfm-form__done-body {
-  font-family: var(--font-body);
-  font-size: 1.05rem;
-  line-height: 1.6;
-  color: var(--text-secondary);
-  margin: 0 0 var(--space-md);
-}
-.cfm-form__done-body a { color: var(--text-accent); }
-.cfm-form__again {
-  font: inherit;
-  color: var(--text-accent);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: underline;
-}

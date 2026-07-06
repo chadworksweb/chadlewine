@@ -11,7 +11,7 @@
 Top findings:
 
 1. **Locked decision #9 is broken.** Migration `20260423200000_drop_rc_stored_columns.sql` (2026-04-23, the day after the investigation report) dropped all eight `rc_*` columns from `songs`. The codebase now reads RC live via `fetchBadge()` only. The build prompt's Compass Charge layer (§9) and its proposed `SELECT … avg(rc_charge) FROM songs GROUP BY year` query target columns that no longer exist. **Re-open required.**
-2. **Hybrid publish (§11) has no viable prod path as written.** Vercel runtime FS is read-only; the codebase has no GitHub-API or build-trigger precedent. Options A/B/C must be chosen before build, or §11 should fall back to Supabase-only with markdown export at build time.
+2. **Hybrid publish (§11) has no viable prod path as written.** Vercel runtime FS is read-only; the codebase has no GitHub-API or build-trigger precedent. Options A/B/C must be chosen before build, or §11 should fall back to Supabase-only with markdown export at build time. **[Update 2026-07-05: this constraint is LIFTED. chadlewine left Vercel for the le-projects-01 droplet, where the container filesystem is writable at runtime (ISR already uses a local disk cache). Runtime write-to-disk publish is now viable, so §11 is no longer forced onto Option C. Re-evaluate before building. Note also this audit's "`@vercel/analytics`/`@vercel/speed-insights` in deps, no `output: 'standalone'`" observation is now stale: those deps are gone and the Docker build sets `output: 'standalone'`.]**
 3. **`chad-lewine-prose` flag does not slot into the existing flag system.** `feature-flags.ts:59` only matches the **first path segment** of a URL to a section name. Two flags on the same path (`/chad-lewine`) is not a pattern the proxy supports — the prose flag must be enforced inside the page handler, not at the proxy.
 4. **The "no AI anywhere" rule is fine for prose, but the codebase already calls Anthropic via raw fetch in 5 admin routes** (song-composition-chat, song-visibility-chat, suggest-lines, optimize-plan, generate-alt). The "do not add @anthropic-ai/sdk" instruction is consistent with the existing pattern (raw fetch, no SDK) — confirm Chad understands these existing AI surfaces remain untouched.
 5. **Schema patterns are well-established and the spec mostly matches them**, with a few tightening calls needed: TEXT+CHECK over Postgres ENUM, `update_updated_at()` trigger on every table, RLS pair (`Public can read published …` + `Admin full access …`), and a polymorphic-junction precedent in `thread_pulls`.
@@ -195,6 +195,12 @@ Build is **not yet ready to start**. Six open questions block Phase B; once Chad
 ---
 
 ### §11 Hybrid publish mechanics — **CRITICAL**
+
+> **Update 2026-07-05:** the whole §11 problem below is framed around Vercel's read-only
+> runtime filesystem. chadlewine has since moved off Vercel to the le-projects-01 droplet,
+> where the container FS is writable at runtime (ISR uses a local disk cache). Runtime
+> write-to-disk publish is now a valid option; the Option C recommendation is no longer
+> forced. Treat the analysis below as historical and re-evaluate before building §11.
 
 **Inconsistencies**
 - **Vercel runtime FS is read-only at request time.** No precedent in the repo for write-to-disk-at-runtime. The codebase deploys via Vercel (`@vercel/analytics`, `@vercel/speed-insights` in deps; no `output: 'standalone'` in next.config.ts). Option A (dev-only publish) means publish only works when Chad runs `npm run dev` locally. Option B (GitHub API commit) means new infra: GitHub PAT or App, commit signing, branch policy. Option C (Supabase-only at runtime, files regenerated at build) means the "hybrid" is really "Supabase truth, files are deploy artifacts."

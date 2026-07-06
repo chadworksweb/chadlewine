@@ -253,8 +253,8 @@ export default function TermsPage() {
         functions: Stripe (payments and customer billing), Resend (email
         delivery), Printify (physical-product fulfillment), Supabase
         (authentication and database hosting), Bunny.net (content
-        delivery and media hosting), Cloudflare Turnstile (bot
-        protection), Vercel (hosting plus cookieless web analytics),
+        delivery and media hosting), Cloudflare (DNS, CDN, edge proxy,
+        and Turnstile bot protection), DigitalOcean (hosting),
         PostHog (product analytics and session replay, served first-party
         with data stored in the United States), and Google Analytics
         (aggregate usage analytics). When you use the Site, certain

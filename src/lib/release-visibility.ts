@@ -23,15 +23,6 @@ export interface ReleaseVisibilityCategoryDef {
 }
 
 export const RELEASE_VISIBILITY_CATEGORIES: ReleaseVisibilityCategoryDef[] = [
-  // Data — album song slider (auto-pulls from album_songs unless picked)
-  {
-    slug: "song-slider",
-    label: "Songs (Cover Slider)",
-    description: "Big slider with one cover-hero per song in the album",
-    kind: "data",
-    default_status: "published",
-  },
-
   // Data — per-track grid (auto-pulls every song; art + meta + RC badge,
   // alternating sides, glitch-in entrance). Auto unless admin picks/orders.
   {
@@ -146,10 +137,6 @@ export type ReleaseVisibilityCategory = (typeof RELEASE_VISIBILITY_CATEGORIES)[n
 // Everything the admin curates lives under data_payload.{kind}. A single jsonb
 // column keeps the table simple; type guards on the consumer side narrow per
 // category.
-
-export interface DataPayloadSongSlider {
-  song_ids: string[] | null; // null = auto (all songs in album, track order)
-}
 
 export interface DataPayloadReleaseTrackGrid {
   song_ids: string[] | null; // null/empty = auto (all songs in album, track order)

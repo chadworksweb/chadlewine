@@ -1,0 +1,17 @@
+# Keep the build context lean AND keep secrets/build artifacts out of the image.
+# .env* is excluded so a local dev env can never shadow the NEXT_PUBLIC_* build
+# args (which carry the correct per-instance values).
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.local.example
+npm-debug.log*
+**/*.log
+**/.DS_Store
+.vscode
+.idea
+# Local-only tooling / notes that never belong in the image
+plans and docs
+observations - raw

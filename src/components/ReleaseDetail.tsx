@@ -16,6 +16,10 @@ interface AlbumProps {
   cover_art_path: string | null;
   cover_art_alt: string | null;
   release_date: string | null;
+  // Free-text release window (e.g. "Summer 2026") shown while there's no firm
+  // release_date. Sourced from label_meta.release_window; drives the preorder
+  // "Expected" info cell.
+  release_window: string | null;
   concept_statement: string | null;
   format_label: string | null;
 }
@@ -253,12 +257,17 @@ export function ReleaseDetail({
               <span className="track-detail__info-label">Tracks</span>
               <span className="track-detail__info-value">{songs.length}</span>
             </div>
-            {year && (
+            {year ? (
               <div className="track-detail__info-cell">
                 <span className="track-detail__info-label">Released</span>
                 <span className="track-detail__info-value">{year}</span>
               </div>
-            )}
+            ) : album.release_window ? (
+              <div className="track-detail__info-cell">
+                <span className="track-detail__info-label">Expected</span>
+                <span className="track-detail__info-value">{album.release_window}</span>
+              </div>
+            ) : null}
             {!hasMultipleFormats && album.format_label && (
               <div className="track-detail__info-cell">
                 <span className="track-detail__info-label">Format</span>

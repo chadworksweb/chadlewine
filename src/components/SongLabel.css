@@ -38,9 +38,16 @@
 .song-label__active {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.6rem 1rem;
-  border-bottom: 6px solid var(--text-primary);
+  padding: 0.6rem 1rem 0.9rem;
+  border-bottom: 3px solid var(--text-primary);
+}
+
+/* Hairline rules between the tier / charge / summary rows so each reads as
+   its own cell. */
+.song-label__active > * + * {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-medium);
 }
 
 .song-label__active-row {
@@ -65,8 +72,11 @@
 }
 
 .song-label__charge-sum {
+  margin: 0;
+  font-size: var(--text-xs);
   font-weight: 400;
   font-style: italic;
+  line-height: var(--leading-snug);
   color: var(--text-secondary);
 }
 

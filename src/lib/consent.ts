@@ -141,7 +141,6 @@ export const COOKIE_REGISTRY = {
   analytics: [
     { name: "PostHog (ph_*)", desc: "Product analytics + session replay (first-party)", expiry: "1 year", thirdParty: "PostHog (US)" },
     { name: "_ga / _ga_*", desc: "Google Analytics usage stats", expiry: "2 years", thirdParty: "Google" },
-    { name: "Vercel Web Analytics", desc: "Aggregate page metrics (cookieless)", expiry: "None", thirdParty: "Vercel" },
     { name: "cl_sid (local) + device hash", desc: "First-party play counts + page metrics", expiry: "Session" },
   ],
 } as const;

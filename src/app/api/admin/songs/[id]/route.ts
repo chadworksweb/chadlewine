@@ -38,6 +38,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .select("topic_id")
     .eq("song_id", songId);
 
+  const { data: effectLinks } = await supabase
+    .from("song_psyche_effects")
+    .select("effect_id")
+    .eq("song_id", songId);
+
   const singleIds = await getSingleSongIds(supabase);
 
   // Catalog-state audit trail, newest first, for the editor's history view.
@@ -52,6 +57,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     release_id: assoc?.release_id || null,
     track_number: assoc?.track_number || null,
     topic_ids: (topicLinks || []).map((t) => t.topic_id),
+    effect_ids: (effectLinks || []).map((e) => e.effect_id),
     is_single: singleIds.has(songId),
     state_history: stateHistory || [],
   });
@@ -164,6 +170,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
   }
 
+  // Replace psyche-effect mappings
+  if (Array.isArray(body.effect_ids)) {
+    await supabase.from("song_psyche_effects").delete().eq("song_id", id);
+    if (body.effect_ids.length > 0) {
+      const rows = body.effect_ids.map((eId: string) => ({ song_id: id, effect_id: eId }));
+      await supabase.from("song_psyche_effects").insert(rows);
+    }
+  }
+
   const { data: song } = await supabase.from("songs").select("*").eq("id", id).single();
   const { data: assocRows } = await supabase
     .from("release_songs")
@@ -176,6 +191,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return rel?.release_type !== "single";
   }) || null;
   const { data: topicLinks } = await supabase.from("song_topics").select("topic_id").eq("song_id", id);
+  const { data: effectLinks } = await supabase.from("song_psyche_effects").select("effect_id").eq("song_id", id);
   const singleIds = await getSingleSongIds(supabase);
 
   return Response.json({
@@ -183,6 +199,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     release_id: assoc?.release_id || null,
     track_number: assoc?.track_number || null,
     topic_ids: (topicLinks || []).map((t) => t.topic_id),
+    effect_ids: (effectLinks || []).map((e) => e.effect_id),
     is_single: singleIds.has(id as string),
   });
 }

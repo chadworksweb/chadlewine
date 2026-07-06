@@ -227,6 +227,8 @@ export default async function AlbumDetailPage({
           cover_art_path: album.cover_art_path,
           cover_art_alt: album.cover_art_alt,
           release_date: album.release_date,
+          release_window:
+            (album.label_meta as { release_window?: string } | null)?.release_window ?? null,
           concept_statement: album.concept_statement || null,
           format_label: headerFormatLabel,
         }}

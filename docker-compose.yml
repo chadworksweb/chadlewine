@@ -1,0 +1,55 @@
+# chadlewine.com -- per-instance compose (migrated off Vercel to le-projects-01).
+#
+# ONE file drives BOTH instances. The instance-specific bits (container name,
+# le-proxy alias, port) come from the co-located `.env` via ${...} interpolation,
+# which docker compose auto-loads from the project directory. So:
+#   /home/deploy/chadlewine-staging/.env  -> CL_CONTAINER=cl-staging CL_PORT=3005 ...
+#   /home/deploy/chadlewine-prod/.env     -> CL_CONTAINER=cl-prod    CL_PORT=3006 ...
+#
+# The container is bound to 127.0.0.1 only (never public) and joins the shared
+# external `le-proxy` network so the central le-nginx reaches it by alias. Mirrors
+# /home/deploy/lyric-transformer. Runtime secrets + build-time NEXT_PUBLIC_* both
+# live in that same `.env` (env_file for runtime; interpolated for build args).
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # The full .env is mounted (as a BuildKit secret) during `next build` so
+      # module-scope server-env reads (e.g. media-config.ts) don't throw, and
+      # NEXT_PUBLIC_* bake with the right per-instance values. See Dockerfile.
+      secrets:
+        - buildenv
+    container_name: ${CL_CONTAINER}
+    networks:
+      default: {}
+      le-proxy:
+        aliases:
+          - ${CL_ALIAS}
+    ports:
+      - "127.0.0.1:${CL_PORT}:${CL_PORT}"
+    env_file:
+      - .env
+    environment:
+      - PORT=${CL_PORT}
+      - NODE_ENV=production
+      # NOTE: VERCEL is intentionally NOT set. The two process.env.VERCEL guards
+      # relax off-platform (home-preview renders; scan route enables).
+    healthcheck:
+      # Liveness only: any HTTP response (even 404/500) means the server is up.
+      # Fails only on connection refused. Avoids coupling health to Supabase.
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:'+process.env.PORT+'/').then(()=>process.exit(0)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    restart: unless-stopped
+
+networks:
+  le-proxy:
+    external: true
+
+secrets:
+  # The instance's .env, mounted only during the build (never in a layer).
+  buildenv:
+    file: .env

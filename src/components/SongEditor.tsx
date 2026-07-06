@@ -60,6 +60,7 @@ interface SongData {
   seo_title: string;
   seo_description: string;
   topic_ids: string[];
+  effect_ids: string[];
   art_image_path: string | null;
   art_alt: string | null;
   hero_focal_x: number | null;
@@ -78,6 +79,14 @@ interface TopicOption {
   id: string;
   label: string;
   slug: string;
+}
+
+interface EffectOption {
+  id: string;
+  label: string;
+  slug: string;
+  shadow?: boolean;
+  sort_order?: number;
 }
 
 interface StateHistoryRow {
@@ -132,6 +141,7 @@ const emptySong: SongData = {
   seo_title: "",
   seo_description: "",
   topic_ids: [],
+  effect_ids: [],
   art_image_path: null,
   art_alt: null,
   hero_focal_x: null,
@@ -338,10 +348,12 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       seo_title: initial.seo_title || "",
       seo_description: initial.seo_description || "",
       topic_ids: initial.topic_ids || [],
+      effect_ids: initial.effect_ids || [],
     };
   });
   const [albums, setAlbums] = useState<AlbumOption[]>([]);
   const [allTopics, setAllTopics] = useState<TopicOption[]>([]);
+  const [allEffects, setAllEffects] = useState<EffectOption[]>([]);
   const [stateHistory, setStateHistory] = useState<StateHistoryRow[]>(
     () => ((initial as unknown as { state_history?: StateHistoryRow[] })?.state_history) || []
   );
@@ -368,6 +380,9 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
     fetch("/api/admin/topics")
       .then((r) => r.json())
       .then((data: TopicOption[]) => setAllTopics(data));
+    fetch("/api/admin/psyche-effects")
+      .then((r) => r.json())
+      .then((data: EffectOption[]) => setAllEffects(data));
   }, []);
 
   useEffect(() => {
@@ -442,6 +457,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
       seo_title: d.seo_title,
       seo_description: d.seo_description,
       topic_ids: d.topic_ids,
+      effect_ids: d.effect_ids,
       art_image_path: d.art_image_path,
       art_alt: d.art_alt,
       hero_focal_x: d.hero_focal_x,
@@ -465,6 +481,18 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
         topic_ids: has
           ? prev.topic_ids.filter((v) => v !== id)
           : [...prev.topic_ids, id],
+      };
+    });
+  }
+
+  function toggleEffect(id: string) {
+    setForm((prev) => {
+      const has = prev.effect_ids.includes(id);
+      return {
+        ...prev,
+        effect_ids: has
+          ? prev.effect_ids.filter((v) => v !== id)
+          : [...prev.effect_ids, id],
       };
     });
   }
@@ -935,6 +963,24 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             }}
             createEndpoint="/api/admin/topics"
             createPlaceholder="+ New topic"
+            nameField="label"
+          />
+
+          <TaxonomyPicker
+            heading="Psyche Effects"
+            items={allEffects}
+            selected={form.effect_ids}
+            onToggle={toggleEffect}
+            onCreate={(item) => {
+              setAllEffects((prev) => [...prev, item as EffectOption]);
+              setForm((prev) => ({ ...prev, effect_ids: [...prev.effect_ids, item.id] }));
+            }}
+            onDelete={(id) => {
+              setAllEffects((prev) => prev.filter((e) => e.id !== id));
+              setForm((prev) => ({ ...prev, effect_ids: prev.effect_ids.filter((eid) => eid !== id) }));
+            }}
+            createEndpoint="/api/admin/psyche-effects"
+            createPlaceholder="+ New effect"
             nameField="label"
           />
 

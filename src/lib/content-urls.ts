@@ -49,7 +49,6 @@ export const STATIC_PAGES: StaticPage[] = [
   { label: "Music", path: "/music" },
   { label: "Pillar Songs", path: "/pillar-songs" },
   { label: "Super Individual", path: "/super-individual" },
-  { label: "Call for Music", path: "/call-for-music" },
   { label: "Songwriting", path: "/songwriting" },
   { label: "Lyrics", path: "/lyrics" },
   { label: "Art", path: "/art" },

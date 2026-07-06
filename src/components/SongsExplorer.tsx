@@ -11,6 +11,14 @@ interface Topic {
   slug: string;
 }
 
+interface PsycheEffect {
+  id: string;
+  label: string;
+  slug: string;
+  shadow: boolean;
+  sort_order: number;
+}
+
 interface SongCardData {
   id: string;
   title: string;
@@ -40,6 +48,7 @@ interface SongCardData {
     cover_art_alt: string | null;
   } | null;
   topics: Topic[];
+  effects: PsycheEffect[];
 }
 
 type SortMode = "newest" | "oldest" | "az" | "za";
@@ -47,7 +56,12 @@ type SortMode = "newest" | "oldest" | "az" | "za";
 interface SongsExplorerProps {
   songs: SongCardData[];
   allTopics: Topic[];
+  allEffects: PsycheEffect[];
 }
+
+// How many topics show before the "Show all" expander (topics run ~100 deep;
+// effects are a tight 20 and always fully shown).
+const TOPIC_PREVIEW = 12;
 
 // A song's effective date: its own release_date (singles), else its associated
 // release's date (album/EP/comp tracks). Null = "forthcoming" (no date yet) —
@@ -118,17 +132,21 @@ function halfArray<T>(arr: T[]): T[] {
   return arr.slice(0, Math.ceil(arr.length / 2));
 }
 
-export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
-  // Single-select: songs rarely cross multiple topics, so one active topic at a
-  // time. null = "All" (no filter).
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+export function SongsExplorer({ songs, allTopics, allEffects }: SongsExplorerProps) {
+  // Multi-select facets. OR within a facet, AND across facets (standard ecom
+  // faceting): a song matches when it has ANY selected topic AND ANY selected
+  // effect. An empty facet imposes no constraint.
+  const [selectedTopics, setSelectedTopics] = useState<Set<string>>(new Set());
+  const [selectedEffects, setSelectedEffects] = useState<Set<string>>(new Set());
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const [showAllTopics, setShowAllTopics] = useState(false);
+
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   // Which row (if any) should skip its close animation because it's being
   // swapped out for another — a delayed unmount would jump the layout.
   const switchClosingIdRef = useRef<string | null>(null);
-  const [sortMode, setSortMode] = useState<SortMode>("newest");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  // Mobile-only: the inline topic cloud is too tall on phones, so it collapses
-  // behind a "Filter by topic" trigger that opens this bottom sheet.
+  // Phone: the facet panel collapses behind a "Filters" trigger that opens a
+  // bottom sheet holding the same controls.
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   // Lock background scroll while the filter sheet is open.
@@ -151,14 +169,99 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [filterSheetOpen]);
 
-  // Click an active topic to clear it; otherwise make it the sole filter.
-  function selectTopic(id: string) {
-    setSelectedTopicId((prev) => (prev === id ? null : id));
-  }
+  const toggleTopic = useCallback((id: string) => {
+    setSelectedTopics((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
-  function clearFilters() {
-    setSelectedTopicId(null);
-  }
+  const toggleEffect = useCallback((id: string) => {
+    setSelectedEffects((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setSelectedTopics(new Set());
+    setSelectedEffects(new Set());
+  }, []);
+
+  // Faceted counts: a topic's count reflects the OTHER facets' selections
+  // (effects) and vice versa, so options stay explorable within their own facet.
+  const { visible, topicCounts, effectCounts, baseTopicCounts } = useMemo(() => {
+    const passesTopics = (s: SongCardData) =>
+      selectedTopics.size === 0 || s.topics.some((t) => selectedTopics.has(t.id));
+    const passesEffects = (s: SongCardData) =>
+      selectedEffects.size === 0 || s.effects.some((e) => selectedEffects.has(e.id));
+
+    const tc = new Map<string, number>();
+    for (const s of songs) {
+      if (!passesEffects(s)) continue;
+      for (const t of s.topics) tc.set(t.id, (tc.get(t.id) || 0) + 1);
+    }
+    const ec = new Map<string, number>();
+    for (const s of songs) {
+      if (!passesTopics(s)) continue;
+      for (const e of s.effects) ec.set(e.id, (ec.get(e.id) || 0) + 1);
+    }
+    const base = new Map<string, number>();
+    for (const s of songs) for (const t of s.topics) base.set(t.id, (base.get(t.id) || 0) + 1);
+
+    const filtered = songs.filter((s) => passesTopics(s) && passesEffects(s));
+    switch (sortMode) {
+      case "newest":
+        filtered.sort((a, b) => {
+          const da = songDate(a);
+          const db = songDate(b);
+          if (da == null && db == null) return byTrackThenTitle(a, b);
+          if (da == null) return -1;
+          if (db == null) return 1;
+          if (da !== db) return db - da;
+          return byTrackThenTitle(a, b);
+        });
+        break;
+      case "oldest":
+        filtered.sort((a, b) => {
+          const da = songDate(a);
+          const db = songDate(b);
+          if (da == null && db == null) return byTrackThenTitle(a, b);
+          if (da == null) return 1;
+          if (db == null) return -1;
+          if (da !== db) return da - db;
+          return byTrackThenTitle(a, b);
+        });
+        break;
+      case "az":
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case "za":
+        filtered.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+    }
+    return { visible: filtered, topicCounts: tc, effectCounts: ec, baseTopicCounts: base };
+  }, [songs, selectedTopics, selectedEffects, sortMode]);
+
+  // Topics ordered by overall frequency (most-used first) for the facet list.
+  const orderedTopics = useMemo(
+    () =>
+      [...allTopics].sort(
+        (a, b) =>
+          (baseTopicCounts.get(b.id) || 0) - (baseTopicCounts.get(a.id) || 0) ||
+          a.label.localeCompare(b.label),
+      ),
+    [allTopics, baseTopicCounts],
+  );
+
+  const seekableEffects = useMemo(() => allEffects.filter((e) => !e.shadow), [allEffects]);
+  const shadowEffects = useMemo(() => allEffects.filter((e) => e.shadow), [allEffects]);
+
+  const activeCount = selectedTopics.size + selectedEffects.size;
 
   function toggleRow(id: string) {
     const isClosing = expandedId === id;
@@ -181,143 +284,100 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
         const navOffset = 88; // --nav-height (80px) + small gap
         const top = row.getBoundingClientRect().top + window.scrollY - navOffset;
         window.scrollTo({ top, behavior: "smooth" });
-      })
+      }),
     );
   }
 
-  const visible = useMemo(() => {
-    const filtered = selectedTopicId
-      ? songs.filter((s) => s.topics.some((t) => t.id === selectedTopicId))
-      : songs;
-
-    const sorted = [...filtered];
-    switch (sortMode) {
-      case "newest":
-        // Forthcoming (undated) on top, then dated newest-first; ties (and the
-        // forthcoming group) ordered by tracklisting, then alpha.
-        sorted.sort((a, b) => {
-          const da = songDate(a);
-          const db = songDate(b);
-          if (da == null && db == null) return byTrackThenTitle(a, b);
-          if (da == null) return -1;
-          if (db == null) return 1;
-          if (da !== db) return db - da;
-          return byTrackThenTitle(a, b);
-        });
-        break;
-      case "oldest":
-        // Dated oldest-first; undated/forthcoming sink to the bottom. Same
-        // tracklisting-then-alpha tiebreak.
-        sorted.sort((a, b) => {
-          const da = songDate(a);
-          const db = songDate(b);
-          if (da == null && db == null) return byTrackThenTitle(a, b);
-          if (da == null) return 1;
-          if (db == null) return -1;
-          if (da !== db) return da - db;
-          return byTrackThenTitle(a, b);
-        });
-        break;
-      case "az":
-        sorted.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case "za":
-        sorted.sort((a, b) => b.title.localeCompare(a.title));
-        break;
-    }
-    return sorted;
-  }, [songs, selectedTopicId, sortMode]);
-
-  const selectedTopic = selectedTopicId
-    ? allTopics.find((t) => t.id === selectedTopicId) ?? null
-    : null;
-
-  // Desktop inline cloud (single-select).
-  const topicChips = (
-    <>
-      <button
-        type="button"
-        className={`songs-explorer__topic-chip${!selectedTopicId ? " is-selected" : ""}`}
-        onClick={clearFilters}
-      >
-        All
-      </button>
-      {allTopics.map((t) => {
-        const isSel = selectedTopicId === t.id;
-        return (
-          <button
-            type="button"
-            key={t.id}
-            className={`songs-explorer__topic-chip${isSel ? " is-selected" : ""}`}
-            onClick={() => selectTopic(t.id)}
-            aria-pressed={isSel}
-          >
-            {t.label}
-          </button>
-        );
-      })}
-    </>
-  );
-
-  // Phone drum spinner: "All" + every topic, single-select by centered row.
-  const wheelItems = useMemo(
-    () => [
-      { id: null as string | null, label: "All" },
-      ...allTopics.map((t) => ({ id: t.id as string | null, label: t.label })),
-    ],
-    [allTopics]
-  );
-
-  const wheelIndex = useMemo(() => {
-    if (!selectedTopicId) return 0;
-    const i = wheelItems.findIndex((it) => it.id === selectedTopicId);
-    return i < 0 ? 0 : i;
-  }, [wheelItems, selectedTopicId]);
-
-  const onWheelSelect = useCallback(
-    (i: number) => setSelectedTopicId(wheelItems[i]?.id ?? null),
-    [wheelItems]
+  const controls = (variant: "sidebar" | "sheet") => (
+    <FilterControls
+      variant={variant}
+      sortMode={sortMode}
+      onSort={setSortMode}
+      seekableEffects={seekableEffects}
+      shadowEffects={shadowEffects}
+      selectedEffects={selectedEffects}
+      onToggleEffect={toggleEffect}
+      effectCounts={effectCounts}
+      orderedTopics={orderedTopics}
+      selectedTopics={selectedTopics}
+      onToggleTopic={toggleTopic}
+      topicCounts={topicCounts}
+      showAllTopics={showAllTopics}
+      onShowAllTopics={setShowAllTopics}
+      activeCount={activeCount}
+      onClear={clearFilters}
+    />
   );
 
   return (
     <>
-      <div className="songs-explorer__controls">
-        {/* Desktop: inline topic cloud. Hidden on phones (see global.css). */}
-        <div className="songs-explorer__topics" role="group" aria-label="Filter by topic">
-          {topicChips}
-        </div>
+      <div className="songs-explorer__layout">
+        <aside className="songs-explorer__sidebar" aria-label="Filters">
+          {controls("sidebar")}
+        </aside>
 
-        {/* Phone: trigger that opens the topic filter sheet. */}
-        <button
-          type="button"
-          className={`songs-explorer__filter-trigger${selectedTopic ? " is-active" : ""}`}
-          onClick={() => setFilterSheetOpen(true)}
-          aria-haspopup="dialog"
-          aria-expanded={filterSheetOpen}
-        >
-          <span className="songs-explorer__filter-trigger-label">
-            {selectedTopic ? selectedTopic.label : "Filter by topic"}
-          </span>
-        </button>
+        <div className="songs-explorer__results">
+          <div className="songs-explorer__resultbar">
+            <button
+              type="button"
+              className={`songs-explorer__filter-trigger${activeCount ? " is-active" : ""}`}
+              onClick={() => setFilterSheetOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={filterSheetOpen}
+            >
+              Filters{activeCount > 0 ? ` (${activeCount})` : ""}
+            </button>
+            <span className="songs-explorer__count">
+              Showing {visible.length} of {songs.length} songs
+            </span>
+          </div>
 
-        <div className="songs-explorer__sort">
-          <label htmlFor="songs-sort" className="songs-explorer__sort-label">Sort</label>
-          <select
-            id="songs-sort"
-            className="songs-explorer__sort-select"
-            value={sortMode}
-            onChange={(e) => setSortMode(e.target.value as SortMode)}
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="az">A–Z</option>
-            <option value="za">Z–A</option>
-          </select>
+          {visible.length === 0 ? (
+            <p className="songs-explorer__empty">No songs match these filters.</p>
+          ) : (
+            <table className="songs-explorer__table">
+              <colgroup>
+                <col className="col--art" />
+                <col className="col--title" />
+                <col className="col--release" />
+                <col className="col--action" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="songs-explorer__th songs-explorer__th--art" aria-label="Art" />
+                  <th className="songs-explorer__th">Title</th>
+                  <th className="songs-explorer__th">Release</th>
+                  <th className="songs-explorer__th songs-explorer__th--action" aria-label="Action" />
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((s) => {
+                  const { src, alt, ownArt } = resolveArt(s);
+                  const href = `/music/songs/${s.slug}`;
+                  const isOpen = expandedId === s.id;
+                  return (
+                    <SongRow
+                      key={s.id}
+                      song={s}
+                      href={href}
+                      artSrc={src}
+                      artAlt={alt}
+                      artOwn={ownArt}
+                      isOpen={isOpen}
+                      instantClose={switchClosingIdRef.current === s.id}
+                      navigable={canClickThrough(s)}
+                      onToggle={() => toggleRow(s.id)}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
-      {/* Phone topic filter sheet. Filtering is live, so the footer button
-          just dismisses; selections already applied to the list behind it. */}
+      {/* Phone filter sheet — same controls as the sidebar. Filtering is live,
+          so the footer just dismisses; selections already applied behind it. */}
       {filterSheetOpen && (
         <div
           className="songs-explorer__sheet-overlay"
@@ -327,11 +387,11 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
             className="songs-explorer__sheet"
             role="dialog"
             aria-modal="true"
-            aria-label="Filter by topic"
+            aria-label="Filters"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="songs-explorer__sheet-header">
-              <span className="songs-explorer__sheet-title">Filter by topic</span>
+              <span className="songs-explorer__sheet-title">Filters</span>
               <button
                 type="button"
                 className="songs-explorer__sheet-close"
@@ -341,17 +401,13 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
                 &times;
               </button>
             </div>
-            <TopicWheel
-              items={wheelItems}
-              selectedIndex={wheelIndex}
-              onSelect={onWheelSelect}
-            />
+            <div className="songs-explorer__sheet-body">{controls("sheet")}</div>
             <div className="songs-explorer__sheet-footer">
               <button
                 type="button"
                 className="songs-explorer__sheet-clear"
                 onClick={clearFilters}
-                disabled={!selectedTopicId}
+                disabled={activeCount === 0}
               >
                 Clear
               </button>
@@ -366,122 +422,186 @@ export function SongsExplorer({ songs, allTopics }: SongsExplorerProps) {
           </div>
         </div>
       )}
-
-      <div className="songs-explorer__count">
-        Showing {visible.length} of {songs.length} songs
-      </div>
-
-      {visible.length === 0 ? (
-        <p className="songs-explorer__empty">No songs match these filters.</p>
-      ) : (
-        <table className="songs-explorer__table">
-          <colgroup>
-            <col className="col--art" />
-            <col className="col--title" />
-            <col className="col--release" />
-            <col className="col--topics" />
-            <col className="col--action" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th className="songs-explorer__th songs-explorer__th--art" aria-label="Art" />
-              <th className="songs-explorer__th">Title</th>
-              <th className="songs-explorer__th">Release</th>
-              <th className="songs-explorer__th">Topics</th>
-              <th className="songs-explorer__th songs-explorer__th--action" aria-label="Action" />
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((s) => {
-              const { src, alt, ownArt } = resolveArt(s);
-              const href = `/music/songs/${s.slug}`;
-              const isOpen = expandedId === s.id;
-              return (
-                <SongRow
-                  key={s.id}
-                  song={s}
-                  href={href}
-                  artSrc={src}
-                  artAlt={alt}
-                  artOwn={ownArt}
-                  isOpen={isOpen}
-                  instantClose={switchClosingIdRef.current === s.id}
-                  navigable={canClickThrough(s)}
-                  onToggle={() => toggleRow(s.id)}
-                />
-              );
-            })}
-          </tbody>
-        </table>
-      )}
     </>
   );
 }
 
-// iOS-style drum spinner ported from Lyric Transformer's Sound Lock wheel:
-// a scroll-snap viewport with spacer rows so the centered item is the
-// selection. onScroll rounds scrollTop/itemHeight to the active index.
-function TopicWheel({
-  items,
-  selectedIndex,
-  onSelect,
-}: {
-  items: { id: string | null; label: string }[];
-  selectedIndex: number;
-  onSelect: (index: number) => void;
-}) {
-  const listRef = useRef<HTMLDivElement>(null);
-  const itemHeight = 40;
-  const visibleItems = 5;
-  // Skip the smooth-scroll effect when the index change came from the user
-  // scrolling (otherwise we fight their gesture).
-  const suppressScrollRef = useRef(false);
+interface FilterControlsProps {
+  variant: "sidebar" | "sheet";
+  sortMode: SortMode;
+  onSort: (m: SortMode) => void;
+  seekableEffects: PsycheEffect[];
+  shadowEffects: PsycheEffect[];
+  selectedEffects: Set<string>;
+  onToggleEffect: (id: string) => void;
+  effectCounts: Map<string, number>;
+  orderedTopics: Topic[];
+  selectedTopics: Set<string>;
+  onToggleTopic: (id: string) => void;
+  topicCounts: Map<string, number>;
+  showAllTopics: boolean;
+  onShowAllTopics: (v: boolean) => void;
+  activeCount: number;
+  onClear: () => void;
+}
 
-  useEffect(() => {
-    if (!listRef.current || suppressScrollRef.current) {
-      suppressScrollRef.current = false;
-      return;
-    }
-    listRef.current.scrollTo({ top: selectedIndex * itemHeight, behavior: "smooth" });
-  }, [selectedIndex]);
+function FilterControls({
+  variant,
+  sortMode,
+  onSort,
+  seekableEffects,
+  shadowEffects,
+  selectedEffects,
+  onToggleEffect,
+  effectCounts,
+  orderedTopics,
+  selectedTopics,
+  onToggleTopic,
+  topicCounts,
+  showAllTopics,
+  onShowAllTopics,
+  activeCount,
+  onClear,
+}: FilterControlsProps) {
+  const sortId = `songs-sort-${variant}`;
 
-  const handleScroll = useCallback(() => {
-    if (!listRef.current) return;
-    const idx = Math.round(listRef.current.scrollTop / itemHeight);
-    const clamped = Math.max(0, Math.min(items.length - 1, idx));
-    if (clamped !== selectedIndex) {
-      suppressScrollRef.current = true;
-      onSelect(clamped);
-    }
-  }, [items.length, selectedIndex, onSelect]);
+  // Keep any selected-but-hidden topic visible even when the list is collapsed.
+  const shownTopics = showAllTopics
+    ? orderedTopics
+    : [
+        ...orderedTopics.slice(0, TOPIC_PREVIEW),
+        ...orderedTopics.slice(TOPIC_PREVIEW).filter((t) => selectedTopics.has(t.id)),
+      ];
 
   return (
-    <div className="songs-explorer__wheel">
-      <div
-        className="songs-explorer__wheel-viewport"
-        ref={listRef}
-        onScroll={handleScroll}
-        style={{ height: visibleItems * itemHeight }}
-        role="listbox"
-        aria-label="Topic"
-      >
-        <div style={{ height: itemHeight * 2 }} aria-hidden="true" />
-        {items.map((it, i) => (
+    <div className="songs-explorer__filters">
+      {/* The sheet has its own header + footer Clear, so only the sidebar
+          renders this row. */}
+      {variant === "sidebar" && (
+        <div className="songs-explorer__filter-head">
+          <span className="songs-explorer__filter-title">Filter</span>
+          {activeCount > 0 && (
+            <button type="button" className="songs-explorer__clear" onClick={onClear}>
+              Clear ({activeCount})
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="songs-explorer__facet songs-explorer__facet--sort">
+        <label className="songs-explorer__facet-heading" htmlFor={sortId}>
+          Sort
+        </label>
+        <select
+          id={sortId}
+          className="songs-explorer__sort-select"
+          value={sortMode}
+          onChange={(e) => onSort(e.target.value as SortMode)}
+        >
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="az">A–Z</option>
+          <option value="za">Z–A</option>
+        </select>
+      </div>
+
+      <div className="songs-explorer__facet">
+        <h3 className="songs-explorer__facet-heading">Psyche Effects</h3>
+        <ul className="songs-explorer__facet-list">
+          {seekableEffects.map((e) => (
+            <FacetOption
+              key={e.id}
+              id={e.id}
+              label={e.label}
+              count={effectCounts.get(e.id) || 0}
+              checked={selectedEffects.has(e.id)}
+              onToggle={onToggleEffect}
+            />
+          ))}
+        </ul>
+        {shadowEffects.length > 0 && (
+          <>
+            <div className="songs-explorer__facet-subhead">Shadow</div>
+            <ul className="songs-explorer__facet-list">
+              {shadowEffects.map((e) => (
+                <FacetOption
+                  key={e.id}
+                  id={e.id}
+                  label={e.label}
+                  count={effectCounts.get(e.id) || 0}
+                  checked={selectedEffects.has(e.id)}
+                  onToggle={onToggleEffect}
+                  shadow
+                />
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <div className="songs-explorer__facet">
+        <h3 className="songs-explorer__facet-heading">Topics</h3>
+        <ul className="songs-explorer__facet-list">
+          {shownTopics.map((t) => (
+            <FacetOption
+              key={t.id}
+              id={t.id}
+              label={t.label}
+              count={topicCounts.get(t.id) || 0}
+              checked={selectedTopics.has(t.id)}
+              onToggle={onToggleTopic}
+            />
+          ))}
+        </ul>
+        {orderedTopics.length > TOPIC_PREVIEW && (
           <button
             type="button"
-            key={it.id ?? "__all"}
-            role="option"
-            aria-selected={i === selectedIndex}
-            className={`songs-explorer__wheel-item${i === selectedIndex ? " is-active" : ""}`}
-            style={{ height: itemHeight }}
-            onClick={() => onSelect(i)}
+            className="songs-explorer__facet-more"
+            onClick={() => onShowAllTopics(!showAllTopics)}
           >
-            {it.label}
+            {showAllTopics ? "Show less" : `Show all ${orderedTopics.length}`}
           </button>
-        ))}
-        <div style={{ height: itemHeight * 2 }} aria-hidden="true" />
+        )}
       </div>
     </div>
+  );
+}
+
+function FacetOption({
+  id,
+  label,
+  count,
+  checked,
+  onToggle,
+  shadow = false,
+}: {
+  id: string;
+  label: string;
+  count: number;
+  checked: boolean;
+  onToggle: (id: string) => void;
+  shadow?: boolean;
+}) {
+  // A zero-count option that isn't already selected can't help — disable it.
+  const disabled = count === 0 && !checked;
+  return (
+    <li>
+      <label
+        className={`songs-explorer__opt${checked ? " is-checked" : ""}${
+          disabled ? " is-disabled" : ""
+        }${shadow ? " songs-explorer__opt--shadow" : ""}`}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={() => onToggle(id)}
+        />
+        <span className="songs-explorer__opt-box" aria-hidden="true" />
+        <span className="songs-explorer__opt-label">{label}</span>
+        <span className="songs-explorer__opt-count">{count}</span>
+      </label>
+    </li>
   );
 }
 
@@ -516,7 +636,7 @@ function SongRow({
   // Expand/collapse animation: keep the drawer mounted through a "closing"
   // phase so the exit (digital scan-out) can play before it unmounts.
   const [drawerPhase, setDrawerPhase] = useState<"closed" | "open" | "closing">(
-    isOpen ? "open" : "closed"
+    isOpen ? "open" : "closed",
   );
   useEffect(() => {
     if (isOpen) setDrawerPhase("open");
@@ -587,19 +707,6 @@ function SongRow({
             <span className="songs-explorer__row-forthcoming">Forthcoming</span>
           )}
         </td>
-        <td className="songs-explorer__td">
-          {song.topics.length > 0 ? (
-            <div className="songs-explorer__row-topics">
-              {song.topics.map((t) => (
-                <span key={t.id} className="songs-explorer__card-topic">
-                  {t.label}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="songs-explorer__row-muted">—</span>
-          )}
-        </td>
         <td className="songs-explorer__td songs-explorer__td--action">
           {navigable ? (
             <Link
@@ -624,7 +731,7 @@ function SongRow({
 
         return (
           <tr className="songs-explorer__drawer-row">
-            <td colSpan={5} className="songs-explorer__drawer-cell">
+            <td colSpan={4} className="songs-explorer__drawer-cell">
               <div
                 className={`songs-explorer__drawer ${drawerPhase === "closing" ? "is-closing" : "is-opening"}`}
               >
@@ -645,8 +752,22 @@ function SongRow({
                 </div>
 
                 <div className="songs-explorer__drawer-main">
-                  {/* Topics live in the collapsed row on desktop; on mobile that
-                      row hides them, so surface them here (mobile-only via CSS). */}
+                  {song.effects.length > 0 && (
+                    <section className="songs-explorer__drawer-section">
+                      <h3 className="songs-explorer__drawer-label">Psyche Effects</h3>
+                      <div className="songs-explorer__drawer-topic-chips">
+                        {song.effects.map((e) => (
+                          <span
+                            key={e.id}
+                            className={`songs-explorer__card-effect${e.shadow ? " songs-explorer__card-effect--shadow" : ""}`}
+                          >
+                            {e.label}
+                          </span>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
                   {song.topics.length > 0 && (
                     <section className="songs-explorer__drawer-section songs-explorer__drawer-topics">
                       <h3 className="songs-explorer__drawer-label">Topics</h3>

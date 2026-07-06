@@ -16,6 +16,14 @@ interface Topic {
   slug: string;
 }
 
+interface PsycheEffect {
+  id: string;
+  label: string;
+  slug: string;
+  shadow: boolean;
+  sort_order: number;
+}
+
 interface AlbumRef {
   title: string;
   slug: string;
@@ -47,9 +55,10 @@ export interface SongCardData {
   entity_tags: string[];
   album: AlbumRef | null;
   topics: Topic[];
+  effects: PsycheEffect[];
 }
 
-async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }> {
+async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[]; allEffects: PsycheEffect[] }> {
   const supabase = createPublicClient();
 
   const { data: songs } = await supabase
@@ -58,12 +67,12 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
     .in("status", ["unreleased", "published"]);
 
   if (!songs || songs.length === 0) {
-    return { songs: [], allTopics: [] };
+    return { songs: [], allTopics: [], allEffects: [] };
   }
 
   const songIds = songs.map((s) => s.id);
 
-  const [junctionsRes, topicLinksRes, allTopicsRes, singleIdsSet] = await Promise.all([
+  const [junctionsRes, topicLinksRes, allTopicsRes, singleIdsSet, effectLinksRes, allEffectsRes] = await Promise.all([
     supabase
       .from("release_songs")
       .select("song_id, track_number, release:releases(title, slug, status, cover_art_path, cover_art_alt, release_type, release_date)")
@@ -74,6 +83,11 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
       .in("song_id", songIds),
     supabase.from("topics").select("id, label, slug").order("label"),
     getSingleSongIds(supabase),
+    supabase
+      .from("song_psyche_effects")
+      .select("song_id, effect:psyche_effects(id, label, slug, shadow, sort_order)")
+      .in("song_id", songIds),
+    supabase.from("psyche_effects").select("id, label, slug, shadow, sort_order").order("sort_order"),
   ]);
 
   // Prefer album-type releases over single-type when assigning the "album"
@@ -159,6 +173,25 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
     });
   }
 
+  type EffectLite = { id: string; label: string; slug: string; shadow: boolean; sort_order: number };
+  type EffectLinkRow = { song_id: string; effect: EffectLite | EffectLite[] | null };
+  const effectsBySong: Record<string, PsycheEffect[]> = {};
+  for (const link of (effectLinksRes.data || []) as EffectLinkRow[]) {
+    const effect = Array.isArray(link.effect) ? link.effect[0] : link.effect;
+    if (!effect) continue;
+    (effectsBySong[link.song_id] ||= []).push({
+      id: effect.id,
+      label: effect.label,
+      slug: effect.slug,
+      shadow: effect.shadow,
+      sort_order: effect.sort_order,
+    });
+  }
+  // Keep each song's effects in taxonomy order (seekable first, shadow last).
+  for (const list of Object.values(effectsBySong)) {
+    list.sort((a, b) => a.sort_order - b.sort_order);
+  }
+
   const cardData: SongCardData[] = songs.map((s) => ({
     id: s.id,
     title: s.title,
@@ -182,16 +215,18 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[] }
     entity_tags: Array.isArray(s.entity_tags) ? s.entity_tags : [],
     album: albumBySong[s.id] || null,
     topics: topicsBySong[s.id] || [],
+    effects: effectsBySong[s.id] || [],
   }));
 
   return {
     songs: cardData,
     allTopics: (allTopicsRes.data || []) as Topic[],
+    allEffects: (allEffectsRes.data || []) as PsycheEffect[],
   };
 }
 
 export default async function MusicSongsPage() {
-  const { songs, allTopics } = await getSongs();
+  const { songs, allTopics, allEffects } = await getSongs();
 
   // Only enumerate songs whose detail page actually resolves: published songs,
   // plus unreleased songs that are singles (unreleased album tracks 404). This
@@ -209,7 +244,7 @@ export default async function MusicSongsPage() {
             <h1 className="songs-explorer__title">Chad Lewine Songs</h1>
           </header>
 
-          <SongsExplorer songs={songs} allTopics={allTopics} />
+          <SongsExplorer songs={songs} allTopics={allTopics} allEffects={allEffects} />
         </div>
       </div>
     </>

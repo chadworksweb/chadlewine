@@ -13,7 +13,9 @@ Vercel function at ~130 recipients).
    `MAX_CAMPAIGN_AUDIENCE` (50k) unlocks back to draft.
 
 2. **Drain (cron worker)** — `GET /api/cron/campaign-queue` runs every minute
-   (`vercel.json`, `* * * * *`) and calls `drainCampaignQueue(deadline)`. For
+   (droplet cron `/etc/cron.d/chadlewine` via `cl-cron-hit.sh`, `* * * * *`, prod only;
+   `vercel.json` crons were emptied and the Vercel project deleted 2026-07-05) and calls
+   `drainCampaignQueue(deadline)`. For
    each campaign in `sending`:
    - Reclaim stale `sending_row` rows (a crashed prior tick) back to `queued`.
    - Atomically claim up to `CLAIM_BATCH` queued rows

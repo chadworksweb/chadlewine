@@ -14,7 +14,6 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
       { href: "/music/songs", label: "Songs" },
       { href: "/lyrics", label: "Lyrics" },
       { href: "/curation", label: "Curation" },
-      { href: "/call-for-music", label: "Call for Music" },
     ],
   },
   { href: "/merch", label: "Merch" },
@@ -35,13 +34,21 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
       { href: "/journal", label: "Journal" },
     ],
   },
+  // Parent-only menu item (no landing page yet) -- href "#" so the label is a
+  // dropdown container, not a link.
+  {
+    href: "#",
+    label: "Philosophy",
+    children: [
+      { href: "/super-individual", label: "Super Individual" },
+    ],
+  },
   {
     href: "/chad-lewine",
     label: "About",
     children: [
       { href: "/pillar-songs", label: "Pillar Songs" },
       { href: "/radiant-arc", label: "Radiant Arc" },
-      { href: "/super-individual", label: "Super Individual" },
       { href: "/songwriting", label: "Songwriting" },
       { href: "/super-individual-night", label: "Booking" },
       { href: "/contact", label: "Contact" },

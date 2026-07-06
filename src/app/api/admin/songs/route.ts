@@ -96,11 +96,18 @@ export async function POST(request: Request) {
     await supabase.from("song_topics").insert(rows);
   }
 
+  // Create psyche-effect mappings
+  if (Array.isArray(body.effect_ids) && body.effect_ids.length > 0 && song) {
+    const rows = body.effect_ids.map((eId: string) => ({ song_id: song.id, effect_id: eId }));
+    await supabase.from("song_psyche_effects").insert(rows);
+  }
+
   return Response.json({
     ...song,
     release_id: body.release_id,
     track_number: body.track_number || 1,
     topic_ids: Array.isArray(body.topic_ids) ? body.topic_ids : [],
+    effect_ids: Array.isArray(body.effect_ids) ? body.effect_ids : [],
     is_single: false,
   }, { status: 201 });
 }

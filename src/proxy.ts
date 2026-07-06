@@ -140,8 +140,9 @@ export async function proxy(request: NextRequest) {
   // reads flags). Gate by not merging to master, not by flags.
   //
   // Consent geo-default (edge): first-time visitors with no saved consent choice
-  // get a cl_geo_default cookie ("deny" for EU/UK/EEA + California, "allow"
-  // elsewhere -- California is default-deny for CIPA). The
+  // get a cl_geo_default cookie ("deny" for EU/UK/EEA + California AND for any
+  // unknown region -- e.g. self-hosted where geo headers are absent; "allow"
+  // only for a known non-opt-in country). The
   // root-layout inline script reads it to set the pre-hydration consent default
   // WITHOUT the layout calling cookies()/headers() -- which would force every
   // public page to dynamic rendering and defeat ISR. Only set on the first hit
@@ -152,9 +153,21 @@ export async function proxy(request: NextRequest) {
     !request.cookies.get(CONSENT_COOKIE)?.value &&
     !request.cookies.get("cl_geo_default")?.value
   ) {
-    const country = request.headers.get("x-vercel-ip-country");
-    const region = request.headers.get("x-vercel-ip-country-region");
-    const def = isOptInGeo(country, region) ? "deny" : "allow";
+    // Geo signal for the consent default. Self-hosted behind Cloudflare we read
+    // CF-IPCountry (sent on every request) and CF-Region-Code (needs the
+    // "Add visitor location headers" managed transform enabled in Cloudflare).
+    // Fall back to Vercel's x-vercel-ip-* if this ever runs on Vercel again.
+    // Cloudflare uses "XX" (unknown) / "T1" (Tor) -> treat as unknown.
+    // Rule: unknown region => "deny" (privacy-safe opt-in, never default EU/UK/
+    // EEA or California to analytics-on); a KNOWN non-opt-in country => "allow".
+    const cfCountry = request.headers.get("cf-ipcountry");
+    const country =
+      (cfCountry && cfCountry !== "XX" && cfCountry !== "T1" ? cfCountry : null) ||
+      request.headers.get("x-vercel-ip-country");
+    const region =
+      request.headers.get("cf-region-code") ||
+      request.headers.get("x-vercel-ip-country-region");
+    const def = !country || isOptInGeo(country, region) ? "deny" : "allow";
     res.cookies.set("cl_geo_default", def, {
       httpOnly: false,
       sameSite: "lax",

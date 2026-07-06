@@ -63,6 +63,9 @@ export interface OrderEmailLine {
   imageUrl?: string;
   formatLinks?: Array<{ format: "mp3" | "flac" | "wav" | "m4r"; url: string }>;
   fulfillmentNote?: string;
+  // Digital line bought while the SKU is on preorder: no files yet, so the
+  // row shows a "coming when it's out" note instead of dead download buttons.
+  preorder?: boolean;
 }
 
 export interface OrderEmailData {
@@ -120,7 +123,9 @@ function renderItemRowsCustomer(items: OrderEmailLine[]): string {
   return items
     .map((item) => {
       let downloads = "";
-      if (item.formatLinks && item.formatLinks.length > 0) {
+      if (item.preorder && (!item.formatLinks || item.formatLinks.length === 0)) {
+        downloads = `<div style="margin-top:10px;font-size:12px;color:#8b9cf7;">Preorder confirmed. We&rsquo;ll email your download the moment it&rsquo;s out.</div>`;
+      } else if (item.formatLinks && item.formatLinks.length > 0) {
         const multi = item.formatLinks.length > 1;
         downloads = `<div style="margin-top:10px;">${item.formatLinks
           .map((f) => {
@@ -203,14 +208,19 @@ export function buildOrderConfirmationHtml(d: OrderEmailData): string {
   const hasPhysical = d.items.some(
     (i) => i.type === "merch" || i.type === "art_original" || i.type === "art_limited_print",
   );
+  const hasPreorder = d.items.some((i) => i.preorder);
 
   const heading = hasDigital && !hasPhysical
     ? "Your downloads are ready"
-    : "Your order is in";
+    : hasPreorder && !hasDigital && !hasPhysical
+      ? "Your preorder is in"
+      : "Your order is in";
 
   const intro = hasDigital
     ? "Pick the format you want for each item — links are yours to keep."
-    : "Custom production takes about 1–2 weeks. We'll email you again when it ships.";
+    : hasPreorder && !hasPhysical
+      ? "Your preorder is locked in. We'll email your download the moment the release is out, and it will be waiting in your account."
+      : "Custom production takes about 1–2 weeks. We'll email you again when it ships.";
 
   const recoveryLine = hasDigital
     ? `<p style="font-size:12px;color:#808090;margin-top:24px;line-height:1.5;">
@@ -243,6 +253,52 @@ export function buildOrderConfirmationHtml(d: OrderEmailData): string {
   `;
 
   return shell(inner, "You received this because you purchased at chadlewine.com");
+}
+
+export interface PreorderReadyEmailData {
+  buyerName: string | null;
+  albumTitle: string;
+  coverUrl?: string | null;
+  // Download links for this buyer's copy, already signed to /api/download.
+  formatLinks: Array<{ format: "mp3" | "flac" | "wav"; url: string }>;
+  recoverUrl: string;
+}
+
+// The "your preorder is here" email, sent when Chad hits Deliver Preorder.
+// Same visual shell as the order confirmation; copy is written for the moment
+// a buyer has been waiting on, so it leads with the album landing, not a receipt.
+export function buildPreorderReadyHtml(d: PreorderReadyEmailData): string {
+  const multi = d.formatLinks.length > 1;
+  const buttons = d.formatLinks
+    .map((f) => {
+      const label = multi ? `Download ${f.format.toUpperCase()}` : "Download";
+      return `<a href="${f.url}" style="display:inline-block;padding:10px 20px;margin:0 8px 8px 0;background:#8b9cf7;color:#0a0a14;text-decoration:none;border-radius:4px;font-weight:600;font-size:13px;">${escapeHtml(
+        label,
+      )}</a>`;
+    })
+    .join("");
+
+  const greeting = d.buyerName ? `${escapeHtml(d.buyerName)}, it` : "It";
+  const cover = d.coverUrl
+    ? `<img src="${escapeHtml(d.coverUrl)}" alt="" width="200" height="200" style="display:block;width:200px;height:200px;max-width:100%;border-radius:8px;background:#1a1a26;object-fit:cover;margin:0 0 20px;" />`
+    : "";
+
+  const inner = `
+    <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#8b9cf7;margin:0 0 8px;">Your preorder is here</p>
+    <h1 style="font-size:24px;font-weight:600;margin:0 0 12px;color:#e0e0e8;">${greeting} landed.</h1>
+    <p style="font-size:15px;color:#a0a0b0;line-height:1.6;margin:0 0 20px;">
+      ${escapeHtml(d.albumTitle)} is out, and your copy is ready. Thank you for backing it early.
+    </p>
+    ${cover}
+    <div style="margin:4px 0 8px;">${buttons}</div>
+    <p style="font-size:12px;color:#808090;margin-top:24px;line-height:1.5;">
+      These links are yours to keep. You can also find this album any time under
+      <a href="${new URL("/account", d.recoverUrl).toString()}" style="color:#8b9cf7;">your account</a>,
+      or recover it with <a href="${d.recoverUrl}" style="color:#8b9cf7;">this link</a>.
+    </p>
+  `;
+
+  return shell(inner, "You received this because you preordered this album at chadlewine.com");
 }
 
 export interface CartRecoveryEmailData {

@@ -65,7 +65,7 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         <strong>Device and log data.</strong> Our infrastructure
-        providers (Vercel, Supabase, Cloudflare, Bunny.net) automatically
+        providers (DigitalOcean, Cloudflare, Supabase, Bunny.net) automatically
         receive standard server-log information when you access the
         Site, including IP address, user agent, request path, response
         status, and timestamp. We use this only for operating, securing,
@@ -97,11 +97,11 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         <strong>Product analytics and session replay.</strong> We use
-        PostHog, Google Analytics, and Vercel Web Analytics to understand
+        PostHog and Google Analytics to understand
         how the Site is used: pages viewed, clicks and other interactions,
         device and browser type, and general geographic region. Google
         Analytics sets _ga cookies; PostHog is served first-party from our
-        own domain and may set cookies; Vercel Web Analytics is cookieless.
+        own domain and may set cookies.
         PostHog also records session replays (playbacks of on-page
         activity) with text and form inputs masked, which we use to debug
         and improve the experience. For signed-out visitors this data is
@@ -173,13 +173,14 @@ export default function PrivacyPolicyPage() {
         hosting for images, audio, and video.
       </p>
       <p>
-        <strong>Cloudflare</strong> &mdash; bot protection through
-        Cloudflare Turnstile on forms.
+        <strong>Cloudflare</strong> &mdash; DNS, CDN, and edge proxy for the
+        Site. It processes request metadata (such as your IP address and
+        approximate location) to route, cache, and secure traffic, and
+        provides bot protection through Cloudflare Turnstile on forms.
       </p>
       <p>
-        <strong>Vercel</strong> &mdash; web hosting and application
-        runtime, plus cookieless Web Analytics and Speed Insights
-        (aggregate page and performance metrics; no cross-site tracking).
+        <strong>DigitalOcean</strong> &mdash; web hosting and application
+        runtime (the server the Site runs on).
       </p>
       <p>
         <strong>PostHog</strong> &mdash; product analytics and session
@@ -247,8 +248,8 @@ export default function PrivacyPolicyPage() {
       </p>
       <p>
         <strong>Analytics and cookie choices.</strong> We ask for your
-        consent before loading analytics (PostHog, Google Analytics, and
-        Vercel) and apply it by region. Visitors in the EU, UK, EEA, and
+        consent before loading analytics (PostHog and Google Analytics)
+        and apply it by region. Visitors in the EU, UK, EEA, and
         California are opt-in (analytics stay off until you accept);
         elsewhere analytics are on by default with an easy opt-out. You can
         change it anytime via{" "}

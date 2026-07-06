@@ -5,7 +5,6 @@ import { CartProvider, CartUI } from "@/components/Cart";
 import { PlayerProvider } from "@/components/PlayerContext";
 import { StickyPlayer } from "@/components/StickyPlayer";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
-import { ConsentedAnalytics } from "@/components/ConsentedAnalytics";
 import { ConsentProvider } from "@/components/ConsentProvider";
 
 export const metadata: Metadata = {
@@ -80,7 +79,6 @@ export default function RootLayout({
             </PlayerProvider>
             <CartUI />
           </CartProvider>
-          <ConsentedAnalytics />
           <GoogleAnalytics />
         </ConsentProvider>
       </body>

@@ -35,7 +35,9 @@ export interface SongLabelProps {
   tierLabel?: string | null;
   tierHex?: string | null;
   charge?: number | null;
-  chargeSummary?: string | null;
+  /** The song's own summary (from chadlewine, not RC). Renders on its own
+   *  row under Active charge. */
+  summary?: string | null;
   listenerProse?: string | null;
   societalProse?: string | null;
   deadpan?: string | null;
@@ -132,14 +134,12 @@ export function SongLabel(props: SongLabelProps) {
           {chargeStr && (
             <span className="song-label__active-row">
               <span className="song-label__k">Active charge</span>
-              <span className="song-label__v">
-                {chargeStr}
-                {props.chargeSummary ? (
-                  <em className="song-label__charge-sum"> {props.chargeSummary}</em>
-                ) : null}
-              </span>
+              <span className="song-label__v">{chargeStr}</span>
             </span>
           )}
+          {props.summary ? (
+            <p className="song-label__charge-sum">{props.summary}</p>
+          ) : null}
         </div>
       )}
 
