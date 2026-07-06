@@ -372,9 +372,12 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
     const x = e.clientX - r.left;
     el.style.transform = `translate(${x}px, ${e.clientY - r.top}px)`;
     // On over the current slide (between the peek strips); off over the strips
-    // and paddles at the left/right edges.
+    // and paddles at the left/right edges. Also off over the interactive
+    // controls (the type chip and the CTA) on ANY slide -- those are their own
+    // affordances, so the ripple ring shouldn't compete with them.
     const peek = peekRef.current;
-    setCursorHintOn(x >= peek && x <= r.width - peek);
+    const overControl = !!(e.target as HTMLElement).closest?.(".hero-lens__kind, .hero-lens__cta");
+    setCursorHintOn(x >= peek && x <= r.width - peek && !overControl);
   }, []);
   const handleHeroMouseLeave = useCallback(() => setCursorHintOn(false), []);
 
