@@ -10,5 +10,8 @@ PATH=/usr/bin:/bin:/usr/local/bin
 0 13 * * * deploy /usr/local/bin/cl-cron-hit.sh merch-image-cleanup >/dev/null 2>&1
 0 * * * * deploy /usr/local/bin/cl-cron-hit.sh fan-track-drip >/dev/null 2>&1
 0 * * * * deploy /usr/local/bin/cl-cron-hit.sh cart-recovery >/dev/null 2>&1
-* * * * * deploy /usr/local/bin/cl-cron-hit.sh campaign-queue >/dev/null 2>&1
+# campaign-queue is event-driven (kicked on send + self-continues while draining).
+# This is only a safety net: resume any campaign left 'sending' if a self-trigger
+# chain died (e.g. container restart mid-send). Do NOT lower below a few minutes.
+*/10 * * * * deploy /usr/local/bin/cl-cron-hit.sh campaign-queue >/dev/null 2>&1
 0 14 * * 1 deploy /usr/local/bin/cl-cron-hit.sh inbound-digest >/dev/null 2>&1

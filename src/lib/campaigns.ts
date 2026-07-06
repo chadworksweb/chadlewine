@@ -594,6 +594,37 @@ export async function drainCampaignQueue(deadline: number): Promise<DrainSummary
   return { campaigns: out };
 }
 
+/** Fire-and-forget nudge to run another campaign-worker tick. Used to kick
+   delivery the moment a send is enqueued, and to let a tick self-continue while
+   a campaign is still draining -- so sends run at full pace without waiting on
+   the low-frequency safety-net cron. The client side aborts after 3s: we only
+   need to START the next tick; its route handler runs the full drain
+   server-side, independent of this connection. No-ops if SITE_URL or
+   CRON_SECRET is unset (e.g. local dev), so callers never have to guard. */
+export function kickCampaignWorker(): void {
+  const base = process.env.SITE_URL;
+  const secret = process.env.CRON_SECRET;
+  if (!base || !secret) return;
+  void fetch(`${base}/api/cron/campaign-queue`, {
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      "User-Agent": "cl-campaign-worker",
+    },
+    signal: AbortSignal.timeout(3000),
+  }).catch(() => {});
+}
+
+/** True when the last drain tick made forward progress AND left unfinished
+   work -- the signal to self-continue immediately. When a tick makes zero
+   progress but a campaign is still 'sending' (e.g. every row erroring), we do
+   NOT re-kick: the 10-min safety-net cron picks it up instead, so a stuck
+   campaign can never spin the worker in a hot loop. */
+export function shouldContinueDraining(summary: DrainSummary): boolean {
+  const progressed = summary.campaigns.some((c) => c.processed > 0);
+  const moreWork = summary.campaigns.some((c) => !c.finalized);
+  return progressed && moreWork;
+}
+
 /** Re-sends a campaign to only the recipients whose previous send failed
    (e.g. after a rate-limit wave). Never re-sends to anyone already sent.
    Paced under Resend's limit; recomputes the campaign's counts afterward. */
