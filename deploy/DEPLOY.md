@@ -2,8 +2,9 @@
 
 Migrated off Vercel to the DigitalOcean droplet **le-projects-01** (`138.197.111.66`)
 on 2026-07-05. Three-tier, Docker behind the shared `le-nginx` reverse proxy, on the
-model of Lyric Transformer. Vercel is kept live (cron-less) as an instant DNS rollback
-until decommissioned.
+model of Lyric Transformer. **The Vercel project was deleted 2026-07-05** once the
+droplet origin was verified serving live (byte-identical page through Cloudflare); the
+"roll DNS back to Vercel" path no longer exists (see Rollback).
 
 ## Topology
 
@@ -115,8 +116,8 @@ Certs: `staging.chadlewine.com` (single), `chadlewine.com` (SAN: apex + www).
 - `/etc/cron.d/chadlewine` (root:root 644) -- 6 jobs, UTC, from `deploy/cron/chadlewine.cron`.
 - `/usr/local/bin/cl-cron-hit.sh` (755) -- from `deploy/cron/cl-cron-hit.sh`; reads
   `CRON_SECRET` from the prod `.env` and curls the endpoint with the Bearer.
-- NEVER install these on staging. Vercel crons were emptied in `vercel.json` to avoid
-  double execution.
+- NEVER install these on staging. `vercel.json` keeps an empty `crons` array (a relic of
+  the Vercel era, now deleted) so nothing double-runs if the repo is ever redeployed there.
 
 | Job | Schedule (UTC) |
 |---|---|
@@ -189,17 +190,23 @@ reaches origin through the edge).
   back to `ns23`/`ns24.domaincontrol.com` (the GoDaddy zone still has the pre-move
   records). Or, within Cloudflare, set the A records to "DNS only" (grey) to bypass the
   proxy while keeping CF DNS.
-- **Off the droplet (back to Vercel):** in Cloudflare DNS, point `@`/`www` back to Vercel
-  (apex A `216.150.1.1`; www CNAME to Vercel). The Vercel project is still live. NOTE:
-  Vercel crons are emptied -- if rolling back for more than a short window, restore the
-  `crons` array in `vercel.json`.
+- **Bad prod deploy:** the droplet keeps the previous image. Redeploy a known-good commit
+  (`git push origin <good-sha>:master` then run `./deploy.sh` on prod), or `docker compose
+  up -d` the prior image on the prod host. This is now the primary rollback.
+- **Back to Vercel:** NO LONGER AVAILABLE. The Vercel project was deleted 2026-07-05. To
+  restore that path you would recreate the project from this repo, restore the `crons`
+  array in `vercel.json`, re-add the env, then point `@`/`www` at Vercel in Cloudflare DNS.
 
 ## Resources / notes
 
 - Droplet: Ubuntu 24.04, 4 vCPU, 7.8GB RAM, Etc/UTC. A temporary 4GB `/swapfile3` was
   added for Next builds on this memory-tight box (safe to keep).
-- No `VERCEL` env var is set (the two `process.env.VERCEL` guards relax off-platform).
-- librosa is NOT installed; the admin audio-scan route degrades gracefully (local-only).
+- No `VERCEL` env var is set off-platform. The two former `process.env.VERCEL` guards were
+  re-gated to `NODE_ENV === 'production'` on 2026-07-05 (they had silently stopped firing on
+  the droplet): `home-preview/page.tsx` (local-only sandbox -- `notFound()` in any deployed
+  build) and the admin audio-scan route.
+- librosa is NOT installed; the admin audio-scan route returns a clean 400 in any deployed
+  build (local-only), so it never spawns a missing python.
 
 ## Known follow-ups
 
@@ -207,4 +214,6 @@ reaches origin through the edge).
   `proxy.ts` now defaults unknown regions to `deny` (privacy-safe/compliant). To restore
   per-region "allow" for non-opt-in countries (analytics coverage), wire an nginx GeoIP2
   header mapped to `x-vercel-ip-country`.
-- **Vercel decommission**: keep as rollback until confident, then delete the project.
+- **Vercel decommission**: DONE 2026-07-05 -- project `chadlewine` (team `chadworks`)
+  deleted after verifying the droplet origin served live. The `chadlewine.com` domain was
+  a Third Party entry in the account, so deletion just detached it (nothing to reclaim).

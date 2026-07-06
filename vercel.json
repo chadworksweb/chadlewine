@@ -4,6 +4,6 @@
       "backup": false
     }
   },
-  "comment_crons": "Crons moved to the le-projects-01 system crontab (PROD instance only) at the Vercel->droplet migration. Kept empty here so Vercel does not double-run them while it remains live as a rollback fallback. See deploy/DEPLOY.md.",
+  "comment_crons": "Crons run from the le-projects-01 system crontab (PROD instance only); see deploy/DEPLOY.md. The Vercel project was deleted 2026-07-05. This file is inert (Vercel-only config) and kept only as a guard so crons do not double-run if the repo is ever redeployed to Vercel.",
   "crons": []
 }
