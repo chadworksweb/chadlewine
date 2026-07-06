@@ -23,12 +23,15 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "200mb",
   },
   images: {
-    // Images live on Bunny pull zones (*.b-cdn.net). Long cache is safe —
-    // admin flows rotate the URL when content changes.
+    // Direct-Bunny: sources already live on Bunny's global CDN (*.b-cdn.net),
+    // pre-compressed at upload (see CHADLEWINE-MEDIA-MIGRATION.md, "public pages
+    // render <img src={bunny-url}> directly"). `unoptimized` makes every <Image>
+    // emit the raw Bunny URL instead of routing through the Next optimizer, so
+    // images serve from Bunny's edge worldwide (no droplet round-trip, and no
+    // Cloudflare Vary:Accept cache miss). The built-in optimizer only existed to
+    // dodge Supabase egress, which no longer applies now that media is on Bunny.
+    unoptimized: true,
     minimumCacheTTL: 31536000,
-    // Chad compresses sources at upload time; serve them as-is. With only
-    // 100 in the allowlist, Next 16 snaps any unspecified or mismatched
-    // quality prop to 100 (no recompression).
     qualities: [100],
     remotePatterns: [
       { protocol: "https", hostname: "**.b-cdn.net" },
