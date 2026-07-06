@@ -153,14 +153,20 @@ export async function proxy(request: NextRequest) {
     !request.cookies.get(CONSENT_COOKIE)?.value &&
     !request.cookies.get("cl_geo_default")?.value
   ) {
-    const country = request.headers.get("x-vercel-ip-country");
-    const region = request.headers.get("x-vercel-ip-country-region");
-    // Self-hosted off Vercel: the x-vercel-ip-* geo headers no longer exist, so
-    // country/region are null. The privacy-safe, most-compliant default when the
-    // region is UNKNOWN is "deny" (opt-in) -- never default EU/UK/EEA or
-    // California to analytics-on. If a country signal is reintroduced (e.g. an
-    // nginx GeoIP header mapped to x-vercel-ip-country), non-opt-in regions
-    // resume defaulting to "allow".
+    // Geo signal for the consent default. Self-hosted behind Cloudflare we read
+    // CF-IPCountry (sent on every request) and CF-Region-Code (needs the
+    // "Add visitor location headers" managed transform enabled in Cloudflare).
+    // Fall back to Vercel's x-vercel-ip-* if this ever runs on Vercel again.
+    // Cloudflare uses "XX" (unknown) / "T1" (Tor) -> treat as unknown.
+    // Rule: unknown region => "deny" (privacy-safe opt-in, never default EU/UK/
+    // EEA or California to analytics-on); a KNOWN non-opt-in country => "allow".
+    const cfCountry = request.headers.get("cf-ipcountry");
+    const country =
+      (cfCountry && cfCountry !== "XX" && cfCountry !== "T1" ? cfCountry : null) ||
+      request.headers.get("x-vercel-ip-country");
+    const region =
+      request.headers.get("cf-region-code") ||
+      request.headers.get("x-vercel-ip-country-region");
     const def = !country || isOptInGeo(country, region) ? "deny" : "allow";
     res.cookies.set("cl_geo_default", def, {
       httpOnly: false,
