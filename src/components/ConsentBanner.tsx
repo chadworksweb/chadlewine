@@ -8,7 +8,7 @@ import "./ConsentBanner.css";
 /* The cookie-consent bar (ported from chadrising's artist-world theme).
    Anonymous + logged-out and logged-in alike see this; ConsentProvider owns
    persistence (cookie + account). chadlewine has two real categories:
-   Essential (always on) and Analytics (PostHog + Google Analytics + Vercel +
+   Essential (always on) and Analytics (PostHog + Google Analytics +
    first-party). No advertising/marketing pixels, so no marketing toggle. */
 export function ConsentBanner({
   initial,
@@ -86,7 +86,7 @@ export function ConsentBanner({
             <div className="cl-consent__cat-info">
               <div className="cl-consent__cat-name">Analytics</div>
               <div className="cl-consent__cat-desc">
-                PostHog, Google Analytics, Vercel, and first-party metrics (incl.
+                PostHog, Google Analytics, and first-party metrics (incl.
                 session replay with inputs masked). Helps us improve the site.
               </div>
             </div>

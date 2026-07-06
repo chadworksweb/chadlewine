@@ -2,8 +2,9 @@ import { createAdminClient } from "@/lib/supabase-server";
 
 export type AuthAction = "login" | "register" | "password_reset" | "admin_login";
 
-/** Extract the client's IP from a Next request. Vercel sets x-forwarded-for
-   with a comma-separated chain; we want the first (origin) entry. */
+/** Extract the client's IP from a Next request. Behind Cloudflare, le-nginx
+   restores the real client via real_ip (CF-Connecting-IP) and passes it as the
+   sole X-Forwarded-For entry, so the first entry is the trusted client IP. */
 export function clientIp(request: Request): string {
   const fwd = request.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();
