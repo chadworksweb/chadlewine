@@ -157,9 +157,31 @@ the clean fix is app-side: serve Bunny (`b-cdn.net`) images directly via a custo
 Next image loader / plain `<img>`, bypassing the optimizer entirely (Bunny is already
 a global CDN and sources are pre-compressed at quality 100).
 
-TLS renewal note: the origin LE cert renews via HTTP-01 through Cloudflare; verify the
-first auto-renewal (~2026-10-03 window). If it fails behind the proxy, switch the
-droplet to DNS-01 (Cloudflare API token) or install a Cloudflare Origin Certificate.
+TLS renewal note: the origin LE cert renews via HTTP-01 through Cloudflare. VERIFIED
+2026-07-05 that the ACME challenge path traverses the proxy (probe returned 200), so the
+first auto-renewal (~2026-10-03) will succeed. (Matters because Full(strict) 526s if the
+origin cert ever expires.) If it ever breaks, switch to DNS-01 or a CF Origin Certificate.
+
+Real visitor IP: behind the proxy the origin sees Cloudflare edge IPs, which broke IP-keyed
+rate limiting / login lockout / free-play gating / Turnstile `remoteip` and made `XFF[0]`
+client-spoofable. Fixed by `deploy/nginx/cloudflare-realip.inc` (nginx `real_ip` with the
+Cloudflare ranges + `real_ip_header CF-Connecting-IP`), included by both vhosts, which then
+pass the resolved `$remote_addr` as the sole `X-Forwarded-For` entry. Refresh the ranges
+from https://www.cloudflare.com/ips if Cloudflare changes them.
+
+Consent geo: `proxy.ts` reads `CF-IPCountry` (default) + `CF-Region-Code` for the consent
+default (EU/UK/EEA + California => deny; rest => allow; unknown/XX/T1 => deny). **Country
+level works now; California (region) requires enabling Cloudflare's "Add visitor location
+headers" Managed Transform** (Rules -> Transform Rules -> Managed Transforms) so
+`CF-Region-Code` is sent. Until then, California visitors default to "allow".
+
+Uploads: **Cloudflare FREE caps request bodies at 100MB.** nginx allows 200m, but admin
+media uploads of 100-200MB will 413 at Cloudflare. To support them: grey-cloud a
+direct-to-origin host, or upload straight to Bunny. Under 100MB is unaffected.
+
+CF dashboard sanity (verified 2026-07-05): no Rocket Loader / email-decode / HTML rewriting
+injected (React hydrates fine); Bot Fight Mode not challenging webhooks (Stripe webhook 400
+reaches origin through the edge).
 
 ## Rollback
 
