@@ -1469,7 +1469,12 @@ body.art-immersive main ~ * {
   bottom: 0;
   min-height: 25%;
   display: grid;
-  grid-template-columns: 3fr 1fr;
+  /* Bar column never shrinks below its own content, so a longer CTA
+     ("Pre-order Now ->", "Open Album ->") stays fully on the current slide
+     instead of sliding under the peek strip in the tablet band, where a plain
+     1fr track would be too narrow. On desktop the 1fr share already exceeds the
+     content width, so this resolves back to 1fr with no visual change. */
+  grid-template-columns: 3fr minmax(max-content, 1fr);
   gap: var(--space-xl);
   align-items: end;
   padding: var(--space-sm) var(--space-md);
@@ -1877,6 +1882,23 @@ body.art-immersive main ~ * {
 .hero-lens__kind--observation { color: #ef476f; border-color: rgba(239, 71, 111, 0.5); }
 .hero-lens__kind--art { color: #c084fc; border-color: rgba(192, 132, 252, 0.5); }
 .hero-lens__kind--video { color: #ff8c42; border-color: rgba(255, 140, 66, 0.5); }
+/* The bespoke pre-order slide shows an "Album" type chip, styled to match the
+   standard album/release chips. */
+.hero-lens__kind--preorder { color: #d8b25c; border-color: rgba(255, 209, 102, 0.5); }
+
+/* Optional line under the title on bespoke slides (e.g. "Summer 2026").
+   Sits above the CTA row inside the bar; neutralizes the bar panel chrome. */
+.cover-hero__subhead {
+  padding: 8px var(--space-xl) 0 !important;
+  background: none !important;
+  border: none !important;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
 
 /* Hero Lens CTA — standalone, no inheritance */
 .hero-lens__cta {
@@ -1922,6 +1944,36 @@ body.art-immersive main ~ * {
 .hero-lens__cta:hover::before {
   width: 100%;
   opacity: 0.12;
+}
+
+/* Pulsing glow for the bespoke pre-order CTA — a slow gold halo that breathes
+   to draw the eye. Pauses on hover so the lift/shadow hover state reads
+   cleanly, and honors reduced-motion. */
+.hero-lens__cta--pulse {
+  border-color: #ffd166;
+  background: #ffd166;
+  animation: hero-cta-pulse 2.2s ease-in-out infinite;
+}
+
+.hero-lens__cta--pulse:hover {
+  animation-play-state: paused;
+  border-color: #ffd166;
+}
+
+@keyframes hero-cta-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(255, 209, 102, 0.55);
+  }
+  50% {
+    box-shadow: 0 6px 26px rgba(0, 0, 0, 0.35), 0 0 22px 6px rgba(255, 209, 102, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-lens__cta--pulse {
+    animation: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 18px 3px rgba(255, 209, 102, 0.3);
+  }
 }
 
 .cover-hero__meta {
@@ -12841,6 +12893,33 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   border-color: #ffc040;
   box-shadow: 0 0 15px rgba(255, 149, 0, 0.35);
   transform: translateY(-2px);
+}
+
+/* Pre-order buy button — breathing gold halo to pull the eye, matching the
+   homepage pre-order hero CTA. Pauses on hover so the lift state reads
+   cleanly; honors reduced-motion. */
+.track-detail__btn--preorder-pulse:not(:disabled) {
+  animation: preorder-btn-pulse 2.2s ease-in-out infinite;
+}
+
+.track-detail__btn--preorder-pulse:hover {
+  animation-play-state: paused;
+}
+
+@keyframes preorder-btn-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 22px 6px rgba(255, 149, 0, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-detail__btn--preorder-pulse:not(:disabled) {
+    animation: none;
+    box-shadow: 0 0 18px 3px rgba(255, 149, 0, 0.3);
+  }
 }
 
 .product-detail__btn--buy-album:disabled {
