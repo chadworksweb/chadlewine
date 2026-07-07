@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
-import { enqueueCampaign } from "@/lib/campaigns";
+import { enqueueCampaign, kickCampaignWorker } from "@/lib/campaigns";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -48,6 +48,9 @@ export async function POST(
 
   try {
     const result = await enqueueCampaign(id);
+    // Kick the worker now so delivery starts immediately instead of waiting for
+    // the safety-net cron; the worker then self-continues until the queue drains.
+    kickCampaignWorker();
     // 202 Accepted: queued, the background worker delivers it.
     return Response.json({ ok: true, ...result }, { status: 202 });
   } catch (e) {

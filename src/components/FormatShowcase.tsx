@@ -280,7 +280,7 @@ function FormatShowcaseInner(props: Props) {
     return (
       <button
         type="button"
-        className={`track-detail__btn ${btnModifier}${inCart ? " track-detail__btn--in-cart" : ""}`}
+        className={`track-detail__btn ${btnModifier}${inCart ? " track-detail__btn--in-cart" : ""}${isPreorder && !inCart && !isSoldOut ? " track-detail__btn--preorder-pulse" : ""}`}
         disabled={buyDisabled}
         aria-disabled={buyDisabled}
         onClick={onAdd}
@@ -438,7 +438,7 @@ function FormatShowcaseInner(props: Props) {
 
       <button
         type="button"
-        className={`track-detail__btn track-detail__btn--buy-album${inCart ? " track-detail__btn--in-cart" : ""}`}
+        className={`track-detail__btn track-detail__btn--buy-album${inCart ? " track-detail__btn--in-cart" : ""}${isPreorder && !inCart && !isSoldOut ? " track-detail__btn--preorder-pulse" : ""}`}
         disabled={buyDisabled}
         aria-disabled={buyDisabled}
         onClick={onAdd}

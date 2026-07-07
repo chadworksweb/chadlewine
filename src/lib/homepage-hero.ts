@@ -103,7 +103,10 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
   const heroRows = (rows || []) as HeroRow[];
   if (heroRows.length === 0) return [];
 
-  const idsByType: Record<HeroKind, string[]> = { song: [], release: [], merch: [], observation: [], art: [], video: [] };
+  // `preorder` is a bespoke, code-injected hero kind (see lib/preorder-hero.ts),
+  // not a curated entity type — it never appears in homepage_hero rows, but the
+  // record must cover every HeroKind key.
+  const idsByType: Record<HeroKind, string[]> = { song: [], release: [], merch: [], observation: [], art: [], video: [], preorder: [] };
   for (const r of heroRows) idsByType[r.entity_type].push(r.entity_id);
 
   const [songsRes, albumsRes, productsRes, observationsRes, artRes, videosRes] = await Promise.all([

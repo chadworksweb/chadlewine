@@ -11,7 +11,7 @@ import { TitleReveal } from "@/components/TitleReveal";
 // (albums.concept_statement), and observations have hooks (observations.hook_line).
 // Don't reintroduce a generic "hook" field here — pick the entity-specific
 // name when this slider is reused in a different context.
-export type HeroKind = "song" | "release" | "merch" | "observation" | "art" | "video";
+export type HeroKind = "song" | "release" | "merch" | "observation" | "art" | "video" | "preorder";
 
 export interface HeroLensItem {
   slug: string;
@@ -27,6 +27,12 @@ export interface HeroLensItem {
   categories?: { title: string; slug: string }[];
   tags?: { label: string; slug: string }[];
   kind?: HeroKind;
+  // Overrides the kind-name shown in the badge. Bespoke slides (e.g. the
+  // Don't Blame Me pre-order) set a fixed label like "Pre-order" instead of
+  // echoing the raw kind slug.
+  badgeLabel?: string;
+  // Optional line under the title (e.g. a release window like "Summer 2026").
+  subhead?: string;
 }
 
 interface HeroLensProps {
@@ -107,14 +113,21 @@ function HeroLensSlide({ item, isCurrent }: { item: HeroLensItem; isCurrent: boo
         </div>
 
         <div className="cover-hero__bar">
+          {item.subhead && (
+            <div className="cover-hero__subhead">{item.subhead}</div>
+          )}
+
           <div className="hero-lens__cta-row">
             {item.kind && (
               <span className={`hero-lens__kind hero-lens__kind--${item.kind}`}>
-                {item.kind}
+                {item.badgeLabel ?? item.kind}
               </span>
             )}
 
-            <Link href={item.href} className="hero-lens__cta">
+            <Link
+              href={item.href}
+              className={`hero-lens__cta${item.kind === "preorder" ? " hero-lens__cta--pulse" : ""}`}
+            >
               {item.ctaLabel}
             </Link>
           </div>
@@ -359,9 +372,12 @@ export function HeroLens({ items, onIndexChange }: HeroLensProps) {
     const x = e.clientX - r.left;
     el.style.transform = `translate(${x}px, ${e.clientY - r.top}px)`;
     // On over the current slide (between the peek strips); off over the strips
-    // and paddles at the left/right edges.
+    // and paddles at the left/right edges. Also off over the interactive
+    // controls (the type chip and the CTA) on ANY slide -- those are their own
+    // affordances, so the ripple ring shouldn't compete with them.
     const peek = peekRef.current;
-    setCursorHintOn(x >= peek && x <= r.width - peek);
+    const overControl = !!(e.target as HTMLElement).closest?.(".hero-lens__kind, .hero-lens__cta");
+    setCursorHintOn(x >= peek && x <= r.width - peek && !overControl);
   }, []);
   const handleHeroMouseLeave = useCallback(() => setCursorHintOn(false), []);
 

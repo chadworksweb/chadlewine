@@ -11,6 +11,7 @@ import { CelestialOrbit } from "@/components/CelestialOrbit";
 import { MerchProductCard } from "@/components/MerchProductCard";
 import { fetchBadge } from "@/lib/rising-compass";
 import { getCuratedHeroItems } from "@/lib/homepage-hero";
+import { getPreorderHeroSlide } from "@/lib/preorder-hero";
 
 export const revalidate = 60;
 
@@ -423,7 +424,7 @@ export default async function HomePage() {
   // two redundant Supabase round trips on every render (and these pages render
   // live on every request, so it was paid every time, not just on regen).
   const excludedIdsPromise = getBrowseExcludedSongIds(createPublicClient());
-  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, heroSlideCount, galleryArt, latestPosts] = await Promise.all([
+  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, preorderHeroSlide, heroSlideCount, galleryArt, latestPosts] = await Promise.all([
     getHomepageSongs(),
     getFeaturedTrack(),
     getCLStreamSongs(),
@@ -431,10 +432,17 @@ export default async function HomePage() {
     getSongBriefs(excludedIdsPromise),
     getHomepageMerch(),
     getCuratedHeroItems(),
+    getPreorderHeroSlide(),
     getHeroSlideCount(),
     getGalleryArt(),
     getLatestPosts(),
   ]);
+
+  // The Don't Blame Me pre-order leads the hero when it's live. It sits ahead
+  // of the curated pins; the latest-songs backfill still fills the rest.
+  const heroItems = preorderHeroSlide
+    ? [preorderHeroSlide, ...curatedHeroItems]
+    : curatedHeroItems;
 
   const featuredPlaybackMode = featuredTrack
     ? await getPlaybackMode(featuredTrack.song.playback_mode ?? null)
@@ -446,7 +454,7 @@ export default async function HomePage() {
         songs={songs}
         featuredTrack={featuredTrack ? { ...featuredTrack, playbackMode: featuredPlaybackMode } : null}
         clStreamSongs={clStreamSongs}
-        curatedHeroItems={curatedHeroItems}
+        curatedHeroItems={heroItems}
         heroSlideCount={heroSlideCount}
       />
 
