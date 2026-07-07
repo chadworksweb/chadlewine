@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: "%s - Chad Lewine",
   },
   description:
-    "Chad Lewine — musician. Songs at the center of a catalog that tells a life. Art, merch, and live shows.",
+    "Chad Lewine is a metaphysical artist creating and distributing original music, art and thoughts to empower the individual and the collective.",
   authors: [{ name: "Chad Lewine", url: "https://chadlewine.com/chad-lewine" }],
   openGraph: {
     type: "website",
