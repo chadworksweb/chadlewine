@@ -4225,6 +4225,10 @@ body.art-immersive main ~ * {
   color: var(--reading-text);
 }
 
+.prose h4 {
+  color: var(--reading-text);
+}
+
 .prose blockquote {
   border-left: 2px solid var(--reading-border);
   padding-left: var(--space-lg);
