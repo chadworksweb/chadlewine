@@ -20,7 +20,7 @@ export function SiteJsonLd() {
         name: "Chad Lewine",
         url: SITE_URL,
         description:
-          "Chad Lewine - musician. Songs at the center of a catalog that tells a life. Art, merch, and live shows.",
+          "Chad Lewine is a metaphysical artist creating and distributing original music, art and thoughts to empower the individual and the collective.",
         publisher: { "@id": PERSON_ID },
       },
       {

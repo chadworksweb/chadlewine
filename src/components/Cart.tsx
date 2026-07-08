@@ -346,7 +346,7 @@ export function CartUI() {
         </div>
 
         <div className="cl-cart-drawer__body">
-          {items.length === 0 ? (
+          {!isOpen ? null : items.length === 0 ? (
             <div className="cl-cart-empty">
               <p>Your cart is empty.</p>
               <p className="cl-cart-empty__sub">Browse the music catalog to find a track.</p>
