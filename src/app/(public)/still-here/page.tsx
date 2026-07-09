@@ -17,9 +17,7 @@ export default function StillHerePage() {
       <div className="unsubscribe-page__inner">
         <h1 className="unsubscribe-page__title">Thank you for staying.</h1>
         <p className="unsubscribe-page__body">
-          That one click was all it took. You&rsquo;re on the list, nothing
-          changes, and I&rsquo;ll keep sending you songs and the occasional note
-          from wherever I am. Glad you&rsquo;re still here.
+          You remain on the list. Glad you&rsquo;re still here.
         </p>
         <p className="unsubscribe-page__body">Chad</p>
 
