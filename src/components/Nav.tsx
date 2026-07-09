@@ -1,10 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { DEFAULT_NAV_ITEMS, type NavItem } from "@/lib/nav-items";
+
+// Reads the `?booking` flag reactively. Isolated behind Suspense so the rest of
+// the app can still be statically prerendered (useSearchParams otherwise opts
+// the whole tree into client rendering).
+function BookingProbe({ onChange }: { onChange: (booking: boolean) => void }) {
+  const searchParams = useSearchParams();
+  const booking = searchParams.get("booking") !== null;
+  useEffect(() => {
+    onChange(booking);
+  }, [booking, onChange]);
+  return null;
+}
 
 export function Nav({
   items = DEFAULT_NAV_ITEMS,
@@ -12,6 +24,7 @@ export function Nav({
 }: { items?: NavItem[]; initialSignedIn?: boolean | null } = {}) {
   const navItems = items;
   const pathname = usePathname();
+  const [booking, setBooking] = useState(false);
   const [hidden, setHidden] = useState(false);
   // The art (gallery) template wants minimal chrome. The auto-hide threshold is
   // lowered there (read via a ref inside the scroll handler), and a pill does a
@@ -96,13 +109,21 @@ export function Nav({
     setMobileExpanded(null);
   }
 
+  // Exact-match active state: only the page you are actually on lights up. No
+  // prefix matching (so /super-individual never lights up on /super-individual-
+  // night, and /irl never lights up on an /irl/<event> detail page). The
+  // booking view is a distinct URL (?booking) on the same path, so it activates
+  // its own item ("Booking") and NOT the Super Individual Night overview item.
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
-    return pathname.startsWith(href);
+    const [hrefPath, hrefQuery] = href.split("?");
+    if (pathname !== hrefPath) return false;
+    if (hrefQuery === "booking") return booking;
+    return !booking;
   }
 
   function isParentActive(item: NavItem) {
-    if (isActive(item.href)) return true;
+    if (item.href !== "#" && isActive(item.href)) return true;
     return item.children?.some((c) => isActive(c.href)) ?? false;
   }
 
@@ -123,6 +144,9 @@ export function Nav({
       id="site-header"
       className={`site-header${hidden ? " site-header--hidden" : ""}`}
     >
+      <Suspense fallback={null}>
+        <BookingProbe onChange={setBooking} />
+      </Suspense>
       <nav className="site-nav">
         <Link href="/" className="site-nav__logo">
           <span className="site-nav__logo-frame site-nav__logo-frame--left" aria-hidden="true">

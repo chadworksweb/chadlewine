@@ -23423,6 +23423,239 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   color: var(--text-primary);
 }
 
+/* ============================================================
+   IRL event detail + RSVP / self-scan check-in
+   (/irl/[slug], /irl/checkin/[token])
+   The event detail page reuses the Super Individual Pop-Up layout
+   (si-popup / si-banner-bar / glyph-title-bar / si-prose). These
+   rules add only what those primitives don't cover: the RSVP form's
+   conic-animated-border stage, the block-glyph, and the check-in
+   page's centered hero.
+   ============================================================ */
+
+/* Animatable angle for the form's conic border sweep. */
+@property --event-border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* Block-glyph ramp -- same motif as the booking page ActGlyph. */
+.event-glyph {
+  display: inline-flex;
+  gap: 0.12em;
+  font-family: var(--font-mono, var(--font-ui));
+  color: var(--text-accent);
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.event-glyph--lg { font-size: 1.6rem; }
+
+/* Two-column body: details text on the left, RSVP form on the right.
+   Stacks on narrow screens. */
+.event-detail-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(2rem, 5vw, 4rem);
+  align-items: start;
+  margin-top: clamp(2.5rem, 6vw, 4.5rem);
+}
+@media (max-width: 880px) {
+  .event-detail-split { grid-template-columns: 1fr; gap: var(--space-2xl); }
+}
+.event-detail-split__text .si-popup__concept { margin-top: 0; }
+.event-detail-split__rsvp .event-form-stage { max-width: none; margin: 0; }
+
+/* CMS events carry 3 CTAs (calendar / directions / share). Flow them evenly
+   (3-across when there's room, single column on phones) so Share never orphans
+   on its own half-row. Scoped to .page-event so the real pop-up page keeps its
+   own 2-up grid. */
+.page-event .si-popup__cta-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+@media (max-width: 560px) {
+  .page-event .si-popup__cta-grid { grid-template-columns: 1fr; }
+}
+
+/* Check-in page hero (centered kiosk card). Reuses the pop-up eyebrow
+   feel plus a serif title. */
+.event-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7em;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-md);
+  text-indent: 0.15em;
+}
+.event-hero__eyebrow--center { justify-content: center; }
+.event-hero__title {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(2.6rem, 6vw, 5rem);
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+  margin: 0 auto var(--space-lg);
+  max-width: 18ch;
+}
+
+/* THE FORM STAGE -- bordered canvas with an animated conic-gradient ring.
+   ::before paints the sweeping ring (mask-excluded to the perimeter);
+   ::after is a static hairline so the edge never fully drops out. */
+.event-form-stage {
+  position: relative;
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  border-radius: 16px;
+  background: var(--bg-surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+  isolation: isolate;
+}
+.event-form-stage--compact { max-width: 30rem; margin-top: var(--space-xl); }
+.event-form-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--event-border-angle),
+    transparent 0%,
+    color-mix(in srgb, var(--text-accent), transparent 25%) 16%,
+    var(--text-accent) 33%,
+    #ffffff 50%,
+    var(--text-accent) 67%,
+    color-mix(in srgb, var(--text-accent), transparent 25%) 84%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: event-border-sweep 5.5s linear infinite;
+  z-index: 1;
+}
+.event-form-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid var(--border-medium);
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes event-border-sweep { to { --event-border-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) {
+  .event-form-stage::before { animation: none; }
+}
+.event-form-stage__inner {
+  position: relative;
+  z-index: 2;
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  /* Container so the name/email row can stack based on the form's own width
+     (it sits in a half-width column on desktop), not the viewport. */
+  container-type: inline-size;
+}
+
+/* Form body -- rides the bkf field styling; layout-only extras here. */
+.event-rsvp-form { max-width: none; margin-top: 0; }
+.event-rsvp-form__title { margin-bottom: var(--space-lg); }
+.event-rsvp-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+.event-rsvp-form__error {
+  margin-top: var(--space-md);
+  color: var(--bad, #ef4444);
+}
+.event-rsvp-form__submit { margin-top: var(--space-lg); }
+/* Stack name/email once the form itself gets narrow (half-width column on
+   tablet, or a phone), so the email placeholder never clips. */
+@container (max-width: 420px) {
+  .event-rsvp-form__row { grid-template-columns: 1fr; gap: 0; }
+}
+
+/* "Coming with friends? Share this..." row */
+.event-rsvp-form__share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-subtle);
+}
+.event-form-done .event-rsvp-form__share { justify-content: center; }
+.event-rsvp-form__share-text {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+.event-rsvp-form__share-btn {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--duration-base) var(--ease-out);
+}
+.event-rsvp-form__share-btn:hover { color: var(--text-primary); }
+
+/* Confirmation state */
+.event-form-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-md);
+  padding: var(--space-lg) 0;
+}
+.event-form-done__msg {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+/* CHECK-IN page (self-scan target) */
+.event-checkin-hero { padding-block: clamp(2.5rem, 7vw, 5rem); }
+.event-checkin-hero__inner { max-width: 34rem; margin-inline: auto; }
+.event-checkin-hero__title {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  margin-bottom: var(--space-sm);
+}
+.event-checkin-hero__when {
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-md);
+}
+.event-checkin-hero__msg {
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-lg);
+}
+.event-checkin-hero__foot { margin-top: var(--space-2xl); }
+
 
 /* ============================================================
    IRL Events page (/irl)
@@ -23450,7 +23683,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .irl-events {
   margin-top: clamp(2.5rem, 5vw, 4rem);
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-lg);
+  align-items: start;
 }
 
 /* Read hub: Observations + Journal sit side by side, stacking on phones. */
@@ -23463,106 +23698,83 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   }
 }
 
+/* Event cards mirror the Super Individual Night "three acts" cards (.bk-act):
+   elevated panel, 3px accent top edge, block-glyph ramp, uppercase kind
+   eyebrow (the date), serif title, muted description. */
 .irl-event-card {
-  display: block;
-  position: relative;
-  padding: clamp(1.5rem, 3vw, 2.25rem);
-  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-xl) var(--space-lg);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
+  border-top: 3px solid var(--text-accent);
   border-radius: 8px;
   color: var(--text-primary);
   text-decoration: none;
-  transition: border-color var(--duration-base) var(--ease-out),
-              transform var(--duration-base) var(--ease-out),
+  transition: transform var(--duration-base) var(--ease-out),
               box-shadow var(--duration-base) var(--ease-out);
 }
-.irl-event-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 8px;
-  pointer-events: none;
-  background: radial-gradient(120% 80% at 50% -10%, rgba(255, 149, 0, 0.05), transparent 60%);
-  opacity: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
-}
 .irl-event-card:hover {
-  border-color: var(--text-accent, var(--text-primary));
   transform: translateY(-2px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
-.irl-event-card:hover::before {
-  opacity: 1;
+
+.irl-event-card__glyph {
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  line-height: 1;
+  letter-spacing: 0.18em;
+  color: var(--text-accent);
 }
 
-.irl-event-card__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
+.irl-event-card__kind {
   font-family: var(--font-ui);
-  font-size: 0.7rem;
-  letter-spacing: 0.15em;
+  font-size: calc(var(--text-sm) * 1.5);
   text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-bottom: var(--space-md);
-}
-.irl-event-card__status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ff9500;
-  box-shadow: 0 0 8px rgba(255, 149, 0, 0.6);
-  animation: irl-status-pulse 2.5s ease-in-out infinite;
-}
-@keyframes irl-status-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .irl-event-card__status-dot { animation: none; }
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+  margin-top: var(--space-sm);
 }
 
 .irl-event-card__title {
-  font-family: var(--font-heading, var(--font-body));
-  font-size: clamp(1.5rem, 3.2vw, 2.1rem);
-  line-height: 1.15;
-  margin: 0 0 var(--space-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  margin: 0;
   color: var(--text-primary);
 }
 
-.irl-event-card__meta {
+.irl-event-card__desc {
+  margin: var(--space-xs) 0 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+}
+
+.irl-event-card__foot {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.7rem;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+.irl-event-card__venue {
   font-family: var(--font-mono, var(--font-ui));
   font-size: 0.82rem;
   letter-spacing: 0.04em;
-  color: var(--text-secondary);
-  margin-bottom: var(--space-md);
-}
-.irl-event-card__sep {
   color: var(--text-tertiary);
 }
-
-.irl-event-card__desc {
-  margin: 0 0 var(--space-md);
-  font-family: var(--font-body);
-  font-size: clamp(0.95rem, 1.2vw, 1.05rem);
-  line-height: 1.65;
-  color: var(--text-secondary);
-}
-
 .irl-event-card__cta {
-  display: inline-block;
   font-family: var(--font-ui);
   font-size: 0.82rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-accent, var(--text-primary));
-  border-bottom: 1px solid currentColor;
-  padding-bottom: 2px;
+  color: var(--text-accent);
+  transition: color var(--duration-base) var(--ease-out);
 }
+.irl-event-card:hover .irl-event-card__cta { color: var(--text-primary); }
 
 
 /* --- SI Floating "come see me" tag ---
