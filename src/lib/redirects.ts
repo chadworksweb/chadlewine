@@ -10,7 +10,8 @@ export type RedirectContentType =
   | "page"
   | "curation"
   | "foundation"
-  | "lyrics";
+  | "lyrics"
+  | "event";
 
 /**
  * Capture a path change: create/update a 301 from oldPath → newPath.

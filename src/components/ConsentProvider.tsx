@@ -59,7 +59,7 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
   const [managerOpen, setManagerOpen] = useState(false);
   const reconciledRef = useRef(false);
 
-  const applyLocal = useCallback((next: Consent) => {
+  const applyLocal = useCallback((next: Consent, allowReload = true) => {
     const prevAnalytics = window.__CL_CONSENT__?.analytics ? 1 : 0;
     applyConsentClient(next);
     setDecided(true);
@@ -68,7 +68,14 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
     // Reload whenever analytics flips state so GA/PostHog cleanly load/unload
     // (they resolve at mount; flipping in place can't unload an already-loaded
     // tracker). Matches chadrising's reload-on-change behavior.
-    if (next.analytics !== prevAnalytics) {
+    //
+    // Only an explicit user toggle (via update) may reload. The silent
+    // cross-device reconcile passes allowReload=false: a route that never
+    // persists the consent cookie (e.g. a Cloudflare-cached 404 that strips
+    // Set-Cookie) would otherwise reconcile -> reload -> reconcile forever.
+    // GA's ga-disable kill switch + PostHog opt-out enforce the reconciled
+    // choice in place until the next navigation, so no reload is needed here.
+    if (allowReload && next.analytics !== prevAnalytics) {
       window.setTimeout(() => window.location.reload(), 120);
     }
   }, []);
@@ -116,7 +123,7 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
             marketing: d.consent.marketing ? 1 : 0,
           };
           if (serializeConsent(acct) !== serializeConsent(local.consent) || !local.decided) {
-            applyLocal(acct); // account is authoritative across devices
+            applyLocal(acct, false); // account is authoritative across devices; never reload from the silent reconcile
           }
         } else if (local.decided) {
           // Account has no stored choice yet; seed it from this device.

@@ -79,6 +79,7 @@ const adminNav: NavItem[] = [
     ],
   },
   { href: "/admin/art", label: "Art" },
+  { href: "/admin/events", label: "Events" },
   {
     href: "/admin/ecom",
     label: "Ecom",
