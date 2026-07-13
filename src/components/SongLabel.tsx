@@ -158,20 +158,23 @@ export function SongLabel(props: SongLabelProps) {
         </Field>
       )}
 
-      {hasEffects && (
+      {effectTags.length > 0 && (
         <Field label="Effects" sub="per listen">
-          {effectTags.length > 0 && (
-            <ul className="song-label__effects">
-              {effectTags.map((e, i) => (
-                <li
-                  key={i}
-                  className={`song-label__effect${e.shadow ? " song-label__effect--shadow" : ""}`}
-                >
-                  {e.label}
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul className="song-label__effects">
+            {effectTags.map((e, i) => (
+              <li
+                key={i}
+                className={`song-label__effect${e.shadow ? " song-label__effect--shadow" : ""}`}
+              >
+                {e.label}
+              </li>
+            ))}
+          </ul>
+        </Field>
+      )}
+
+      {effectsProse.length > 0 && (
+        <Field label="Listener Effects">
           {effectsProse.map((p, i) => (
             <p key={i} className="song-label__p">
               {p}
@@ -180,8 +183,8 @@ export function SongLabel(props: SongLabelProps) {
         </Field>
       )}
 
-      {hasAtScale && (
-        <Field label="At scale" sub="per 1,000,000 listeners">
+      {atScaleProse.length > 0 && (
+        <Field label="Societal Effects">
           {atScaleProse.map((p, i) => (
             <p key={i} className="song-label__p">
               {p}
