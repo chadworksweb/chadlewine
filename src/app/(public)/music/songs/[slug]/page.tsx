@@ -488,6 +488,7 @@ export default async function SongDetailPage({
           societalProse: badge.societal_effects_prose ?? null,
           deadpan: badge.deadpan_line ?? null,
           topics: badge.topics ?? null,
+          effectsPl: badge.effects_pl_labels ?? null,
         } : null}
         labelMeta={badge?.psyche_facts ?? null}
         merchSlot={<YouMightAlsoLike sourceType="song" sourceId={song.id} />}

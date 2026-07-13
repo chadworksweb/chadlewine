@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { EffectPlLabel } from "@/lib/rising-compass";
 import "./SongLabel.css";
 
 /**
@@ -37,6 +38,8 @@ export interface SongLabelProps {
   societalProse?: string | null;
   deadpan?: string | null;
   topics?: string[] | null;
+  /** RC per-listen effect tags — the distilled effect chips atop the Effects section. */
+  effectsPl?: EffectPlLabel[] | null;
   meta?: PsycheFactsMeta | null;
 }
 
@@ -83,6 +86,7 @@ export function SongLabel(props: SongLabelProps) {
 
   const effectsProse = paragraphs(props.listenerProse);
   const atScaleProse = paragraphs(props.societalProse);
+  const effectTags = (props.effectsPl || []).filter((e) => e && e.label);
 
   const indicatedFor =
     m.indicated_for && m.indicated_for.length > 0
@@ -91,7 +95,7 @@ export function SongLabel(props: SongLabelProps) {
 
   const warning = m.warning || props.deadpan || null;
   const hasCharge = typeof props.charge === "number";
-  const hasEffects = effectsProse.length > 0;
+  const hasEffects = effectTags.length > 0 || effectsProse.length > 0;
   const hasAtScale = atScaleProse.length > 0;
 
   // Nothing meaningful to render.
@@ -156,6 +160,18 @@ export function SongLabel(props: SongLabelProps) {
 
       {hasEffects && (
         <Field label="Effects" sub="per listen">
+          {effectTags.length > 0 && (
+            <ul className="song-label__effects">
+              {effectTags.map((e, i) => (
+                <li
+                  key={i}
+                  className={`song-label__effect${e.shadow ? " song-label__effect--shadow" : ""}`}
+                >
+                  {e.label}
+                </li>
+              ))}
+            </ul>
+          )}
           {effectsProse.map((p, i) => (
             <p key={i} className="song-label__p">
               {p}

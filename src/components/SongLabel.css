@@ -149,6 +149,31 @@
   color: var(--text-secondary);
 }
 
+/* Per-listen effect chips (RC effects_pl): distilled tags atop the Effects
+   prose. Shadow (negative) effects take the warn tone, matching the list page. */
+.song-label__effects {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.song-label__effect {
+  border: 1px solid var(--border-medium);
+  border-radius: 3px;
+  padding: 0.1rem 0.45rem;
+  font-size: var(--text-xs);
+  text-transform: lowercase;
+  color: var(--text-secondary);
+}
+
+.song-label__effect--shadow {
+  border-color: color-mix(in srgb, var(--song-label-warn, #e8b04b) 55%, transparent);
+  color: var(--song-label-warn, #e8b04b);
+}
+
 .song-label__field--warn .song-label__label {
   color: var(--song-label-warn);
 }
