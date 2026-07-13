@@ -4,16 +4,15 @@ import "./SongLabel.css";
 /**
  * Psyche Facts — the "Drug Facts" label for a song.
  *
- * Two layers feed it:
- *  - RC-derived (live from the badge): tier, charge, listener prose, societal
- *    prose, deadpan, topics. Rendered as Active charge / Effects / At scale.
- *  - Authored (label_meta jsonb, Opus-seeded + admin-editable): the
- *    prescription voice — purpose, indicated_for, do_not_use_if, directions,
- *    onset, duration, warning, plus optional distilled effects / at_scale.
+ * Everything comes from RC (the badge):
+ *  - charge layer: tier, charge, listener prose, societal prose, deadpan,
+ *    topics. Rendered as Active charge / Effects / At scale.
+ *  - prescription layer (badge.psyche_facts, the `meta` prop): purpose,
+ *    indicated_for, do_not_use_if, directions, onset, duration, warning.
  *
  * Every field renders only when present, so the panel degrades gracefully from
- * "RC charge + prose" up to the full prescription once the authored layer
- * exists. Returns null when there is nothing meaningful to show.
+ * "RC charge + prose" up to the full prescription once RC has authored the
+ * psyche_facts bundle. Returns null when there is nothing meaningful to show.
  */
 export interface PsycheFactsMeta {
   purpose?: string | null;
