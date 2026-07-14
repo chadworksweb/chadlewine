@@ -40,6 +40,32 @@ export interface RisingCompassBadgeData {
   confidence?: number | null;
   // Which calibration table matched (compass | library | submitted).
   song_source?: string | null;
+  // --- Psyche Facts family (RC is the source; chadlewine renders these) ---
+  // The "Drug Facts" prescription bundle. Same shape as SongLabel's
+  // PsycheFactsMeta minus the retired effects[]/at_scale[] bullets.
+  psyche_facts?: RcPsycheFacts | null;
+  // Per-listen effects: the raw slugs, plus display detail ({slug,label,shadow})
+  // for rendering + valence styling. From the closed RC-owned vocabulary.
+  effects_pl?: string[] | null;
+  effects_pl_labels?: EffectPlLabel[] | null;
+}
+
+// The per-listen effect tag shape the badge returns.
+export interface EffectPlLabel {
+  slug: string;
+  label: string;
+  shadow: boolean;
+}
+
+// The RC-owned prescription bundle (no effects[]/at_scale[] — those are retired).
+export interface RcPsycheFacts {
+  purpose?: string | null;
+  indicated_for?: string[] | null;
+  do_not_use_if?: string | null;
+  directions?: string | null;
+  onset?: string | null;
+  duration?: string | null;
+  warning?: string | null;
 }
 
 // Build a deep-link URL to the RC song page for a badge. Falls back to the
@@ -92,6 +118,36 @@ interface BadgeCacheRow {
   badge: RisingCompassBadgeData | null;
   not_found: boolean;
   fetched_at: string;
+}
+
+// Batch-read the local badge cache for many songs in one query (list pages).
+// Cache-only, no per-song live refresh, so it stays a single round-trip; entries
+// are kept warm by detail-page read-throughs + webhook pushes. Uncalibrated or
+// cold songs are simply absent from the map (caller renders no badge data).
+// Returns a Map keyed by badgeCacheKey(title, artist).
+export async function fetchBadgesCached(
+  items: { title: string; artist: string }[],
+): Promise<Map<string, RisingCompassBadgeData>> {
+  const out = new Map<string, RisingCompassBadgeData>();
+  if (!RC_KEY || items.length === 0) return out;
+  try {
+    const supabase = createAdminClient();
+    const keys = items.map((i) => badgeCacheKey(i.title, i.artist));
+    const { data } = await supabase
+      .from(BADGE_CACHE_TABLE)
+      .select("cache_key, badge, not_found")
+      .in("cache_key", keys);
+    for (const row of (data ?? []) as {
+      cache_key: string;
+      badge: RisingCompassBadgeData | null;
+      not_found: boolean;
+    }[]) {
+      if (!row.not_found && row.badge) out.set(row.cache_key, row.badge);
+    }
+  } catch {
+    /* fail-soft: no effect tags rather than a broken list page */
+  }
+  return out;
 }
 
 // Live RC lookup. Returns the full record, or null when RC has no calibration

@@ -1,19 +1,19 @@
 import type { ReactNode } from "react";
+import type { EffectPlLabel } from "@/lib/rising-compass";
 import "./SongLabel.css";
 
 /**
  * Psyche Facts — the "Drug Facts" label for a song.
  *
- * Two layers feed it:
- *  - RC-derived (live from the badge): tier, charge, listener prose, societal
- *    prose, deadpan, topics. Rendered as Active charge / Effects / At scale.
- *  - Authored (label_meta jsonb, Opus-seeded + admin-editable): the
- *    prescription voice — purpose, indicated_for, do_not_use_if, directions,
- *    onset, duration, warning, plus optional distilled effects / at_scale.
+ * Everything comes from RC (the badge):
+ *  - charge layer: tier, charge, listener prose, societal prose, deadpan,
+ *    topics. Rendered as Active charge / Effects / At scale.
+ *  - prescription layer (badge.psyche_facts, the `meta` prop): purpose,
+ *    indicated_for, do_not_use_if, directions, onset, duration, warning.
  *
  * Every field renders only when present, so the panel degrades gracefully from
- * "RC charge + prose" up to the full prescription once the authored layer
- * exists. Returns null when there is nothing meaningful to show.
+ * "RC charge + prose" up to the full prescription once RC has authored the
+ * psyche_facts bundle. Returns null when there is nothing meaningful to show.
  */
 export interface PsycheFactsMeta {
   purpose?: string | null;
@@ -23,10 +23,6 @@ export interface PsycheFactsMeta {
   onset?: string | null;
   duration?: string | null;
   warning?: string | null;
-  /** Distilled bullets; when present they replace the raw listener prose. */
-  effects?: string[] | null;
-  /** Distilled bullets; when present they replace the raw societal prose. */
-  at_scale?: string[] | null;
 }
 
 export interface SongLabelProps {
@@ -42,6 +38,8 @@ export interface SongLabelProps {
   societalProse?: string | null;
   deadpan?: string | null;
   topics?: string[] | null;
+  /** RC per-listen effect tags — the distilled effect chips atop the Effects section. */
+  effectsPl?: EffectPlLabel[] | null;
   meta?: PsycheFactsMeta | null;
 }
 
@@ -86,10 +84,9 @@ export function SongLabel(props: SongLabelProps) {
   const m = props.meta || {};
   const runtime = fmtRuntime(props.runtimeSeconds);
 
-  const effects = m.effects && m.effects.length > 0 ? m.effects : null;
-  const effectsProse = effects ? [] : paragraphs(props.listenerProse);
-  const atScale = m.at_scale && m.at_scale.length > 0 ? m.at_scale : null;
-  const atScaleProse = atScale ? [] : paragraphs(props.societalProse);
+  const effectsProse = paragraphs(props.listenerProse);
+  const atScaleProse = paragraphs(props.societalProse);
+  const effectTags = (props.effectsPl || []).filter((e) => e && e.label);
 
   const indicatedFor =
     m.indicated_for && m.indicated_for.length > 0
@@ -98,8 +95,8 @@ export function SongLabel(props: SongLabelProps) {
 
   const warning = m.warning || props.deadpan || null;
   const hasCharge = typeof props.charge === "number";
-  const hasEffects = !!effects || effectsProse.length > 0;
-  const hasAtScale = !!atScale || atScaleProse.length > 0;
+  const hasEffects = effectTags.length > 0 || effectsProse.length > 0;
+  const hasAtScale = atScaleProse.length > 0;
 
   // Nothing meaningful to render.
   if (!hasCharge && !m.purpose && !hasEffects && !hasAtScale && indicatedFor.length === 0) {
@@ -161,39 +158,38 @@ export function SongLabel(props: SongLabelProps) {
         </Field>
       )}
 
-      {hasEffects && (
+      {effectTags.length > 0 && (
         <Field label="Effects" sub="per listen">
-          {effects ? (
-            <ul className="song-label__bullets">
-              {effects.map((e, i) => (
-                <li key={i}>{e}</li>
-              ))}
-            </ul>
-          ) : (
-            effectsProse.map((p, i) => (
-              <p key={i} className="song-label__p">
-                {p}
-              </p>
-            ))
-          )}
+          <ul className="song-label__effects">
+            {effectTags.map((e, i) => (
+              <li
+                key={i}
+                className={`song-label__effect${e.shadow ? " song-label__effect--shadow" : ""}`}
+              >
+                {e.label}
+              </li>
+            ))}
+          </ul>
         </Field>
       )}
 
-      {hasAtScale && (
-        <Field label="At scale" sub="per 1,000,000 listeners">
-          {atScale ? (
-            <ul className="song-label__bullets">
-              {atScale.map((e, i) => (
-                <li key={i}>{e}</li>
-              ))}
-            </ul>
-          ) : (
-            atScaleProse.map((p, i) => (
-              <p key={i} className="song-label__p">
-                {p}
-              </p>
-            ))
-          )}
+      {effectsProse.length > 0 && (
+        <Field label="Listener Effects">
+          {effectsProse.map((p, i) => (
+            <p key={i} className="song-label__p">
+              {p}
+            </p>
+          ))}
+        </Field>
+      )}
+
+      {atScaleProse.length > 0 && (
+        <Field label="Societal Effects">
+          {atScaleProse.map((p, i) => (
+            <p key={i} className="song-label__p">
+              {p}
+            </p>
+          ))}
         </Field>
       )}
 

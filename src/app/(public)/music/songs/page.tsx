@@ -2,6 +2,7 @@ import { createPublicClient } from "@/lib/supabase-server";
 import { SongsExplorer } from "@/components/SongsExplorer";
 import { ArtistCatalogJsonLd } from "@/components/ArtistCatalogJsonLd";
 import { getSingleSongIds } from "@/lib/song-singles";
+import { fetchBadgesCached, badgeCacheKey } from "@/lib/rising-compass";
 
 export const revalidate = 60;
 
@@ -72,7 +73,7 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[]; 
 
   const songIds = songs.map((s) => s.id);
 
-  const [junctionsRes, topicLinksRes, allTopicsRes, singleIdsSet, effectLinksRes, allEffectsRes] = await Promise.all([
+  const [junctionsRes, topicLinksRes, allTopicsRes, singleIdsSet, badgesByKey] = await Promise.all([
     supabase
       .from("release_songs")
       .select("song_id, track_number, release:releases(title, slug, status, cover_art_path, cover_art_alt, release_type, release_date)")
@@ -83,11 +84,8 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[]; 
       .in("song_id", songIds),
     supabase.from("topics").select("id, label, slug").order("label"),
     getSingleSongIds(supabase),
-    supabase
-      .from("song_psyche_effects")
-      .select("song_id, effect:psyche_effects(id, label, slug, shadow, sort_order)")
-      .in("song_id", songIds),
-    supabase.from("psyche_effects").select("id, label, slug, shadow, sort_order").order("sort_order"),
+    // Per-listen effects now come from RC (the badge), not a local table.
+    fetchBadgesCached(songs.map((s) => ({ title: s.title, artist: "Chad Lewine" }))),
   ]);
 
   // Prefer album-type releases over single-type when assigning the "album"
@@ -173,24 +171,30 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[]; 
     });
   }
 
-  type EffectLite = { id: string; label: string; slug: string; shadow: boolean; sort_order: number };
-  type EffectLinkRow = { song_id: string; effect: EffectLite | EffectLite[] | null };
+  // Per-listen effects come from the RC badge (effects_pl_labels, already in
+  // canonical order). id == slug (the stable key). allEffects is the union of
+  // effects actually in use, for the explorer's facet.
   const effectsBySong: Record<string, PsycheEffect[]> = {};
-  for (const link of (effectLinksRes.data || []) as EffectLinkRow[]) {
-    const effect = Array.isArray(link.effect) ? link.effect[0] : link.effect;
-    if (!effect) continue;
-    (effectsBySong[link.song_id] ||= []).push({
-      id: effect.id,
-      label: effect.label,
-      slug: effect.slug,
-      shadow: effect.shadow,
-      sort_order: effect.sort_order,
-    });
+  const allEffectsMap = new Map<string, PsycheEffect>();
+  for (const s of songs) {
+    const badge = badgesByKey.get(badgeCacheKey(s.title, "Chad Lewine"));
+    const labels = badge?.effects_pl_labels ?? [];
+    if (labels.length === 0) continue;
+    const list: PsycheEffect[] = labels.map((e, i) => ({
+      id: e.slug,
+      label: e.label,
+      slug: e.slug,
+      shadow: e.shadow,
+      sort_order: i,
+    }));
+    effectsBySong[s.id] = list;
+    for (const e of list) {
+      if (!allEffectsMap.has(e.slug)) allEffectsMap.set(e.slug, e);
+    }
   }
-  // Keep each song's effects in taxonomy order (seekable first, shadow last).
-  for (const list of Object.values(effectsBySong)) {
-    list.sort((a, b) => a.sort_order - b.sort_order);
-  }
+  const allEffects: PsycheEffect[] = Array.from(allEffectsMap.values()).sort(
+    (a, b) => a.label.localeCompare(b.label),
+  );
 
   const cardData: SongCardData[] = songs.map((s) => ({
     id: s.id,
@@ -221,7 +225,7 @@ async function getSongs(): Promise<{ songs: SongCardData[]; allTopics: Topic[]; 
   return {
     songs: cardData,
     allTopics: (allTopicsRes.data || []) as Topic[],
-    allEffects: (allEffectsRes.data || []) as PsycheEffect[],
+    allEffects,
   };
 }
 

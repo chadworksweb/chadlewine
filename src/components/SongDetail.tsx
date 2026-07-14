@@ -15,6 +15,7 @@ import { ExploreGrid } from "@/components/ExploreGrid";
 import { FitText } from "@/components/FitText";
 import { creditRoleLabel } from "@/lib/song-credits";
 import { SongLabel, type PsycheFactsMeta } from "@/components/SongLabel";
+import type { EffectPlLabel } from "@/lib/rising-compass";
 import { PsycheAura } from "@/components/PsycheAura";
 
 const DEMO_FORMAT_LABEL: Record<string, string> = {
@@ -164,6 +165,8 @@ interface BadgeProps {
   deadpan?: string | null;
   /** RC topic slugs — fallback for the label "Indicated for" field. */
   topics?: string[] | null;
+  /** RC per-listen effect tags ({slug,label,shadow}) — the label's Effects chips. */
+  effectsPl?: EffectPlLabel[] | null;
 }
 
 interface PairedArtProps {
@@ -656,6 +659,7 @@ export function SongDetail({
                       societalProse={badge?.societalProse ?? null}
                       deadpan={badge?.deadpan ?? null}
                       topics={badge?.topics ?? null}
+                      effectsPl={badge?.effectsPl ?? null}
                       meta={labelMeta}
                     />
                     <div className="psyche-aura">
