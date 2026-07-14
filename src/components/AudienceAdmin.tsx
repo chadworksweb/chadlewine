@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { formatDate } from "@/lib/utils";
+import { ENGAGEMENT_LEVELS, engagementLabel } from "@/lib/engagement";
 
 export interface AudienceListRow {
   id: string;
@@ -32,7 +33,63 @@ export interface UnsubRequestRow {
   created_at: string;
 }
 
-type Tab = "all" | "subscribers" | "pending" | "customers" | "requests" | "archive";
+/* A member is classified on FOUR independent axes that answer four different
+   questions. They must never collapse into one control:
+
+     subscribe  -- permission. May we send to them at all?
+     engagement -- behaviour. Do they read what we send?
+     account    -- did they register on the site?
+     buyer      -- have they ever paid?
+
+   The old tab row mixed them ("Customers" filtered on lifetime_orders while
+   "Archive" filtered on subscriber_status), so two tabs silently answered
+   different questions and no combination was reachable. Each axis is now its
+   own filter: empty selection means "any", and the axes intersect. */
+
+type View = "members" | "requests";
+type SortKey = "member" | "subscribe" | "engagement" | "account" | "buyer" | "activity";
+type SortDir = "asc" | "desc";
+
+// Display order, best-to-worst. Also the sort order -- alphabetical would rank
+// "inactive" above "low" and read as nonsense.
+const SUBSCRIBE_ORDER = ["active", "pending", "never", "unsubscribed"];
+// Best-to-worst, and the sort order. Sourced from lib/engagement so the admin
+// and the campaign targeting selector cannot disagree about what exists.
+const ENGAGEMENT_ORDER: string[] = [...ENGAGEMENT_LEVELS];
+const ACCOUNT_ORDER = ["account", "none"];
+const BUYER_ORDER = ["customer", "none"];
+
+const ENGAGEMENT_LABEL: Record<string, string> = Object.fromEntries(
+  ENGAGEMENT_ORDER.map((v) => [v, engagementLabel(v)])
+);
+const ACCOUNT_LABEL: Record<string, string> = { account: "registered", none: "no account" };
+const BUYER_LABEL: Record<string, string> = { customer: "has bought", none: "never bought" };
+
+/* refresh_audience_tags mirrors the axes into system tags (subscriber:active,
+   engaged:high, customer, customer:recent, ...). Those restate what the four
+   filters above already say, so showing them as chips is a second, worse copy
+   of the same control. Everything else survives: buyer:digital / buyer:physical
+   / buyer:repeat describe WHAT was bought (the Buyer axis only knows whether),
+   and free-form tags are added by hand and never redundant. */
+function isAxisTag(t: string): boolean {
+  return (
+    t.startsWith("subscriber:") ||
+    t.startsWith("engaged:") ||
+    t === "customer" ||
+    t.startsWith("customer:")
+  );
+}
+
+function accountAxis(r: AudienceListRow): string {
+  return r.user_id ? "account" : "none";
+}
+function buyerAxis(r: AudienceListRow): string {
+  return r.lifetime_orders > 0 ? "customer" : "none";
+}
+function rankOf(order: string[], value: string): number {
+  const i = order.indexOf(value);
+  return i === -1 ? order.length : i;
+}
 
 function fmtMoney(n: number): string {
   if (!n) return "$0";
@@ -47,19 +104,16 @@ export function AudienceAdmin({
   requests: UnsubRequestRow[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("subscribers");
+  const [view, setView] = useState<View>("members");
   const [search, setSearch] = useState("");
-  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  // Defaults to the old "Subscribers" tab so the page opens on the mailable list.
+  const [subFilter, setSubFilter] = useState<Set<string>>(new Set(["active"]));
+  const [engFilter, setEngFilter] = useState<Set<string>>(new Set());
+  const [acctFilter, setAcctFilter] = useState<Set<string>>(new Set());
+  const [buyerFilter, setBuyerFilter] = useState<Set<string>>(new Set());
+  const [sortKey, setSortKey] = useState<SortKey>("member");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [busyId, setBusyId] = useState<string | null>(null);
-
-  const allTags = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of audience)
-      for (const t of r.tags) m.set(t, (m.get(t) || 0) + 1);
-    return Array.from(m.entries())
-      .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count);
-  }, [audience]);
 
   const pendingRequests = useMemo(
     () => requests.filter((r) => r.status === "pending"),
@@ -70,12 +124,28 @@ export function AudienceAdmin({
     [pendingRequests]
   );
 
+  // Counts are over the whole audience, not the current filter, so the numbers
+  // on each chip stay stable while you narrow down.
+  const counts = useMemo(() => {
+    const mk = (get: (r: AudienceListRow) => string) => {
+      const m = new Map<string, number>();
+      for (const r of audience) m.set(get(r), (m.get(get(r)) || 0) + 1);
+      return m;
+    };
+    return {
+      sub: mk((r) => r.subscriber_status),
+      eng: mk((r) => r.engagement_score),
+      acct: mk(accountAxis),
+      buyer: mk(buyerAxis),
+    };
+  }, [audience]);
+
   const filtered = useMemo(() => {
     let rows = audience;
-    if (tab === "subscribers") rows = rows.filter((r) => r.subscriber_status === "active");
-    else if (tab === "pending") rows = rows.filter((r) => r.subscriber_status === "pending");
-    else if (tab === "customers") rows = rows.filter((r) => r.lifetime_orders > 0);
-    else if (tab === "archive") rows = rows.filter((r) => r.subscriber_status === "unsubscribed");
+    if (subFilter.size > 0) rows = rows.filter((r) => subFilter.has(r.subscriber_status));
+    if (engFilter.size > 0) rows = rows.filter((r) => engFilter.has(r.engagement_score));
+    if (acctFilter.size > 0) rows = rows.filter((r) => acctFilter.has(accountAxis(r)));
+    if (buyerFilter.size > 0) rows = rows.filter((r) => buyerFilter.has(buyerAxis(r)));
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -84,20 +154,60 @@ export function AudienceAdmin({
                (r.display_name || "").toLowerCase().includes(q)
       );
     }
-    if (tagFilter.size > 0) {
-      rows = rows.filter((r) =>
-        Array.from(tagFilter).every((t) => r.tags.includes(t))
-      );
-    }
     return rows;
-  }, [audience, tab, search, tagFilter]);
+  }, [audience, subFilter, engFilter, acctFilter, buyerFilter, search]);
 
-  const toggleTag = (tag: string) => {
-    const next = new Set(tagFilter);
-    if (next.has(tag)) next.delete(tag);
-    else next.add(tag);
-    setTagFilter(next);
+  const sorted = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const key = (r: AudienceListRow): string | number => {
+      switch (sortKey) {
+        case "member": return (r.display_name || r.email).toLowerCase();
+        case "subscribe": return rankOf(SUBSCRIBE_ORDER, r.subscriber_status);
+        case "engagement": return rankOf(ENGAGEMENT_ORDER, r.engagement_score);
+        case "account": return rankOf(ACCOUNT_ORDER, accountAxis(r));
+        case "buyer": return r.lifetime_spend || 0;
+        case "activity": return Date.parse(r.last_activity_at || r.created_at) || 0;
+      }
+    };
+    return [...filtered].sort((a, b) => {
+      const av = key(a);
+      const bv = key(b);
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return a.email.localeCompare(b.email); // stable tiebreak
+    });
+  }, [filtered, sortKey, sortDir]);
+
+  const toggleIn = (
+    value: string,
+    current: Set<string>,
+    set: (s: Set<string>) => void
+  ) => {
+    const next = new Set(current);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    set(next);
   };
+
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(k);
+      // Names read best A-Z; everything else best-first.
+      setSortDir(k === "member" ? "asc" : "desc");
+    }
+  };
+
+  const clearAll = () => {
+    setSubFilter(new Set());
+    setEngFilter(new Set());
+    setAcctFilter(new Set());
+    setBuyerFilter(new Set());
+    setSearch("");
+  };
+  const filterCount =
+    subFilter.size + engFilter.size + acctFilter.size + buyerFilter.size;
 
   const processRequest = async (audienceId: string, requestId: string) => {
     setBusyId(audienceId);
@@ -123,10 +233,13 @@ export function AudienceAdmin({
     router.refresh();
   };
 
-  const activeCount = audience.filter((r) => r.subscriber_status === "active").length;
-  const pendingSubsCount = audience.filter((r) => r.subscriber_status === "pending").length;
-  const customerCount = audience.filter((r) => r.lifetime_orders > 0).length;
-  const archiveCount = audience.filter((r) => r.subscriber_status === "unsubscribed").length;
+  const activeCount = counts.sub.get("active") || 0;
+  const engagedCount = audience.filter(
+    (r) => r.subscriber_status === "active" && r.engagement_score === "high"
+  ).length;
+  const customerCount = counts.buyer.get("customer") || 0;
+  const accountCount = counts.acct.get("account") || 0;
+  const archiveCount = counts.sub.get("unsubscribed") || 0;
 
   return (
     <div className="admin-page audience-admin">
@@ -141,19 +254,19 @@ export function AudienceAdmin({
         </div>
         <div className="admin-stats__card">
           <span className="admin-stats__value">{activeCount}</span>
-          <span className="admin-stats__label">Subscribers</span>
+          <span className="admin-stats__label">Mailable</span>
         </div>
         <div className="admin-stats__card">
-          <span className="admin-stats__value">{pendingSubsCount}</span>
-          <span className="admin-stats__label">Pending</span>
+          <span className="admin-stats__value">{engagedCount}</span>
+          <span className="admin-stats__label">Engaged</span>
         </div>
         <div className="admin-stats__card">
           <span className="admin-stats__value">{customerCount}</span>
-          <span className="admin-stats__label">Customers</span>
+          <span className="admin-stats__label">Buyers</span>
         </div>
         <div className="admin-stats__card">
-          <span className="admin-stats__value">{pendingRequests.length}</span>
-          <span className="admin-stats__label">Requests</span>
+          <span className="admin-stats__value">{accountCount}</span>
+          <span className="admin-stats__label">Accounts</span>
         </div>
         <div className="admin-stats__card">
           <span className="admin-stats__value">{archiveCount}</span>
@@ -162,32 +275,63 @@ export function AudienceAdmin({
       </div>
 
       <div className="admin-tabs">
-        {([
-          ["subscribers", `Subscribers ${activeCount}`],
-          ["pending", `Pending ${pendingSubsCount}`],
-          ["customers", `Customers ${customerCount}`],
-          ["requests", `Requests ${pendingRequests.length}`],
-          ["archive", `Archive ${archiveCount}`],
-          ["all", `All ${audience.length}`],
-        ] as [Tab, string][]).map(([t, label]) => (
-          <button
-            key={t}
-            type="button"
-            className={`admin-tabs__tab${tab === t ? " admin-tabs__tab--active" : ""}`}
-            onClick={() => setTab(t)}
-          >
-            {label}
-            {t === "requests" && pendingRequests.length > 0 && (
-              <span className="admin-tabs__count admin-tabs__count--alert">
-                {pendingRequests.length}
-              </span>
-            )}
-          </button>
-        ))}
+        <button
+          type="button"
+          className={`admin-tabs__tab${view === "members" ? " admin-tabs__tab--active" : ""}`}
+          onClick={() => setView("members")}
+        >
+          Members {audience.length}
+        </button>
+        <button
+          type="button"
+          className={`admin-tabs__tab${view === "requests" ? " admin-tabs__tab--active" : ""}`}
+          onClick={() => setView("requests")}
+        >
+          Requests {pendingRequests.length}
+          {pendingRequests.length > 0 && (
+            <span className="admin-tabs__count admin-tabs__count--alert">
+              {pendingRequests.length}
+            </span>
+          )}
+        </button>
       </div>
 
-      {tab !== "requests" && (
+      {view === "members" && (
         <>
+          <div className="audience-filters">
+            <FilterAxis
+              label="Subscribe"
+              order={SUBSCRIBE_ORDER}
+              counts={counts.sub}
+              selected={subFilter}
+              onToggle={(v) => toggleIn(v, subFilter, setSubFilter)}
+            />
+            <FilterAxis
+              label="Engagement"
+              order={ENGAGEMENT_ORDER}
+              counts={counts.eng}
+              selected={engFilter}
+              labels={ENGAGEMENT_LABEL}
+              onToggle={(v) => toggleIn(v, engFilter, setEngFilter)}
+            />
+            <FilterAxis
+              label="Account"
+              order={ACCOUNT_ORDER}
+              counts={counts.acct}
+              selected={acctFilter}
+              labels={ACCOUNT_LABEL}
+              onToggle={(v) => toggleIn(v, acctFilter, setAcctFilter)}
+            />
+            <FilterAxis
+              label="Buyer"
+              order={BUYER_ORDER}
+              counts={counts.buyer}
+              selected={buyerFilter}
+              labels={BUYER_LABEL}
+              onToggle={(v) => toggleIn(v, buyerFilter, setBuyerFilter)}
+            />
+          </div>
+
           <div className="audience-admin__controls">
             <input
               type="search"
@@ -196,21 +340,20 @@ export function AudienceAdmin({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <div className="audience-admin__tag-chips">
-              {allTags.slice(0, 20).map(({ tag, count }) => (
-                <button
-                  key={tag}
-                  type="button"
-                  className={`campaign-editor__chip${tagFilter.has(tag) ? " campaign-editor__chip--on" : ""}`}
-                  onClick={() => toggleTag(tag)}
-                >
-                  {tag} <span style={{ opacity: 0.6 }}>· {count}</span>
-                </button>
-              ))}
-            </div>
           </div>
 
-          {filtered.length === 0 ? (
+          <div className="audience-admin__resultbar">
+            <span className="audience-admin__resultcount">
+              {sorted.length} of {audience.length}
+            </span>
+            {(filterCount > 0 || search.trim()) && (
+              <button type="button" className="audience-filter__clear" onClick={clearAll}>
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          {sorted.length === 0 ? (
             <p
               style={{
                 color: "var(--text-tertiary)",
@@ -225,16 +368,17 @@ export function AudienceAdmin({
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th className="admin-table__th">Member</th>
-                  <th className="admin-table__th">Status</th>
-                  <th className="admin-table__th">Orders / Spend</th>
-                  <th className="admin-table__th">Engagement</th>
+                  <Th label="Member" k="member" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <Th label="Subscribe" k="subscribe" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <Th label="Engagement" k="engagement" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <Th label="Account" k="account" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <Th label="Orders / Spend" k="buyer" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="admin-table__th">Tags</th>
-                  <th className="admin-table__th">Last activity</th>
+                  <Th label="Last activity" k="activity" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => {
+                {sorted.map((r) => {
                   const flagged = pendingEmails.has(r.email.toLowerCase());
                   return (
                     <tr
@@ -258,8 +402,24 @@ export function AudienceAdmin({
                         <span className={`admin-status admin-status--${r.subscriber_status === "active" ? "published" : r.subscriber_status === "unsubscribed" ? "draft" : "private"}`}>
                           {r.subscriber_status}
                         </span>
-                        {r.user_id && (
-                          <span className="admin-flag" style={{ marginLeft: 6 }}>account</span>
+                      </td>
+                      <td className="admin-table__td">
+                        {/* class keys off the raw value (CSS colours are per
+                            stored state); the text is the human label. */}
+                        <span className={`audience-engagement audience-engagement--${r.engagement_score}`}>
+                          {engagementLabel(r.engagement_score)}
+                        </span>
+                        {r.emails_received > 0 && (
+                          <span className="campaign-list-row__pct">
+                            {" "}{r.emails_received} sent
+                          </span>
+                        )}
+                      </td>
+                      <td className="admin-table__td">
+                        {r.user_id ? (
+                          <span className="admin-flag">registered</span>
+                        ) : (
+                          <span className="admin-dash">-</span>
                         )}
                       </td>
                       <td className="admin-table__td">
@@ -271,28 +431,11 @@ export function AudienceAdmin({
                             </span>
                           </>
                         ) : (
-                          <span className="admin-dash">—</span>
+                          <span className="admin-dash">-</span>
                         )}
                       </td>
                       <td className="admin-table__td">
-                        <span className={`audience-engagement audience-engagement--${r.engagement_score}`}>
-                          {r.engagement_score}
-                        </span>
-                        {r.emails_received > 0 && (
-                          <span className="campaign-list-row__pct">
-                            {" "}{r.emails_received} sent
-                          </span>
-                        )}
-                      </td>
-                      <td className="admin-table__td">
-                        <div className="audience-admin__row-tags">
-                          {r.tags.slice(0, 4).map((t) => (
-                            <span key={t} className="audience-tag-pill">{t}</span>
-                          ))}
-                          {r.tags.length > 4 && (
-                            <span className="audience-tag-pill audience-tag-pill--more">+{r.tags.length - 4}</span>
-                          )}
-                        </div>
+                        <RowTags tags={r.tags} />
                       </td>
                       <td className="admin-table__td admin-table__td--date">
                         {formatDate(r.last_activity_at || r.created_at)}
@@ -306,7 +449,7 @@ export function AudienceAdmin({
         </>
       )}
 
-      {tab === "requests" && (
+      {view === "requests" && (
         <RequestsTable
           rows={pendingRequests}
           audience={audience}
@@ -316,6 +459,87 @@ export function AudienceAdmin({
         />
       )}
     </div>
+  );
+}
+
+/* Tags column, axis-mirroring tags stripped so each row shows only what the
+   Subscribe / Engagement / Account / Buyer columns don't already say. */
+function RowTags({ tags }: { tags: string[] }) {
+  const shown = tags.filter((t) => !isAxisTag(t));
+  if (shown.length === 0) return <span className="admin-dash">-</span>;
+  return (
+    <div className="audience-admin__row-tags">
+      {shown.slice(0, 4).map((t) => (
+        <span key={t} className="audience-tag-pill">{t}</span>
+      ))}
+      {shown.length > 4 && (
+        <span className="audience-tag-pill audience-tag-pill--more">+{shown.length - 4}</span>
+      )}
+    </div>
+  );
+}
+
+/* One classification axis. Values with a zero count are hidden unless selected,
+   so dead states (engagement "medium" never populates -- the webhook does not
+   mirror opens) don't clutter the bar with unreachable filters. */
+function FilterAxis({
+  label,
+  order,
+  counts,
+  selected,
+  labels,
+  onToggle,
+}: {
+  label: string;
+  order: string[];
+  counts: Map<string, number>;
+  selected: Set<string>;
+  labels?: Record<string, string>;
+  onToggle: (value: string) => void;
+}) {
+  const shown = order.filter((v) => (counts.get(v) ?? 0) > 0 || selected.has(v));
+  if (shown.length === 0) return null;
+  return (
+    <div className="audience-filter">
+      <span className="audience-filter__label">{label}</span>
+      <div className="audience-filter__chips">
+        {shown.map((v) => (
+          <button
+            key={v}
+            type="button"
+            className={`campaign-editor__chip${selected.has(v) ? " campaign-editor__chip--on" : ""}`}
+            onClick={() => onToggle(v)}
+          >
+            {labels?.[v] ?? v} <span style={{ opacity: 0.6 }}>{counts.get(v) ?? 0}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Th({
+  label,
+  k,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  k: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (k: SortKey) => void;
+}) {
+  const on = sortKey === k;
+  return (
+    <th
+      className={`admin-table__th admin-table__th--sortable${on ? ` is-sorted is-${sortDir}` : ""}`}
+      onClick={() => onSort(k)}
+      aria-sort={on ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      {label}
+    </th>
   );
 }
 
@@ -373,7 +597,7 @@ function RequestsTable({
                 )}
               </td>
               <td className="admin-table__td admin-table__td--prose">
-                {r.reason || <span className="admin-dash">—</span>}
+                {r.reason || <span className="admin-dash">-</span>}
               </td>
               <td className="admin-table__td">
                 {match ? (

@@ -1,7 +1,12 @@
 import { Webhook } from "svix";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isLikelyBotUserAgent, isLikelyDatacenterIp } from "@/lib/bot-detection";
-import { CLICK_BURST_MIN, CLICK_BURST_WINDOW_MS } from "@/lib/click-analytics";
+import {
+  CLICK_BURST_MIN,
+  CLICK_BURST_WINDOW_MS,
+  SOFT_BOUNCE_LIMIT,
+  isListManagementLink,
+} from "@/lib/click-analytics";
 
 /* Resend → Svix webhook handler.
 
@@ -138,6 +143,48 @@ export async function POST(request: Request) {
       (isLikelyBotUserAgent(userAgent) || isLikelyDatacenterIp(ipAddress))) ||
     clickBurst;
 
+  // Soft bounces are transient by definition (full mailbox, server down), so a
+  // single one must never unsubscribe anyone. But a soft bounce that repeats
+  // forever is a hard bounce wearing a hat: nothing else in the system removes
+  // these addresses, so they get re-mailed on every campaign and each attempt
+  // damages sender reputation. Escalate once an address has bounced
+  // SOFT_BOUNCE_LIMIT times and has never once accepted a delivery -- "never
+  // delivered" is what separates a dead address from a real subscriber whose
+  // mailbox filled up for a week. Best-effort: a query failure falls back to
+  // the old hard-bounce-only behaviour.
+  let chronicSoftBounce = false;
+  if (eventType === "bounced" && bounceIsSoft && sendRow?.audience_id) {
+    try {
+      const { count: everDelivered } = await supabase
+        .from("campaign_sends")
+        .select("id", { count: "exact", head: true })
+        .eq("audience_id", sendRow.audience_id)
+        .not("delivered_at", "is", null);
+      if ((everDelivered ?? 0) === 0) {
+        const { count: priorBounces } = await supabase
+          .from("campaign_sends")
+          .select("id", { count: "exact", head: true })
+          .eq("audience_id", sendRow.audience_id)
+          .not("bounced_at", "is", null);
+        // +1 for the bounce being processed right now: campaign_sends.bounced_at
+        // is not written until after this block.
+        chronicSoftBounce = (priorBounces ?? 0) + 1 >= SOFT_BOUNCE_LIMIT;
+      }
+    } catch {
+      /* non-fatal */
+    }
+  }
+
+  // The single predicate for "this bounce should remove the recipient".
+  const bounceRemoves = eventType === "bounced" && (!bounceIsSoft || chronicSoftBounce);
+
+  // A click on the footer's unsubscribe / manage-preferences link is a real
+  // human act, so it stays in the campaign's click metrics -- but it means the
+  // recipient is leaving, not engaging, and must never reach the audience
+  // aggregates that feed compute_engagement_score. Flagged on the event row so
+  // the split stays auditable after the fact.
+  const isListMgmtClick = eventType === "clicked" && isListManagementLink(url);
+
   await supabase.from("campaign_events").insert({
     campaign_id: sendRow?.campaign_id ?? null,
     campaign_send_id: sendRow?.id ?? null,
@@ -147,7 +194,11 @@ export async function POST(request: Request) {
     url,
     user_agent: userAgent,
     ip_address: ipAddress,
-    metadata: { ...(event as unknown as Record<string, unknown>), is_bot: fromBot },
+    metadata: {
+      ...(event as unknown as Record<string, unknown>),
+      is_bot: fromBot,
+      is_list_mgmt: isListMgmtClick,
+    },
   });
 
   // A scanner open/click is logged above but must not touch any counter,
@@ -229,9 +280,10 @@ export async function POST(request: Request) {
           (typeof bounceInfo.subType === "string" ? (bounceInfo.subType as string) : null) ||
           null;
         if (sendRow.campaign_id) await bumpCampaign(sendRow.campaign_id, "bounce_count");
-        // Only hard/undetermined bounces unsubscribe (protect sender
-        // reputation). Soft (transient) bounces are temporary -- keep them.
-        if (!bounceIsSoft && sendRow.subscriber_id) {
+        // Hard/undetermined bounces unsubscribe immediately; soft bounces only
+        // once they've proven chronic (see bounceRemoves above). Protects
+        // sender reputation without evicting someone over a transient blip.
+        if (bounceRemoves && sendRow.subscriber_id) {
           await supabase
             .from("subscribers")
             .update({
@@ -276,9 +328,13 @@ export async function POST(request: Request) {
         // events so the timeline + emails_opened counter don't accumulate
         // noise. Internal campaign_sends.opened_at still bumps so
         // click-implies-open backfill keeps working.
+        // Unsubscribe / manage-preferences clicks are dropped here for the
+        // same reason opens are: they'd bump last_clicked_at and score the
+        // recipient `high` for opting out. campaign_sends + campaign_events
+        // above still record the click, so nothing is lost for analytics.
         const audienceEventType =
           eventType === "delivered" ? "email_delivered"
-            : eventType === "clicked" ? "email_clicked"
+            : eventType === "clicked" ? (isListMgmtClick ? null : "email_clicked")
             : eventType === "bounced" ? "email_bounced"
             : eventType === "complained" ? "email_complained"
             : null;
@@ -300,9 +356,9 @@ export async function POST(request: Request) {
             },
           });
         }
-        // Hard remove on complaint, or on a hard/undetermined bounce -- never
-        // on a soft (transient) bounce.
-        if (eventType === "complained" || (eventType === "bounced" && !bounceIsSoft)) {
+        // Hard remove on complaint, on a hard/undetermined bounce, or on a
+        // soft bounce that has proven chronic.
+        if (eventType === "complained" || bounceRemoves) {
           await setSubscriberStatus(sendRow.audience_id, "unsubscribed");
         }
       } catch (e) {

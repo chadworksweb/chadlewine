@@ -5253,6 +5253,25 @@ html {
   color: var(--text-secondary);
 }
 
+/* Sort direction marker. Drawn from CSS so the arrow glyph stays out of the
+   TSX, and reserved via ::after on every sortable head so the column does not
+   shift width when sorting toggles. */
+.admin-table__th--sortable::after {
+  content: "\25B4";
+  margin-left: 0.35em;
+  font-size: 0.7em;
+  opacity: 0;
+}
+.admin-table__th--sortable.is-sorted {
+  color: var(--text-secondary);
+}
+.admin-table__th--sortable.is-sorted::after {
+  opacity: 1;
+}
+.admin-table__th--sortable.is-sorted.is-desc::after {
+  content: "\25BE";
+}
+
 .admin-table__row {
   border-bottom: 1px solid var(--border-subtle);
   transition: background var(--duration-fast) var(--ease-out);
@@ -5956,6 +5975,64 @@ html {
 .campaign-editor__chip:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* === Audience admin ============================================== */
+/* The four classification axes. Each is an independent filter group; they read
+   left to right as permission -> behaviour -> registration -> money. */
+.audience-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-md);
+}
+
+.audience-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.audience-filter__label {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.audience-filter__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.audience-filter__clear {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  text-decoration: underline;
+}
+.audience-filter__clear:hover { color: var(--text-secondary); }
+
+.audience-admin__resultbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-sm);
+}
+
+.audience-admin__resultcount {
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
 .audience-admin__controls {
   display: flex;
   flex-direction: column;

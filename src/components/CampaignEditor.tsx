@@ -8,6 +8,7 @@ import { BlockEditor } from "@/components/BlockEditor";
 import { CampaignPreview } from "@/components/CampaignPreview";
 import { newBlock, type EmailBlock } from "@/lib/email-blocks";
 import { NOTIFICATION_CATEGORIES } from "@/lib/notification-categories";
+import { ENGAGEMENT_LEVELS, engagementLabel } from "@/lib/engagement";
 
 export interface CampaignData {
   id: string;
@@ -41,7 +42,8 @@ export interface AudienceFilterShape {
   engagement_in?: string[];
 }
 
-const ENGAGEMENT_LEVELS = ["high", "medium", "low", "inactive", "unknown"] as const;
+// Sourced from lib/engagement -- this used to be a second hand-kept copy of the
+// list and had drifted to include "medium", which no row can ever have.
 
 interface SendRow {
   id: string;
@@ -1027,7 +1029,7 @@ function AudienceFilterEditor({
             onClick={() => toggleEngagement(level)}
             disabled={disabled}
           >
-            {level}
+            {engagementLabel(level)}
           </button>
         ))}
       </div>
