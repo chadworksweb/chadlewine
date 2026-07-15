@@ -32,6 +32,40 @@ export interface ClickEvent {
 export const CLICK_BURST_MIN = 2;
 export const CLICK_BURST_WINDOW_MS = 120000;
 
+// Number of bounces after which an address that has NEVER accepted a delivery
+// is treated as dead and unsubscribed, even when the provider keeps calling
+// the bounce "soft". Resend labelled 28 consecutive dead-address bounces soft
+// across 7 campaigns before this existed, and nothing ever removed them. 3 is
+// low enough to stop the bleeding fast and high enough that a genuinely
+// transient outage (full mailbox for a day) doesn't evict a real subscriber.
+export const SOFT_BOUNCE_LIMIT = 3;
+
+// Every marketing email footers an unsubscribe link and a manage-preferences
+// link, so a click there means the recipient is leaving or turning things off.
+// Scoring that as engagement is backwards: it promotes people to `high` for
+// opting out, which then protects them from the very win-back/archive
+// targeting they just asked to escape.
+//
+// These paths are the counterparts to unsubscribeUrl(), preferencesUrl(), and
+// unsubscribePostUrl() in src/lib/campaigns.ts -- if a builder there changes
+// path, add it here or clicks silently start counting as engagement again.
+const LIST_MANAGEMENT_PATHS = ["/unsubscribe", "/api/unsubscribe", "/preferences"];
+
+/** True when a click URL is a list-management link (unsubscribe / manage
+    preferences) rather than real content. Host-agnostic on purpose: sends go
+    out from localhost and staging origins too, and the path is what matters. */
+export function isListManagementLink(url: string | null | undefined): boolean {
+  if (!url) return false;
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return false;
+  }
+  const p = pathname.replace(/\/+$/, "").toLowerCase() || "/";
+  return LIST_MANAGEMENT_PATHS.includes(p);
+}
+
 function ts(iso: string): number {
   const t = Date.parse(iso);
   return Number.isNaN(t) ? 0 : t;
