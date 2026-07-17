@@ -1,6 +1,16 @@
 import { createAdminClient } from "@/lib/supabase-server";
-import { verifyWebhookSignature, listSessionLineItems, retrieveSubscription } from "@/lib/stripe";
+import {
+  verifyWebhookSignature,
+  listSessionLineItems,
+  retrieveSubscription,
+  getAuditHoldPaymentDetails,
+} from "@/lib/stripe";
 import type Stripe from "stripe";
+import {
+  AUDIT_LAUNCH_ACTIVE,
+  AUDIT_RATE_CENTS_PER_MIN,
+  auditHoldCents,
+} from "@/lib/audit-rate";
 import { resolveSkuDownloadPaths } from "@/lib/release-skus";
 import {
   sendEmail,
@@ -797,6 +807,97 @@ export async function POST(request: Request) {
         if (!adminSent) {
           console.warn(`[stripe-webhook] Failed to send admin notification for ${orderNumber}`);
         }
+      }
+    } else if (itemType === "audit_hold") {
+      // Sovereignty Audit -- the 10-minute hold cleared. Write the row and,
+      // critically, capture the saved card off the PaymentIntent: the balance
+      // charge at session end is off-session and has nothing else to bill.
+      // Without a payment method here, settle can only ever fall back to an
+      // invoice, so a miss is worth shouting about.
+      const email = session.metadata?.email || session.customer_details?.email;
+      if (!email) {
+        console.error("[stripe-webhook] audit_hold with no email");
+        return Response.json({ error: "Missing audit email" }, { status: 400 });
+      }
+
+      const paymentIntentId =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : (session.payment_intent?.id ?? null);
+
+      let customerId =
+        typeof session.customer === "string"
+          ? session.customer
+          : (session.customer?.id ?? null);
+      let paymentMethodId: string | null = null;
+
+      if (paymentIntentId) {
+        try {
+          const details = await getAuditHoldPaymentDetails(paymentIntentId);
+          customerId = details.customerId ?? customerId;
+          paymentMethodId = details.paymentMethodId;
+        } catch (err) {
+          console.error("[stripe-webhook] audit_hold payment details fetch failed", err);
+        }
+      }
+
+      if (!paymentMethodId) {
+        console.error(
+          `[stripe-webhook] audit_hold ${paymentIntentId}: no saved payment method. ` +
+            `Balance will have to be invoiced.`
+        );
+      }
+
+      const supabase = createAdminClient();
+
+      const { data: audienceRow } = await supabase
+        .from("audience")
+        .select("id")
+        .ilike("email", email)
+        .maybeSingle();
+
+      // The agreement was accepted at the moment the checkout was created --
+      // the box is a hard gate on /api/audit/hold, so the session existing at
+      // all means it was checked. session.created is that instant.
+      const acceptedAt = new Date(session.created * 1000).toISOString();
+
+      const launch = AUDIT_LAUNCH_ACTIVE;
+
+      const { error: insertError } = await supabase.from("audit_sessions").insert({
+        audience_id: audienceRow?.id ?? null,
+        email,
+        name: session.metadata?.name || session.customer_details?.name || null,
+        status: "held",
+        // Snapshot the BASE rate (525), not the effective one. The column is
+        // an integer and the launch rate is 262.5 cents -- writing the
+        // effective rate here silently rounds it to 263. launch_discount
+        // carries the 50%, and settle derives the effective rate from the
+        // pair, so the row still settles at the rate it was sold at.
+        rate_cents_per_min: AUDIT_RATE_CENTS_PER_MIN,
+        launch_discount: launch,
+        hold_cents: session.amount_total ?? auditHoldCents(launch),
+        stripe_customer_id: customerId,
+        stripe_payment_method_id: paymentMethodId,
+        stripe_hold_payment_intent: paymentIntentId,
+        agreement_accepted_at: acceptedAt,
+        agreement_version: session.metadata?.agreement_version || null,
+      });
+
+      if (insertError) {
+        console.error("[stripe-webhook] audit_sessions insert failed", insertError);
+        return Response.json({ error: "Audit row insert failed" }, { status: 500 });
+      }
+
+      const holdSent = await sendEmail({
+        to: ADMIN_NOTIFY_EMAIL,
+        subject: `Sovereignty Audit hold -- ${email}`,
+        html: `<p>A Sovereignty Audit hold cleared.</p>
+          <p><strong>${email}</strong>${session.metadata?.name ? ` (${session.metadata.name})` : ""}</p>
+          <p>Hold: ${((session.amount_total ?? 0) / 100).toFixed(2)}${paymentMethodId ? "" : " -- NO SAVED CARD, balance must be invoiced"}</p>
+          <p><a href="${SITE_URL}/admin/audit-sessions">Open in admin</a></p>`,
+      });
+      if (!holdSent) {
+        console.warn("[stripe-webhook] Failed to send audit hold notification");
       }
     } else if (itemType === "sponsor") {
       // Sponsor a demo into production. Record the contribution, advance the

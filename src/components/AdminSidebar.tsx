@@ -68,6 +68,7 @@ const adminNav: NavItem[] = [
       { href: "/admin/inbox", label: "Front desk" },
       { href: "/admin/inquiries", label: "Songwriting" },
       { href: "/admin/booking-inquiries", label: "Bookings" },
+      { href: "/admin/audit-sessions", label: "Audits" },
     ],
   },
   {
