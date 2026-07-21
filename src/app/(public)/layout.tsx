@@ -3,7 +3,6 @@ import { Footer } from "@/components/Footer";
 import { SubscribeSection } from "@/components/SubscribeSection";
 import { SubscribeModalController } from "@/components/SubscribeModalController";
 import { PatronageWidget } from "@/components/PatronageWidget";
-import { ImageNotice } from "@/components/ImageNotice";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { getVisibleNavItems } from "@/lib/nav-visibility";
@@ -29,7 +28,6 @@ export default async function PublicLayout({
   return (
     <PostHogProvider>
     <AnalyticsProvider>
-      <ImageNotice />
       <Nav items={navItems} />
       <main>{children}</main>
       <SubscribeSection />

@@ -29355,3 +29355,634 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   .seo-serp__desc { -webkit-line-clamp: 3; }
 }
 
+
+/* ============================================================
+   SOVEREIGNTY AUDIT -- /sovereignty-audit
+   ============================================================
+   Runs the Super Individual Night module system (si-hero, si-door,
+   bk-acts, bk-checklist, bk-what__row, bk-callout, GlyphTitle). Almost
+   nothing is needed here -- only the pieces those modules do not have:
+   a 4-up act row, the rate table, and the hold form's fields. */
+
+/* The session has FOUR movements, not three. bk-acts is hard-coded to
+   repeat(3, 1fr), so this extends it rather than forking it. Collapses
+   at the same 760px breakpoint as the base module. */
+/* This page does NOT run the site's grey-on-black hierarchy. Text is
+   white throughout; separation comes from size, weight, and spacing
+   instead of opacity.
+
+   Remapped at the page scope rather than overridden per element: every
+   si-/bk- module inside reads --text-secondary / --text-tertiary, so
+   remapping the tokens catches all of them and anything added later.
+   --bg-deep is deliberately NOT touched -- filled buttons paint dark
+   text on a light fill and must keep doing that. */
+.page-sovereignty-audit {
+  --text-secondary: var(--text-primary);
+  --text-tertiary: var(--text-primary);
+  --sa-fine-print: var(--text-primary);
+}
+
+/* The session has FIVE movements. bk-acts is hard-coded to repeat(3, 1fr),
+   so this extends the module rather than forking it. Steps 5 -> 3 -> 2 -> 1
+   so a row never leaves one orphan card on its own line. */
+.bk-acts--5up {
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-md);
+}
+
+@media (max-width: 1180px) {
+  .bk-acts--5up { grid-template-columns: repeat(3, 1fr); gap: var(--space-lg); }
+}
+
+@media (max-width: 860px) {
+  .bk-acts--5up { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 620px) {
+  .bk-acts--5up { grid-template-columns: 1fr; }
+}
+
+/* FIVE movements as a 3x2: three across the top, the last two split the
+   bottom row 1/2 + 1/2. A 6-col track carries both -- top cards span 2
+   (3 x 2 = 6), the two bottom cards span 3 (2 x 3 = 6). Collapses to a
+   single column at the same 760px breakpoint as the base .bk-acts. */
+.bk-acts--3x2 {
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-lg);
+}
+.bk-acts--3x2 > .bk-act { grid-column: span 2; }
+.bk-acts--3x2 > .bk-act:nth-child(n + 4) { grid-column: span 3; }
+
+@media (max-width: 760px) {
+  .bk-acts--3x2 { grid-template-columns: 1fr; }
+  .bk-acts--3x2 > .bk-act,
+  .bk-acts--3x2 > .bk-act:nth-child(n + 4) { grid-column: auto; }
+}
+
+/* The Socratic rule, stated flat. It is the method in one line, so it
+   carries the weight of a pull quote rather than sitting in the prose. */
+.sa-rule__line {
+  max-width: 24ch;
+  margin-bottom: var(--space-lg);
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--text-accent);
+  font-size: clamp(1.5rem, 3.2vw, 2.25rem);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+
+/* --- Rate table --- */
+
+/* --- Rate table ---
+   Bordered card, accent-tinted head, and the launch column carried as a
+   highlighted rail down the right so the eye lands on the number that is
+   actually on offer. Full-rate column struck through: was / now. */
+
+/* Wide content scrolls in its own box; the page never scrolls sideways. */
+.sa-rate__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.sa-rate__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.sa-rate__table th,
+.sa-rate__table td {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sa-rate__table thead th {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-md);
+  font-family: var(--font-ui);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
+  background: rgba(139, 156, 247, 0.1);
+  border-bottom: 1px solid rgba(139, 156, 247, 0.28);
+}
+
+.sa-rate__table tbody tr + tr th,
+.sa-rate__table tbody tr + tr td {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sa-rate__table tbody tr:nth-child(odd) td,
+.sa-rate__table tbody tr:nth-child(odd) th {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.sa-rate__table tbody th {
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+.sa-rate__table td {
+  color: var(--text-primary);
+}
+
+/* The number they are NOT paying. Struck, not dimmed -- text stays white. */
+.sa-rate__was {
+  text-decoration-color: rgba(139, 156, 247, 0.8);
+  text-decoration-thickness: 2px;
+  opacity: 0.75;
+}
+
+/* The launch rail. Tinted head to foot so it reads as one column. */
+.sa-rate__launch-col {
+  background: rgba(139, 156, 247, 0.09) !important;
+  border-left: 1px solid rgba(139, 156, 247, 0.28);
+  border-right: 1px solid rgba(139, 156, 247, 0.28);
+}
+
+.sa-rate__table thead th.sa-rate__launch-col {
+  background: rgba(139, 156, 247, 0.2) !important;
+  color: var(--text-accent);
+}
+
+.sa-rate__launch-cell {
+  font-weight: 700;
+  font-size: 1.0625rem;
+  color: var(--text-accent) !important;
+}
+
+/* The ceiling row -- the number that can never be exceeded. */
+.sa-rate__table tbody tr:last-child th,
+.sa-rate__table tbody tr:last-child td {
+  border-top: 1px solid rgba(139, 156, 247, 0.28);
+  font-weight: 600;
+}
+
+/* --- The launch offer panel ---
+   The one deliberately salesy object on the page. Everything else is
+   restraint; this is the thing that has a clock on it. */
+
+.sa-launch {
+  position: relative;
+  margin-top: var(--space-xl);
+  padding: var(--space-lg) var(--space-xl);
+
+  /* Full-width row of its own. Pitch left, the was/now ledger right --
+     stacking these at 1/1 would leave a tall band of dead space. */
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-xl);
+  border: 1px solid rgba(139, 156, 247, 0.45);
+  border-radius: 8px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(139, 156, 247, 0.16) 0%,
+      rgba(139, 156, 247, 0.04) 55%,
+      transparent 100%
+    ),
+    var(--bg-elevated);
+  box-shadow: 0 0 0 1px rgba(139, 156, 247, 0.08), 0 12px 32px -18px rgba(139, 156, 247, 0.7);
+}
+
+.sa-launch__badge {
+  display: inline-block;
+  padding: 0.3rem 0.6rem;
+  border-radius: 3px;
+  background: var(--text-accent);
+  color: var(--bg-deep);
+  font-family: var(--font-ui);
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.sa-launch__pitch {
+  margin-top: var(--space-sm);
+  font-size: clamp(1.75rem, 3.4vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+
+.sa-launch__pct {
+  color: var(--text-accent);
+  font-weight: 800;
+}
+
+.sa-launch__lines {
+  min-width: 22rem;
+  padding-left: var(--space-xl);
+  border-left: 1px solid rgba(139, 156, 247, 0.25);
+  list-style: none;
+  display: grid;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 860px) {
+  .sa-launch {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+  }
+  .sa-launch__lines {
+    min-width: 0;
+    padding-left: 0;
+    padding-top: var(--space-lg);
+    border-left: 0;
+    border-top: 1px solid rgba(139, 156, 247, 0.25);
+  }
+}
+
+.sa-launch__line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.sa-launch__label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+}
+
+.sa-launch__was {
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  opacity: 0.75;
+  text-decoration-color: rgba(139, 156, 247, 0.8);
+  text-decoration-thickness: 2px;
+}
+
+.sa-launch__now {
+  min-width: 5.5ch;
+  text-align: right;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-accent);
+}
+
+/* --- Hold form --- */
+
+.sa-hold {
+  margin-top: var(--space-lg);
+}
+
+/* Name + email sit side by side so the booking section reads as a form,
+   not a stack. */
+.sa-hold__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+@media (max-width: 700px) {
+  .sa-hold__fields { grid-template-columns: 1fr; }
+}
+
+.sa-hold__label {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.sa-hold__input {
+  padding: 0.75rem 0.875rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+}
+
+.sa-hold__input:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.sa-hold__honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --- The agreement. On the page, not behind a link: it is the only
+   place the client is told the clock is theirs to watch. --- */
+
+/* The terms, as their own section. Two columns so six terms do not
+   become a tall grey stack -- they are the thing the client is actually
+   consenting to, so they get room. */
+.sa-agreement__list {
+  margin-top: var(--space-lg);
+  padding-left: 1.125rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md) var(--space-xl);
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+@media (max-width: 860px) {
+  .sa-agreement__list { grid-template-columns: 1fr; }
+}
+
+/* Chad's line. The plain-language version of the whole block, so it gets
+   the weight rather than sitting as a seventh bullet. */
+.sa-agreement__exit {
+  max-width: 68ch;
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 1.3em;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.sa-agreement__check {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.sa-agreement__check:hover {
+  border-color: var(--text-accent);
+}
+
+.sa-agreement__check input {
+  margin-top: 0.2em;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--text-accent);
+  flex-shrink: 0;
+}
+
+.sa-hold__turnstile {
+  margin-top: var(--space-md);
+}
+
+.sa-hold__note {
+  margin-top: var(--space-md);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--sa-fine-print);
+}
+
+.sa-hold__error {
+  margin-top: var(--space-sm);
+  font-size: 0.875rem;
+  color: #ff6b6b;
+}
+
+/* The legal disclaimer. Fine print, not hidden print: subordinate to the
+   page but sized to actually be read. */
+.sa-disclaimer {
+  max-width: 90ch;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: var(--sa-fine-print);
+}
+
+.sa-disclaimer > * + * {
+  margin-top: var(--space-md);
+}
+
+.sa-disclaimer strong {
+  color: var(--text-secondary);
+}
+
+/* The crisis paragraph deliberately breaks OUT of the fine-print
+   treatment. Everything else in this block is legal boilerplate and can
+   recede; this is the one part that might matter to a real person on a
+   bad day, and it should never be something they have to squint at. Full
+   --text-primary, bumped size, and a visible rule. */
+.sa-disclaimer__crisis {
+  margin-top: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border-left: 2px solid var(--text-accent);
+  background: var(--bg-glass);
+  border-radius: 0 4px 4px 0;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.sa-disclaimer__crisis strong {
+  color: var(--text-primary);
+}
+
+.sa-disclaimer__crisis a {
+  color: var(--text-accent);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .sa-agreement { padding: var(--space-md); }
+}
+
+/* --- Audit console (admin) ---
+   Lives in the admin's light scope, so it reads the remapped tokens. */
+
+.audit-console {
+  margin: var(--space-lg) 0;
+  padding: var(--space-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 6px;
+  max-width: 480px;
+}
+
+.audit-console--done {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+}
+
+.audit-console__start,
+.audit-console__stop,
+.audit-console__charge,
+.audit-console__cancel {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.audit-console__start {
+  width: 100%;
+  background: var(--text-accent);
+  color: #fff;
+}
+
+.audit-console__clock {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+
+.audit-console__time {
+  font-size: 3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.audit-console__billing {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+}
+
+.audit-console__callouts {
+  margin-top: var(--space-sm);
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.audit-console__ceiling {
+  margin-top: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8a4b00;
+  background: #fff4e5;
+  border-radius: 4px;
+}
+
+.audit-console__stop {
+  margin-top: var(--space-md);
+  width: 100%;
+  background: var(--text-primary);
+  color: var(--bg-elevated);
+}
+
+/* --- The confirm. The last point the number can be fixed before real money
+   moves, so the arithmetic is spelled out rather than summarized. --- */
+
+.audit-console__confirm h3 {
+  font-size: 1.125rem;
+  margin-bottom: var(--space-md);
+}
+
+.audit-console__minutes {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.audit-console__minutes input {
+  padding: 0.625rem 0.75rem;
+  font-size: 1.25rem;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+}
+
+.audit-console__drift {
+  margin-top: var(--space-xs);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #8a4b00;
+}
+
+.audit-console__math {
+  margin-top: var(--space-md);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-console__math > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.375rem 0;
+  color: var(--text-secondary);
+}
+
+.audit-console__math-total {
+  margin-top: 0.375rem;
+  padding-top: 0.625rem !important;
+  border-top: 1px solid var(--border-medium);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--text-primary) !important;
+}
+
+.audit-console__warn {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #8a4b00;
+  background: #fff4e5;
+  border-radius: 4px;
+}
+
+.audit-console__actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.audit-console__cancel {
+  background: transparent;
+  border-color: var(--border-medium);
+  color: var(--text-secondary);
+}
+
+.audit-console__charge {
+  flex: 1;
+  background: var(--text-accent);
+  color: #fff;
+}
+
+.audit-console__charge:disabled,
+.audit-console__start:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.audit-console__result {
+  margin-top: var(--space-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e7a3c;
+}
+
+.audit-console__error {
+  margin-top: var(--space-md);
+  font-size: 0.875rem;
+  color: #b3261e;
+}
