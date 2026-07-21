@@ -29355,3 +29355,92 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   .seo-serp__desc { -webkit-line-clamp: 3; }
 }
 
+
+/* ============================================================
+   SOVEREIGNTY AUDIT (private) -- /sovereignty-audit-private
+   ============================================================
+   Only the pieces the shared Super Individual Night modules
+   (si-*, bk-*, glyph-title-bar) do not already carry. The rest
+   of the audit feature (rate table, hold form) is not shipped
+   here -- this page is the service explanation only. */
+
+/* This page does NOT run the site's grey-on-black hierarchy. Text is
+   white throughout; separation comes from size, weight, and spacing.
+   Remapped at page scope so every si-/bk- module inside inherits it. */
+.page-sovereignty-audit {
+  --text-secondary: var(--text-primary);
+  --text-tertiary: var(--text-primary);
+  --sa-fine-print: var(--text-primary);
+}
+
+/* FIVE movements as a 3x2: three across the top, the last two split the
+   bottom row 1/2 + 1/2. A 6-col track carries both -- top cards span 2
+   (3 x 2 = 6), the two bottom cards span 3 (2 x 3 = 6). Collapses to a
+   single column at the same 760px breakpoint as the base .bk-acts. */
+.bk-acts--3x2 {
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-lg);
+}
+.bk-acts--3x2 > .bk-act { grid-column: span 2; }
+.bk-acts--3x2 > .bk-act:nth-child(n + 4) { grid-column: span 3; }
+
+@media (max-width: 760px) {
+  .bk-acts--3x2 { grid-template-columns: 1fr; }
+  .bk-acts--3x2 > .bk-act,
+  .bk-acts--3x2 > .bk-act:nth-child(n + 4) { grid-column: auto; }
+}
+
+/* The Socratic rule, stated flat. It is the method in one line, so it
+   carries the weight of a pull quote rather than sitting in the prose. */
+.sa-rule__line {
+  max-width: 24ch;
+  margin-bottom: var(--space-lg);
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--text-accent);
+  font-size: clamp(1.5rem, 3.2vw, 2.25rem);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+
+/* The legal disclaimer. Fine print, not hidden print: subordinate to the
+   page but sized to actually be read. */
+.sa-disclaimer {
+  max-width: 90ch;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: var(--sa-fine-print);
+}
+
+.sa-disclaimer > * + * {
+  margin-top: var(--space-md);
+}
+
+.sa-disclaimer strong {
+  color: var(--text-secondary);
+}
+
+/* The crisis paragraph deliberately breaks OUT of the fine-print
+   treatment: the one part that might matter to a real person on a bad
+   day. Full --text-primary, bumped size, and a visible rule. */
+.sa-disclaimer__crisis {
+  margin-top: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border-left: 2px solid var(--text-accent);
+  background: var(--bg-glass);
+  border-radius: 0 4px 4px 0;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.sa-disclaimer__crisis strong {
+  color: var(--text-primary);
+}
+
+.sa-disclaimer__crisis a {
+  color: var(--text-accent);
+  font-weight: 700;
+  white-space: nowrap;
+}
