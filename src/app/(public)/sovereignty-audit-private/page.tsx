@@ -1,33 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { mergeMetadata } from "@/lib/page-meta";
-import { AuditHoldForm } from "@/components/AuditHoldForm";
-import { AUDIT_EXIT_LINE, auditAgreementTerms } from "@/lib/audit-agreement";
-import {
-  AUDIT_LAUNCH_ACTIVE,
-  AUDIT_MAX_MINUTES,
-  auditTotalCents,
-  formatAuditCents,
-} from "@/lib/audit-rate";
 
 export const dynamic = "force-static";
 
 const DESCRIPTION =
-  "One on one with Chad Lewine. Relentless metaphysical inquiry, billed by the minute at $5.25. Ten minutes up front holds the spot, and it ends when you say it ends.";
+  "One on one with Chad Lewine. Relentless metaphysical inquiry: the hard conversation you need to have with yourself, facilitated through me.";
 
+// Unlisted private variant of /sovereignty-audit. Service explanation only:
+// no rate, no terms, no booking form. Kept out of the sitemap (not enumerated
+// in sitemap-config) and out of nav (nav is DB-driven), plus noindex below so a
+// crawler that stumbles on the direct link does not index it. The slug stays
+// out of robots.txt on purpose -- listing it there would leak it publicly.
 const DEFAULT_METADATA: Metadata = {
   title: "The Sovereignty Audit",
   description: DESCRIPTION,
-  alternates: { canonical: "https://chadlewine.com/sovereignty-audit" },
+  alternates: { canonical: "https://chadlewine.com/sovereignty-audit-private" },
+  robots: { index: false, follow: false },
   openGraph: {
     title: "The Sovereignty Audit - Chad Lewine",
     description: DESCRIPTION,
-    url: "https://chadlewine.com/sovereignty-audit",
+    url: "https://chadlewine.com/sovereignty-audit-private",
   },
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  return mergeMetadata("/sovereignty-audit", DEFAULT_METADATA);
+  return mergeMetadata("/sovereignty-audit-private", DEFAULT_METADATA);
 }
 
 const SUPER_INDIVIDUAL_URL = "/super-individual";
@@ -58,19 +56,7 @@ function GlyphTitle({ id, children }: { id?: string; children: React.ReactNode }
   );
 }
 
-/** Rate rows. Computed from audit-rate.ts, never typed in, so the page cannot
-   drift from what actually gets charged. */
-const RATE_ROWS: { label: string; minutes: number }[] = [
-  { label: "10 minutes (the hold)", minutes: 10 },
-  { label: "30 minutes", minutes: 30 },
-  { label: "60 minutes", minutes: 60 },
-  { label: `${AUDIT_MAX_MINUTES} minutes (the ceiling)`, minutes: AUDIT_MAX_MINUTES },
-];
-
-export default function SovereigntyAuditPage() {
-  const launch = AUDIT_LAUNCH_ACTIVE;
-  const terms = auditAgreementTerms(launch);
-
+export default function SovereigntyAuditPrivatePage() {
   return (
     <div id="page-sovereignty-audit" className="page-songwriting page-sovereignty-audit">
       {/* ============================================================
@@ -101,7 +87,8 @@ export default function SovereigntyAuditPage() {
           so they are movements, not slots.
           ============================================================ */}
       <section className="si-section bk-program" aria-label="The session in five movements">
-        <ol className="bk-acts bk-acts--5up">
+        {/* 3x2: three across the top, the last two split the bottom row half/half. */}
+        <ol className="bk-acts bk-acts--3x2">
           <li className="bk-act">
             <ActGlyph />
             <span className="bk-act__kind">The mirage</span>
@@ -150,11 +137,6 @@ export default function SovereigntyAuditPage() {
             </p>
           </li>
         </ol>
-        <div className="bk-cta">
-          <a href="#book" className="bk-cta__btn">
-            Book a session
-          </a>
-        </div>
       </section>
 
       {/* ============================================================
@@ -244,10 +226,6 @@ export default function SovereigntyAuditPage() {
             modernity and operates outside of them. This is the hour where we find out what is still
             holding you inside them.
           </p>
-        </div>
-
-        <div className="si-door__footer si-door__footer--center">
-          <a href="#rate" className="explore-songs__cta">See what it costs &rarr;</a>
         </div>
       </section>
 
@@ -394,123 +372,6 @@ export default function SovereigntyAuditPage() {
             yourself is not.
           </p>
         </div>
-      </section>
-
-      {/* ============================================================
-          THE RATE -- real numbers on the table before the decision, with
-          the math showing. Same posture as the chadworks rates page.
-          ============================================================ */}
-      <section id="rate" className="si-door si-door--rc" aria-labelledby="sa-rate-heading">
-        <GlyphTitle id="sa-rate-heading">The rate</GlyphTitle>
-
-        {/* Prose left, the math right. Reuses bk-what__row so it sits in
-           the same rhythm as the other two-column rows on the page. */}
-        <div className="bk-what__row">
-          <div className="bk-what__half">
-            <div className="si-prose">
-              <p style={{ fontSize: "1.3em" }}>
-                $5.25 a minute, the same rate my development work bills at. You pay for 10 minutes
-                up front to hold the spot, and that 10 minutes counts toward your total. From there
-                the clock runs on what we actually use. Two hours is the hard ceiling.
-              </p>
-            </div>
-          </div>
-
-          <div className="bk-what__half">
-            <div className="sa-rate__table-wrap">
-              <table className="sa-rate__table">
-                <thead>
-                  <tr>
-                    <th scope="col">Time</th>
-                    <th scope="col">Full rate</th>
-                    {launch && (
-                      <th scope="col" className="sa-rate__launch-col">
-                        Launch
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {RATE_ROWS.map((row) => (
-                    <tr key={row.minutes}>
-                      <th scope="row">{row.label}</th>
-                      <td className={launch ? "sa-rate__was" : undefined}>
-                        {formatAuditCents(auditTotalCents(row.minutes, false))}
-                      </td>
-                      {launch && (
-                        <td className="sa-rate__launch-col sa-rate__launch-cell">
-                          {formatAuditCents(auditTotalCents(row.minutes, true))}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* The offer, sold. Full-width row of its own, immediately before the
-           button. Every figure computed from audit-rate.ts so the pitch cannot
-           drift from what actually gets charged. */}
-        {launch && (
-          <div className="sa-launch">
-            <div className="sa-launch__head">
-              <span className="sa-launch__badge">Launch offer</span>
-              <p className="sa-launch__pitch">
-                <span className="sa-launch__pct">50%</span> off
-              </p>
-            </div>
-            <ul className="sa-launch__lines">
-              {[
-                { label: "The 10-minute hold", minutes: 10 },
-                { label: "A full hour", minutes: 60 },
-              ].map((row) => (
-                <li key={row.minutes} className="sa-launch__line">
-                  <span className="sa-launch__label">{row.label}</span>
-                  <s className="sa-launch__was">
-                    {formatAuditCents(auditTotalCents(row.minutes, false))}
-                  </s>
-                  <span className="sa-launch__now">
-                    {formatAuditCents(auditTotalCents(row.minutes, true))}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className="bk-cta">
-          <a href="#book" className="bk-cta__btn">
-            Book a session
-          </a>
-        </div>
-      </section>
-
-      {/* ============================================================
-          THE TERMS -- its own section, above the booking. This is the
-          only place the client is told the clock is theirs to watch, so
-          it does not get buried beside a form.
-          ============================================================ */}
-      <section id="terms" className="si-section" aria-labelledby="sa-terms-heading">
-        <GlyphTitle id="sa-terms-heading">What you are agreeing to</GlyphTitle>
-
-        <ul className="sa-agreement__list">
-          {terms.map((term, i) => (
-            <li key={i}>{term}</li>
-          ))}
-        </ul>
-
-        <p className="sa-agreement__exit">{AUDIT_EXIT_LINE}</p>
-      </section>
-
-      {/* ============================================================
-          THE BOOKING -- the close. The checkbox is a hard gate: the hold
-          route rejects any submit without it.
-          ============================================================ */}
-      <section id="book" className="si-door si-door--lead bk-start--cover" aria-labelledby="sa-book-heading">
-        <GlyphTitle id="sa-book-heading">Book your session</GlyphTitle>
-        <AuditHoldForm />
       </section>
 
       {/* ============================================================

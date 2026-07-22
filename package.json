@@ -42,7 +42,6 @@
     "archiver": "^7.0.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
-    "remark-gfm": "^4.0.1",
     "typescript": "^5",
     "yauzl": "^3.3.0"
   }
