@@ -8182,7 +8182,7 @@ html {
 .obsv-nav-anchor {
   position: relative;
   height: 0;
-  z-index: 2;
+  z-index: 3;
 }
 
 .obsv-nav {
@@ -8361,6 +8361,15 @@ html {
 .related-observations {
   padding-block: 0 var(--space-3xl);
   margin-top: 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* No Synapse Jumper between the nav and this grid: take over its top
+   clearance so the floating Newer/Older cards and the celestial art
+   have room instead of landing on the heading. */
+.obsv-nav-anchor + .related-observations {
+  padding-block-start: var(--space-3xl);
 }
 
 .related-observations__heading {
