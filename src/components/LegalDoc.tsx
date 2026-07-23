@@ -17,6 +17,7 @@ type LegalDocProps = {
 
 export function LegalDoc({ title, updated, intro, sections }: LegalDocProps) {
   const [active, setActive] = useState<string>(sections[0]?.id ?? "");
+  const [tocOpen, setTocOpen] = useState(false);
 
   useEffect(() => {
     const els = sections
@@ -51,7 +52,19 @@ export function LegalDoc({ title, updated, intro, sections }: LegalDocProps) {
 
       <div className="legal__grid">
         <nav className="legal__toc" aria-label="On this page">
-          <ol className="legal__toc-list">
+          <button
+            type="button"
+            className="legal__toc-toggle"
+            aria-expanded={tocOpen}
+            onClick={() => setTocOpen((o) => !o)}
+          >
+            <span>On this page</span>
+            <span className="legal__toc-caret" aria-hidden="true" />
+          </button>
+          <ol
+            className="legal__toc-list"
+            data-open={tocOpen ? "true" : "false"}
+          >
             {sections.map((s) => (
               <li
                 key={s.id}
@@ -59,7 +72,11 @@ export function LegalDoc({ title, updated, intro, sections }: LegalDocProps) {
                   "legal__toc-item" + (active === s.id ? " is-active" : "")
                 }
               >
-                <a className="legal__toc-link" href={`#${s.id}`}>
+                <a
+                  className="legal__toc-link"
+                  href={`#${s.id}`}
+                  onClick={() => setTocOpen(false)}
+                >
                   <span className="legal__toc-dot" aria-hidden="true" />
                   <span className="legal__toc-text">{s.title}</span>
                 </a>

@@ -3012,19 +3012,19 @@ body.art-immersive main ~ * {
   }
 }
 
-/* --- Table of contents (sticky scroll-spy rail) --- */
+/* --- Table of contents (sticky scroll-spy rail on desktop,
+   collapsible "On this page" disclosure on mobile) --- */
 .legal__toc {
-  display: none;
+  display: block;
+  font-family: var(--font-ui);
 }
 
 @media (min-width: 900px) {
   .legal__toc {
-    display: block;
     position: sticky;
     top: var(--sticky-top);
     max-height: calc(100vh - var(--sticky-top) - var(--space-lg));
     overflow-y: auto;
-    font-family: var(--font-ui);
     scrollbar-width: thin;
   }
 }
@@ -3033,6 +3033,77 @@ body.art-immersive main ~ * {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+/* Mobile disclosure toggle -- hidden on desktop (sidebar is always open) */
+.legal__toc-toggle {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .legal__toc {
+    margin-bottom: var(--space-xl);
+  }
+
+  .legal__toc-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: var(--space-sm);
+    padding: 0.7rem var(--space-md);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    background: var(--bg-glass);
+    border: 1px solid var(--border-medium);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: color var(--duration-base) var(--ease-out);
+  }
+
+  .legal__toc-toggle:hover {
+    color: var(--text-primary);
+  }
+
+  .legal__toc-caret {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-bottom: 3px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+
+  .legal__toc-toggle[aria-expanded="true"] .legal__toc-caret {
+    margin-bottom: -3px;
+    transform: rotate(-135deg);
+  }
+
+  .legal__toc-list {
+    display: none;
+    margin-top: var(--space-xs);
+    padding: 0 var(--space-md);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+  }
+
+  .legal__toc-list[data-open="true"] {
+    display: block;
+  }
+
+  /* Inside the rounded mobile panel, drop the outer rules that would
+     double up against the panel border. */
+  .legal__toc-item:first-child {
+    border-top: none;
+  }
+
+  .legal__toc-item:last-child {
+    border-bottom: none;
+  }
 }
 
 .legal__toc-item {
