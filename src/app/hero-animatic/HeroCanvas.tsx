@@ -1,0 +1,600 @@
+"use client";
+
+/* Transcend the Machine - the real WebGL hero (R3F + three).
+ *
+ * The 6-second deprogramming, then the living menu. Four beats:
+ *   PULL/TUNNEL  a lattice of cold machine solids rushes past the camera, violet
+ *                rush-streaks radiating, camera plunging in.
+ *   BREAK        white flood + a shard burst; the machine clears.
+ *   ASSEMBLY     the five doors emerge from the origin and settle into their slots.
+ *   REST         they idle in the open cosmos (starfield + nebula + orbital rings),
+ *                each a nested-shell "PsycheAura" of its own solid, and become nav.
+ *
+ * Emissive vector aesthetic: no lights, everything self-lit Line/Basic materials
+ * with AdditiveBlending over black FogExp2, lit entirely by a real UnrealBloom
+ * pass (the transcend-spike stack). Crystal-facet surfaces are a later upgrade. */
+
+import { useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import {
+  DOORS, PHI, SHELLS, SLOT_X, DUR, COL_PERI, COL_VOID,
+  clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo,
+  type Door, type HeroCtl, type HeroHud,
+} from "./heroShapes";
+
+const FOG_DENSITY = 0.014; // the spike value: lets the grid + warp core read across depth
+
+// ---- bloom composer (manual-render, no post-processing dep) -----------------
+function HeroBloom({ ctl }: { ctl: HeroCtl }) {
+  const { gl, scene, camera, size } = useThree();
+  const bloomRef = useRef<UnrealBloomPass | null>(null);
+  const composer = useMemo(() => {
+    const c = new EffectComposer(gl);
+    c.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.28);
+    bloomRef.current = bloom;
+    c.addPass(bloom);
+    c.addPass(new OutputPass());
+    return c;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gl, scene, camera]);
+  useEffect(() => {
+    composer.setSize(size.width, size.height);
+    composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  }, [composer, size]);
+  useEffect(() => () => composer.dispose(), [composer]);
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const b = bloomRef.current;
+    if (b) {
+      // steady phosphor, with a hard pump through the break flash
+      b.strength = 0.7 + smooth(1.4, 2.3, t) * 0.5 + Math.max(0, smooth(2.2, 2.4, t) - smooth(2.5, 3.1, t)) * 1.1;
+    }
+    composer.render();
+  }, 1);
+  return null;
+}
+
+// ---- camera plunge ----------------------------------------------------------
+function CameraRig({ ctl }: { ctl: HeroCtl }) {
+  const { camera } = useThree();
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const dolly = lerp(15.5, 12.8, smooth(0, 2.2, t)); // gentle plunge, steadier
+    const back = lerp(12.8, 13.4, smooth(2.4, 5, t)); // ease back to frame the menu
+    camera.position.z = t < 2.4 ? dolly : back;
+    camera.position.x = Math.sin(t * 0.16) * 0.25 * smooth(4.8, 6, t);
+    camera.lookAt(0, 0, 0);
+  });
+  return null;
+}
+
+// ---- the machine: a sparse golden-angle spiral TUNNEL -----------------------
+// Solids on the wall of a tube (open centre), placed by the golden angle so the
+// spiral never repeats. Depth-faded and slow: you fly DOWN it, you don't hit a
+// wall. Sparse on purpose -- restraint is the point.
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+function MachineField({ ctl }: { ctl: HeroCtl }) {
+  const built = useMemo(() => {
+    const group = new THREE.Group();
+    const N = 40;
+    const TUBE_R = 8.5;
+    const motes: { ls: THREE.LineSegments; mat: THREE.LineBasicMaterial; ang: number; r: number; seed: number; spin: number }[] = [];
+    for (let i = 0; i < N; i++) {
+      // the machine grid is CUBES ONLY, like the artifact / ss5
+      const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(i % 8 === 0 ? "#ff2e63" : "#00e0ff"), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+      const ls = new THREE.LineSegments(getGeo("cube"), mat);
+      ls.scale.setScalar(0.14 + ((i * 7) % 11) / 22); // smaller + more variable (~0.14 .. 0.6)
+      group.add(ls);
+      const r = TUBE_R * (0.9 + 0.22 * ((i % 5) / 5)); // gentle golden variation on the wall
+      motes.push({ ls, mat, ang: i * GOLDEN_ANGLE, r, seed: i / N, spin: i });
+    }
+    return { group, motes };
+  }, []);
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const out = 1 - smooth(2.2, 2.9, t);
+    built.group.visible = out > 0.01;
+    if (out <= 0.01) return;
+    const RANGE = 74;
+    const tv = t * 4.2 + 1.7 * Math.pow(Math.max(0, t - 0.5), 2); // slower, steadier
+    for (const m of built.motes) {
+      const zc = (((m.seed * RANGE + tv) % RANGE) + RANGE) % RANGE; // 0..RANGE
+      const z = zc - 64; // -64 (vanishing point) -> +10 (past you)
+      const near = zc / RANGE; // 0 far, 1 near
+      m.ls.position.set(Math.cos(m.ang) * m.r, Math.sin(m.ang) * m.r * 0.8, z); // tube wall, open centre
+      m.ls.rotation.x = t * 0.35 + m.spin;
+      m.ls.rotation.y = t * 0.28 + m.spin * 0.7;
+      m.mat.opacity = (0.08 + 0.5 * near) * out; // depth fade -> airy, receding
+    }
+  });
+  return <primitive object={built.group} />;
+}
+
+// ---- the warp core: the centre shape that pulses and ejects the doors --------
+function WarpCore({ ctl }: { ctl: HeroCtl }) {
+  const built = useMemo(() => {
+    const group = new THREE.Group();
+    group.position.z = -34;
+    const coreMat = new THREE.LineBasicMaterial({ color: new THREE.Color("#00e0ff"), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    const core = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 1)), coreMat);
+    group.add(core);
+    const tunMat = new THREE.LineBasicMaterial({ color: new THREE.Color("#3dff9e"), transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
+    const tunnel = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 1)), tunMat);
+    tunnel.scale.set(1.7, 1.7, 9); // stretched toward the camera -> the warp mesh
+    tunnel.position.z = 7;
+    group.add(tunnel);
+    return { group, core, coreMat, tunMat, tunnel };
+  }, []);
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const vis = 1 - smooth(2.15, 2.5, t);
+    built.group.visible = vis > 0.01;
+    if (vis <= 0.01) return;
+    let pulse = 0; // a bump each time a door ejects (5 ejects)
+    for (let i = 0; i < 5; i++) {
+      const dd = (t - (0.95 + i * 0.22)) / 0.11;
+      pulse += Math.exp(-dd * dd);
+    }
+    built.core.scale.setScalar(1 + pulse * 0.5);
+    built.core.rotation.y = t * 1.3;
+    built.core.rotation.x = t * 0.8;
+    built.coreMat.opacity = (0.4 + 0.4 * Math.min(1, pulse)) * vis;
+    built.tunnel.rotation.z = t * 0.7;
+    built.tunnel.rotation.x = t * 0.3;
+    built.tunMat.opacity = 0.1 * vis;
+  });
+  return <primitive object={built.group} />;
+}
+
+// ---- lightspeed streaks: TWO kinds (violet + bright cream) ------------------
+type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.LineBasicMaterial; ls: THREE.LineSegments; seeds: { ang: number; r0: number; lf: number }[] };
+function RushStreaks({ ctl }: { ctl: HeroCtl }) {
+  const built = useMemo(() => {
+    const mk = (color: string, k: number, salt: number): StreakSet => {
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(k * 2 * 3);
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+      const ls = new THREE.LineSegments(geo, mat);
+      ls.position.z = 7;
+      const seeds = Array.from({ length: k }, (_, s) => ({
+        ang: (s / k) * Math.PI * 2 + ((s + salt) % 7) * 0.35,
+        r0: 0.3 + ((((s * 97) + salt) % 100) / 100) * 4,
+        lf: 0.5 + (((s * 53) + salt) % 100) / 100,
+      }));
+      return { geo, pos, mat, ls, seeds };
+    };
+    return { violet: mk("#a877f0", 68, 0), cream: mk("#fff5d6", 30, 17) };
+  }, []);
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const rush = smooth(0.35, 1.4, t) * (1 - smooth(2.2, 2.5, t));
+    const draw = (set: StreakSet, lenK: number, op: number) => {
+      set.mat.opacity = op * rush;
+      set.ls.visible = rush > 0.01;
+      if (rush <= 0.01) return;
+      for (let s = 0; s < set.seeds.length; s++) {
+        const sd = set.seeds[s];
+        const wob = 1 + 0.06 * Math.sin(t * 9 + s);
+        const len = (0.6 + lenK * rush) * sd.lf * wob;
+        const c = Math.cos(sd.ang);
+        const si = Math.sin(sd.ang);
+        const i = s * 6;
+        set.pos[i] = c * sd.r0; set.pos[i + 1] = si * sd.r0; set.pos[i + 2] = 0;
+        set.pos[i + 3] = c * (sd.r0 + len); set.pos[i + 4] = si * (sd.r0 + len); set.pos[i + 5] = 0;
+      }
+      set.geo.attributes.position.needsUpdate = true;
+    };
+    draw(built.violet, 5.0, 0.26); // sparse thin violet
+    draw(built.cream, 6.4, 0.5); // a few longer, brighter cream streaks
+  });
+  return (
+    <>
+      <primitive object={built.violet.ls} />
+      <primitive object={built.cream.ls} />
+    </>
+  );
+}
+
+// ---- the break: a radial burst of cyan + pink shard-dashes (ss4) ------------
+function BreakShards({ ctl }: { ctl: HeroCtl }) {
+  const N = 96;
+  const built = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(N * 2 * 3);
+    const col = new Float32Array(N * 2 * 3);
+    const cyan = new THREE.Color("#00e0ff");
+    const pink = new THREE.Color("#ff9ed6");
+    const seeds: { a: number; el: number; sp: number }[] = [];
+    for (let i = 0; i < N; i++) {
+      const c = i % 2 ? cyan : pink;
+      const j = i * 6;
+      col[j] = c.r; col[j + 1] = c.g; col[j + 2] = c.b;
+      col[j + 3] = c.r; col[j + 4] = c.g; col[j + 5] = c.b;
+      // angle even around the circle, speed in 5 groups -> radius and angle rise
+      // together within each run, so the burst forms spiral arms (the ss4 look).
+      seeds.push({ a: (i / N) * Math.PI * 2, el: ((i * 37) % 100) / 100 - 0.5, sp: 0.5 + (i % 5) * 0.12 });
+    }
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    const ls = new THREE.LineSegments(geo, mat);
+    ls.position.z = 5;
+    return { geo, pos, mat, ls, seeds };
+  }, []);
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const life = smooth(2.2, 2.34, t) * (1 - smooth(2.6, 3.15, t));
+    built.mat.opacity = life;
+    built.ls.visible = life > 0.01;
+    if (life <= 0.01) return;
+    const age = Math.max(0, t - 2.2);
+    for (let i = 0; i < N; i++) {
+      const s = built.seeds[i];
+      const rin = age * 13 * s.sp;
+      const rout = rin + 0.8 + age * 2.2; // the dash lengthens as it flies out
+      const ang = s.a + rin * 0.16; // twist by radius -> the arms curl into a spiral
+      const dx = Math.cos(ang);
+      const dy = Math.sin(ang);
+      const j = i * 6;
+      built.pos[j] = dx * rin; built.pos[j + 1] = dy * rin; built.pos[j + 2] = s.el * 2.2;
+      built.pos[j + 3] = dx * rout; built.pos[j + 4] = dy * rout; built.pos[j + 5] = s.el * 2.2;
+    }
+    built.geo.attributes.position.needsUpdate = true;
+  });
+  return <primitive object={built.ls} />;
+}
+
+// ---- cosmos: starfield (twinkling, varied sizes, seamless full sphere) ------
+// A real "twinkle" star sprite: a bright pinpoint core, four long thin
+// diffraction spikes (plus four short diagonals) and a soft halo -- the
+// look from ss6. Scaled small it reads as a dot; scaled large, a full sparkle.
+function makeSparkleTex(): THREE.Texture {
+  const S = 128;
+  const c = document.createElement("canvas");
+  c.width = S; c.height = S;
+  const ctx = c.getContext("2d")!;
+  const cx = S / 2;
+  const cy = S / 2;
+  ctx.clearRect(0, 0, S, S);
+  ctx.globalCompositeOperation = "lighter";
+  // soft halo
+  const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, S * 0.5);
+  halo.addColorStop(0, "rgba(255,255,255,0.5)");
+  halo.addColorStop(0.16, "rgba(255,255,255,0.22)");
+  halo.addColorStop(0.4, "rgba(255,255,255,0.05)");
+  halo.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = halo;
+  ctx.fillRect(0, 0, S, S);
+  // a tapered spike blade from the centre outward
+  const spike = (len: number, wid: number, ang: number, a: number) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(ang);
+    const lg = ctx.createLinearGradient(0, 0, len, 0);
+    lg.addColorStop(0, `rgba(255,255,255,${a})`);
+    lg.addColorStop(0.35, `rgba(255,255,255,${a * 0.35})`);
+    lg.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = lg;
+    ctx.beginPath();
+    ctx.moveTo(0, -wid);
+    ctx.lineTo(len, 0);
+    ctx.lineTo(0, wid);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+  for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) spike(S * 0.48, 3.2, a, 0.85); // long primaries
+  for (const a of [Math.PI / 4, Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75]) spike(S * 0.28, 2.0, a, 0.3); // short diagonals
+  // bright pinpoint core
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, S * 0.1);
+  core.addColorStop(0, "rgba(255,255,255,1)");
+  core.addColorStop(0.5, "rgba(255,255,255,0.85)");
+  core.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = core;
+  ctx.fillRect(0, 0, S, S);
+  return new THREE.CanvasTexture(c);
+}
+const STAR_VERT = `
+  attribute float aSize;
+  attribute float aPhase;
+  attribute float aTwinkle;
+  attribute vec3 aColor;
+  uniform float uTime;
+  varying vec3 vColor;
+  varying float vB;
+  void main() {
+    vColor = aColor;
+    float pulse = 0.5 + 0.5 * sin(uTime * 2.1 + aPhase);
+    float b = mix(0.85, pulse, aTwinkle); // twinkly stars swing hard, steady stars barely move
+    vB = 0.22 + 0.9 * b;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize * (0.7 + 0.5 * b) * (190.0 / max(0.1, -mv.z));
+    gl_Position = projectionMatrix * mv;
+  }`;
+const STAR_FRAG = `
+  uniform sampler2D uTex;
+  uniform float uOpacity;
+  varying vec3 vColor;
+  varying float vB;
+  void main() {
+    vec4 tx = texture2D(uTex, gl_PointCoord);
+    gl_FragColor = vec4(vColor * vB * uOpacity, tx.a);
+  }`;
+function Starfield({ ctl }: { ctl: HeroCtl }) {
+  const N = 1100;
+  const built = useMemo(() => {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(N * 3);
+    const col = new Float32Array(N * 3);
+    const siz = new Float32Array(N);
+    const pha = new Float32Array(N);
+    const twk = new Float32Array(N);
+    const cW = new THREE.Color("#ffffff");
+    const cP = new THREE.Color("#b4bfff"); // pale periwinkle
+    const cV = new THREE.Color("#a78bfa");
+    const cC = new THREE.Color("#8fe6ff");
+    for (let i = 0; i < N; i++) {
+      // uniform full sphere so slow rotation never empties (seamless wipe)
+      const r = 60 + ((i * 53) % 90);
+      const th = (((i * 97) % 1000) / 1000) * Math.PI * 2;
+      const u = 2 * (((i * 29) % 1000) / 1000) - 1;
+      const s = Math.sqrt(Math.max(0, 1 - u * u));
+      pos[i * 3] = r * s * Math.cos(th);
+      pos[i * 3 + 1] = r * s * Math.sin(th) * 0.85;
+      pos[i * 3 + 2] = r * u;
+      const pk = i % 11; // mostly white, a few tinted
+      const c = pk < 8 ? cW : pk === 8 ? cP : pk === 9 ? cV : cC;
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      const big = i % 7 === 0; // ~1 in 7 is a prominent sparkle, the rest are dots
+      const rnd = ((i * 17) % 100) / 100;
+      siz[i] = big ? 5 + rnd * 4.5 : 1.0 + rnd * 1.6;
+      twk[i] = big ? 0.6 + rnd * 0.4 : i % 3 === 0 ? 0.4 + rnd * 0.4 : 0.08 + rnd * 0.18; // only some twinkle hard
+      pha[i] = ((i * 41) % 628) / 100;
+    }
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+    geo.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
+    geo.setAttribute("aPhase", new THREE.BufferAttribute(pha, 1));
+    geo.setAttribute("aTwinkle", new THREE.BufferAttribute(twk, 1));
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 }, uTex: { value: makeSparkleTex() } },
+      vertexShader: STAR_VERT,
+      fragmentShader: STAR_FRAG,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const pts = new THREE.Points(geo, mat);
+    return { pts, mat };
+  }, []);
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    built.mat.uniforms.uTime.value = t;
+    built.mat.uniforms.uOpacity.value = smooth(2.6, 4.4, t) * 0.95;
+    built.pts.rotation.y = t * 0.008; // perpetual seamless wipe
+    built.pts.rotation.x = Math.sin(t * 0.05) * 0.04;
+  });
+  return <primitive object={built.pts} />;
+}
+
+// ---- cosmos: nebula blobs ---------------------------------------------------
+function makeBlobTex(): THREE.Texture {
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 256;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.4, "rgba(255,255,255,0.34)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  return new THREE.CanvasTexture(c);
+}
+function Nebula({ ctl }: { ctl: HeroCtl }) {
+  const built = useMemo(() => {
+    const tex = makeBlobTex();
+    const group = new THREE.Group();
+    const defs = [
+      { c: "#6a4bd0", x: -15, y: 6, z: -30, s: 36 },
+      { c: "#3a4ed0", x: 17, y: -8, z: -34, s: 32 },
+      { c: "#00e0ff", x: 3, y: 11, z: -26, s: 20 },
+      { c: "#8b9cf7", x: -7, y: -11, z: -28, s: 26 },
+    ];
+    const mats: THREE.MeshBasicMaterial[] = [];
+    for (const d of defs) {
+      const mat = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(d.c), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(d.s, d.s), mat);
+      mesh.position.set(d.x, d.y, d.z);
+      group.add(mesh);
+      mats.push(mat);
+    }
+    return { group, mats };
+  }, []);
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const inn = smooth(2.5, 4.4, t);
+    for (let i = 0; i < built.mats.length; i++) built.mats[i].opacity = inn * (0.22 + 0.05 * Math.sin(t * 0.3 + i));
+  });
+  return <primitive object={built.group} />;
+}
+
+// ---- a hero door: nested golden-ratio shells of one solid -------------------
+const Z_CORE = -34; // where the warp core sits and the doors are born
+function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroCtl }) {
+  const built = useMemo(() => {
+    const group = new THREE.Group();
+    const geo = getGeo(door.shape);
+    const hue = new THREE.Color(door.hue);
+    const shells: THREE.LineSegments[] = [];
+    for (let i = 0; i < SHELLS; i++) {
+      const mat = new THREE.LineBasicMaterial({ color: COL_PERI.clone(), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+      const ls = new THREE.LineSegments(geo, mat);
+      group.add(ls);
+      shells.push(ls);
+    }
+    // warp trail: a bright streak from the warp core to the door while it ejects
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
+    const trailMat = new THREE.LineBasicMaterial({ color: hue.clone(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    const trail = new THREE.LineSegments(trailGeo, trailMat);
+    return { group, shells, hue, trail, trailGeo, trailMat };
+  }, [door.shape, door.hue]);
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const g = built.group;
+
+    if (t < 2.2) {
+      // TUNNEL: the actual door ejects from the warp core and streaks past you
+      const ejectT = 0.95 + index * 0.22; // staggered -> the core pulses per eject
+      const local = t - ejectT;
+      const life = smooth(-0.55, 0.3, local);
+      const gone = smooth(0.18, 0.6, local);
+      if (life <= 0.001) {
+        g.visible = false;
+        built.trailMat.opacity = 0;
+        return;
+      }
+      g.visible = true;
+      const a = index * 1.9; // its own angle out of the centre
+      const z = lerp(Z_CORE, 18, easeOut(life)); // born at core, flies past the camera
+      const latR = life * life * 9; // fans out as it nears
+      g.position.set(Math.cos(a) * latR, Math.sin(a) * latR * 0.72, z);
+      g.scale.setScalar(lerp(0.25, 2.4, life));
+      const alpha = 0.95 * (1 - gone);
+      const spin = t * 3 + index;
+      for (let i = 0; i < built.shells.length; i++) {
+        const ls = built.shells[i];
+        ls.scale.setScalar(Math.pow(1 / PHI, i));
+        ls.rotation.y = spin + i * 0.9;
+        ls.rotation.x = spin * 0.5 + i * 1.3;
+        const m = ls.material as THREE.LineBasicMaterial;
+        m.color.copy(built.hue); // ignites in its tier hue straight out of the core
+        m.opacity = Math.max(0.03, alpha * (0.62 - i * 0.11));
+      }
+      const p = built.trailGeo.attributes.position as THREE.BufferAttribute;
+      p.setXYZ(0, 0, 0, Z_CORE);
+      p.setXYZ(1, g.position.x, g.position.y, g.position.z);
+      p.needsUpdate = true;
+      built.trailMat.color.copy(built.hue);
+      built.trailMat.opacity = alpha * 0.5 * smooth(0, 0.4, life);
+      return;
+    }
+
+    // ASSEMBLY -> REST: the same door returns to the centre and settles into its slot
+    built.trailMat.opacity = 0;
+    g.visible = true;
+    const ap = clamp((t - 3.2) / 1.5, 0, 1);
+    const emerge = t < 3.15 ? 0 : backOut(ap);
+    // the artifact's ordered wave: each door phased by index so the row ripples
+    const settle = smooth(4.6, 5.7, t);
+    const wave = settle * (Math.sin(t * 1.3 + index * 1.1) * 0.16 + Math.sin(t * 0.7 + index) * 0.1);
+    g.position.set(lerp(0, SLOT_X[index], emerge), wave, lerp(-2, 0, emerge));
+    const breathe = 1 + 0.035 * Math.sin(t * 0.28 + index * 1.3);
+    g.scale.setScalar(lerp(0.0, 1.2, easeOut(ap)) * breathe);
+    const res = smooth(2.3, 3.6, t);
+    const alpha = 0.95 * smooth(2.5, 3.2, t);
+    const spin = index + 0.25 * t + 1.6 * smooth(2.2, 4.8, t); // rotation slowed ~50%
+    for (let i = 0; i < built.shells.length; i++) {
+      const ls = built.shells[i];
+      ls.scale.setScalar(Math.pow(1 / PHI, i)); // golden-ratio inset
+      ls.rotation.y = spin + i * 0.9 + t * (0.06 + i * 0.03); // incommensurate shear, slowed
+      ls.rotation.x = spin * 0.5 + i * 1.3 + t * (0.045 - i * 0.015);
+      const m = ls.material as THREE.LineBasicMaterial;
+      m.color.lerpColors(COL_PERI, built.hue, res);
+      m.opacity = Math.max(0.04, alpha * (0.62 - i * 0.11));
+    }
+  });
+  return (
+    <>
+      <primitive object={built.group} />
+      <primitive object={built.trail} />
+    </>
+  );
+}
+
+// ---- clock: the single source of animation time -----------------------------
+// Mounted first so it advances t before any consumer reads it this frame.
+function ClockDriver({ ctl }: { ctl: HeroCtl }) {
+  useFrame((_, delta) => {
+    const d = Math.min(delta, 0.05); // clamp after a tab blur
+    if (ctl.resetRef.current) {
+      ctl.tRef.current = 0;
+      ctl.resetRef.current = false;
+      ctl.playingRef.current = true;
+    }
+    if (ctl.stepRef.current !== 0) {
+      ctl.tRef.current = Math.max(0, ctl.tRef.current + ctl.stepRef.current);
+      ctl.stepRef.current = 0;
+      ctl.playingRef.current = false; // stepping implies pause
+    }
+    if (ctl.scrubRef.current != null) {
+      ctl.tRef.current = ctl.scrubRef.current;
+    } else if (ctl.playingRef.current) {
+      ctl.tRef.current += d;
+    }
+  });
+  return null;
+}
+
+// ---- HUD driver: writes the DOM overlay from the same clock ------------------
+function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+  useFrame((state) => {
+    const t = heroT(state.clock.elapsedTime, ctl);
+    const td = Math.min(t, DUR);
+    if (hud.beatRef.current) hud.beatRef.current.textContent = beatName(td);
+    if (hud.tcRef.current) hud.tcRef.current.textContent = td.toFixed(2) + "s";
+    const flood = Math.max(0, smooth(2.2, 2.45, t) - smooth(2.55, 3.1, t) * 0.95);
+    if (hud.floodRef.current) hud.floodRef.current.style.opacity = String(flood);
+    const doorsIn = smooth(5.0, 5.75, t);
+    if (hud.doorsRef.current) {
+      hud.doorsRef.current.style.opacity = String(doorsIn);
+      hud.doorsRef.current.style.pointerEvents = t > 5.3 ? "auto" : "none";
+    }
+    if (hud.scrubEl.current && ctl.scrubRef.current == null) {
+      hud.scrubEl.current.value = String(Math.round(td * 100));
+      hud.scrubEl.current.style.setProperty("--p", (td / DUR) * 100 + "%");
+    }
+    if (hud.playBtnRef.current) {
+      hud.playBtnRef.current.textContent = ctl.playingRef.current ? "❚❚" : "▶";
+    }
+  });
+  return null;
+}
+
+// ---- scene ------------------------------------------------------------------
+function HeroScene({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+  return (
+    <>
+      <color attach="background" args={[COL_VOID]} />
+      <fogExp2 attach="fog" args={[COL_VOID, FOG_DENSITY]} />
+      <ClockDriver ctl={ctl} />
+      <CameraRig ctl={ctl} />
+      <Starfield ctl={ctl} />
+      <Nebula ctl={ctl} />
+      <MachineField ctl={ctl} />
+      <WarpCore ctl={ctl} />
+      <RushStreaks ctl={ctl} />
+      <BreakShards ctl={ctl} />
+      {DOORS.map((d, i) => (
+        <HeroShape key={d.key} door={d} index={i} ctl={ctl} />
+      ))}
+      <HudDriver ctl={ctl} hud={hud} />
+      <HeroBloom ctl={ctl} />
+    </>
+  );
+}
+
+export default function HeroCanvas({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+  return (
+    <Canvas flat camera={{ fov: 55, near: 0.1, far: 400, position: [0, 0, 13.4] }} gl={{ antialias: true }} dpr={[1, 2]}>
+      <HeroScene ctl={ctl} hud={hud} />
+    </Canvas>
+  );
+}
