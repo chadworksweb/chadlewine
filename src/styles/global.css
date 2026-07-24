@@ -2964,6 +2964,294 @@ body.art-immersive main ~ * {
 }
 
 /* ============================================================
+   LEGAL DOC — polished template for static legal pages
+   (data-request, privacy-policy, terms-of-service).
+   Full-width shell; sticky scroll-spy TOC + capped reading rail.
+   Self-contained typography (does NOT use .prose, whose heading
+   colors assume a light reading surface and vanish on the dark
+   site background).
+   ============================================================ */
+.legal {
+  padding-block: var(--space-lg) var(--space-4xl);
+}
+
+.legal__head {
+  padding-bottom: var(--space-lg);
+  margin-bottom: var(--space-2xl);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.legal__title {
+  font-family: var(--font-body);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.legal__updated {
+  margin-top: var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.legal__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-xl);
+}
+
+@media (min-width: 900px) {
+  .legal__grid {
+    grid-template-columns: 224px minmax(0, 1fr);
+    gap: var(--space-3xl);
+    align-items: start;
+  }
+}
+
+/* --- Table of contents (sticky scroll-spy rail on desktop,
+   collapsible "On this page" disclosure on mobile) --- */
+.legal__toc {
+  display: block;
+  font-family: var(--font-ui);
+}
+
+@media (min-width: 900px) {
+  .legal__toc {
+    position: sticky;
+    top: var(--sticky-top);
+    max-height: calc(100vh - var(--sticky-top) - var(--space-lg));
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+
+.legal__toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Mobile disclosure toggle -- hidden on desktop (sidebar is always open) */
+.legal__toc-toggle {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .legal__toc {
+    margin-bottom: var(--space-xl);
+  }
+
+  .legal__toc-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: var(--space-sm);
+    padding: 0.7rem var(--space-md);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    background: var(--bg-glass);
+    border: 1px solid var(--border-medium);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: color var(--duration-base) var(--ease-out);
+  }
+
+  .legal__toc-toggle:hover {
+    color: var(--text-primary);
+  }
+
+  .legal__toc-caret {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-bottom: 3px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform var(--duration-base) var(--ease-out);
+  }
+
+  .legal__toc-toggle[aria-expanded="true"] .legal__toc-caret {
+    margin-bottom: -3px;
+    transform: rotate(-135deg);
+  }
+
+  .legal__toc-list {
+    display: none;
+    margin-top: var(--space-xs);
+    padding: 0 var(--space-md);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+  }
+
+  .legal__toc-list[data-open="true"] {
+    display: block;
+  }
+
+  /* Inside the rounded mobile panel, drop the outer rules that would
+     double up against the panel border. */
+  .legal__toc-item:first-child {
+    border-top: none;
+  }
+
+  .legal__toc-item:last-child {
+    border-bottom: none;
+  }
+}
+
+.legal__toc-item {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.legal__toc-item:first-child {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.legal__toc-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-block: 0.7rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--duration-base) var(--ease-out);
+}
+
+.legal__toc-link:hover {
+  color: var(--text-primary);
+}
+
+.legal__toc-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: transparent;
+  transition:
+    background var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out);
+}
+
+.legal__toc-item.is-active .legal__toc-link {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.legal__toc-dot {
+  color: var(--text-tertiary);
+}
+
+.legal__toc-item.is-active .legal__toc-dot {
+  color: var(--text-accent);
+  background: var(--text-accent);
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 3px rgba(139, 156, 247, 0.22);
+}
+
+/* --- Body content --- */
+.legal__body {
+  max-width: 70ch;
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: rgba(228, 228, 236, 0.8);
+}
+
+.legal__intro {
+  margin-bottom: var(--space-2xl);
+  padding-bottom: var(--space-xl);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-lg);
+  line-height: var(--leading-body);
+  color: var(--text-secondary);
+}
+
+.legal__intro p {
+  margin-bottom: 1em;
+}
+
+.legal__intro p:last-child {
+  margin-bottom: 0;
+}
+
+.legal__section {
+  scroll-margin-top: var(--sticky-top);
+}
+
+.legal__section + .legal__section {
+  margin-top: var(--space-2xl);
+}
+
+.legal__section-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+.legal__section-num {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-accent);
+  transform: translateY(-0.15em);
+}
+
+.legal__section-content p {
+  margin-bottom: 1.25em;
+}
+
+.legal__section-content p:last-child {
+  margin-bottom: 0;
+}
+
+.legal__section-content ul {
+  margin: 0 0 1.25em;
+  padding-left: 1.25em;
+  list-style: disc;
+}
+
+.legal__section-content li {
+  margin-bottom: 0.5em;
+}
+
+.legal__body a {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(139, 156, 247, 0.4);
+  transition:
+    color var(--duration-base) var(--ease-out),
+    text-decoration-color var(--duration-base) var(--ease-out);
+}
+
+.legal__body a:hover {
+  color: var(--text-primary);
+  text-decoration-color: var(--text-primary);
+}
+
+.legal__body strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* ============================================================
    MUSIC HUB
    ============================================================ */
 
