@@ -1,0 +1,191 @@
+.ha-page {
+  min-height: 100vh;
+  background: radial-gradient(1200px 700px at 50% -10%, #10122b 0%, rgba(16, 18, 43, 0) 60%), #07070d;
+  color: #e7eaf6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.ha-head {
+  width: 100%;
+  max-width: 1280px;
+  text-align: center;
+}
+.ha-eyebrow {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: #8fa2cc;
+}
+.ha-title {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: clamp(1.6rem, 4.5vw, 3rem);
+  margin: 0.5rem 0 0;
+  color: #f2f5ff;
+  text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff;
+}
+
+.ha-stage {
+  position: relative;
+  width: 100%;
+  max-width: 1280px;
+  aspect-ratio: 16 / 9;
+  border: 1px solid rgba(139, 156, 247, 0.28);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #07070d;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.9);
+}
+.ha-stage canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.ha-flood {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.98) 0%, rgba(234, 237, 255, 0.62) 5%, rgba(208, 213, 255, 0.16) 15%, rgba(255, 255, 255, 0) 32%);
+  mix-blend-mode: screen;
+}
+
+.ha-hud {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  pointer-events: none;
+  text-shadow: 0 1px 6px #000;
+}
+.ha-beat {
+  font-size: 0.82rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #eaf1ff;
+}
+.ha-tc {
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  color: #00e0ff;
+}
+
+.ha-doors {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s ease;
+}
+.ha-door {
+  position: absolute;
+  top: 20%;
+  height: 58%;
+  width: 16%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.2rem;
+  padding-bottom: 0.4rem;
+  text-decoration: none;
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+.ha-door:hover {
+  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--dh) 16%, transparent), transparent 70%);
+}
+.ha-door__lab {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: clamp(0.8rem, 1.5vw, 1.05rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f2f5ff;
+  text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff;
+}
+.ha-door__rt {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  color: var(--dh);
+  opacity: 0.85;
+}
+
+.ha-controls {
+  width: 100%;
+  max-width: 1280px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.ha-transport {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ha-tbtn {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: #eaf1ff;
+  background: linear-gradient(180deg, #221a36, #150f24);
+  border: 1px solid rgba(139, 156, 247, 0.28);
+  min-width: 2.4rem;
+  height: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.ha-tbtn:hover {
+  border-color: #a877f0;
+  box-shadow: 0 0 18px -6px #a877f0;
+}
+.ha-tbtn:active {
+  transform: translateY(1px);
+}
+.ha-tbtn--play {
+  color: #f2f5ff;
+  min-width: 3rem;
+  font-size: 0.95rem;
+}
+.ha-scrub {
+  flex: 1;
+  appearance: none;
+  height: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: linear-gradient(90deg, #a877f0 0%, #a877f0 var(--p, 0%), rgba(139, 156, 247, 0.16) var(--p, 0%));
+}
+.ha-scrub::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f2f5ff;
+  box-shadow: 0 0 10px #a877f0;
+  cursor: pointer;
+}
+.ha-scrub::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #f2f5ff;
+  box-shadow: 0 0 10px #a877f0;
+  cursor: pointer;
+}
