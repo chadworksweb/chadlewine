@@ -182,7 +182,7 @@ type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.Mesh
 function warpSurge(t: number): number {
   const attack = smooth(1.46, 1.8, t);
   const climb = 0.8 + 0.2 * smooth(1.8, 2.18, t); // still gaining, never flat
-  const release = 1 - smooth(2.2, 2.38, t); // cuts as the break takes over
+  const release = 1 - smooth(2.55, 2.95, t); // stays lit through the drop-out, so they leave hot
   return attack * climb * release;
 }
 
@@ -242,7 +242,20 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
   }, []);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
-    const rush = smooth(0.35, 1.4, t) * (1 - smooth(2.2, 2.5, t));
+    // How far up to speed the field is. Kept separate from the exit so streak
+    // length does not collapse on the way out.
+    const drive = smooth(0.35, 1.4, t);
+
+    // THE DROP-OUT. The streaks must not blink off -- they get FLUNG. Every
+    // streak's inner tip accelerates outward (exit SQUARED, so it builds), which
+    // evacuates the field from the centre out and carries each one off through
+    // the frame edge, stretching and thinning as it goes. Opacity holds full
+    // through all of that and only cuts afterwards as a backstop, by which point
+    // they are already off screen. That is the difference between an exit and a
+    // fade: you watch them leave.
+    const exit = smooth(2.3, 3.0, t);
+    const evac = exit * exit * 24; // world units the inner tip races outward
+    const rush = drive * (1 - smooth(2.9, 3.15, t));
     const surge = warpSurge(t);
     const shudder = 1 + 0.12 * Math.sin(t * 31) * surge; // the drive judders at peak
 
@@ -254,8 +267,8 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
       for (let s = 0; s < set.seeds.length; s++) {
         const sd = set.seeds[s];
         const wob = 1 + 0.06 * Math.sin(t * 9 + s);
-        const len = (0.6 + lenK * rush) * (1 + surge * 0.9) * sd.lf * wob; // stretches as it surges
-        const hw = (baseW + surgeW * surge) * sd.wf * shudder; // half-width at the waist
+        const len = (0.6 + lenK * drive) * (1 + surge * 0.9) * (1 + exit * 1.8) * sd.lf * wob; // stretches as it surges, then again as it leaves
+        const hw = (baseW + surgeW * surge) * sd.wf * shudder * (1 - 0.62 * exit); // thins out on the way off
         const c = Math.cos(sd.ang);
         const si = Math.sin(sd.ang);
         const nx = -si; // unit normal, perpendicular to the streak
@@ -263,7 +276,7 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
         const i = s * VERTS_PER * 3;
         let w = 0;
         for (let st = 0; st < 4; st++) {
-          const r = sd.r0 + len * ST_POS[st];
+          const r = sd.r0 + evac + len * ST_POS[st];
           const px = c * r;
           const py = si * r;
           const hwS = hw * ST_WID[st];
@@ -313,7 +326,7 @@ function BreakShards({ ctl }: { ctl: HeroCtl }) {
       col[j + 3] = c.r; col[j + 4] = c.g; col[j + 5] = c.b;
       // golden-angle base + per-segment speed: the short segments lay out along
       // Fibonacci spiral arms and each one spirals as it flies (the ss4 look).
-      seeds.push({ base: i * GOLDEN_ANGLE, el: ((i * 37) % 100) / 100 - 0.5, sp: 2 + (i % 9) * 0.55 });
+      seeds.push({ base: i * GOLDEN_ANGLE, el: ((i * 37) % 100) / 100 - 0.5, sp: 2.6 + (i % 9) * 0.72 });
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
@@ -664,7 +677,9 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
       el.style.opacity = String(said);
       el.style.letterSpacing = lerp(0.9, 0.26, said).toFixed(3) + "em";
       el.style.filter = "blur(" + lerp(9, 0, said).toFixed(2) + "px)";
-      const split = lerp(15, 2, said).toFixed(2); // the chromatic split closes as it lands
+      // The split closes as it lands. It still lands ON, just eased off 2px to
+      // 1.6px so the fringe reads as colour rather than fighting the letterforms.
+      const split = lerp(15, 1.6, said).toFixed(2);
       el.style.textShadow = "-" + split + "px 0 #ff2e63, " + split + "px 0 #00e0ff";
     }
     if (hud.scrubEl.current && ctl.scrubRef.current == null) {

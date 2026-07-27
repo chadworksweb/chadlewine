@@ -122,13 +122,14 @@
   opacity: 0.85;
 }
 
-/* THE ADDRESS: sits in the clear band under the settled menu. Opacity,
-   letter-spacing, blur and the chromatic split are all written per frame by
-   HudDriver off the shared clock, so it cannot drift from the scene. */
+/* THE ADDRESS: sits above the menu, close enough to read as its heading rather
+   than as a separate banner. Opacity, letter-spacing, blur and the chromatic
+   split are all written per frame by HudDriver off the shared clock, so it
+   cannot drift from the scene. */
 .ha-said {
   position: absolute;
   left: 50%;
-  bottom: 6%;
+  top: 24%;
   transform: translateX(-50%);
   margin: 0;
   width: max-content;

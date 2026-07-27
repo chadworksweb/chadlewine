@@ -79,7 +79,7 @@ export default function HeroAnimatic() {
         {/* THE ADDRESS. Real DOM text, not drawn into the canvas, so it stays
             selectable and crawlable when this grafts onto the homepage. */}
         <p className="ha-said" ref={titleRef} style={{ opacity: 0 }}>
-          you are present with the deprogrammer
+          you are now tapped in with the deprogrammer
         </p>
       </div>
 
