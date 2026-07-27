@@ -22,7 +22,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  DOORS, PHI, SHELLS, SLOT_X, DUR, COL_PERI, COL_VOID,
+  DOORS, PHI, SHELLS, SLOT_X, DUR, SAID_IN, SAID_OUT, COL_PERI, COL_VOID,
   clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo,
   type Door, type HeroCtl, type HeroHud,
 } from "./heroShapes";
@@ -154,52 +154,157 @@ function WarpCore({ ctl }: { ctl: HeroCtl }) {
   return <primitive object={built.group} />;
 }
 
-// ---- lightspeed streaks: TWO kinds (violet + bright cream) ------------------
-type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.LineBasicMaterial; ls: THREE.LineSegments; seeds: { ang: number; r0: number; lf: number }[] };
+// ---- lightspeed streaks: violet + cream, with a jump-drive surge ------------
+// Not LineSegments: WebGL ignores LineBasicMaterial.linewidth, so a line can
+// never actually thicken. Each streak is a soft RIBBON whose width is written
+// per frame, which is what lets the warp surge swell them.
+//
+// The ribbon is four stations along the streak -- a point at the inner tip, two
+// full cross-sections, a point at the outer tip -- and each cross-section runs
+// edge / centre / edge with the EDGES BLACK. Under additive blending a black
+// vertex contributes nothing, so the streak feathers out sideways as well as
+// lengthwise. That soft falloff is what the Star Trek reference has and what a
+// hard-sided quad can never give: density and glow, not bars.
+const ST_POS = [0, 0.42, 0.78, 1]; // station positions along the streak
+const ST_WID = [0, 0.72, 1, 0]; // width multiplier per station
+const ST_LUM = [0, 0.85, 1, 0.35]; // centre brightness per station
+const VERTS_PER = 8; // tip + 3 + 3 + tip
+const INDEX_PER = 24; // 8 triangles
+
+type StreakSeed = { ang: number; r0: number; lf: number; wf: number };
+type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.MeshBasicMaterial; mesh: THREE.Mesh; seeds: StreakSeed[] };
+
+// THE SURGE: nothing at all until 1.46 (before that the streaks are the plain
+// thin lines they always were), then it ramps hard, keeps building, and stays
+// hot right up to the break at 2.2, where it hands the momentum straight off to
+// the flood instead of petering out first. Story-time, so the 0.5x intro
+// clock-stretch renders it about twice this long in real seconds.
+function warpSurge(t: number): number {
+  const attack = smooth(1.46, 1.8, t);
+  const climb = 0.8 + 0.2 * smooth(1.8, 2.18, t); // still gaining, never flat
+  const release = 1 - smooth(2.55, 2.95, t); // stays lit through the drop-out, so they leave hot
+  return attack * climb * release;
+}
+
 function RushStreaks({ ctl }: { ctl: HeroCtl }) {
   const built = useMemo(() => {
     const mk = (color: string, k: number, salt: number): StreakSet => {
       const geo = new THREE.BufferGeometry();
-      const pos = new Float32Array(k * 2 * 3);
+      const pos = new Float32Array(k * VERTS_PER * 3);
+      const col = new Float32Array(k * VERTS_PER * 3);
+      const idx = new Uint16Array(k * INDEX_PER);
+      const c = new THREE.Color(color);
+      // vert layout per streak: 0 = inner tip, 1..3 = station 1 (-n, centre, +n),
+      // 4..6 = station 2 (-n, centre, +n), 7 = outer tip.
+      const LUM = [ST_LUM[0], 0, ST_LUM[1], 0, 0, ST_LUM[2], 0, ST_LUM[3]];
+      for (let s = 0; s < k; s++) {
+        const v = s * VERTS_PER;
+        for (let e = 0; e < VERTS_PER; e++) {
+          const w = LUM[e];
+          const j = (v + e) * 3;
+          col[j] = c.r * w; col[j + 1] = c.g * w; col[j + 2] = c.b * w;
+        }
+        const o = s * INDEX_PER;
+        const T = v, A0 = v + 1, AC = v + 2, A1 = v + 3, B0 = v + 4, BC = v + 5, B1 = v + 6, U = v + 7;
+        const tri = [
+          T, A0, AC, T, AC, A1, // tail cone
+          A0, B0, AC, B0, BC, AC, // body, minus side
+          AC, BC, A1, BC, B1, A1, // body, plus side
+          B0, U, BC, BC, U, B1, // nose cone
+        ];
+        for (let n = 0; n < INDEX_PER; n++) idx[o + n] = tri[n];
+      }
       geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-      const ls = new THREE.LineSegments(geo, mat);
-      ls.position.z = 7;
-      const seeds = Array.from({ length: k }, (_, s) => ({
+      geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+      geo.setIndex(new THREE.BufferAttribute(idx, 1));
+      const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.frustumCulled = false;
+      mesh.position.z = 7;
+      const seeds: StreakSeed[] = Array.from({ length: k }, (_, s) => ({
         ang: (s / k) * Math.PI * 2 + ((s + salt) % 7) * 0.35,
         r0: 0.3 + ((((s * 97) + salt) % 100) / 100) * 4,
         lf: 0.5 + (((s * 53) + salt) % 100) / 100,
+        wf: 0.6 + (((s * 31) + salt) % 100) / 100, // per-streak width variance
       }));
-      return { geo, pos, mat, ls, seeds };
+      return { geo, pos, mat, mesh, seeds };
     };
-    return { violet: mk("#a877f0", 68, 0), cream: mk("#fff5d6", 30, 17) };
+    // Density is the other half of the reference look: the surge has to read as a
+    // WALL of light, which comes from many overlapping soft streaks, not few fat
+    // ones. So violet and cream keep their ORIGINAL counts (before 1.46 the field
+    // has to look exactly as it always did) and all the extra density lives in the
+    // flare set, which does not exist until the surge opens it.
+    return {
+      violet: mk("#a877f0", 68, 0),
+      cream: mk("#fff5d6", 30, 17),
+      flare: mk("#e8edff", 170, 41), // blue-white, surge-only: the jump-drive wall
+    };
   }, []);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
-    const rush = smooth(0.35, 1.4, t) * (1 - smooth(2.2, 2.5, t));
-    const draw = (set: StreakSet, lenK: number, op: number) => {
-      set.mat.opacity = op * rush;
-      set.ls.visible = rush > 0.01;
-      if (rush <= 0.01) return;
+    // How far up to speed the field is. Kept separate from the exit so streak
+    // length does not collapse on the way out.
+    const drive = smooth(0.35, 1.4, t);
+
+    // THE DROP-OUT. The streaks must not blink off -- they get FLUNG. Every
+    // streak's inner tip accelerates outward (exit SQUARED, so it builds), which
+    // evacuates the field from the centre out and carries each one off through
+    // the frame edge, stretching and thinning as it goes. Opacity holds full
+    // through all of that and only cuts afterwards as a backstop, by which point
+    // they are already off screen. That is the difference between an exit and a
+    // fade: you watch them leave.
+    const exit = smooth(2.3, 3.0, t);
+    const evac = exit * exit * 24; // world units the inner tip races outward
+    const rush = drive * (1 - smooth(2.9, 3.15, t));
+    const surge = warpSurge(t);
+    const shudder = 1 + 0.12 * Math.sin(t * 31) * surge; // the drive judders at peak
+
+    const draw = (set: StreakSet, lenK: number, op: number, baseW: number, surgeW: number, gate: number) => {
+      const vis = rush * gate;
+      set.mat.opacity = Math.min(1, op * vis * (1 + surge * 0.9));
+      set.mesh.visible = vis > 0.01;
+      if (vis <= 0.01) return;
       for (let s = 0; s < set.seeds.length; s++) {
         const sd = set.seeds[s];
         const wob = 1 + 0.06 * Math.sin(t * 9 + s);
-        const len = (0.6 + lenK * rush) * sd.lf * wob;
+        const len = (0.6 + lenK * drive) * (1 + surge * 0.9) * (1 + exit * 1.8) * sd.lf * wob; // stretches as it surges, then again as it leaves
+        const hw = (baseW + surgeW * surge) * sd.wf * shudder * (1 - 0.62 * exit); // thins out on the way off
         const c = Math.cos(sd.ang);
         const si = Math.sin(sd.ang);
-        const i = s * 6;
-        set.pos[i] = c * sd.r0; set.pos[i + 1] = si * sd.r0; set.pos[i + 2] = 0;
-        set.pos[i + 3] = c * (sd.r0 + len); set.pos[i + 4] = si * (sd.r0 + len); set.pos[i + 5] = 0;
+        const nx = -si; // unit normal, perpendicular to the streak
+        const ny = c;
+        const i = s * VERTS_PER * 3;
+        let w = 0;
+        for (let st = 0; st < 4; st++) {
+          const r = sd.r0 + evac + len * ST_POS[st];
+          const px = c * r;
+          const py = si * r;
+          const hwS = hw * ST_WID[st];
+          if (st === 0 || st === 3) {
+            set.pos[i + w] = px; set.pos[i + w + 1] = py; set.pos[i + w + 2] = 0;
+            w += 3;
+          } else {
+            set.pos[i + w] = px - nx * hwS; set.pos[i + w + 1] = py - ny * hwS; set.pos[i + w + 2] = 0;
+            set.pos[i + w + 3] = px; set.pos[i + w + 4] = py; set.pos[i + w + 5] = 0;
+            set.pos[i + w + 6] = px + nx * hwS; set.pos[i + w + 7] = py + ny * hwS; set.pos[i + w + 8] = 0;
+            w += 9;
+          }
+        }
       }
       set.geo.attributes.position.needsUpdate = true;
     };
-    draw(built.violet, 5.0, 0.26); // sparse thin violet
-    draw(built.cream, 6.4, 0.5); // a few longer, brighter cream streaks
+
+    // Base widths are hairline on purpose: before the surge these must read as the
+    // plain thin lines they were, and ALL the thickness arrives with the jump.
+    draw(built.violet, 5.0, 0.34, 0.005, 0.030, 1); // sparse violet
+    draw(built.cream, 6.4, 0.6, 0.007, 0.052, 1); // longer, brighter
+    draw(built.flare, 8.2, 0.8, 0.0, 0.070, surge); // gated on the surge alone
   });
   return (
     <>
-      <primitive object={built.violet.ls} />
-      <primitive object={built.cream.ls} />
+      <primitive object={built.violet.mesh} />
+      <primitive object={built.cream.mesh} />
+      <primitive object={built.flare.mesh} />
     </>
   );
 }
@@ -221,7 +326,7 @@ function BreakShards({ ctl }: { ctl: HeroCtl }) {
       col[j + 3] = c.r; col[j + 4] = c.g; col[j + 5] = c.b;
       // golden-angle base + per-segment speed: the short segments lay out along
       // Fibonacci spiral arms and each one spirals as it flies (the ss4 look).
-      seeds.push({ base: i * GOLDEN_ANGLE, el: ((i * 37) % 100) / 100 - 0.5, sp: 2 + (i % 9) * 0.55 });
+      seeds.push({ base: i * GOLDEN_ANGLE, el: ((i * 37) % 100) / 100 - 0.5, sp: 2.6 + (i % 9) * 0.72 });
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
@@ -562,6 +667,20 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
     if (hud.doorsRef.current) {
       hud.doorsRef.current.style.opacity = String(doorsIn);
       hud.doorsRef.current.style.pointerEvents = t > 5.3 ? "auto" : "none";
+    }
+    // THE ADDRESS: the line resolves out of a wide, blurred, chromatically split
+    // ghost into clean type -- the same "resolve from periwinkle" move the shapes
+    // make, done in the DOM so the copy stays real crawlable text.
+    const said = smooth(SAID_IN, SAID_OUT, t);
+    const el = hud.titleRef.current;
+    if (el) {
+      el.style.opacity = String(said);
+      el.style.letterSpacing = lerp(0.9, 0.26, said).toFixed(3) + "em";
+      el.style.filter = "blur(" + lerp(9, 0, said).toFixed(2) + "px)";
+      // The split closes as it lands. It still lands ON, just eased off 2px to
+      // 1.6px so the fringe reads as colour rather than fighting the letterforms.
+      const split = lerp(15, 1.6, said).toFixed(2);
+      el.style.textShadow = "-" + split + "px 0 #ff2e63, " + split + "px 0 #00e0ff";
     }
     if (hud.scrubEl.current && ctl.scrubRef.current == null) {
       hud.scrubEl.current.value = String(Math.round(td * 100));

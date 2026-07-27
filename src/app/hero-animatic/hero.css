@@ -122,6 +122,31 @@
   opacity: 0.85;
 }
 
+/* THE ADDRESS: sits above the menu, close enough to read as its heading rather
+   than as a separate banner. Opacity, letter-spacing, blur and the chromatic
+   split are all written per frame by HudDriver off the shared clock, so it
+   cannot drift from the scene. */
+.ha-said {
+  position: absolute;
+  left: 50%;
+  top: 24%;
+  transform: translateX(-50%);
+  margin: 0;
+  width: max-content;
+  /* Never wrap. At its widest the ghost is spaced out past the frame edge, and
+     the stage clips it -- letting it wrap instead would reflow the line as it
+     lands. It converges inward to fit. */
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: clamp(0.58rem, 1.75vw, 1.32rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #f2f5ff;
+  opacity: 0;
+}
+
 .ha-controls {
   width: 100%;
   max-width: 1280px;
