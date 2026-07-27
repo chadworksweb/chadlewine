@@ -65,8 +65,8 @@ function CameraRig({ ctl }: { ctl: HeroCtl }) {
   const { camera } = useThree();
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
-    const dolly = lerp(15.5, 12.8, smooth(0, 2.2, t)); // gentle plunge, steadier
-    const back = lerp(12.8, 13.4, smooth(2.4, 5, t)); // ease back to frame the menu
+    const dolly = lerp(15, 13.2, smooth(0, 2.2, t)); // barely a plunge -- steady, not a dive
+    const back = lerp(13.2, 13.4, smooth(2.4, 5, t)); // ease back to frame the menu
     camera.position.z = t < 2.4 ? dolly : back;
     camera.position.x = Math.sin(t * 0.16) * 0.25 * smooth(4.8, 6, t);
     camera.lookAt(0, 0, 0);
@@ -101,11 +101,11 @@ function MachineField({ ctl }: { ctl: HeroCtl }) {
     const out = 1 - smooth(2.2, 2.9, t);
     built.group.visible = out > 0.01;
     if (out <= 0.01) return;
-    const RANGE = 74;
-    const tv = t * 4.2 + 1.7 * Math.pow(Math.max(0, t - 0.5), 2); // slower, steadier
+    const RANGE = 60; // shallower tunnel -> less perspective whoosh near the camera
+    const tv = t * 4.2 + 0.9 * Math.pow(Math.max(0, t - 0.5), 2); // rate doubled to offset the 0.5x intro clock -> tunnel drift stays the same, only the ejects slow
     for (const m of built.motes) {
       const zc = (((m.seed * RANGE + tv) % RANGE) + RANGE) % RANGE; // 0..RANGE
-      const z = zc - 64; // -64 (vanishing point) -> +10 (past you)
+      const z = zc - 50; // -50 (vanishing point) -> +10 (past you)
       const near = zc / RANGE; // 0 far, 1 near
       m.ls.position.set(Math.cos(m.ang) * m.r, Math.sin(m.ang) * m.r * 0.8, z); // tube wall, open centre
       m.ls.rotation.x = t * 0.35 + m.spin;
@@ -121,15 +121,16 @@ function WarpCore({ ctl }: { ctl: HeroCtl }) {
   const built = useMemo(() => {
     const group = new THREE.Group();
     group.position.z = -34;
+    // inner: bright cyan core (ss7)
     const coreMat = new THREE.LineBasicMaterial({ color: new THREE.Color("#00e0ff"), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
-    const core = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 1)), coreMat);
+    const core = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1.0, 1)), coreMat);
     group.add(core);
-    const tunMat = new THREE.LineBasicMaterial({ color: new THREE.Color("#3dff9e"), transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
-    const tunnel = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1, 1)), tunMat);
-    tunnel.scale.set(1.7, 1.7, 9); // stretched toward the camera -> the warp mesh
-    tunnel.position.z = 7;
-    group.add(tunnel);
-    return { group, core, coreMat, tunMat, tunnel };
+    // outer: a larger green shell around it (ss7). BOTH stay round -- only ever
+    // uniform-scaled and spun, so they never distort vertically.
+    const shellMat = new THREE.LineBasicMaterial({ color: new THREE.Color("#3dff9e"), transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
+    const shell = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(2.0, 1)), shellMat);
+    group.add(shell);
+    return { group, core, coreMat, shell, shellMat };
   }, []);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
@@ -138,88 +139,149 @@ function WarpCore({ ctl }: { ctl: HeroCtl }) {
     if (vis <= 0.01) return;
     let pulse = 0; // a bump each time a door ejects (5 ejects)
     for (let i = 0; i < 5; i++) {
-      const dd = (t - (0.95 + i * 0.22)) / 0.11;
+      const dd = (t - (0.85 + i * 0.26)) / 0.12;
       pulse += Math.exp(-dd * dd);
     }
-    built.core.scale.setScalar(1 + pulse * 0.5);
-    built.core.rotation.y = t * 1.3;
-    built.core.rotation.x = t * 0.8;
-    built.coreMat.opacity = (0.4 + 0.4 * Math.min(1, pulse)) * vis;
-    built.tunnel.rotation.z = t * 0.7;
-    built.tunnel.rotation.x = t * 0.3;
-    built.tunMat.opacity = 0.1 * vis;
+    built.core.scale.setScalar(1 + pulse * 0.35); // uniform breathe only
+    built.core.rotation.y = t * 1.1;
+    built.core.rotation.x = t * 0.6;
+    built.coreMat.opacity = (0.55 + 0.4 * Math.min(1, pulse)) * vis;
+    built.shell.scale.setScalar(1 + pulse * 0.12);
+    built.shell.rotation.y = -t * 0.5; // counter-spin, still round
+    built.shell.rotation.x = t * 0.3;
+    built.shellMat.opacity = 0.38 * vis;
   });
   return <primitive object={built.group} />;
 }
 
-// ---- lightspeed streaks: TWO kinds (violet + bright cream) ------------------
-type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.LineBasicMaterial; ls: THREE.LineSegments; seeds: { ang: number; r0: number; lf: number }[] };
+// ---- lightspeed streaks: violet + cream, with a jump-drive surge ------------
+// Built from real tapered QUADS, not LineSegments: WebGL ignores
+// LineBasicMaterial.linewidth, so a line can never actually thicken. Each streak
+// is a quad whose half-width is written per frame, which is what lets the warp
+// surge swell them. Vertex colours bake the taper (additive blending reads a
+// darker vertex as a softer edge), so the tail feathers off and the leading edge
+// stays hot; overall brightness rides on material.opacity.
+type StreakSeed = { ang: number; r0: number; lf: number; wf: number };
+type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.MeshBasicMaterial; mesh: THREE.Mesh; seeds: StreakSeed[] };
+
+// THE SURGE: a hard attack, then it keeps building and stays hot right up to the
+// break at 2.2, where it hands the momentum straight off to the flood instead of
+// petering out first. Story-time, so the 0.5x intro clock-stretch renders it
+// about twice this long in real seconds.
+function warpSurge(t: number): number {
+  const attack = smooth(1.34, 1.66, t);
+  const climb = 0.82 + 0.18 * smooth(1.66, 2.18, t); // still gaining, never flat
+  const release = 1 - smooth(2.2, 2.38, t); // cuts as the break takes over
+  return attack * climb * release;
+}
+
 function RushStreaks({ ctl }: { ctl: HeroCtl }) {
   const built = useMemo(() => {
     const mk = (color: string, k: number, salt: number): StreakSet => {
       const geo = new THREE.BufferGeometry();
-      const pos = new Float32Array(k * 2 * 3);
+      const pos = new Float32Array(k * 4 * 3);
+      const col = new Float32Array(k * 4 * 3);
+      const idx = new Uint16Array(k * 6);
+      const c = new THREE.Color(color);
+      // Each streak is a SPINDLE, not a bar: it comes to a point at both ends and
+      // carries its full width only at the waist, so nothing ever reads squared
+      // off. Verts are [inner tip, waist +n, waist -n, outer tip].
+      const TAPER = [0, 1, 1, 0.4]; // brightness per vert; the tail fades to nothing
+      for (let s = 0; s < k; s++) {
+        const v = s * 4;
+        for (let e = 0; e < 4; e++) {
+          const w = TAPER[e];
+          const j = (v + e) * 3;
+          col[j] = c.r * w; col[j + 1] = c.g * w; col[j + 2] = c.b * w;
+        }
+        const o = s * 6;
+        idx[o] = v; idx[o + 1] = v + 1; idx[o + 2] = v + 2;
+        idx[o + 3] = v + 1; idx[o + 4] = v + 3; idx[o + 5] = v + 2;
+      }
       geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-      const ls = new THREE.LineSegments(geo, mat);
-      ls.position.z = 7;
-      const seeds = Array.from({ length: k }, (_, s) => ({
+      geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+      geo.setIndex(new THREE.BufferAttribute(idx, 1));
+      const mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.frustumCulled = false;
+      mesh.position.z = 7;
+      const seeds: StreakSeed[] = Array.from({ length: k }, (_, s) => ({
         ang: (s / k) * Math.PI * 2 + ((s + salt) % 7) * 0.35,
         r0: 0.3 + ((((s * 97) + salt) % 100) / 100) * 4,
         lf: 0.5 + (((s * 53) + salt) % 100) / 100,
+        wf: 0.6 + (((s * 31) + salt) % 100) / 100, // per-streak width variance
       }));
-      return { geo, pos, mat, ls, seeds };
+      return { geo, pos, mat, mesh, seeds };
     };
-    return { violet: mk("#a877f0", 68, 0), cream: mk("#fff5d6", 30, 17) };
+    return {
+      violet: mk("#a877f0", 68, 0),
+      cream: mk("#fff5d6", 30, 17),
+      flare: mk("#ffffff", 24, 41), // only exists during the surge: the white-hot pop
+    };
   }, []);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     const rush = smooth(0.35, 1.4, t) * (1 - smooth(2.2, 2.5, t));
-    const draw = (set: StreakSet, lenK: number, op: number) => {
-      set.mat.opacity = op * rush;
-      set.ls.visible = rush > 0.01;
-      if (rush <= 0.01) return;
+    const surge = warpSurge(t);
+    const shudder = 1 + 0.14 * Math.sin(t * 31) * surge; // the drive judders at peak
+
+    const draw = (set: StreakSet, lenK: number, op: number, baseW: number, surgeW: number, gate: number) => {
+      const vis = rush * gate;
+      set.mat.opacity = Math.min(1, op * vis * (1 + surge * 0.85));
+      set.mesh.visible = vis > 0.01;
+      if (vis <= 0.01) return;
       for (let s = 0; s < set.seeds.length; s++) {
         const sd = set.seeds[s];
         const wob = 1 + 0.06 * Math.sin(t * 9 + s);
-        const len = (0.6 + lenK * rush) * sd.lf * wob;
+        const len = (0.6 + lenK * rush) * (1 + surge * 0.9) * sd.lf * wob; // stretches as it surges
+        const hw = (baseW + surgeW * surge) * sd.wf * shudder; // half-width at the waist
         const c = Math.cos(sd.ang);
         const si = Math.sin(sd.ang);
-        const i = s * 6;
-        set.pos[i] = c * sd.r0; set.pos[i + 1] = si * sd.r0; set.pos[i + 2] = 0;
-        set.pos[i + 3] = c * (sd.r0 + len); set.pos[i + 4] = si * (sd.r0 + len); set.pos[i + 5] = 0;
+        const nx = -si; // unit normal, perpendicular to the streak
+        const ny = c;
+        const ri = sd.r0; // inner tip
+        const rw = sd.r0 + len * 0.74; // waist sits forward: a long tail, a short nose
+        const ro = sd.r0 + len; // outer tip
+        const i = s * 12;
+        set.pos[i] = c * ri; set.pos[i + 1] = si * ri; set.pos[i + 2] = 0;
+        set.pos[i + 3] = c * rw + nx * hw; set.pos[i + 4] = si * rw + ny * hw; set.pos[i + 5] = 0;
+        set.pos[i + 6] = c * rw - nx * hw; set.pos[i + 7] = si * rw - ny * hw; set.pos[i + 8] = 0;
+        set.pos[i + 9] = c * ro; set.pos[i + 10] = si * ro; set.pos[i + 11] = 0;
       }
       set.geo.attributes.position.needsUpdate = true;
     };
-    draw(built.violet, 5.0, 0.26); // sparse thin violet
-    draw(built.cream, 6.4, 0.5); // a few longer, brighter cream streaks
+
+    draw(built.violet, 5.0, 0.3, 0.010, 0.023, 1); // sparse violet, thickens moderately
+    draw(built.cream, 6.4, 0.55, 0.015, 0.042, 1); // longer, brighter, thickens hard
+    draw(built.flare, 8.2, 0.7, 0.0, 0.058, surge); // gated on the surge alone
   });
   return (
     <>
-      <primitive object={built.violet.ls} />
-      <primitive object={built.cream.ls} />
+      <primitive object={built.violet.mesh} />
+      <primitive object={built.cream.mesh} />
+      <primitive object={built.flare.mesh} />
     </>
   );
 }
 
-// ---- the break: a radial burst of cyan + pink shard-dashes (ss4) ------------
+// ---- the break: a golden-angle spiral of short cyan + pink segments (ss4) ---
 function BreakShards({ ctl }: { ctl: HeroCtl }) {
-  const N = 96;
+  const N = 140;
   const built = useMemo(() => {
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(N * 2 * 3);
     const col = new Float32Array(N * 2 * 3);
     const cyan = new THREE.Color("#00e0ff");
     const pink = new THREE.Color("#ff9ed6");
-    const seeds: { a: number; el: number; sp: number }[] = [];
+    const seeds: { base: number; el: number; sp: number }[] = [];
     for (let i = 0; i < N; i++) {
       const c = i % 2 ? cyan : pink;
       const j = i * 6;
       col[j] = c.r; col[j + 1] = c.g; col[j + 2] = c.b;
       col[j + 3] = c.r; col[j + 4] = c.g; col[j + 5] = c.b;
-      // angle even around the circle, speed in 5 groups -> radius and angle rise
-      // together within each run, so the burst forms spiral arms (the ss4 look).
-      seeds.push({ a: (i / N) * Math.PI * 2, el: ((i * 37) % 100) / 100 - 0.5, sp: 0.5 + (i % 5) * 0.12 });
+      // golden-angle base + per-segment speed: the short segments lay out along
+      // Fibonacci spiral arms and each one spirals as it flies (the ss4 look).
+      seeds.push({ base: i * GOLDEN_ANGLE, el: ((i * 37) % 100) / 100 - 0.5, sp: 2 + (i % 9) * 0.55 });
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
@@ -230,21 +292,21 @@ function BreakShards({ ctl }: { ctl: HeroCtl }) {
   }, []);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
-    const life = smooth(2.2, 2.34, t) * (1 - smooth(2.6, 3.15, t));
+    const life = smooth(2.25, 2.5, t) * (1 - smooth(3.1, 3.7, t)); // lingers so the spiral reads
     built.mat.opacity = life;
     built.ls.visible = life > 0.01;
     if (life <= 0.01) return;
-    const age = Math.max(0, t - 2.2);
+    const age = Math.max(0, t - 2.25);
+    const DASH = 0.55; // each segment stays SHORT -- it is a dash, not a streak
     for (let i = 0; i < N; i++) {
       const s = built.seeds[i];
-      const rin = age * 13 * s.sp;
-      const rout = rin + 0.8 + age * 2.2; // the dash lengthens as it flies out
-      const ang = s.a + rin * 0.16; // twist by radius -> the arms curl into a spiral
+      const r = age * s.sp; // flies out, slowly, so the arms stay on screen
+      const ang = s.base + r * 0.9; // twist by radius -> each segment traces a spiral, arms curl
       const dx = Math.cos(ang);
       const dy = Math.sin(ang);
       const j = i * 6;
-      built.pos[j] = dx * rin; built.pos[j + 1] = dy * rin; built.pos[j + 2] = s.el * 2.2;
-      built.pos[j + 3] = dx * rout; built.pos[j + 4] = dy * rout; built.pos[j + 5] = s.el * 2.2;
+      built.pos[j] = dx * r; built.pos[j + 1] = dy * r; built.pos[j + 2] = s.el * 2;
+      built.pos[j + 3] = dx * (r + DASH); built.pos[j + 4] = dy * (r + DASH); built.pos[j + 5] = s.el * 2;
     }
     built.geo.attributes.position.needsUpdate = true;
   });
@@ -452,10 +514,10 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
 
     if (t < 2.2) {
       // TUNNEL: the actual door ejects from the warp core and streaks past you
-      const ejectT = 0.95 + index * 0.22; // staggered -> the core pulses per eject
+      const ejectT = 0.85 + index * 0.26; // staggered -> the core pulses per eject
       const local = t - ejectT;
-      const life = smooth(-0.55, 0.3, local);
-      const gone = smooth(0.18, 0.6, local);
+      const life = smooth(-0.72, 0.5, local); // longer, slower flight (was ~0.85s, now ~1.2s)
+      const gone = smooth(0.45, 0.82, local);
       if (life <= 0.001) {
         g.visible = false;
         built.trailMat.opacity = 0;
@@ -463,12 +525,12 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
       }
       g.visible = true;
       const a = index * 1.9; // its own angle out of the centre
-      const z = lerp(Z_CORE, 18, easeOut(life)); // born at core, flies past the camera
+      const z = lerp(Z_CORE, 16, easeOut(life)); // born at core, drifts past the camera
       const latR = life * life * 9; // fans out as it nears
       g.position.set(Math.cos(a) * latR, Math.sin(a) * latR * 0.72, z);
       g.scale.setScalar(lerp(0.25, 2.4, life));
       const alpha = 0.95 * (1 - gone);
-      const spin = t * 3 + index;
+      const spin = t * 1.5 + index; // slower tumble
       for (let i = 0; i < built.shells.length; i++) {
         const ls = built.shells[i];
         ls.scale.setScalar(Math.pow(1 / PHI, i));
@@ -537,7 +599,11 @@ function ClockDriver({ ctl }: { ctl: HeroCtl }) {
     if (ctl.scrubRef.current != null) {
       ctl.tRef.current = ctl.scrubRef.current;
     } else if (ctl.playingRef.current) {
-      ctl.tRef.current += d;
+      // Stretch the pull/tunnel/eject ~2x so the ejection reads slow, then ramp
+      // back to real-time by the break. Everything downstream is keyed to t, so
+      // no other timing changes -- the intro just takes longer in real seconds.
+      const rate = 0.5 + 0.5 * smooth(2.0, 2.6, ctl.tRef.current);
+      ctl.tRef.current += d * rate;
     }
   });
   return null;
@@ -550,7 +616,7 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
     const td = Math.min(t, DUR);
     if (hud.beatRef.current) hud.beatRef.current.textContent = beatName(td);
     if (hud.tcRef.current) hud.tcRef.current.textContent = td.toFixed(2) + "s";
-    const flood = Math.max(0, smooth(2.2, 2.45, t) - smooth(2.55, 3.1, t) * 0.95);
+    const flood = smooth(2.2, 2.35, t) * (1 - smooth(2.45, 3.0, t)); // a quick flash, then it clears for the spiral
     if (hud.floodRef.current) hud.floodRef.current.style.opacity = String(flood);
     const doorsIn = smooth(5.0, 5.75, t);
     if (hud.doorsRef.current) {
