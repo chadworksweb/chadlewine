@@ -155,22 +155,33 @@ function WarpCore({ ctl }: { ctl: HeroCtl }) {
 }
 
 // ---- lightspeed streaks: violet + cream, with a jump-drive surge ------------
-// Built from real tapered QUADS, not LineSegments: WebGL ignores
-// LineBasicMaterial.linewidth, so a line can never actually thicken. Each streak
-// is a quad whose half-width is written per frame, which is what lets the warp
-// surge swell them. Vertex colours bake the taper (additive blending reads a
-// darker vertex as a softer edge), so the tail feathers off and the leading edge
-// stays hot; overall brightness rides on material.opacity.
+// Not LineSegments: WebGL ignores LineBasicMaterial.linewidth, so a line can
+// never actually thicken. Each streak is a soft RIBBON whose width is written
+// per frame, which is what lets the warp surge swell them.
+//
+// The ribbon is four stations along the streak -- a point at the inner tip, two
+// full cross-sections, a point at the outer tip -- and each cross-section runs
+// edge / centre / edge with the EDGES BLACK. Under additive blending a black
+// vertex contributes nothing, so the streak feathers out sideways as well as
+// lengthwise. That soft falloff is what the Star Trek reference has and what a
+// hard-sided quad can never give: density and glow, not bars.
+const ST_POS = [0, 0.42, 0.78, 1]; // station positions along the streak
+const ST_WID = [0, 0.72, 1, 0]; // width multiplier per station
+const ST_LUM = [0, 0.85, 1, 0.35]; // centre brightness per station
+const VERTS_PER = 8; // tip + 3 + 3 + tip
+const INDEX_PER = 24; // 8 triangles
+
 type StreakSeed = { ang: number; r0: number; lf: number; wf: number };
 type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.MeshBasicMaterial; mesh: THREE.Mesh; seeds: StreakSeed[] };
 
-// THE SURGE: a hard attack, then it keeps building and stays hot right up to the
-// break at 2.2, where it hands the momentum straight off to the flood instead of
-// petering out first. Story-time, so the 0.5x intro clock-stretch renders it
-// about twice this long in real seconds.
+// THE SURGE: nothing at all until 1.46 (before that the streaks are the plain
+// thin lines they always were), then it ramps hard, keeps building, and stays
+// hot right up to the break at 2.2, where it hands the momentum straight off to
+// the flood instead of petering out first. Story-time, so the 0.5x intro
+// clock-stretch renders it about twice this long in real seconds.
 function warpSurge(t: number): number {
-  const attack = smooth(1.34, 1.66, t);
-  const climb = 0.82 + 0.18 * smooth(1.66, 2.18, t); // still gaining, never flat
+  const attack = smooth(1.46, 1.8, t);
+  const climb = 0.8 + 0.2 * smooth(1.8, 2.18, t); // still gaining, never flat
   const release = 1 - smooth(2.2, 2.38, t); // cuts as the break takes over
   return attack * climb * release;
 }
@@ -179,24 +190,29 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
   const built = useMemo(() => {
     const mk = (color: string, k: number, salt: number): StreakSet => {
       const geo = new THREE.BufferGeometry();
-      const pos = new Float32Array(k * 4 * 3);
-      const col = new Float32Array(k * 4 * 3);
-      const idx = new Uint16Array(k * 6);
+      const pos = new Float32Array(k * VERTS_PER * 3);
+      const col = new Float32Array(k * VERTS_PER * 3);
+      const idx = new Uint16Array(k * INDEX_PER);
       const c = new THREE.Color(color);
-      // Each streak is a SPINDLE, not a bar: it comes to a point at both ends and
-      // carries its full width only at the waist, so nothing ever reads squared
-      // off. Verts are [inner tip, waist +n, waist -n, outer tip].
-      const TAPER = [0, 1, 1, 0.4]; // brightness per vert; the tail fades to nothing
+      // vert layout per streak: 0 = inner tip, 1..3 = station 1 (-n, centre, +n),
+      // 4..6 = station 2 (-n, centre, +n), 7 = outer tip.
+      const LUM = [ST_LUM[0], 0, ST_LUM[1], 0, 0, ST_LUM[2], 0, ST_LUM[3]];
       for (let s = 0; s < k; s++) {
-        const v = s * 4;
-        for (let e = 0; e < 4; e++) {
-          const w = TAPER[e];
+        const v = s * VERTS_PER;
+        for (let e = 0; e < VERTS_PER; e++) {
+          const w = LUM[e];
           const j = (v + e) * 3;
           col[j] = c.r * w; col[j + 1] = c.g * w; col[j + 2] = c.b * w;
         }
-        const o = s * 6;
-        idx[o] = v; idx[o + 1] = v + 1; idx[o + 2] = v + 2;
-        idx[o + 3] = v + 1; idx[o + 4] = v + 3; idx[o + 5] = v + 2;
+        const o = s * INDEX_PER;
+        const T = v, A0 = v + 1, AC = v + 2, A1 = v + 3, B0 = v + 4, BC = v + 5, B1 = v + 6, U = v + 7;
+        const tri = [
+          T, A0, AC, T, AC, A1, // tail cone
+          A0, B0, AC, B0, BC, AC, // body, minus side
+          AC, BC, A1, BC, B1, A1, // body, plus side
+          B0, U, BC, BC, U, B1, // nose cone
+        ];
+        for (let n = 0; n < INDEX_PER; n++) idx[o + n] = tri[n];
       }
       geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
       geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
@@ -213,21 +229,26 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
       }));
       return { geo, pos, mat, mesh, seeds };
     };
+    // Density is the other half of the reference look: the surge has to read as a
+    // WALL of light, which comes from many overlapping soft streaks, not few fat
+    // ones. So violet and cream keep their ORIGINAL counts (before 1.46 the field
+    // has to look exactly as it always did) and all the extra density lives in the
+    // flare set, which does not exist until the surge opens it.
     return {
       violet: mk("#a877f0", 68, 0),
       cream: mk("#fff5d6", 30, 17),
-      flare: mk("#ffffff", 24, 41), // only exists during the surge: the white-hot pop
+      flare: mk("#e8edff", 170, 41), // blue-white, surge-only: the jump-drive wall
     };
   }, []);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     const rush = smooth(0.35, 1.4, t) * (1 - smooth(2.2, 2.5, t));
     const surge = warpSurge(t);
-    const shudder = 1 + 0.14 * Math.sin(t * 31) * surge; // the drive judders at peak
+    const shudder = 1 + 0.12 * Math.sin(t * 31) * surge; // the drive judders at peak
 
     const draw = (set: StreakSet, lenK: number, op: number, baseW: number, surgeW: number, gate: number) => {
       const vis = rush * gate;
-      set.mat.opacity = Math.min(1, op * vis * (1 + surge * 0.85));
+      set.mat.opacity = Math.min(1, op * vis * (1 + surge * 0.9));
       set.mesh.visible = vis > 0.01;
       if (vis <= 0.01) return;
       for (let s = 0; s < set.seeds.length; s++) {
@@ -239,21 +260,32 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
         const si = Math.sin(sd.ang);
         const nx = -si; // unit normal, perpendicular to the streak
         const ny = c;
-        const ri = sd.r0; // inner tip
-        const rw = sd.r0 + len * 0.74; // waist sits forward: a long tail, a short nose
-        const ro = sd.r0 + len; // outer tip
-        const i = s * 12;
-        set.pos[i] = c * ri; set.pos[i + 1] = si * ri; set.pos[i + 2] = 0;
-        set.pos[i + 3] = c * rw + nx * hw; set.pos[i + 4] = si * rw + ny * hw; set.pos[i + 5] = 0;
-        set.pos[i + 6] = c * rw - nx * hw; set.pos[i + 7] = si * rw - ny * hw; set.pos[i + 8] = 0;
-        set.pos[i + 9] = c * ro; set.pos[i + 10] = si * ro; set.pos[i + 11] = 0;
+        const i = s * VERTS_PER * 3;
+        let w = 0;
+        for (let st = 0; st < 4; st++) {
+          const r = sd.r0 + len * ST_POS[st];
+          const px = c * r;
+          const py = si * r;
+          const hwS = hw * ST_WID[st];
+          if (st === 0 || st === 3) {
+            set.pos[i + w] = px; set.pos[i + w + 1] = py; set.pos[i + w + 2] = 0;
+            w += 3;
+          } else {
+            set.pos[i + w] = px - nx * hwS; set.pos[i + w + 1] = py - ny * hwS; set.pos[i + w + 2] = 0;
+            set.pos[i + w + 3] = px; set.pos[i + w + 4] = py; set.pos[i + w + 5] = 0;
+            set.pos[i + w + 6] = px + nx * hwS; set.pos[i + w + 7] = py + ny * hwS; set.pos[i + w + 8] = 0;
+            w += 9;
+          }
+        }
       }
       set.geo.attributes.position.needsUpdate = true;
     };
 
-    draw(built.violet, 5.0, 0.3, 0.010, 0.023, 1); // sparse violet, thickens moderately
-    draw(built.cream, 6.4, 0.55, 0.015, 0.042, 1); // longer, brighter, thickens hard
-    draw(built.flare, 8.2, 0.7, 0.0, 0.058, surge); // gated on the surge alone
+    // Base widths are hairline on purpose: before the surge these must read as the
+    // plain thin lines they were, and ALL the thickness arrives with the jump.
+    draw(built.violet, 5.0, 0.34, 0.005, 0.030, 1); // sparse violet
+    draw(built.cream, 6.4, 0.6, 0.007, 0.052, 1); // longer, brighter
+    draw(built.flare, 8.2, 0.8, 0.0, 0.070, surge); // gated on the surge alone
   });
   return (
     <>
