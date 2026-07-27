@@ -126,16 +126,73 @@
    than as a separate banner. Opacity, letter-spacing, blur and the chromatic
    split are all written per frame by HudDriver off the shared clock, so it
    cannot drift from the scene. */
-.ha-said {
+/* The address block: wordmark and line stacked in ONE grid cell, so the big
+   wordmark stays centred on the line whatever either one's width does. */
+.ha-address {
   position: absolute;
   left: 50%;
   top: 24%;
-  transform: translateX(-50%);
+  /* -50% is the horizontal centring; the -20px lifts the whole block, wordmark
+     and line together, so their relative offset is untouched. */
+  transform: translate(-50%, -20px);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.ha-address > * {
+  grid-area: 1 / 1;
+}
+
+/* Screen-reader copy of each line, so the decorative per-character spans can
+   stay aria-hidden without the copy going missing. */
+.ha-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The wordmark behind the line. Matches the nav logo's treatment (same UI face,
+   weight, tracking, uppercase) at hero scale. Real text, not aria-hidden: this
+   is the site's own name and it should carry over to the homepage graft as
+   readable content. */
+.ha-mark {
+  white-space: nowrap;
+  font-family: var(--font-ui, ui-sans-serif, system-ui, sans-serif);
+  font-size: clamp(1.5rem, 7.5vw, 6rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: #dfe6ff;
+  /* Lifted off the shared grid cell's centre so the line sits low against the
+     wordmark rather than splitting it in half. */
+  transform: translateY(-10px);
+  opacity: 0;
+}
+/* Glitch characters. Transform-only jitter: nudging position never reflows,
+   whereas swapping in substitute glyphs would change each character's advance
+   width and make a centred, nowrap wordmark shimmy sideways for three seconds. */
+.ha-m {
+  display: inline-block;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.ha-said {
   margin: 0;
   width: max-content;
-  /* Never wrap. At its widest the ghost is spaced out past the frame edge, and
-     the stage clips it -- letting it wrap instead would reflow the line as it
-     lands. It converges inward to fit. */
+  /* Sits above the wordmark in the shared grid cell. The -2px nudges the line
+     alone against the wordmark; offsetting via top rather than transform keeps
+     it clear of the driver, which rewrites this element's style every frame. */
+  position: relative;
+  top: -3px;
+  z-index: 1;
   white-space: nowrap;
   text-align: center;
   pointer-events: none;
@@ -144,7 +201,40 @@
   font-weight: 700;
   text-transform: uppercase;
   color: #f2f5ff;
+  /* The landed look is unchanged from the resolve version: same tracking, same
+     1.6px chromatic fringe. Only the ENTRANCE changed, so these are now static
+     instead of being written per frame. */
+  letter-spacing: 0.26em;
+  text-shadow: -1.6px 0 #ff2e63, 1.6px 0 #00e0ff;
   opacity: 0;
+}
+
+/* Typed characters. Opacity, never display or insertion -- the full line is
+   laid out from the first frame, so revealing a character cannot reflow the
+   ones after it and the centred block never jumps as it types. */
+.ha-c {
+  position: relative;
+  opacity: 0;
+}
+.ha-c.is-on {
+  opacity: 1;
+}
+/* The caret rides the typing frontier as a pseudo-element on whichever
+   character is currently last, so it needs no measurement and it follows the
+   text through any resize or font-size change on its own. */
+.ha-c.is-frontier::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 0.02em;
+  width: 0.09em;
+  height: 1em;
+  background: #00e0ff;
+  animation: ha-caret 0.9s steps(1, end) infinite;
+}
+@keyframes ha-caret {
+  0%, 55% { opacity: 1; }
+  55.01%, 100% { opacity: 0; }
 }
 
 .ha-controls {

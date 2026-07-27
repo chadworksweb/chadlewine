@@ -5,7 +5,7 @@ import type { MutableRefObject } from "react";
 // hero. Kept framework-free so both the R3F scene and the DOM overlay driver
 // read the exact same clock and the exact same beat boundaries.
 
-export type Kind = "cube" | "octa" | "icosa" | "ring" | "wave";
+export type Kind = "cube" | "octa" | "icosa" | "ring" | "wave" | "star";
 
 export interface Door {
   key: string;
@@ -21,35 +21,69 @@ export interface Door {
 // The five doors: each a real live route, a Rising Compass tier hue, and a
 // distinct solid. Order = left-to-right in the resting menu.
 export const DOORS: Door[] = [
-  { key: "songs",   label: "Songs",   route: "/music/songs",  song: "Everything I Need", level: "L4 / DOOR", hue: "#b46bff", shape: "wave",  line: "The sirens were never the current. You were." },
-  { key: "art",     label: "Art",     route: "/art",          song: "I Got The Key",     level: "L3 / KEY",  hue: "#3dff9e", shape: "icosa", line: "You were holding it the whole walk." },
+  { key: "music",   label: "Music",   route: "/music",        song: "Everything I Need", level: "L4 / DOOR", hue: "#4d7cff", shape: "icosa", line: "The sirens were never the current. You were." },
+  { key: "art",     label: "Art",     route: "/art",          song: "I Got The Key",     level: "L3 / KEY",  hue: "#3dff9e", shape: "star",  line: "You were holding it the whole walk." },
   { key: "videos",  label: "Videos",  route: "/music-videos", song: "Finding Freedom",   level: "L5 / EGO",  hue: "#00e0ff", shape: "ring",  line: "No one handed you this. You wrote it." },
   { key: "merch",   label: "Merch",   route: "/merch",        song: "Machine",           level: "L1 / WAKE", hue: "#b46bff", shape: "cube",  line: "The loop was the lie." },
-  { key: "writing", label: "Writing", route: "/read",         song: "See Through Me",    level: "L2 / SEE",  hue: "#00ff88", shape: "octa",  line: "You just stopped pretending it was solid." },
+  { key: "writing", label: "Writing", route: "/read",         song: "See Through Me",    level: "L2 / SEE",  hue: "#ffc48a", shape: "octa",  line: "You just stopped pretending it was solid." },
 ];
 
 // PsycheAura constants (the icosahedron "language"): 4 golden-ratio-inset shells.
 export const PHI = (1 + Math.sqrt(5)) / 2;
 export const SHELLS = 4;
 
+// How fast each solid's shells dim as they nest inward, per shell index.
+//
+// One shared value cannot serve all five, because the shapes are nowhere near
+// equal in line count: cube, octahedron and star carry 12 edges each and the
+// icosahedron 30, but the torus at 8x28 carries roughly 450. Under additive
+// blending with depthWrite off, every one of those lines ADDS, so at the shared
+// falloff the ring's inner shells stacked into a solid glob while the sparse
+// solids looked right. Denser solids therefore fade faster per shell.
+//
+// Coarsening the torus instead was tried and reverted: the dense tessellation
+// is what makes it read as clearly round.
+export const SHELL_FALLOFF: Record<Kind, number> = {
+  cube: 0.11,
+  octa: 0.11,
+  star: 0.11,
+  wave: 0.11,
+  icosa: 0.11,
+  ring: 0.175,
+};
+
 // Resting slot x-positions (world units). Spacing 4 across the 16:9 frame.
 export const SLOT_X = [-8, -4, 0, 4, 8];
 
 // Timeline (seconds). Names double as the HUD beat labels.
-export const DUR = 7;
+export const DUR = 11.6;
 export const BEATS: { t0: number; t1: number; name: string }[] = [
   { t0: 0.0, t1: 1.0, name: "THE PULL" },
   { t0: 1.0, t1: 2.2, name: "THE TUNNEL" },
   { t0: 2.2, t1: 3.2, name: "THE BREAK" },
   { t0: 3.2, t1: 5.0, name: "THE ASSEMBLY" },
   { t0: 5.0, t1: 5.9, name: "THE REST" },
-  { t0: 5.9, t1: 7.0, name: "THE ADDRESS" },
+  { t0: 5.9, t1: 8.0, name: "THE ADDRESS" },
+  { t0: 8.0, t1: 11.6, name: "THE NAME" },
 ];
-// When the line lands. It waits out a full beat of stillness after the menu has
-// settled (doors are fully in at 5.75) so it reads as arriving, not as part of
-// the assembly.
+
+// The copy. Both live here rather than in the markup because the driver needs
+// the lengths to compute the reveal, and two sources would drift apart.
+export const SAID_TEXT = "you are now tapped in with the deprogrammer";
+export const MARK_TEXT = "Chad Lewine";
+
+// THE ADDRESS: the line types in. It waits out a full beat of stillness after
+// the menu has settled (doors are fully in at 5.75) so it reads as arriving,
+// not as part of the assembly. 43 characters across 1.9s is ~44ms each --
+// brisk terminal cadence. The chadworks hero types at 92ms, but that is a
+// 9-character wordmark; at this length the same rate would run four seconds.
 export const SAID_IN = 5.95;
-export const SAID_OUT = 6.7;
+export const SAID_OUT = 7.85;
+
+// THE NAME: the wordmark glitches in LAST, a beat after the line has finished
+// typing, and takes a full 3s to settle.
+export const MARK_IN = 8.05;
+export const MARK_OUT = 11.05;
 export function beatName(t: number): string {
   const c = Math.min(t, DUR);
   for (const b of BEATS) if (c < b.t1) return b.name;
@@ -91,6 +125,7 @@ export interface HeroHud {
   floodRef: MutableRefObject<HTMLDivElement | null>;
   doorsRef: MutableRefObject<HTMLDivElement | null>;
   titleRef: MutableRefObject<HTMLParagraphElement | null>;
+  markRef: MutableRefObject<HTMLSpanElement | null>;
   scrubEl: MutableRefObject<HTMLInputElement | null>;
   playBtnRef: MutableRefObject<HTMLButtonElement | null>;
 }
@@ -103,6 +138,9 @@ export function heroT(_elapsed: number, ctl: HeroCtl): number {
 // ---- geometry (built once, shared across every shell) -----------------------
 const geoCache: Partial<Record<Kind, THREE.BufferGeometry>> = {};
 
+// Retired: the Music door took the icosahedron. Kept because this is the only
+// build of the waveform and it read thin/scribbly nested rather than wrong --
+// if a sixth door ever wants it, it needs thicker strokes before reuse.
 function makeWaveGeo(): THREE.BufferGeometry {
   const pts: number[] = [];
   const N = 48;
@@ -129,6 +167,33 @@ function makeWaveGeo(): THREE.BufferGeometry {
   return g;
 }
 
+// Art's solid: a stella octangula (two interpenetrating tetrahedra). Picked for
+// SILHOUETTE separation -- next to a ball, a ring, a square and a diamond, the
+// row needs one spiked star that cannot be confused with any of them at menu
+// size. A dodecahedron was the obvious alternative and was rejected: nested and
+// spinning in wireframe it reads as another icosahedron.
+//
+// The second tetrahedron is negated, NOT rotated. TetrahedronGeometry's four
+// vertices are a diagonal subset of a cube's corners, so rotating one by PI on
+// any axis maps it back onto itself and you get no star at all. Scaling by -1
+// picks up the other four corners, which is the actual dual.
+function makeStarGeo(): THREE.BufferGeometry {
+  const R = 1.18;
+  const up = new THREE.EdgesGeometry(new THREE.TetrahedronGeometry(R, 0));
+  const dn = new THREE.EdgesGeometry(new THREE.TetrahedronGeometry(R, 0));
+  dn.scale(-1, -1, -1);
+  const a = up.getAttribute("position").array as Float32Array;
+  const b = dn.getAttribute("position").array as Float32Array;
+  const pts = new Float32Array(a.length + b.length);
+  pts.set(a, 0);
+  pts.set(b, a.length);
+  up.dispose();
+  dn.dispose();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  return g;
+}
+
 export function getGeo(kind: Kind): THREE.BufferGeometry {
   let g = geoCache[kind];
   if (g) return g;
@@ -143,10 +208,17 @@ export function getGeo(kind: Kind): THREE.BufferGeometry {
       g = new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1.0, 0));
       break;
     case "ring":
+      // Stays at 8x28. Coarsening this to thin the glob was tried and reverted:
+      // the dense tessellation is exactly what makes the ring read as CLEARLY
+      // round, and that is the point of the shape. The nested-glob problem is
+      // solved on opacity instead -- see SHELL_FALLOFF.
       g = new THREE.EdgesGeometry(new THREE.TorusGeometry(0.85, 0.3, 8, 28));
       break;
     case "wave":
       g = makeWaveGeo();
+      break;
+    case "star":
+      g = makeStarGeo();
       break;
   }
   geoCache[kind] = g;

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
-import { DOORS, DUR, type HeroCtl, type HeroHud } from "./heroShapes";
+import { DOORS, DUR, MARK_TEXT, SAID_TEXT, type HeroCtl, type HeroHud } from "./heroShapes";
 import "./hero.css";
 
 // WebGL/Canvas is client-only: no SSR attempt (avoids window/WebGL-on-server).
@@ -27,19 +27,20 @@ export default function HeroAnimatic() {
   const floodRef = useRef<HTMLDivElement | null>(null);
   const doorsRef = useRef<HTMLDivElement | null>(null);
   const titleRef = useRef<HTMLParagraphElement | null>(null);
+  const markRef = useRef<HTMLSpanElement | null>(null);
   const scrubEl = useRef<HTMLInputElement | null>(null);
   const playBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const ctl = useMemo<HeroCtl>(() => ({ tRef, playingRef, scrubRef, stepRef, resetRef }), []);
   const hud = useMemo<HeroHud>(
-    () => ({ beatRef, tcRef, floodRef, doorsRef, titleRef, scrubEl, playBtnRef }),
+    () => ({ beatRef, tcRef, floodRef, doorsRef, titleRef, markRef, scrubEl, playBtnRef }),
     [],
   );
 
   // Respect reduced motion: freeze on the rested menu, skip the plunge.
   useEffect(() => {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      tRef.current = 6.9; // rest on the settled menu WITH the line already landed
+      tRef.current = 11.4; // rest with the line typed AND the wordmark settled
       playingRef.current = false;
     }
   }, []);
@@ -77,10 +78,33 @@ export default function HeroAnimatic() {
         </div>
 
         {/* THE ADDRESS. Real DOM text, not drawn into the canvas, so it stays
-            selectable and crawlable when this grafts onto the homepage. */}
-        <p className="ha-said" ref={titleRef} style={{ opacity: 0 }}>
-          you are now tapped in with the deprogrammer
-        </p>
+            selectable and crawlable when this grafts onto the homepage. The
+            wordmark is a SIBLING of the line, never a child: the driver writes
+            blur, letter-spacing and a chromatic text-shadow onto .ha-said, and
+            all three inherit. Nested, the wordmark would smear and stretch with
+            it. A one-cell grid keeps the two concentric instead. */}
+        <div className="ha-address">
+          {/* Both lines carry a screen-reader copy of the real sentence, and the
+              per-character spans beside it are decorative. Split text still
+              reads correctly to a crawler, but a screen reader would announce
+              it letter by letter -- same reason the chadworks hero does this. */}
+          <span className="ha-mark" ref={markRef}>
+            <span className="ha-sr">{MARK_TEXT}</span>
+            <span className="ha-mark__chars" aria-hidden="true">
+              {MARK_TEXT.split("").map((c, i) => (
+                <span key={i} className="ha-m">{c === " " ? "\u00a0" : c}</span>
+              ))}
+            </span>
+          </span>
+          <p className="ha-said" ref={titleRef} style={{ opacity: 0 }}>
+            <span className="ha-sr">{SAID_TEXT}</span>
+            <span className="ha-said__chars" aria-hidden="true">
+              {SAID_TEXT.split("").map((c, i) => (
+                <span key={i} className="ha-c">{c === " " ? "\u00a0" : c}</span>
+              ))}
+            </span>
+          </p>
+        </div>
       </div>
 
       <div className="ha-controls">

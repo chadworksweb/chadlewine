@@ -22,7 +22,8 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  DOORS, PHI, SHELLS, SLOT_X, DUR, SAID_IN, SAID_OUT, COL_PERI, COL_VOID,
+  DOORS, PHI, SHELLS, SHELL_FALLOFF, SLOT_X, DUR, SAID_IN, SAID_OUT,
+  MARK_IN, MARK_OUT, MARK_TEXT, COL_PERI, COL_VOID,
   clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo,
   type Door, type HeroCtl, type HeroHud,
 } from "./heroShapes";
@@ -175,15 +176,20 @@ type StreakSeed = { ang: number; r0: number; lf: number; wf: number };
 type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.MeshBasicMaterial; mesh: THREE.Mesh; seeds: StreakSeed[] };
 
 // THE SURGE: nothing at all until 1.46 (before that the streaks are the plain
-// thin lines they always were), then it ramps hard, keeps building, and stays
-// hot right up to the break at 2.2, where it hands the momentum straight off to
-// the flood instead of petering out first. Story-time, so the 0.5x intro
-// clock-stretch renders it about twice this long in real seconds.
+// thin lines they always were), then ONE forward sequence and nothing else.
+// A held beat of hesitation, then a single slow climb that never reverses,
+// arriving at full right at the break at 2.2, where it hands the momentum
+// straight off to the flood instead of petering out first.
+//
+// The ramp is SQUARED, which is the hesitation: the first third of the window
+// barely moves, and the swell only commits once it has waited. One smooth()
+// alone eases in and out symmetrically, which reads as the field deciding
+// immediately. Story-time, so the 0.5x intro clock-stretch renders this about
+// twice this long in real seconds -- roughly a second and a half of build.
 function warpSurge(t: number): number {
-  const attack = smooth(1.46, 1.8, t);
-  const climb = 0.8 + 0.2 * smooth(1.8, 2.18, t); // still gaining, never flat
+  const ramp = smooth(1.46, 2.26, t);
   const release = 1 - smooth(2.55, 2.95, t); // stays lit through the drop-out, so they leave hot
-  return attack * climb * release;
+  return ramp * ramp * release;
 }
 
 function RushStreaks({ ctl }: { ctl: HeroCtl }) {
@@ -257,7 +263,6 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
     const evac = exit * exit * 24; // world units the inner tip races outward
     const rush = drive * (1 - smooth(2.9, 3.15, t));
     const surge = warpSurge(t);
-    const shudder = 1 + 0.12 * Math.sin(t * 31) * surge; // the drive judders at peak
 
     const draw = (set: StreakSet, lenK: number, op: number, baseW: number, surgeW: number, gate: number) => {
       const vis = rush * gate;
@@ -266,9 +271,15 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
       if (vis <= 0.01) return;
       for (let s = 0; s < set.seeds.length; s++) {
         const sd = set.seeds[s];
-        const wob = 1 + 0.06 * Math.sin(t * 9 + s);
-        const len = (0.6 + lenK * drive) * (1 + surge * 0.9) * (1 + exit * 1.8) * sd.lf * wob; // stretches as it surges, then again as it leaves
-        const hw = (baseW + surgeW * surge) * sd.wf * shudder * (1 - 0.62 * exit); // thins out on the way off
+        // NO per-streak sine terms. A length wobble phased by streak index and a
+        // global width judder were what made the field percolate: a few hundred
+        // streaks each breathing on their own phase reads as boiling, not as
+        // speed. Length and width now move only with surge and exit, both
+        // monotonic, so the whole field swells once, together, and never comes
+        // back. The peak width is unchanged -- the old judder only spiked 12%
+        // above this for a few frames at a time, so this holds the same ceiling.
+        const len = (0.6 + lenK * drive) * (1 + surge * 0.9) * (1 + exit * 1.8) * sd.lf; // stretches as it surges, then again as it leaves
+        const hw = (baseW + surgeW * surge) * sd.wf * (1 - 0.62 * exit); // thins out on the way off
         const c = Math.cos(sd.ang);
         const si = Math.sin(sd.ang);
         const nx = -si; // unit normal, perpendicular to the streak
@@ -534,6 +545,39 @@ function Nebula({ ctl }: { ctl: HeroCtl }) {
 
 // ---- a hero door: nested golden-ratio shells of one solid -------------------
 const Z_CORE = -34; // where the warp core sits and the doors are born
+
+// PER-SHELL GYROSCOPE. The shells used to share one dominant spin term and
+// differ only by a fixed offset plus a shear of a few hundredths, on two axes,
+// which is why the nest read as one rigid object instead of four independent
+// ones. Now the door's own tumble lives on the GROUP and each shell carries its
+// own free three-axis rotation on top.
+//
+// Rates are stepped by powers of the golden ratio, so no two shells share a
+// period and the nest can never re-sync into looking rigid. Inner shells still
+// run a little faster (they are smaller, so equal angular rate reads as less
+// motion), and neighbours counter-rotate, which is what sells gimbals rather
+// than drift.
+//
+// GYRO_RATE is the one dial for the whole nest. The inner-shell exponent is
+// deliberately shallow: at 0.5 the innermost shell ran over 2x the outermost
+// and churned, which is the thing that had to come down.
+const GYRO_RATE = 0.5;
+const GYRO = Array.from({ length: SHELLS }, (_, i) => {
+  const k = Math.pow(PHI, i * 0.3) * GYRO_RATE;
+  const flip = i % 2 ? -1 : 1;
+  return {
+    rx: 0.150 * k * flip,
+    ry: 0.243 * k,
+    rz: 0.097 * k * -flip,
+    px: i * 1.3,
+    py: i * 0.9,
+    pz: i * 2.1, // phases so they start visibly apart, not stacked
+  };
+});
+function gyro(ls: THREE.Object3D, i: number, t: number) {
+  const r = GYRO[i];
+  ls.rotation.set(r.px + t * r.rx, r.py + t * r.ry, r.pz + t * r.rz);
+}
 function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroCtl }) {
   const built = useMemo(() => {
     const group = new THREE.Group();
@@ -551,7 +595,8 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     trailGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
     const trailMat = new THREE.LineBasicMaterial({ color: hue.clone(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     const trail = new THREE.LineSegments(trailGeo, trailMat);
-    return { group, shells, hue, trail, trailGeo, trailMat };
+    const fall = SHELL_FALLOFF[door.shape]; // denser solids dim faster inward
+    return { group, shells, hue, trail, trailGeo, trailMat, fall };
   }, [door.shape, door.hue]);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
@@ -576,14 +621,14 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
       g.scale.setScalar(lerp(0.25, 2.4, life));
       const alpha = 0.95 * (1 - gone);
       const spin = t * 1.5 + index; // slower tumble
+      g.rotation.set(spin * 0.5, spin, 0); // the door's own tumble, whole-body
       for (let i = 0; i < built.shells.length; i++) {
         const ls = built.shells[i];
         ls.scale.setScalar(Math.pow(1 / PHI, i));
-        ls.rotation.y = spin + i * 0.9;
-        ls.rotation.x = spin * 0.5 + i * 1.3;
+        gyro(ls, i, t);
         const m = ls.material as THREE.LineBasicMaterial;
         m.color.copy(built.hue); // ignites in its tier hue straight out of the core
-        m.opacity = Math.max(0.03, alpha * (0.62 - i * 0.11));
+        m.opacity = Math.max(0.03, alpha * (0.62 - i * built.fall));
       }
       const p = built.trailGeo.attributes.position as THREE.BufferAttribute;
       p.setXYZ(0, 0, 0, Z_CORE);
@@ -608,14 +653,14 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     const res = smooth(2.3, 3.6, t);
     const alpha = 0.95 * smooth(2.5, 3.2, t);
     const spin = index + 0.25 * t + 1.6 * smooth(2.2, 4.8, t); // rotation slowed ~50%
+    g.rotation.set(spin * 0.5, spin, 0); // the door's own tumble, whole-body
     for (let i = 0; i < built.shells.length; i++) {
       const ls = built.shells[i];
       ls.scale.setScalar(Math.pow(1 / PHI, i)); // golden-ratio inset
-      ls.rotation.y = spin + i * 0.9 + t * (0.06 + i * 0.03); // incommensurate shear, slowed
-      ls.rotation.x = spin * 0.5 + i * 1.3 + t * (0.045 - i * 0.015);
+      gyro(ls, i, t);
       const m = ls.material as THREE.LineBasicMaterial;
       m.color.lerpColors(COL_PERI, built.hue, res);
-      m.opacity = Math.max(0.04, alpha * (0.62 - i * 0.11));
+      m.opacity = Math.max(0.04, alpha * (0.62 - i * built.fall));
     }
   });
   return (
@@ -655,7 +700,32 @@ function ClockDriver({ ctl }: { ctl: HeroCtl }) {
 }
 
 // ---- HUD driver: writes the DOM overlay from the same clock ------------------
+// Deterministic noise. The glitch has to be a pure function of t like every
+// other part of this scene: Math.random would resolve differently on every
+// frame and, worse, scrubbing backward would show a different glitch than
+// playing forward through the same moment.
+function hash(a: number, b: number): number {
+  const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+// The order the wordmark's characters commit in. Scrambled, not left-to-right,
+// so it reads as a signal locking in rather than as a second typing effect.
+const MARK_RANK: number[] = (() => {
+  const n = MARK_TEXT.length;
+  const seq = Array.from({ length: n }, (_, i) => i).sort((a, b) => hash(a, 1) - hash(b, 1));
+  const rank = new Array<number>(n);
+  seq.forEach((charIndex, k) => {
+    rank[charIndex] = k;
+  });
+  return rank;
+})();
+
 function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+  // Cached child lookups + the last state written, so the per-character work
+  // only touches the DOM when something actually changed.
+  const saidChars = useRef<HTMLElement[] | null>(null);
+  const markChars = useRef<HTMLElement[] | null>(null);
+  const lastTyped = useRef(-1);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     const td = Math.min(t, DUR);
@@ -668,19 +738,64 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
       hud.doorsRef.current.style.opacity = String(doorsIn);
       hud.doorsRef.current.style.pointerEvents = t > 5.3 ? "auto" : "none";
     }
-    // THE ADDRESS: the line resolves out of a wide, blurred, chromatically split
-    // ghost into clean type -- the same "resolve from periwinkle" move the shapes
-    // make, done in the DOM so the copy stays real crawlable text.
-    const said = smooth(SAID_IN, SAID_OUT, t);
+    // THE ADDRESS: the line TYPES in, character by character, at a linear rate.
+    // Linear on purpose -- an eased curve would make a typewriter accelerate and
+    // brake, which no terminal does. The whole line is laid out from the first
+    // frame and characters only toggle opacity, so nothing reflows as it types.
     const el = hud.titleRef.current;
     if (el) {
-      el.style.opacity = String(said);
-      el.style.letterSpacing = lerp(0.9, 0.26, said).toFixed(3) + "em";
-      el.style.filter = "blur(" + lerp(9, 0, said).toFixed(2) + "px)";
-      // The split closes as it lands. It still lands ON, just eased off 2px to
-      // 1.6px so the fringe reads as colour rather than fighting the letterforms.
-      const split = lerp(15, 1.6, said).toFixed(2);
-      el.style.textShadow = "-" + split + "px 0 #ff2e63, " + split + "px 0 #00e0ff";
+      if (!saidChars.current) {
+        saidChars.current = Array.from(el.querySelectorAll<HTMLElement>(".ha-c"));
+      }
+      el.style.opacity = t >= SAID_IN ? "1" : "0";
+      const chars = saidChars.current;
+      const p = clamp((t - SAID_IN) / (SAID_OUT - SAID_IN), 0, 1);
+      const typed = Math.round(p * chars.length);
+      if (typed !== lastTyped.current) {
+        // The caret retires the moment the last character lands. Leaving it on
+        // would blink through the wordmark's whole entrance and then forever in
+        // the idle, reading as a stray artifact rather than as typing.
+        const caretAt = typed < chars.length ? typed - 1 : -1;
+        for (let i = 0; i < chars.length; i++) {
+          const on = i < typed;
+          chars[i].className = on ? (i === caretAt ? "ha-c is-on is-frontier" : "ha-c is-on") : "ha-c";
+        }
+        lastTyped.current = typed;
+      }
+    }
+
+    // THE NAME: the wordmark glitches in LAST, over a full 3s, after the line
+    // has finished typing. Characters commit in a scrambled order; until one
+    // settles it drops out and jitters, and the whole mark carries a chromatic
+    // split that closes as it locks. Transform-only jitter, so a centred nowrap
+    // wordmark cannot shimmy sideways while it resolves.
+    const mk = hud.markRef.current;
+    if (mk) {
+      if (!markChars.current) {
+        markChars.current = Array.from(mk.querySelectorAll<HTMLElement>(".ha-m"));
+      }
+      const g = clamp((t - MARK_IN) / (MARK_OUT - MARK_IN), 0, 1);
+      mk.style.opacity = String(smooth(0, 1, g) * 0.05);
+      const sp = ((1 - g) * 5).toFixed(2);
+      mk.style.textShadow = g >= 1 ? "none" : "-" + sp + "px 0 #ff2e63, " + sp + "px 0 #00e0ff";
+      const chars = markChars.current;
+      const bucket = Math.floor(t * 18); // the glitch re-rolls 18x a second
+      for (let i = 0; i < chars.length; i++) {
+        // Committed by 63% of the window, then each character settles over the
+        // next 30% -- so the last one to arrive still gets time to stabilise.
+        const gOn = 0.06 + (MARK_RANK[i] / chars.length) * 0.57;
+        const settle = clamp((g - gOn) / 0.3, 0, 1);
+        if (g < gOn) {
+          chars[i].style.opacity = "0";
+          continue;
+        }
+        const unstable = 1 - settle;
+        const drop = hash(i, bucket) < 0.3 * unstable; // blinks out while unstable
+        chars[i].style.opacity = drop ? "0" : "1";
+        const jx = (hash(i, bucket + 7) - 0.5) * 12 * unstable;
+        const jy = (hash(i, bucket + 13) - 0.5) * 7 * unstable;
+        chars[i].style.transform = settle >= 1 ? "none" : "translate(" + jx.toFixed(2) + "px," + jy.toFixed(2) + "px)";
+      }
     }
     if (hud.scrubEl.current && ctl.scrubRef.current == null) {
       hud.scrubEl.current.value = String(Math.round(td * 100));
