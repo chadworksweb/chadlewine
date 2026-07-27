@@ -36,14 +36,20 @@ export const SHELLS = 4;
 export const SLOT_X = [-8, -4, 0, 4, 8];
 
 // Timeline (seconds). Names double as the HUD beat labels.
-export const DUR = 6;
+export const DUR = 7;
 export const BEATS: { t0: number; t1: number; name: string }[] = [
   { t0: 0.0, t1: 1.0, name: "THE PULL" },
   { t0: 1.0, t1: 2.2, name: "THE TUNNEL" },
   { t0: 2.2, t1: 3.2, name: "THE BREAK" },
   { t0: 3.2, t1: 5.0, name: "THE ASSEMBLY" },
-  { t0: 5.0, t1: 6.0, name: "THE REST" },
+  { t0: 5.0, t1: 5.9, name: "THE REST" },
+  { t0: 5.9, t1: 7.0, name: "THE ADDRESS" },
 ];
+// When the line lands. It waits out a full beat of stillness after the menu has
+// settled (doors are fully in at 5.75) so it reads as arriving, not as part of
+// the assembly.
+export const SAID_IN = 5.95;
+export const SAID_OUT = 6.7;
 export function beatName(t: number): string {
   const c = Math.min(t, DUR);
   for (const b of BEATS) if (c < b.t1) return b.name;
@@ -84,6 +90,7 @@ export interface HeroHud {
   tcRef: MutableRefObject<HTMLElement | null>;
   floodRef: MutableRefObject<HTMLDivElement | null>;
   doorsRef: MutableRefObject<HTMLDivElement | null>;
+  titleRef: MutableRefObject<HTMLParagraphElement | null>;
   scrubEl: MutableRefObject<HTMLInputElement | null>;
   playBtnRef: MutableRefObject<HTMLButtonElement | null>;
 }

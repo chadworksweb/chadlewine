@@ -26,19 +26,20 @@ export default function HeroAnimatic() {
   const tcRef = useRef<HTMLElement | null>(null);
   const floodRef = useRef<HTMLDivElement | null>(null);
   const doorsRef = useRef<HTMLDivElement | null>(null);
+  const titleRef = useRef<HTMLParagraphElement | null>(null);
   const scrubEl = useRef<HTMLInputElement | null>(null);
   const playBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const ctl = useMemo<HeroCtl>(() => ({ tRef, playingRef, scrubRef, stepRef, resetRef }), []);
   const hud = useMemo<HeroHud>(
-    () => ({ beatRef, tcRef, floodRef, doorsRef, scrubEl, playBtnRef }),
+    () => ({ beatRef, tcRef, floodRef, doorsRef, titleRef, scrubEl, playBtnRef }),
     [],
   );
 
   // Respect reduced motion: freeze on the rested menu, skip the plunge.
   useEffect(() => {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      tRef.current = 5.85;
+      tRef.current = 6.9; // rest on the settled menu WITH the line already landed
       playingRef.current = false;
     }
   }, []);
@@ -74,6 +75,12 @@ export default function HeroAnimatic() {
             </a>
           ))}
         </div>
+
+        {/* THE ADDRESS. Real DOM text, not drawn into the canvas, so it stays
+            selectable and crawlable when this grafts onto the homepage. */}
+        <p className="ha-said" ref={titleRef} style={{ opacity: 0 }}>
+          you are present with the deprogrammer
+        </p>
       </div>
 
       <div className="ha-controls">

@@ -22,7 +22,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  DOORS, PHI, SHELLS, SLOT_X, DUR, COL_PERI, COL_VOID,
+  DOORS, PHI, SHELLS, SLOT_X, DUR, SAID_IN, SAID_OUT, COL_PERI, COL_VOID,
   clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo,
   type Door, type HeroCtl, type HeroHud,
 } from "./heroShapes";
@@ -654,6 +654,18 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
     if (hud.doorsRef.current) {
       hud.doorsRef.current.style.opacity = String(doorsIn);
       hud.doorsRef.current.style.pointerEvents = t > 5.3 ? "auto" : "none";
+    }
+    // THE ADDRESS: the line resolves out of a wide, blurred, chromatically split
+    // ghost into clean type -- the same "resolve from periwinkle" move the shapes
+    // make, done in the DOM so the copy stays real crawlable text.
+    const said = smooth(SAID_IN, SAID_OUT, t);
+    const el = hud.titleRef.current;
+    if (el) {
+      el.style.opacity = String(said);
+      el.style.letterSpacing = lerp(0.9, 0.26, said).toFixed(3) + "em";
+      el.style.filter = "blur(" + lerp(9, 0, said).toFixed(2) + "px)";
+      const split = lerp(15, 2, said).toFixed(2); // the chromatic split closes as it lands
+      el.style.textShadow = "-" + split + "px 0 #ff2e63, " + split + "px 0 #00e0ff";
     }
     if (hud.scrubEl.current && ctl.scrubRef.current == null) {
       hud.scrubEl.current.value = String(Math.round(td * 100));
