@@ -209,6 +209,43 @@ export const SAID_OUT = 7.85;
 // typing, and takes a full 3s to settle.
 export const MARK_IN = 8.05;
 export const MARK_OUT = 11.05;
+
+// THE WAY OUT. The homepage holds the scroll until the animatic has finished,
+// so there has to be a way past it long before the menu lands, which is why
+// this no longer rides the doors' clock. It arrives during THE PULL, dim, and
+// comes up to full with the menu at 5.75. Half brightness during the intro so
+// it is findable without sitting on top of the composition.
+export const ENTER_IN = 0.6;
+export const ENTER_OUT = 1.3;
+export const ENTER_DIM = 0.5;
+// And it changes what it says. While the page is held the control is a SKIP;
+// once the animatic has finished there is nothing left to skip and it goes back
+// to being the way down into the page. The swap runs across the tail of THE
+// NAME, from the wordmark settling (MARK_OUT, which is also where the lock
+// lifts) to the end of the timeline, so the beat that was already sitting
+// still is what carries it.
+
+// THE VEIL. Black over the cosmos, tied to scroll position, fully on once the
+// hero is one whole screen behind you.
+export const VEIL_MAX = 0.5;
+
+// How long the hero's own layers take to leave once the page scrolls off them,
+// and to come back. The whole range, not a half-life. Shared: the scene eases
+// on it, and the skip transition runs the veil in on the same clock so one
+// gesture reads as one move.
+export const FADE_SECS = 0.8;
+
+// THE ABORT. How long the animatic takes to come to a close when SKIP is
+// pressed. It does not have to outrun anything: the page is held still until
+// this has finished and only then travels, which is the whole reason the
+// indicator exists. Long enough to read as the piece closing, short enough that
+// nobody is waiting on it.
+export const SKIP_SECS = 0.45;
+
+// The indicator that covers it. Up fast, because it has to be there before the
+// animatic starts leaving; out slower, dissolving into the travel.
+export const LOAD_IN = 0.18;
+export const LOAD_OUT = 0.32;
 export function beatName(t: number): string {
   const c = Math.min(t, DUR);
   for (const b of BEATS) if (c < b.t1) return b.name;
@@ -243,12 +280,22 @@ export interface HeroCtl {
   resetRef: MutableRefObject<boolean>; // replay request
   // The scene outlives the hero on the homepage: the canvas is fixed to the
   // viewport so the cosmos stays behind the whole page while the feed scrolls
-  // through it. Past the hero the menu has no business still hanging there, so
-  // `pastRef` is the target and `heroFadeRef` the eased value everything
-  // hero-specific multiplies its opacity by. Refs, not state, so scrolling
-  // never re-renders the canvas.
+  // through it. `pastRef` is the target and `bloomFadeRef` the eased value, and
+  // what they now govern is the BLOOM, which lights the starfield and is the
+  // expensive pass: past the hero it eases off and switches out. They no longer
+  // fade the hero's own geometry, because the hero's own geometry scrolls away
+  // like everything else on the page (see the scroll rig in HeroCanvas) and a
+  // thing that leaves the screen does not also need to dissolve.
+  // Refs, not state, so scrolling never re-renders the canvas.
   pastRef: MutableRefObject<boolean>;
-  heroFadeRef: MutableRefObject<number>;
+  bloomFadeRef: MutableRefObject<number>;
+  // THE ABORT. `skipRef` is true from the moment SKIP is pressed until the page
+  // has finished travelling, and `abortRef` is the eased value every hero-owned
+  // layer multiplies its opacity by. This is the only thing that dissolves the
+  // hero now, and it exists because ending the animatic early is a different
+  // event from scrolling past it.
+  skipRef: MutableRefObject<boolean>;
+  abortRef: MutableRefObject<number>;
 }
 
 // DOM nodes the in-canvas HUD driver writes to each frame.
@@ -257,6 +304,9 @@ export interface HeroHud {
   tcRef: MutableRefObject<HTMLElement | null>;
   floodRef: MutableRefObject<HTMLDivElement | null>;
   doorsRef: MutableRefObject<HTMLDivElement | null>;
+  // The way out, on its own clock rather than the menu's: it is the release
+  // valve for the scroll lock, so it cannot wait for the doors to land.
+  enterRef: MutableRefObject<HTMLAnchorElement | null>;
   // Both are headings on the page now: h1 wordmark, h2 tagline.
   titleRef: MutableRefObject<HTMLHeadingElement | null>;
   markRef: MutableRefObject<HTMLHeadingElement | null>;

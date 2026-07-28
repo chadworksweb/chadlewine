@@ -5,7 +5,8 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import {
-  DOORS, DUR, MARK_TEXT, SAID_TEXT, heroLayout, LAYOUT_16_9,
+  DOORS, DUR, MARK_TEXT, SAID_TEXT, VEIL_MAX, FADE_SECS, SKIP_SECS, LOAD_IN, LOAD_OUT,
+  heroLayout, LAYOUT_16_9,
   type HeroCtl, type HeroHud, type HeroLayout,
 } from "./heroShapes";
 import { HeroNavJsonLd } from "./HeroNavJsonLd";
@@ -38,11 +39,36 @@ const FRAME = 1 / 30; // frame-step size (seconds)
 // from the nav's scroll handler, because the handler cannot run before the
 // first paint and the header would be drawn as a bar across the hero for a
 // frame. The nav clears the class once the hero has scrolled past.
-const bootScript = (ownsTop: boolean) =>
+//
+// And it takes the scroll. The animatic is meant to be watched, not scrolled
+// through at the halfway mark, so the page holds still until it has finished.
+// That has to be stamped here for the same reason as the class above: a lock
+// applied after hydration is a lock you can already have scrolled past.
+// Four conditions keep it honest, and all four are failures of the lock in
+// the safe direction:
+//   - a page that loaded already scrolled is not showing the intro, so it is
+//     never pinned (a back-navigation restores the reader where they left);
+//   - nor is a page loaded on a fragment. The way out below pushes
+//     /#home-enter into history, so that URL gets shared and reloaded, and it
+//     means "put me at the feed" -- locking there would pin someone to a
+//     screen they did not ask to sit on;
+//   - reduced motion skips the animatic entirely, so there is nothing to hold
+//     the page for;
+//   - the timeout is the hard ceiling. HudDriver lifts the lock when the
+//     wordmark settles, but that is a render loop, and a lost WebGL context or
+//     a throttled tab must not be able to strand the page.
+// The 4s failsafe below covers the other half: a scene that never starts.
+const bootScript = (home: boolean) =>
   '(function(){var d=document.documentElement;d.classList.add("ha-anim");' +
-  (ownsTop ? 'd.classList.add("ha-hero-top");' : "") +
-  'setTimeout(function(){if(!d.hasAttribute("data-ha-running"))' +
-  'd.classList.remove("ha-anim")},4000)})()';
+  (home
+    ? 'd.classList.add("ha-hero-top");' +
+      'if(!window.scrollY&&!location.hash&&' +
+      '!matchMedia("(prefers-reduced-motion:reduce)").matches){' +
+      'd.classList.add("ha-lock");' +
+      'setTimeout(function(){d.classList.remove("ha-lock")},20000)}'
+    : "") +
+  'setTimeout(function(){if(!d.hasAttribute("data-ha-running")){' +
+  'd.classList.remove("ha-anim");d.classList.remove("ha-lock")}},4000)})()';
 
 // Reduced motion as an external store. Declared at module scope so the
 // subscribe and snapshot functions keep a stable identity across renders.
@@ -68,24 +94,33 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   const stepRef = useRef(0);
   const resetRef = useRef(false);
   const pastRef = useRef(false);
-  const heroFadeRef = useRef(1);
+  const bloomFadeRef = useRef(1);
+  const abortRef = useRef(1);
 
   // DOM nodes the HUD driver writes
   const beatRef = useRef<HTMLElement | null>(null);
   const tcRef = useRef<HTMLElement | null>(null);
   const floodRef = useRef<HTMLDivElement | null>(null);
   const doorsRef = useRef<HTMLDivElement | null>(null);
+  const enterRef = useRef<HTMLAnchorElement | null>(null);
+  const veilRef = useRef<HTMLDivElement | null>(null);
+  const loadRef = useRef<HTMLDivElement | null>(null);
+  // The skip transition owns the hero's fade from the click until it lands, so
+  // the scroll observer must not argue with it on the way down. Its runner is
+  // handed out by the effect that owns the veil, because the two are one move.
+  const skipRef = useRef(false);
+  const runSkipRef = useRef<(() => void) | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
   const markRef = useRef<HTMLHeadingElement | null>(null);
   const scrubEl = useRef<HTMLInputElement | null>(null);
   const playBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const ctl = useMemo<HeroCtl>(
-    () => ({ tRef, playingRef, scrubRef, stepRef, resetRef, pastRef, heroFadeRef }),
+    () => ({ tRef, playingRef, scrubRef, stepRef, resetRef, pastRef, bloomFadeRef, skipRef, abortRef }),
     [],
   );
   const hud = useMemo<HeroHud>(
-    () => ({ beatRef, tcRef, floodRef, doorsRef, titleRef, markRef, scrubEl, playBtnRef }),
+    () => ({ beatRef, tcRef, floodRef, doorsRef, enterRef, titleRef, markRef, scrubEl, playBtnRef }),
     [],
   );
 
@@ -101,6 +136,11 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     if (!reduced) return;
     tRef.current = 11.4; // rest with the line typed AND the wordmark settled
     playingRef.current = false;
+    // There is no animatic left to hold the page for. The boot script already
+    // declines to lock when reduced motion is set at load; this covers the
+    // setting being turned on while the page is open, which the store above
+    // reacts to but the render loop may not, since it is on demand by then.
+    document.documentElement.classList.remove("ha-lock");
   }, [reduced]);
 
   // The cosmos is the page's background, so the loop keeps running rather than
@@ -155,12 +195,168 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     if (dev || !el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
+        // The skip has already declared the hero gone and is fading it out
+        // where it stands. This fires several times on the way down and would
+        // reverse that the moment the hero was more than half on screen.
+        if (skipRef.current) return;
         pastRef.current = entry.intersectionRatio < 0.5;
       },
       { threshold: [0, 0.2, 0.35, 0.45, 0.5, 0.55, 0.65, 0.8, 1] },
     );
     io.observe(el);
     return () => io.disconnect();
+  }, [dev]);
+
+  // THE VEIL, driven straight off scroll position. Pure f(scrollY) like the
+  // rest of the piece: fully on once the hero is exactly one screen behind you,
+  // and it unwinds the same way coming back up, so there is no state to get out
+  // of step with where the page actually is.
+  //
+  // Measured against the STAGE, not the window. The hero starts at page y=0
+  // (its negative margin cancels main's padding for the fixed header), so it is
+  // entirely behind you at scrollY == the stage's own height, whatever the
+  // browser chrome is doing to the visible viewport on a phone. Cached and
+  // remeasured on resize rather than read per event, so scrolling never forces
+  // layout.
+  //
+  // Written to the element, not through state, for the same reason the fade
+  // past the hero is: this runs on every scroll event and re-rendering a WebGL
+  // canvas to carry a number would be absurd. Opacity composites, so the whole
+  // thing costs one property write.
+  useEffect(() => {
+    const stage = stageRef.current;
+    const veil = veilRef.current;
+    if (dev || !stage || !veil) return;
+    let h = stage.getBoundingClientRect().height;
+    // The skip's own contribution, on top of whatever the scroll is asking for.
+    // ONE function writes this element, always, from those two inputs. A CSS
+    // transition on the veil would have been simpler and is exactly the trap
+    // the doors already fell into: a transition on a property something else
+    // writes per frame is retargeted on every write and fights the curve it is
+    // sitting on.
+    let skipVeil = 0;
+    const paint = () => {
+      const p = h > 0 ? Math.min(1, Math.max(0, window.scrollY / h)) : 0;
+      veil.style.opacity = String(VEIL_MAX * Math.max(p, skipVeil));
+    };
+    const remeasure = () => {
+      h = stage.getBoundingClientRect().height;
+      paint();
+    };
+
+    // THE SKIP: close the animatic, THEN travel.
+    //
+    // Every earlier version raced the scroll and lost. The canvas is fixed to
+    // the viewport, so anything still rendering when the page lands renders
+    // over the feed: measured, the smooth scroll finished at 120ms and the
+    // intro was still visible through the page at 600. Outrunning it was the
+    // wrong fix. The page simply does not move until the animatic has finished
+    // closing, and an indicator covers the wait so the click has an answer
+    // immediately.
+    //
+    // CLOSING: the indicator comes up, the veil comes on, and every hero layer
+    // dissolves over SKIP_SECS. The page is still held, so nothing is racing
+    // anything. The clock cuts to the settled menu on the frame the dissolve
+    // reaches zero, which is a frame with nothing on it to see the cut.
+    // TRAVELLING: only then is the lock released and the scroll started, with
+    // the indicator dissolving into the move. The abort is held out for the
+    // whole journey so the hero cannot fade back in while it is still on
+    // screen; it is released at the end, off screen, ready for a scroll back up.
+    let raf = 0;
+    let running = false;
+    const runSkip = () => {
+      if (running) return; // a second press during the transition changes nothing
+      running = true;
+      skipRef.current = true;
+      pastRef.current = true;
+      const load = loadRef.current;
+      const fill = load?.querySelector<HTMLElement>(".ha-load__fill") ?? null;
+      let prev = -1, spent = 0, travelling = false;
+      const step = (now: number) => {
+        const dt = prev < 0 ? 1 / 60 : Math.min(0.05, (now - prev) / 1000);
+        prev = now;
+        spent += dt;
+        if (!travelling) {
+          if (load) load.style.opacity = String(Math.min(1, spent / LOAD_IN));
+          // Determinate on purpose: the bar is not a decoration waiting on
+          // nothing, it is how much of the animatic has actually gone.
+          if (fill) fill.style.transform = `scaleX(${(1 - abortRef.current).toFixed(4)})`;
+          skipVeil = Math.min(1, skipVeil + dt / SKIP_SECS);
+          paint();
+          // Closed, or the escape hatch: a render loop that stalls must never
+          // leave the page held with no way on.
+          if (abortRef.current <= 0.001 || spent > 2) {
+            if (fill) fill.style.transform = "scaleX(1)";
+            tRef.current = DUR;
+            document.documentElement.classList.remove("ha-lock");
+            document
+              .getElementById("home-enter")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            travelling = true;
+            spent = 0;
+          }
+        } else {
+          if (load) load.style.opacity = String(Math.max(0, 1 - spent / LOAD_OUT));
+          skipVeil = Math.max(0, skipVeil - dt / FADE_SECS);
+          paint();
+          // The scroll is smooth and its length depends on the viewport, so
+          // this outlasts it rather than trying to measure it. The hero is a
+          // screen above by now; releasing the abort here lets it come back for
+          // anyone who scrolls up, without it ever fading in on screen.
+          if (spent > Math.max(LOAD_OUT, FADE_SECS) + 0.6) {
+            skipRef.current = false;
+            running = false;
+            return;
+          }
+        }
+        raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    };
+    runSkipRef.current = runSkip;
+
+    paint(); // a page restored mid-scroll must not open clear and then jump
+    window.addEventListener("scroll", paint, { passive: true });
+    window.addEventListener("resize", remeasure);
+    return () => {
+      runSkipRef.current = null;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", paint);
+      window.removeEventListener("resize", remeasure);
+    };
+  }, [dev]);
+
+  // The two halves of the scroll lock that CSS cannot do on its own. The lock
+  // itself is a class on <html> stamped before the first paint and lifted by
+  // HudDriver; see bootScript above.
+  useEffect(() => {
+    if (dev) return;
+    const d = document.documentElement;
+    // iOS Safari rubber-bands past a root overflow:hidden on some gesture
+    // paths, and a lock that leaks on the device most likely to meet it is not
+    // a lock. Guarded on a single finger so pinch zoom is untouched, and read
+    // off the class rather than a captured flag so it costs nothing once the
+    // animatic has finished.
+    const hold = (e: TouchEvent) => {
+      if (e.touches.length === 1 && d.classList.contains("ha-lock")) e.preventDefault();
+    };
+    document.addEventListener("touchmove", hold, { passive: false });
+    return () => {
+      document.removeEventListener("touchmove", hold);
+      // Both classes live on <html>, which survives a client-side navigation,
+      // and both are the hero's to clean up when it goes.
+      // ha-lock: the doors go live at t 5.3 and the lock does not lift until
+      // 11.05, so a visitor can leave for /music while the page is still held,
+      // and the destination would arrive unscrollable.
+      // ha-hero-top: only the nav clears this, and only while a
+      // [data-nav-below] element is on the page to measure. Leave the homepage
+      // while the hero still covers the top and there is nothing left to
+      // measure, so the class strands: the site header stays hidden on every
+      // page after it, and the cookie bar, which now waits on the same signal,
+      // never comes back at all.
+      d.classList.remove("ha-lock");
+      d.classList.remove("ha-hero-top");
+    };
   }, [dev]);
 
   return (
@@ -190,14 +386,49 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
           which would pin the canvas to the stage instead of the viewport. In
           the lab it stays inside the framed box, where being clipped is the
           point. */}
+      {/* THE BACKDROP, in a canvas of its own. It is fixed, so the feed scrolls
+          through the starfield, and it is SEPARATE so the hero never has to be.
+          A pinned canvas can only move what it draws by drawing it again, which
+          made the shapes lag the page by a frame or more; the hero's canvas is
+          in the stage below, in flow, moved by the browser for free.
+          This is the ONLY sky on the homepage. The hero canvas is transparent
+          and stands in front of it, so the backdrop is fixed from the first
+          frame of the animatic to the bottom of the feed and never moves. */}
       {!dev && (
         <div className="ha-cosmos" aria-hidden="true">
-          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} />
+          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="cosmos" />
+        </div>
+      )}
+
+      {/* THE VEIL. Black over the cosmos, coming on with the scroll, so the
+          feed reads against a settled sky rather than a live starfield. A
+          sibling of the canvas and immediately after it, which is what puts it
+          over the cosmos and still under everything in the page. Outside
+          .ha-stage for the same reason the canvas is: size containment there
+          would make the stage its containing block and pin it to the hero. */}
+      {!dev && <div className="ha-veil" ref={veilRef} aria-hidden="true" />}
+
+      {/* THE INDICATOR. Only ever driven by the skip, which is why it carries
+          no state and no copy the rest of the page has to know about. Fixed to
+          the viewport rather than the stage, so it holds its place while the
+          page travels underneath it. Decorative: the anchor below is what
+          actually announces where this goes, and a screen reader has no use for
+          a progress bar covering a transition it cannot see. */}
+      {!dev && (
+        <div className="ha-load" ref={loadRef} aria-hidden="true">
+          <div className="ha-load__rail">
+            <div className="ha-load__fill" />
+          </div>
+          <span className="ha-load__lab">loading</span>
         </div>
       )}
 
       <div className="ha-stage" ref={stageRef}>
-        {dev && <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} />}
+        {/* The hero itself, in the page. Both homes again, which is what they
+            were before the cosmos was extracted: it belongs to the stage, it
+            scrolls with the stage, and its shapes stay welded to their labels
+            because the browser is moving both of them, not a render loop. */}
+        <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode={dev ? "full" : "hero"} />
 
         <div className="ha-flood" ref={floodRef} aria-hidden="true" />
 
@@ -236,31 +467,72 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
             </a>
           ))}
 
-          {/* The way in. Nothing else told you the page continued below a hero
-              that fills the whole screen. A real anchor, not a click handler:
-              the site already sets scroll-behavior:smooth globally, so this
-              smooth-scrolls with no JS at all and still works without it.
-              Lives inside .ha-doors so it arrives on the same clock as the
-              menu rather than needing its own line in the driver. */}
-          {!dev && (
-            <a className="ha-enter" href="#home-enter">
-              <span className="ha-enter__lab">enter homepage</span>
-              <svg
-                className="ha-enter__chev"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </a>
-          )}
         </div>
+
+        {/* The way in, and the way out. Nothing else told you the page
+            continued below a hero that fills the whole screen, and now that the
+            page is held still until the animatic finishes, nothing else lets
+            you leave early either. One control for both: it always means "take
+            me to the page", which is what a skip is.
+
+            A real anchor, not a click handler: the site sets
+            scroll-behavior:smooth globally, so this smooth-scrolls with no JS
+            and still works without it. The handler only releases the lock and
+            lets the anchor do its own job -- no preventDefault, because
+            unlocking synchronously means the document is scrollable again by
+            the time the fragment navigation runs.
+
+            A SIBLING of .ha-doors now, not a child. It used to ride the menu's
+            opacity, which put it on screen at 5.75 and left the first eight
+            seconds of the lock with no way out of it. Same box either way
+            (.ha-doors is inset:0 on the stage), so the geometry is unchanged;
+            only the clock moved. */}
+        {!dev && (
+          <a
+            className="ha-enter"
+            href="#home-enter"
+            ref={enterRef}
+            onClick={(e) => {
+              // Nothing left to close: the animatic has already finished, or
+              // the transition was never handed over. Let the anchor do its own
+              // scrolling, which is also the no-JS path.
+              if (!runSkipRef.current || tRef.current >= DUR) {
+                document.documentElement.classList.remove("ha-lock");
+                return;
+              }
+              // Otherwise JS owns the whole move. The anchor must NOT scroll
+              // here: the page holds still while the animatic closes, and
+              // runSkip releases the lock and starts the travel itself.
+              e.preventDefault();
+              runSkipRef.current();
+            }}
+          >
+            {/* Two labels in one grid cell, crossfaded by the driver. "enter
+                homepage" is the real one: it is what the control means, what a
+                crawler reads, and what a screen reader announces, so it is the
+                text the anchor takes its accessible name from and the state
+                that renders with no JS at all. "skip" is a costume the button
+                wears while the animatic is running, so it is decorative and
+                hidden from assistive tech. */}
+            <span className="ha-enter__labs">
+              <span className="ha-enter__lab">enter homepage</span>
+              <span className="ha-enter__skip" aria-hidden="true">skip</span>
+            </span>
+            <svg
+              className="ha-enter__chev"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </a>
+        )}
 
         {/* THE ADDRESS. Real DOM text, not drawn into the canvas, so it stays
             selectable and crawlable when this grafts onto the homepage. The

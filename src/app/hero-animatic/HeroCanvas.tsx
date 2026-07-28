@@ -14,6 +14,17 @@
  * with AdditiveBlending over black FogExp2, lit entirely by a real UnrealBloom
  * pass (the transcend-spike stack). Crystal-facet surfaces are a later upgrade. */
 
+/* eslint-disable react-hooks/immutability -- The shared clock IS mutation. Every
+ * driver in this file reads and writes `ctl`, a bag of refs handed down as a
+ * prop, because one clock read identically by every useFrame and by the DOM
+ * overlay is the only thing keeping the scene and its labels from drifting
+ * apart (see HeroCtl in heroShapes). Carrying that through React state would
+ * re-render a WebGL canvas sixty times a second to move a number. The rule
+ * cannot see the difference between mutating a prop and mutating a ref that
+ * arrived as one, and it fires nine times here, which is nine standing errors
+ * nobody reads and a tenth real one nobody would notice. Scoped to this file
+ * and this rule only. */
+
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
@@ -23,17 +34,13 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
-  MARK_IN, MARK_OUT, MARK_TEXT, COL_PERI, COL_VOID,
+  MARK_IN, MARK_OUT, MARK_TEXT, ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
   CAM_FOV, CAM_Z_REST,
   clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo, heroLayout,
   type Door, type HeroCtl, type HeroHud,
 } from "./heroShapes";
 
 const FOG_DENSITY = 0.014; // the spike value: lets the grid + warp core read across depth
-
-// How long the hero's own layers take to leave once the page scrolls off them,
-// and to come back. The whole range, not a half-life.
-const FADE_SECS = 0.8;
 
 // ---- bloom composer (manual-render, no post-processing dep) -----------------
 function HeroBloom({ ctl }: { ctl: HeroCtl }) {
@@ -56,11 +63,14 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   useEffect(() => () => composer.dispose(), [composer]);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
-    const fade = ctl.heroFadeRef.current;
+    const fade = ctl.bloomFadeRef.current;
     const b = bloomRef.current;
     if (b) {
-      // Steady phosphor, with a hard pump through the break flash, scaled by
-      // the scroll fade so the glow leaves WITH the menu.
+      // Steady phosphor, with a hard pump through the break flash, eased off as
+      // the page leaves the hero behind. This is all the scroll fade still
+      // does: the hero's own geometry rides the scroll rig off the top of the
+      // frame and needs no dissolve, but the glow is thrown across the whole
+      // canvas and would otherwise sit on the feed.
       //
       // Past the hero the bloom PASS is switched off, which is where its cost
       // lives, but the composer keeps rendering. Bypassing the composer for a
@@ -669,7 +679,10 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     const slot = lay.slots[index];
     built.trailMat.opacity = 0;
     // The doors belong to the hero, not to the background it leaves behind.
-    const fade = ctl.heroFadeRef.current;
+    // They no longer dim on scroll -- they ride the scroll rig off the top of
+    // the frame with their own labels. This is the ABORT only: the one case
+    // where the menu has to leave without going anywhere.
+    const fade = ctl.abortRef.current;
     g.visible = fade > 0.01;
     if (!g.visible) return;
     const ap = clamp((t - 3.2) / 1.5, 0, 1);
@@ -730,10 +743,24 @@ function ClockDriver({ ctl }: { ctl: HeroCtl }) {
     // definition, so it dims hard, then trails off for another second, and the
     // long tail is what reads as a second stage rather than one dim. A fixed
     // rate covers the whole range in FADE_SECS no matter which way it is going.
+    // The scroll dim. This is the BLOOM's now, not the hero's: the hero scrolls
+    // away under the rig above, and a thing that leaves the screen does not
+    // need to dissolve as well. What is left for this to do is take the glow
+    // off the starfield and switch the expensive pass out once the page has
+    // moved on from the hero.
     const want = ctl.pastRef.current ? 0 : 1;
-    const f = ctl.heroFadeRef.current;
+    const f = ctl.bloomFadeRef.current;
     const step = d / FADE_SECS;
-    ctl.heroFadeRef.current = want > f ? Math.min(want, f + step) : Math.max(want, f - step);
+    ctl.bloomFadeRef.current = want > f ? Math.min(want, f + step) : Math.max(want, f - step);
+
+    // The abort, on its own clock. Ending the animatic early is a different
+    // event from scrolling past it: it goes out faster, over SKIP_SECS, and it
+    // comes back on the slow rate so that returning to a hero that was skipped
+    // is not a snap.
+    const wantA = ctl.skipRef.current ? 0 : 1;
+    const a = ctl.abortRef.current;
+    const stepA = d / (ctl.skipRef.current ? SKIP_SECS : FADE_SECS);
+    ctl.abortRef.current = wantA > a ? Math.min(wantA, a + stepA) : Math.max(wantA, a - stepA);
 
     if (ctl.scrubRef.current != null) {
       ctl.tRef.current = ctl.scrubRef.current;
@@ -774,8 +801,10 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
   // only touches the DOM when something actually changed.
   const saidChars = useRef<HTMLElement[] | null>(null);
   const markChars = useRef<HTMLElement[] | null>(null);
+  const enterLabs = useRef<{ lab: HTMLElement; skip: HTMLElement } | null>(null);
   const lastTyped = useRef(-1);
   const announced = useRef(false);
+  const released = useRef(false);
   useFrame((state) => {
     // Tells the boot script the scene really started. That script hides the
     // hero so the animation can play, and releases it again if this never
@@ -792,10 +821,54 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
     if (hud.tcRef.current) hud.tcRef.current.textContent = td.toFixed(2) + "s";
     const flood = smooth(2.2, 2.35, t) * (1 - smooth(2.45, 3.0, t)); // a quick flash, then it clears for the spiral
     if (hud.floodRef.current) hud.floodRef.current.style.opacity = String(flood);
+    // The overlay is pure f(t) and scrolls off with the stage, which is all it
+    // ever needed to do. The one thing it cannot handle on its own is the
+    // abort: SKIP ends the animatic where it stands, with the page still held,
+    // so the shapes dissolve and text that ignored that would be the one thing
+    // left hanging in an empty frame. Hence the abort, and only the abort.
+    const fade = ctl.abortRef.current;
+    const live = fade > 0.02; // nothing invisible stays clickable
     const doorsIn = smooth(5.0, 5.75, t);
     if (hud.doorsRef.current) {
-      hud.doorsRef.current.style.opacity = String(doorsIn);
-      hud.doorsRef.current.style.pointerEvents = t > 5.3 ? "auto" : "none";
+      hud.doorsRef.current.style.opacity = String(doorsIn * fade);
+      hud.doorsRef.current.style.pointerEvents = t > 5.3 && live ? "auto" : "none";
+    }
+    // THE WAY OUT, on its own clock. It arrives at half strength during THE
+    // PULL and comes up to full on the menu's curve, so the escape from the
+    // scroll lock exists from about a second in without a second element
+    // competing with the doors once they land. Clickable as soon as it is
+    // visible: it is the only way past the lock and it must never be a target
+    // you can see but not hit.
+    if (hud.enterRef.current) {
+      const enter = hud.enterRef.current;
+      const early = smooth(ENTER_IN, ENTER_OUT, t);
+      enter.style.opacity = String((ENTER_DIM * early + (1 - ENTER_DIM) * doorsIn) * fade);
+      enter.style.pointerEvents = t > ENTER_IN && live ? "auto" : "none";
+      // And it stops calling itself a skip once there is nothing left to skip.
+      // A crossfade in a single grid cell, not a textContent swap: the two
+      // words are different widths, and rewriting the label would jump a
+      // centred control sideways in the middle of its own transition. Both
+      // spans are laid out from the first frame and only their opacity moves.
+      if (!enterLabs.current) {
+        enterLabs.current = {
+          lab: enter.querySelector<HTMLElement>(".ha-enter__lab")!,
+          skip: enter.querySelector<HTMLElement>(".ha-enter__skip")!,
+        };
+      }
+      const said = smooth(MARK_OUT, DUR, t);
+      enterLabs.current.lab.style.opacity = String(said);
+      enterLabs.current.skip.style.opacity = String(1 - said);
+    }
+    // THE LOCK RELEASES ITSELF. The page holds still until the last element of
+    // the animatic has settled, which is the wordmark, not DUR: the beat runs
+    // 0.55s past the point where nothing is moving any more. Written once, and
+    // from here rather than from an effect, because this driver is the only
+    // thing that knows where the clock actually is. Removing a class that was
+    // never added (the lab, reduced motion, a page that loaded scrolled) is a
+    // no-op, so this needs no guard beyond the once-only flag.
+    if (!released.current && t >= MARK_OUT) {
+      released.current = true;
+      document.documentElement.classList.remove("ha-lock");
     }
     // THE ADDRESS: the line TYPES in, character by character, at a linear rate.
     // Linear on purpose -- an eased curve would make a typewriter accelerate and
@@ -806,7 +879,7 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
       if (!saidChars.current) {
         saidChars.current = Array.from(el.querySelectorAll<HTMLElement>(".ha-c"));
       }
-      el.style.opacity = t >= SAID_IN ? "1" : "0";
+      el.style.opacity = String((t >= SAID_IN ? 1 : 0) * fade);
       const chars = saidChars.current;
       const p = clamp((t - SAID_IN) / (SAID_OUT - SAID_IN), 0, 1);
       const typed = Math.round(p * chars.length);
@@ -834,7 +907,7 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
         markChars.current = Array.from(mk.querySelectorAll<HTMLElement>(".ha-m"));
       }
       const g = clamp((t - MARK_IN) / (MARK_OUT - MARK_IN), 0, 1);
-      mk.style.opacity = String(smooth(0, 1, g) * 0.05);
+      mk.style.opacity = String(smooth(0, 1, g) * 0.05 * fade);
       const sp = ((1 - g) * 5).toFixed(2);
       mk.style.textShadow = g >= 1 ? "none" : "-" + sp + "px 0 #ff2e63, " + sp + "px 0 #00e0ff";
       const chars = markChars.current;
@@ -868,23 +941,69 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
 }
 
 // ---- scene ------------------------------------------------------------------
-function HeroScene({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+// THE SKY IS ONE THING, AND IT NEVER MOVES.
+//
+// Three ways to build the same scene file, because the homepage draws it across
+// two canvases and the lab draws it in one:
+//
+//   cosmos  the sky, alone, in a canvas fixed to the viewport. It is behind
+//           everything, all the time, and it is the ONLY copy of the starfield
+//           and the nebula on the homepage.
+//   hero    everything the animatic owns and nothing else, in a canvas that
+//           sits in the page and scrolls with it. No sky and no background
+//           fill: it is transparent, and the fixed cosmos above shows straight
+//           through it. Drawing its own sky is what made the backdrop scroll
+//           away with the hero, which is the one thing the backdrop must never
+//           do.
+//   full    both at once, opaque, for the lab, where there is only one canvas
+//           and nothing behind it to show through.
+//
+// The split exists because a canvas pinned to the viewport can only move what
+// it draws by drawing it again, so the shapes lagged the page by however long a
+// frame took. An element in normal flow is moved by the browser at any frame
+// rate, for free. So the thing that must scroll is in the page and the thing
+// that must not is pinned, and neither one has to fake it.
+//
+// The clock lives with the hero and the cosmos only reads it, so the two
+// canvases cannot drift: one t, one camera, one set of constants.
+function HeroScene({
+  ctl,
+  hud,
+  mode,
+}: {
+  ctl: HeroCtl;
+  hud: HeroHud;
+  mode: "full" | "hero" | "cosmos";
+}) {
+  const sky = mode !== "hero";
+  const stage = mode !== "cosmos";
   return (
     <>
-      <color attach="background" args={[COL_VOID]} />
+      {/* The void is painted by whichever canvas is at the back. On the
+          homepage that is the cosmos; the hero canvas must stay transparent or
+          it would paint over the sky it is supposed to be standing in. */}
+      {sky && <color attach="background" args={[COL_VOID]} />}
       <fogExp2 attach="fog" args={[COL_VOID, FOG_DENSITY]} />
-      <ClockDriver ctl={ctl} />
+      {stage && <ClockDriver ctl={ctl} />}
       <CameraRig ctl={ctl} />
-      <Starfield ctl={ctl} />
-      <Nebula ctl={ctl} />
-      <MachineField ctl={ctl} />
-      <WarpCore ctl={ctl} />
-      <RushStreaks ctl={ctl} />
-      <BreakShards ctl={ctl} />
-      {DOORS.map((d, i) => (
-        <HeroShape key={d.key} door={d} index={i} ctl={ctl} />
-      ))}
-      <HudDriver ctl={ctl} hud={hud} />
+      {sky && (
+        <>
+          <Starfield ctl={ctl} />
+          <Nebula ctl={ctl} />
+        </>
+      )}
+      {stage && (
+        <>
+          <MachineField ctl={ctl} />
+          <WarpCore ctl={ctl} />
+          <RushStreaks ctl={ctl} />
+          <BreakShards ctl={ctl} />
+          {DOORS.map((d, i) => (
+            <HeroShape key={d.key} door={d} index={i} ctl={ctl} />
+          ))}
+          <HudDriver ctl={ctl} hud={hud} />
+        </>
+      )}
       <HeroBloom ctl={ctl} />
     </>
   );
@@ -900,10 +1019,15 @@ export default function HeroCanvas({
   ctl,
   hud,
   frameloop = "always",
+  mode = "full",
 }: {
   ctl: HeroCtl;
   hud: HeroHud;
   frameloop?: "always" | "demand" | "never";
+  // "hero" is the animatic alone, transparent, in the page and scrolling with
+  // it. "cosmos" is the sky alone, opaque, fixed behind the whole page. "full"
+  // is both in one opaque canvas, which is the lab.
+  mode?: "full" | "hero" | "cosmos";
 }) {
   // Pixel-ratio ceiling. This module is client-only (ssr:false), so window is
   // always here. At [1,2] on a 390x844 phone with a 3x screen the scene renders
@@ -920,10 +1044,12 @@ export default function HeroCanvas({
       aria-hidden="true"
       frameloop={frameloop}
       camera={{ fov: CAM_FOV, near: 0.1, far: 400, position: [0, 0, CAM_Z_REST] }}
-      gl={{ antialias: true }}
+      // alpha explicitly, not by default: the hero canvas has to be see-through
+      // or the fixed sky behind it is wasted work nobody can see.
+      gl={{ antialias: true, alpha: true }}
       dpr={dpr}
     >
-      <HeroScene ctl={ctl} hud={hud} />
+      <HeroScene ctl={ctl} hud={hud} mode={mode} />
     </Canvas>
   );
 }

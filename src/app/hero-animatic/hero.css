@@ -63,6 +63,30 @@ html.ha-hero-top .site-header {
   height: 100svh; /* the SMALL viewport: never cut by mobile browser chrome */
 }
 
+/* THE SCROLL LOCK. The page holds still until the animatic has finished, so the
+   first screen is watched rather than scrolled through at the halfway mark. The
+   class is stamped on <html> by the hero's boot script before the first paint
+   and lifted by HudDriver when the wordmark settles; .ha-enter is the way out
+   of it in the meantime.
+   Only the y axis is named, but note what actually computes: the root carries
+   `overflow-x: clip`, and a clip axis paired with a non-clip, non-visible one
+   is defined to compute to hidden, so BOTH axes read hidden while this class is
+   on. That costs position:sticky for the duration, which is why it is scoped to
+   a class that only exists while a full-screen hero is covering the page and
+   nothing sticky is on screen to lose.
+   scrollbar-gutter is the part that is easy to miss. A root that stops
+   scrolling loses its scrollbar, the layout gains its width back, and the
+   full-bleed hero and the fixed canvas both resize -- once on lock and again on
+   release, which lands exactly on the animatic's last frame. Measured at 1280
+   with classic scrollbars: with the gutter reserved the stage holds 1270 either
+   side of the release; without it, it jumps 1280 -> 1270. (Overlay scrollbars
+   have no gutter to reserve, so this is a no-op on iOS and macOS.) */
+html.ha-lock {
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior: none;
+}
+
 /* A size container, so every measurement inside resolves against the STAGE
    rather than the window. On the dev route the stage is a 16:9 box inside a
    wider page and the two are not the same thing; on the homepage the stage IS
@@ -93,6 +117,74 @@ html.ha-hero-top .site-header {
   display: block;
   width: 100% !important;
   height: 100% !important;
+}
+
+/* THE VEIL. Black over the cosmos, coming on with the scroll so the feed reads
+   against a settled sky instead of a live starfield.
+   The same stacking level as the canvas and immediately after it in source
+   order, which is exactly what puts it OVER the cosmos and still under the page
+   itself: an in-flow element that sets no z-index paints above every negative
+   layer, so the feed is never dimmed, only the sky behind it. That is also why
+   it dims nothing in the hero, which is in flow too.
+   Starts clear, and stays clear if nothing ever writes it. With no JS there is
+   no scroll position to read, and a black film that could never lift would be a
+   good deal worse than no film at all. */
+.ha-veil {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* THE INDICATOR, and the whole reason the page can hold still while the
+   animatic closes. Fixed rather than parked in the stage, so it keeps its place
+   on screen while the page travels underneath it once the closing is done.
+   Above the veil and above the hero, which is the one thing in this file that
+   is allowed to be.
+   Starts invisible and is only ever written by the skip transition, so with no
+   JS it is not there at all and the anchor below simply scrolls. */
+.ha-load {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  opacity: 0;
+  pointer-events: none;
+}
+/* Sized off viewport width only to keep it a sane bar on a phone and not a
+   hairline on an ultrawide. Everything else in the composition measures against
+   height because it has to track the shapes; this tracks nothing. */
+.ha-load__rail {
+  width: clamp(7rem, 22vw, 13rem);
+  height: 2px;
+  background: rgba(139, 156, 247, 0.22);
+  overflow: hidden;
+}
+/* Scaled, not width-animated: a transform composites and a width reflows, and
+   this is running over a live WebGL canvas. Origin left so it fills the way it
+   is read. The driver writes the scale from how much of the animatic has
+   actually gone, so the bar is reporting something real. */
+.ha-load__fill {
+  height: 100%;
+  background: #00e0ff;
+  box-shadow: 0 0 12px -2px #00e0ff;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.ha-load__lab {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: clamp(0.58rem, 1.6vw, 0.7rem);
+  letter-spacing: 0.42em;
+  text-indent: 0.42em; /* the tracking is trailing space; this re-centres it */
+  text-transform: uppercase;
+  color: #aab8e8;
 }
 
 /* Lab framing. Scoped to the dev page so the homepage block above inherits none
@@ -239,8 +331,17 @@ html.ha-hero-top .site-header {
   opacity: 0.85;
 }
 
-/* THE WAY IN. Sits below the menu (door cells bottom out at 78% in the row and
-   72.7% in the grid, so this clears both) and reveals with it. */
+/* THE WAY IN, AND THE WAY OUT. Sits below the menu (door cells bottom out at
+   78% in the row and 72.7% in the grid, so this clears both). No longer a child
+   of .ha-doors and no longer on the menu's clock: it is the release for the
+   scroll lock, so it has to be reachable long before the doors land. The driver
+   fades it in during THE PULL at half strength and brings it to full with the
+   menu. Hidden state is gated on .ha-anim like everything else, so the no-JS
+   render still ships it visible and clickable. */
+.ha-anim .ha-enter {
+  opacity: 0;
+  pointer-events: none;
+}
 .ha-enter {
   position: absolute;
   left: 50%;
@@ -263,6 +364,22 @@ html.ha-hero-top .site-header {
 .ha-enter:hover,
 .ha-enter:focus-visible {
   color: #f2f5ff;
+}
+/* Both labels stacked in ONE cell so the crossfade cannot move anything. They
+   are different widths, and swapping the text (or laying them out in sequence)
+   would slide a centred control sideways in the middle of its own transition.
+   The cell takes the width of the wider one, so the hit area is constant too.
+   Settled state, and the only state without JS: the real label on, the costume
+   off. The driver crossfades them across the tail of the timeline. */
+.ha-enter__labs {
+  display: grid;
+  place-items: center;
+}
+.ha-enter__labs > * {
+  grid-area: 1 / 1;
+}
+.ha-enter__skip {
+  opacity: 0;
 }
 .ha-enter__chev {
   width: 1.7em;
