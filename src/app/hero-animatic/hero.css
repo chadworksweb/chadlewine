@@ -33,8 +33,14 @@
   text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff;
 }
 
+/* A size container, so every measurement inside resolves against the STAGE
+   rather than the window. On this dev route the stage is a 16:9 box inside a
+   wider page and the two are not the same thing; on the homepage the stage IS
+   the viewport. Container units keep both correct from one set of rules, and
+   they degrade to the small-viewport units if containment is ever unavailable. */
 .ha-stage {
   position: relative;
+  container-type: size;
   width: 100%;
   max-width: 1280px;
   aspect-ratio: 16 / 9;
@@ -87,28 +93,36 @@
   inset: 0;
   transition: opacity 0.2s ease;
 }
+/* left and top are written from the projected slot (see heroLayout), so a label
+   always sits under its own shape at every aspect and in both the row and the
+   grid arrangement. The box is sized by its content on purpose: the old fixed
+   16% width wrapped "/music-videos" onto two lines below a 506px viewport, and
+   the 58% height made five invisible link columns that blanketed the hero,
+   swallowing keyboard focus and sitting exactly where a thumb swipes to
+   scroll. */
 .ha-door {
   position: absolute;
-  top: 20%;
-  height: 58%;
-  width: 16%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   align-items: center;
   gap: 0.2rem;
-  padding-bottom: 0.4rem;
+  padding: 0.3rem 0.5rem 0.4rem;
   text-decoration: none;
+  white-space: nowrap;
   border-radius: 10px;
   transition: background 0.2s ease;
 }
 .ha-door:hover {
   background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--dh) 16%, transparent), transparent 70%);
 }
+/* Sized off viewport HEIGHT, like everything else in this composition. The
+   camera's vertical fov is fixed, so a shape is always the same fraction of
+   viewport height; type measured against width drifted away from the shapes it
+   labels at every aspect that was not 16:9. */
 .ha-door__lab {
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: clamp(0.8rem, 1.5vw, 1.05rem);
+  font-size: clamp(0.72rem, 1.55cqh, 1.05rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #f2f5ff;
@@ -116,25 +130,34 @@
 }
 .ha-door__rt {
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 0.64rem;
+  font-size: clamp(0.6rem, 0.95cqh, 0.68rem);
   letter-spacing: 0.06em;
   color: var(--dh);
   opacity: 0.85;
 }
 
 /* THE ADDRESS: sits above the menu, close enough to read as its heading rather
-   than as a separate banner. Opacity, letter-spacing, blur and the chromatic
-   split are all written per frame by HudDriver off the shared clock, so it
-   cannot drift from the scene. */
+   than as a separate banner. Since the typed reveal replaced the resolve, the
+   only thing HudDriver still writes on the line is opacity plus the per
+   character classes; the tracking and the chromatic split below are static. */
 /* The address block: wordmark and line stacked in ONE grid cell, so the big
    wordmark stays centred on the line whatever either one's width does. */
 .ha-address {
   position: absolute;
-  left: 50%;
+  /* Spans the frame rather than sitting at left:50%. Anchored at 50% with no
+     width, an absolutely positioned box shrinks to fit against only the
+     REMAINING half of the frame, which did not matter while the line was
+     nowrap (it simply overflowed and the -50% translate re-centred it) but
+     capped the wrap width at half the frame the moment wrapping was allowed.
+     Full width + place-items:center centres the same way with no translate. */
+  left: 0;
+  right: 0;
   top: 24%;
-  /* -50% is the horizontal centring; the -20px lifts the whole block, wordmark
-     and line together, so their relative offset is untouched. */
-  transform: translate(-50%, -20px);
+  /* The lift raises the whole block, wordmark and line together, so their
+     relative offset is untouched. In cqh rather than px so it stays
+     proportional to type that now scales with the frame (1.85cqh is the
+     original 20px in a 1080-tall frame). */
+  transform: translateY(-1.85cqh);
   display: grid;
   place-items: center;
   pointer-events: none;
@@ -164,15 +187,20 @@
 .ha-mark {
   white-space: nowrap;
   font-family: var(--font-ui, ui-sans-serif, system-ui, sans-serif);
-  font-size: clamp(1.5rem, 7.5vw, 6rem);
+  /* Height is the primary basis, matching the shapes. The vw term is a ceiling
+     only: a phone is tall and narrow, so 8.9cqh alone would render the wordmark
+     551px wide inside a 390px frame. Whichever constraint bites first wins.
+     At 1920x1080 this resolves to 96px, exactly what it was. */
+  font-size: clamp(1.75rem, min(8.9cqh, 11.5cqw), 7rem);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   line-height: 1;
   color: #dfe6ff;
   /* Lifted off the shared grid cell's centre so the line sits low against the
-     wordmark rather than splitting it in half. */
-  transform: translateY(-10px);
+     wordmark rather than splitting it in half. In em, so the lift stays the
+     same fraction of the wordmark at any size (it was 10px against 96px). */
+  transform: translateY(-0.104em);
   opacity: 0;
 }
 /* Glitch characters. Transform-only jitter: nudging position never reflows,
@@ -186,18 +214,26 @@
 
 .ha-said {
   margin: 0;
-  width: max-content;
-  /* Sits above the wordmark in the shared grid cell. The -2px nudges the line
+  /* Sits above the wordmark in the shared grid cell. The nudge moves the line
      alone against the wordmark; offsetting via top rather than transform keeps
-     it clear of the driver, which rewrites this element's style every frame. */
+     it clear of the driver, which rewrites this element's style every frame.
+     In em so it holds its proportion as the type scales (it was 3px at 21px). */
   position: relative;
-  top: -3px;
+  top: -0.142em;
   z-index: 1;
-  white-space: nowrap;
+  /* No longer nowrap, and no longer width:max-content. Both existed so the wide
+     blurred ghost clipped at the frame edge instead of reflowing as it landed,
+     and that entrance was replaced by the typed reveal. The reveal is
+     opacity-only with the whole line laid out from the first frame, so a
+     wrapped line cannot reflow as it types. Portrait needs the wrap: held on
+     one line the tagline bottomed out at 9.3px and stopped shrinking, so it
+     outgrew the wordmark it is supposed to sit inside. */
+  max-width: 88cqw;
+  line-height: 1.4;
   text-align: center;
   pointer-events: none;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: clamp(0.58rem, 1.75vw, 1.32rem);
+  font-size: clamp(0.78rem, 1.96cqh, 1.6rem);
   font-weight: 700;
   text-transform: uppercase;
   color: #f2f5ff;
@@ -207,6 +243,17 @@
   letter-spacing: 0.26em;
   text-shadow: -1.6px 0 #ff2e63, 1.6px 0 #00e0ff;
   opacity: 0;
+}
+
+/* Each character is its own span, so the spaces between words are spans holding
+   a single space. Under normal white-space processing that space is a candidate
+   for collapsing, which is why it used to be a non-breaking space. A NBSP is
+   also a non-breaking OPPORTUNITY though, so the line physically could not wrap
+   anywhere. pre-wrap preserves the space AND keeps it as a break opportunity,
+   which is what lets the tagline wrap on portrait. It also puts real spaces in
+   the extracted text rather than U+00A0. */
+.ha-said__chars {
+  white-space: pre-wrap;
 }
 
 /* Typed characters. Opacity, never display or insertion -- the full line is

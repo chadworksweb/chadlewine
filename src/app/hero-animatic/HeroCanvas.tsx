@@ -22,9 +22,9 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  DOORS, PHI, SHELLS, SHELL_FALLOFF, SLOT_X, DUR, SAID_IN, SAID_OUT,
+  DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
   MARK_IN, MARK_OUT, MARK_TEXT, COL_PERI, COL_VOID,
-  clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo,
+  clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo, heroLayout,
   type Door, type HeroCtl, type HeroHud,
 } from "./heroShapes";
 
@@ -640,16 +640,25 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     }
 
     // ASSEMBLY -> REST: the same door returns to the centre and settles into its slot
+    //
+    // The slot is the ONLY part of this that is responsive. Everything before
+    // 2.2 (the pull, the tunnel, the eject) is untouched at every aspect, so the
+    // intro is identical everywhere; only where the doors LAND moves, and only
+    // below 3:2 where the authored row genuinely does not fit the frame.
+    const lay = heroLayout(state.size.width / state.size.height);
+    const slot = lay.slots[index];
     built.trailMat.opacity = 0;
     g.visible = true;
     const ap = clamp((t - 3.2) / 1.5, 0, 1);
     const emerge = t < 3.15 ? 0 : backOut(ap);
-    // the artifact's ordered wave: each door phased by index so the row ripples
+    // the artifact's ordered wave: each door phased by index so the row ripples.
+    // Scaled with the menu, so the idle drift stays proportional to the shape
+    // rather than swamping it on a phone.
     const settle = smooth(4.6, 5.7, t);
-    const wave = settle * (Math.sin(t * 1.3 + index * 1.1) * 0.16 + Math.sin(t * 0.7 + index) * 0.1);
-    g.position.set(lerp(0, SLOT_X[index], emerge), wave, lerp(-2, 0, emerge));
+    const wave = settle * lay.k * (Math.sin(t * 1.3 + index * 1.1) * 0.16 + Math.sin(t * 0.7 + index) * 0.1);
+    g.position.set(lerp(0, slot.x, emerge), lerp(0, slot.y, emerge) + wave, lerp(-2, 0, emerge));
     const breathe = 1 + 0.035 * Math.sin(t * 0.28 + index * 1.3);
-    g.scale.setScalar(lerp(0.0, 1.2, easeOut(ap)) * breathe);
+    g.scale.setScalar(lerp(0.0, 1.2 * lay.k, easeOut(ap)) * breathe);
     const res = smooth(2.3, 3.6, t);
     const alpha = 0.95 * smooth(2.5, 3.2, t);
     const spin = index + 0.25 * t + 1.6 * smooth(2.2, 4.8, t); // rotation slowed ~50%

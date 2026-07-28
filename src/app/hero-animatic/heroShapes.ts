@@ -55,6 +55,121 @@ export const SHELL_FALLOFF: Record<Kind, number> = {
 // Resting slot x-positions (world units). Spacing 4 across the 16:9 frame.
 export const SLOT_X = [-8, -4, 0, 4, 8];
 
+// ---- responsive rest layout -------------------------------------------------
+//
+// The composition was authored at one aspect and nothing compensated for any
+// other. Visible world half-width is WORLD_HALF_H * aspect, so it moves with the
+// viewport, while the DOM overlay's percentages were constant. The stage's
+// aspect-ratio:16/9 lock was the only thing holding the two together, and going
+// full-bleed removes exactly that lock.
+//
+// Everything below is a pure function of aspect, and every consumer (the scene,
+// the DOM labels) reads THIS, so the shapes and their labels cannot drift apart.
+//
+// Vertical needs no compensation at all: the camera's vertical fov is fixed, so
+// a shape is always the same fraction of viewport height whatever the aspect.
+// Only horizontal moves.
+export const CAM_FOV = 55; // vertical, degrees
+export const CAM_Z_REST = 13.4;
+// World half-height at the z=0 plane. Constant, by the note above.
+export const WORLD_HALF_H = Math.tan((CAM_FOV * Math.PI) / 360) * CAM_Z_REST;
+
+// Geometry radii, so a door's true on-screen extent is known rather than
+// guessed. Getting these wrong only costs margin, but the Music door already
+// changed solid once, so this is a table rather than a magic number.
+export const SHAPE_R: Record<Kind, number> = {
+  icosa: 1.0,
+  octa: 1.0,
+  star: 1.18, // tetrahedron circumradius
+  ring: 1.15, // torus 0.85 + 0.3
+  cube: 1.169, // half space-diagonal of a 1.35 box
+  wave: 1.25, // retired, kept so the record stays total
+};
+export const DOOR_SCALE = 1.2; // the rested group scale
+const BREATHE_MAX = 1.035; // the idle breathe, counted so it never clips
+const doorR = (k: Kind) => SHAPE_R[k] * DOOR_SCALE * BREATHE_MAX;
+
+// Portrait cannot hold one row of five: at 9:16 the frame is 3.2 world units
+// wide either side of centre and the row needs 9.2. Below this aspect the menu
+// becomes a 3-over-2 grid instead. Row 1 takes Music/Art/Videos, row 2 the
+// remaining pair, indented, which is the layout that keeps the shapes readable
+// (~85px on a phone) instead of shrinking a single row to ~52px.
+export const GRID_ASPECT = 1.0;
+const GRID_X = [-4, 0, 4, -2, 2];
+const GRID_ROW = [0, 0, 0, 1, 1];
+const GRID_ROW_SEP = 2.9;
+
+// 8% of the visible half-width is left outside the outermost shape so it never
+// kisses the frame edge.
+const MARGIN = 0.92;
+
+// The widest reach of each arrangement, measured off the real radii.
+const reach = (xs: number[]) =>
+  DOORS.reduce((m, d, i) => Math.max(m, Math.abs(xs[i]) + doorR(d.shape)), 0);
+const FIT_ROW = reach(SLOT_X) / MARGIN;
+const FIT_GRID = reach(GRID_X) / MARGIN;
+
+// Tallest shape per row, so labels in one row share a baseline instead of
+// stepping up and down with each solid's radius.
+const rowMaxR = (row: number) =>
+  DOORS.reduce((m, d, i) => (GRID_ROW[i] === row ? Math.max(m, doorR(d.shape)) : m), 0);
+const ROW_MAX_R = DOORS.reduce((m, d) => Math.max(m, doorR(d.shape)), 0);
+
+// Label gap below a shape, in % of viewport height, at k = 1. The row value is
+// derived so that at 16:9 the labels land exactly where they always have.
+const GAP_ROW = 10.74;
+const GAP_GRID = 4.5;
+
+export interface HeroSlot {
+  x: number; // world units
+  y: number; // world units
+  leftPct: number; // projected horizontal centre, % of frame
+  labelTopPct: number; // where the DOM label block starts, % of frame
+}
+export interface HeroLayout {
+  k: number; // one scale on both spacing and door size
+  grid: boolean;
+  halfW: number; // visible world half-width at this aspect
+  slots: HeroSlot[];
+}
+
+const layoutCache = new Map<number, HeroLayout>();
+
+export function heroLayout(aspect: number): HeroLayout {
+  // Quantised so the per-frame callers hit the cache instead of rebuilding.
+  const key = Math.round(aspect * 1000);
+  const hit = layoutCache.get(key);
+  if (hit) return hit;
+
+  const halfW = WORLD_HALF_H * (key / 1000);
+  const grid = key / 1000 < GRID_ASPECT;
+  // Capped at 1, so every aspect at or above 3:2 is the authored composition
+  // untouched rather than something merely close to it.
+  const k = Math.min(1, halfW / (grid ? FIT_GRID : FIT_ROW));
+
+  const slots: HeroSlot[] = DOORS.map((d, i) => {
+    const x = (grid ? GRID_X[i] : SLOT_X[i]) * k;
+    const y = grid ? (GRID_ROW[i] === 0 ? 1 : -1) * GRID_ROW_SEP * k : 0;
+    const r = (grid ? rowMaxR(GRID_ROW[i]) : ROW_MAX_R) * k;
+    const gap = (grid ? GAP_GRID : GAP_ROW) * k;
+    return {
+      x,
+      y,
+      leftPct: 50 + (x / halfW) * 50,
+      labelTopPct: 50 - (y / WORLD_HALF_H) * 50 + (r / WORLD_HALF_H) * 50 + gap,
+    };
+  });
+
+  const out = { k, grid, halfW, slots };
+  layoutCache.set(key, out);
+  return out;
+}
+
+// The server has no viewport, so the first render uses the authored 16:9
+// composition. A ResizeObserver corrects it on mount. This also means the
+// pre-hydration HTML carries sensible positions rather than nothing.
+export const LAYOUT_16_9 = heroLayout(16 / 9);
+
 // Timeline (seconds). Names double as the HUD beat labels.
 export const DUR = 11.6;
 export const BEATS: { t0: number; t1: number; name: string }[] = [

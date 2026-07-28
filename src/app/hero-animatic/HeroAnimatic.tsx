@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
-import { DOORS, DUR, MARK_TEXT, SAID_TEXT, type HeroCtl, type HeroHud } from "./heroShapes";
+import {
+  DOORS, DUR, MARK_TEXT, SAID_TEXT, heroLayout, LAYOUT_16_9,
+  type HeroCtl, type HeroHud, type HeroLayout,
+} from "./heroShapes";
 import "./hero.css";
 
 // WebGL/Canvas is client-only: no SSR attempt (avoids window/WebGL-on-server).
 const HeroCanvas = dynamic(() => import("./HeroCanvas"), { ssr: false });
 
-// Left/center percentages for the five resting slots, matching SLOT_X projected
-// at the rest camera (z=13.4, fov 55, 16:9). Doors sit under their shapes.
-const SLOT_PCT = [17.7, 33.9, 50, 66.1, 82.3];
 const FRAME = 1 / 30; // frame-step size (seconds)
 
 export default function HeroAnimatic() {
@@ -45,6 +45,35 @@ export default function HeroAnimatic() {
     }
   }, []);
 
+  // The rest layout is a pure function of the STAGE's aspect, not the window's:
+  // on this dev route the stage is a 16:9 box inside a wider page, and on the
+  // homepage it is the whole viewport. Observing the element covers both, and
+  // the scene reads its own canvas size, which is the same box, so the shapes
+  // and these labels are driven by one function and cannot drift apart.
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [layout, setLayout] = useState<HeroLayout>(LAYOUT_16_9);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const apply = (w: number, h: number) => {
+      // heroLayout is memoised per aspect, so an unchanged aspect returns the
+      // same object and React bails out rather than re-rendering.
+      if (w > 0 && h > 0) setLayout(heroLayout(w / h));
+    };
+    // Measure once, straight away, rather than waiting on the observer's first
+    // callback: those are delivered with the rendering steps, so on a route
+    // that mounts with the wrong aspect the doors would hold the server's 16:9
+    // default for a frame or more.
+    const box = el.getBoundingClientRect();
+    apply(box.width, box.height);
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      apply(width, height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div className="ha-page">
       <div className="ha-head">
@@ -52,7 +81,7 @@ export default function HeroAnimatic() {
         <h1 className="ha-title">Transcend the Machine</h1>
       </div>
 
-      <div className="ha-stage">
+      <div className="ha-stage" ref={stageRef}>
         <HeroCanvas ctl={ctl} hud={hud} />
 
         <div className="ha-flood" ref={floodRef} aria-hidden="true" />
@@ -68,7 +97,11 @@ export default function HeroAnimatic() {
               key={d.key}
               className="ha-door"
               href={d.route}
-              style={{ left: SLOT_PCT[i] + "%", "--dh": d.hue } as CSSProperties}
+              style={{
+                left: layout.slots[i].leftPct + "%",
+                top: layout.slots[i].labelTopPct + "%",
+                "--dh": d.hue,
+              } as CSSProperties}
               aria-label={`${d.label} - ${d.route}`}
             >
               <span className="ha-door__lab">{d.label}</span>
@@ -98,9 +131,12 @@ export default function HeroAnimatic() {
           </span>
           <p className="ha-said" ref={titleRef} style={{ opacity: 0 }}>
             <span className="ha-sr">{SAID_TEXT}</span>
+            {/* Real spaces, not U+00A0. The parent carries white-space:pre-wrap,
+                which preserves a lone space inside its own span AND keeps it as
+                a line-break opportunity, so the line can wrap on portrait. */}
             <span className="ha-said__chars" aria-hidden="true">
               {SAID_TEXT.split("").map((c, i) => (
-                <span key={i} className="ha-c">{c === " " ? "\u00a0" : c}</span>
+                <span key={i} className="ha-c">{c}</span>
               ))}
             </span>
           </p>
