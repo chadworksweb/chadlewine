@@ -52,6 +52,14 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   useEffect(() => () => composer.dispose(), [composer]);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
+    // Past the hero the composer is bypassed entirely for a plain render. Bloom
+    // is the single most expensive thing in the scene and its whole job is to
+    // light the menu; the starfield and nebula read fine without it. This is
+    // what makes it affordable to leave the loop running for the whole page.
+    if (ctl.heroFadeRef.current < 0.02) {
+      gl.render(scene, camera);
+      return;
+    }
     const b = bloomRef.current;
     if (b) {
       // steady phosphor, with a hard pump through the break flash
@@ -651,7 +659,10 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     const lay = heroLayout(state.size.width / state.size.height);
     const slot = lay.slots[index];
     built.trailMat.opacity = 0;
-    g.visible = true;
+    // The doors belong to the hero, not to the background it leaves behind.
+    const fade = ctl.heroFadeRef.current;
+    g.visible = fade > 0.01;
+    if (!g.visible) return;
     const ap = clamp((t - 3.2) / 1.5, 0, 1);
     const emerge = t < 3.15 ? 0 : backOut(ap);
     // the artifact's ordered wave: each door phased by index so the row ripples.
@@ -663,7 +674,7 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     const breathe = 1 + 0.035 * Math.sin(t * 0.28 + index * 1.3);
     g.scale.setScalar(lerp(0.0, 1.2 * lay.k, easeOut(ap)) * breathe);
     const res = smooth(2.3, 3.6, t);
-    const alpha = 0.95 * smooth(2.5, 3.2, t);
+    const alpha = 0.95 * smooth(2.5, 3.2, t) * fade;
     const spin = index + 0.25 * t + 1.6 * smooth(2.2, 4.8, t); // rotation slowed ~50%
     g.rotation.set(spin * 0.5, spin, 0); // the door's own tumble, whole-body
     for (let i = 0; i < built.shells.length; i++) {
@@ -698,6 +709,13 @@ function ClockDriver({ ctl }: { ctl: HeroCtl }) {
       ctl.stepRef.current = 0;
       ctl.playingRef.current = false; // stepping implies pause
     }
+    // Ease the hero's own layers toward present/absent. Computed once here
+    // rather than in each consumer so every element leaves together, and eased
+    // rather than switched so scrolling past does not pop the menu out.
+    const want = ctl.pastRef.current ? 0 : 1;
+    ctl.heroFadeRef.current += (want - ctl.heroFadeRef.current) * Math.min(1, d * 5);
+    if (Math.abs(want - ctl.heroFadeRef.current) < 0.002) ctl.heroFadeRef.current = want;
+
     if (ctl.scrubRef.current != null) {
       ctl.tRef.current = ctl.scrubRef.current;
     } else if (ctl.playingRef.current) {

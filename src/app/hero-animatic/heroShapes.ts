@@ -241,6 +241,14 @@ export interface HeroCtl {
   scrubRef: MutableRefObject<number | null>; // non-null while the scrubber is dragged
   stepRef: MutableRefObject<number>; // a pending frame-step (seconds), applied once
   resetRef: MutableRefObject<boolean>; // replay request
+  // The scene outlives the hero on the homepage: the canvas is fixed to the
+  // viewport so the cosmos stays behind the whole page while the feed scrolls
+  // through it. Past the hero the menu has no business still hanging there, so
+  // `pastRef` is the target and `heroFadeRef` the eased value everything
+  // hero-specific multiplies its opacity by. Refs, not state, so scrolling
+  // never re-renders the canvas.
+  pastRef: MutableRefObject<boolean>;
+  heroFadeRef: MutableRefObject<number>;
 }
 
 // DOM nodes the in-canvas HUD driver writes to each frame.

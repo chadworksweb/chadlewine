@@ -67,6 +67,8 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   const scrubRef = useRef<number | null>(null);
   const stepRef = useRef(0);
   const resetRef = useRef(false);
+  const pastRef = useRef(false);
+  const heroFadeRef = useRef(1);
 
   // DOM nodes the HUD driver writes
   const beatRef = useRef<HTMLElement | null>(null);
@@ -78,7 +80,10 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   const scrubEl = useRef<HTMLInputElement | null>(null);
   const playBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  const ctl = useMemo<HeroCtl>(() => ({ tRef, playingRef, scrubRef, stepRef, resetRef }), []);
+  const ctl = useMemo<HeroCtl>(
+    () => ({ tRef, playingRef, scrubRef, stepRef, resetRef, pastRef, heroFadeRef }),
+    [],
+  );
   const hud = useMemo<HeroHud>(
     () => ({ beatRef, tcRef, floodRef, doorsRef, titleRef, markRef, scrubEl, playBtnRef }),
     [],
@@ -98,13 +103,12 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     playingRef.current = false;
   }, [reduced]);
 
-  // Stop rendering once the hero is scrolled past. On the homepage this is the
-  // first screen of a long page, so without this the scene would keep running
-  // the full timeline and its bloom pass for as long as the tab is open, well
-  // after it is out of sight. The margin starts it again slightly before it
-  // scrolls back in, so it is never caught mid-resume.
-  const [onScreen, setOnScreen] = useState(true);
-  const frameloop = reduced ? "demand" : onScreen ? "always" : "never";
+  // The cosmos is the page's background, so the loop keeps running rather than
+  // stopping when the hero scrolls off. What stops is the expensive half: past
+  // the hero the doors fade out and the bloom composer is bypassed for a plain
+  // render, leaving only the starfield and the nebula, which are sprites and
+  // points and cost very little.
+  const frameloop = reduced ? "demand" : "always";
 
   // The rest layout is a pure function of the STAGE's aspect, not the window's:
   // on this dev route the stage is a 16:9 box inside a wider page, and on the
@@ -135,11 +139,14 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     return () => ro.disconnect();
   }, []);
 
+  // Writes a ref rather than state on purpose: this fires on every scroll
+  // crossing, and re-rendering a WebGL canvas to carry a boolean would be
+  // absurd. The scene eases off it, so there is no pop at the boundary.
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
-    const io = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), {
-      rootMargin: "200px",
+    const io = new IntersectionObserver(([entry]) => {
+      pastRef.current = !entry.isIntersecting;
     });
     io.observe(el);
     return () => io.disconnect();
@@ -164,8 +171,22 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
         </div>
       )}
 
+      {/* On the homepage the canvas is FIXED to the viewport, so the cosmos
+          stays behind the whole page and the feed scrolls through it rather
+          than the page changing worlds at the fold. That is why it sits outside
+          .ha-stage: the stage carries `container-type: size`, and size
+          containment makes an element a containing block for fixed descendants,
+          which would pin the canvas to the stage instead of the viewport. In
+          the lab it stays inside the framed box, where being clipped is the
+          point. */}
+      {!dev && (
+        <div className="ha-cosmos" aria-hidden="true">
+          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} />
+        </div>
+      )}
+
       <div className="ha-stage" ref={stageRef}>
-        <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} />
+        {dev && <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} />}
 
         <div className="ha-flood" ref={floodRef} aria-hidden="true" />
 
