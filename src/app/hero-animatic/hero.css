@@ -93,6 +93,16 @@
   inset: 0;
   transition: opacity 0.2s ease;
 }
+/* THE INVERSION. Everything below is hidden ONLY while the animation owns the
+   frame. Without the .ha-anim class (no JS, a crawler that does not execute
+   scripts, or the failsafe releasing after a scene that never started) the hero
+   renders in its settled state and every word of it is readable. The driver
+   writes inline opacity from its first frame onward, so these rules only govern
+   what is painted before it takes over. */
+.ha-anim .ha-doors {
+  opacity: 0;
+  pointer-events: none;
+}
 /* left and top are written from the projected slot (see heroLayout), so a label
    always sits under its own shape at every aspect and in both the row and the
    grid arrangement. The box is sized by its content on purpose: the old fixed
@@ -202,6 +212,11 @@
      wordmark rather than splitting it in half. In em, so the lift stays the
      same fraction of the wordmark at any size (it was 10px against 96px). */
   transform: translateY(-0.104em);
+  /* The settled value, which is what no-JS renders. The driver animates from 0
+     up to this during THE NAME. */
+  opacity: 0.05;
+}
+.ha-anim .ha-mark {
   opacity: 0;
 }
 /* Glitch characters. Transform-only jitter: nudging position never reflows,
@@ -209,8 +224,10 @@
    width and make a centred, nowrap wordmark shimmy sideways for three seconds. */
 .ha-m {
   display: inline-block;
-  opacity: 0;
   will-change: transform, opacity;
+}
+.ha-anim .ha-m {
+  opacity: 0;
 }
 
 .ha-said {
@@ -243,6 +260,8 @@
      instead of being written per frame. */
   letter-spacing: 0.26em;
   text-shadow: -1.6px 0 #ff2e63, 1.6px 0 #00e0ff;
+}
+.ha-anim .ha-said {
   opacity: 0;
 }
 
@@ -262,9 +281,13 @@
    ones after it and the centred block never jumps as it types. */
 .ha-c {
   position: relative;
+}
+.ha-anim .ha-c {
   opacity: 0;
 }
-.ha-c.is-on {
+/* Scoped deliberately: unscoped, `.ha-c.is-on` (0,2,0) would lose to
+   `.ha-anim .ha-c` (0,2,1) and no character would ever reveal. */
+.ha-anim .ha-c.is-on {
   opacity: 1;
 }
 /* The caret rides the typing frontier as a pseudo-element on whichever

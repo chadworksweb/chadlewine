@@ -738,7 +738,17 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
   const saidChars = useRef<HTMLElement[] | null>(null);
   const markChars = useRef<HTMLElement[] | null>(null);
   const lastTyped = useRef(-1);
+  const announced = useRef(false);
   useFrame((state) => {
+    // Tells the boot script the scene really started. That script hides the
+    // hero so the animation can play, and releases it again if this never
+    // fires, so a browser with no WebGL gets the settled hero rather than a
+    // blank frame. Set from the driver's first frame because the driver is
+    // what actually takes ownership of the opacities below.
+    if (!announced.current) {
+      announced.current = true;
+      document.documentElement.setAttribute("data-ha-running", "1");
+    }
     const t = heroT(state.clock.elapsedTime, ctl);
     const td = Math.min(t, DUR);
     if (hud.beatRef.current) hud.beatRef.current.textContent = beatName(td);

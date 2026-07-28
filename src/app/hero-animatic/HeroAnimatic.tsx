@@ -6,12 +6,34 @@ import {
   DOORS, DUR, MARK_TEXT, SAID_TEXT, heroLayout, LAYOUT_16_9,
   type HeroCtl, type HeroHud, type HeroLayout,
 } from "./heroShapes";
+import { HeroNavJsonLd } from "./HeroNavJsonLd";
 import "./hero.css";
 
 // WebGL/Canvas is client-only: no SSR attempt (avoids window/WebGL-on-server).
 const HeroCanvas = dynamic(() => import("./HeroCanvas"), { ssr: false });
 
 const FRAME = 1 / 30; // frame-step size (seconds)
+
+// The hero's start state is HIDDEN, and it takes roughly 8 seconds of real time
+// for the doors to reach full opacity and 13 for the wordmark, because the
+// intro clock runs at half speed until story-t 2.0. Shipping that hidden state
+// in the HTML means anything that reads the page without waiting out the whole
+// timeline sees an empty hero: Googlebot renders, but it does not sit there for
+// 13 seconds, and the five doors are the homepage's primary internal links.
+//
+// So the hidden state is inverted. The markup ships SETTLED and readable, and
+// this script hands control to the animation before the first paint, which is
+// why it sits above the stage rather than in an effect: it must run while the
+// stage below is still being parsed or there would be a visible flash of the
+// finished hero. No JS, no class, and the hero simply renders finished.
+//
+// The timeout is the failsafe. If the scene never starts (WebGL unavailable,
+// a blocked script, a GPU blocklist) nothing would ever clear the hidden state
+// and the hero would stay blank, so it releases on its own.
+const BOOT_SCRIPT =
+  '(function(){var d=document.documentElement;d.classList.add("ha-anim");' +
+  'setTimeout(function(){if(!d.hasAttribute("data-ha-running"))' +
+  'd.classList.remove("ha-anim")},4000)})()';
 
 export default function HeroAnimatic() {
   // clock state (mutated by the in-canvas ClockDriver)
@@ -76,6 +98,9 @@ export default function HeroAnimatic() {
 
   return (
     <div className="ha-page">
+      <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
+      <HeroNavJsonLd />
+
       {/* Dev chrome, and it does not ship. Deliberately NOT a heading: the
           wordmark inside the hero is the h1 now, and this lab label must not
           compete with it. */}
@@ -97,7 +122,12 @@ export default function HeroAnimatic() {
           <span className="ha-tc" ref={tcRef}>0.00s</span>
         </div>
 
-        <div className="ha-doors" ref={doorsRef} style={{ opacity: 0, pointerEvents: "none" }}>
+        {/* No inline opacity: the hidden state is CSS gated on .ha-anim, so the
+            server-rendered markup carries five live, visible links. It also
+            fixes the keyboard trap, since pointer-events:none blocks the mouse
+            but not tabbing, so these were five invisible tab stops for the
+            first eight seconds. */}
+        <div className="ha-doors" ref={doorsRef}>
           {DOORS.map((d, i) => (
             <a
               key={d.key}
@@ -140,7 +170,7 @@ export default function HeroAnimatic() {
               ))}
             </span>
           </h1>
-          <h2 className="ha-said" ref={titleRef} style={{ opacity: 0 }}>
+          <h2 className="ha-said" ref={titleRef}>
             <span className="ha-sr">{SAID_TEXT}</span>
             {/* Real spaces, not U+00A0. The parent carries white-space:pre-wrap,
                 which preserves a lone space inside its own span AND keeps it as
