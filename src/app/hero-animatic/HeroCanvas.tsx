@@ -859,14 +859,32 @@ function HeroScene({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
 // see. The camera reads the shared constants because heroLayout projects the
 // DOM labels through the same numbers; two copies of the fov is precisely the
 // drift that put the labels off their shapes in the first place.
-export default function HeroCanvas({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+export default function HeroCanvas({
+  ctl,
+  hud,
+  frameloop = "always",
+}: {
+  ctl: HeroCtl;
+  hud: HeroHud;
+  frameloop?: "always" | "demand" | "never";
+}) {
+  // Pixel-ratio ceiling. This module is client-only (ssr:false), so window is
+  // always here. At [1,2] on a 390x844 phone with a 3x screen the scene renders
+  // a 780x1688 buffer and then runs a multi-pass bloom over it, which was
+  // acceptable on a preview route nothing linked to and is not acceptable as
+  // the first paint of the homepage on a phone.
+  const dpr = useMemo<[number, number]>(
+    () => (Math.min(window.innerWidth, window.innerHeight) < 700 ? [1, 1.5] : [1, 2]),
+    [],
+  );
   return (
     <Canvas
       flat
       aria-hidden="true"
+      frameloop={frameloop}
       camera={{ fov: CAM_FOV, near: 0.1, far: 400, position: [0, 0, CAM_Z_REST] }}
       gl={{ antialias: true }}
-      dpr={[1, 2]}
+      dpr={dpr}
     >
       <HeroScene ctl={ctl} hud={hud} />
     </Canvas>

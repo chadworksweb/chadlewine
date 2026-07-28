@@ -109,22 +109,24 @@ const reach = (xs: number[]) =>
 const FIT_ROW = reach(SLOT_X) / MARGIN;
 const FIT_GRID = reach(GRID_X) / MARGIN;
 
-// Tallest shape per row, so labels in one row share a baseline instead of
-// stepping up and down with each solid's radius.
-const rowMaxR = (row: number) =>
-  DOORS.reduce((m, d, i) => (GRID_ROW[i] === row ? Math.max(m, doorR(d.shape)) : m), 0);
-const ROW_MAX_R = DOORS.reduce((m, d) => Math.max(m, doorR(d.shape)), 0);
-
-// Label gap below a shape, in % of viewport height, at k = 1. The row value is
-// derived so that at 16:9 the labels land exactly where they always have.
-const GAP_ROW = 10.74;
-const GAP_GRID = 4.5;
+// Each door owns a CELL: a tall box covering its shape with the label at the
+// bottom, which is both the hover affordance (the tier-hue glow washes the whole
+// column, not just the text) and the click target. Cells tile edge to edge and
+// never overlap, so a pointer anywhere in the menu belongs to exactly one door.
+//
+// Cell width is the slot spacing, which makes tiling exact by construction: the
+// gap between two centres and the width of one cell are the same number.
+// At 16:9 with k = 1 this reproduces the authored 16% / 20% / 58% exactly.
+const CELL_TOP_ROW = 30; // half-height above centre at k = 1 (centre 50 -> top 20)
+const CELL_H_ROW = 58;
 
 export interface HeroSlot {
   x: number; // world units
   y: number; // world units
   leftPct: number; // projected horizontal centre, % of frame
-  labelTopPct: number; // where the DOM label block starts, % of frame
+  cellTopPct: number; // hover/hit column, % of frame
+  cellHeightPct: number;
+  cellWidthPct: number;
 }
 export interface HeroLayout {
   k: number; // one scale on both spacing and door size
@@ -147,16 +149,24 @@ export function heroLayout(aspect: number): HeroLayout {
   // untouched rather than something merely close to it.
   const k = Math.min(1, halfW / (grid ? FIT_GRID : FIT_ROW));
 
+  // Half the vertical gap between the two grid rows, as % of frame height. Grid
+  // cells are twice this tall, so the pair tiles the whole menu band and the
+  // split falls exactly on the centre line: no overlap, no dead strip.
+  const halfBand = ((GRID_ROW_SEP * k) / WORLD_HALF_H) * 50;
+  // Slot spacing is 4k world in both arrangements, and the cell is one spacing
+  // wide, so centre-to-centre distance and cell width are the same number.
+  const cellWidthPct = ((2 * k) / halfW) * 100;
+
   const slots: HeroSlot[] = DOORS.map((d, i) => {
     const x = (grid ? GRID_X[i] : SLOT_X[i]) * k;
     const y = grid ? (GRID_ROW[i] === 0 ? 1 : -1) * GRID_ROW_SEP * k : 0;
-    const r = (grid ? rowMaxR(GRID_ROW[i]) : ROW_MAX_R) * k;
-    const gap = (grid ? GAP_GRID : GAP_ROW) * k;
     return {
       x,
       y,
       leftPct: 50 + (x / halfW) * 50,
-      labelTopPct: 50 - (y / WORLD_HALF_H) * 50 + (r / WORLD_HALF_H) * 50 + gap,
+      cellTopPct: grid ? (GRID_ROW[i] === 0 ? 50 - 2 * halfBand : 50) : 50 - CELL_TOP_ROW * k,
+      cellHeightPct: grid ? 2 * halfBand : CELL_H_ROW * k,
+      cellWidthPct,
     };
   });
 

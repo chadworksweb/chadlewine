@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties,
+} from "react";
 import dynamic from "next/dynamic";
 import {
   DOORS, DUR, MARK_TEXT, SAID_TEXT, heroLayout, LAYOUT_16_9,
@@ -35,7 +37,23 @@ const BOOT_SCRIPT =
   'setTimeout(function(){if(!d.hasAttribute("data-ha-running"))' +
   'd.classList.remove("ha-anim")},4000)})()';
 
-export default function HeroAnimatic() {
+// Reduced motion as an external store. Declared at module scope so the
+// subscribe and snapshot functions keep a stable identity across renders.
+const REDUCE_MOTION = "(prefers-reduced-motion: reduce)";
+const subscribeReduced = (onChange: () => void) => {
+  const mq = window.matchMedia(REDUCE_MOTION);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
+const getReduced = () => window.matchMedia(REDUCE_MOTION).matches;
+const getReducedOnServer = () => false;
+
+// One component, two homes. `dev` adds the lab chrome (page header, transport,
+// scrubber) and the framed 16:9 box; without it the hero is a full-bleed,
+// full-height block for the homepage. Kept as a flag rather than two components
+// because the transport mutates the same clock refs the scene reads, and a
+// second copy of this markup would drift from the first within a session.
+export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   // clock state (mutated by the in-canvas ClockDriver)
   const tRef = useRef(0);
   const playingRef = useRef(true);
@@ -59,13 +77,27 @@ export default function HeroAnimatic() {
     [],
   );
 
-  // Respect reduced motion: freeze on the rested menu, skip the plunge.
+  // Respect reduced motion: freeze on the rested menu, skip the plunge. Read
+  // through useSyncExternalStore rather than an effect, because a media query
+  // IS an external store: setting state from inside an effect body cascades a
+  // second render, and this way the hero also reacts if the setting is changed
+  // while the page is open. It decides the render loop below as well, since
+  // freezing the clock stopped the MOTION but left the scene redrawing the same
+  // frame sixty times a second forever.
+  const reduced = useSyncExternalStore(subscribeReduced, getReduced, getReducedOnServer);
   useEffect(() => {
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      tRef.current = 11.4; // rest with the line typed AND the wordmark settled
-      playingRef.current = false;
-    }
-  }, []);
+    if (!reduced) return;
+    tRef.current = 11.4; // rest with the line typed AND the wordmark settled
+    playingRef.current = false;
+  }, [reduced]);
+
+  // Stop rendering once the hero is scrolled past. On the homepage this is the
+  // first screen of a long page, so without this the scene would keep running
+  // the full timeline and its bloom pass for as long as the tab is open, well
+  // after it is out of sight. The margin starts it again slightly before it
+  // scrolls back in, so it is never caught mid-resume.
+  const [onScreen, setOnScreen] = useState(true);
+  const frameloop = reduced ? "demand" : onScreen ? "always" : "never";
 
   // The rest layout is a pure function of the STAGE's aspect, not the window's:
   // on this dev route the stage is a 16:9 box inside a wider page, and on the
@@ -96,31 +128,45 @@ export default function HeroAnimatic() {
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), {
+      rootMargin: "200px",
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <div className="ha-page">
+    <div className={dev ? "ha-page" : "hero-transcend full-bleed"}>
       <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       <HeroNavJsonLd />
 
       {/* Dev chrome, and it does not ship. Deliberately NOT a heading: the
           wordmark inside the hero is the h1 now, and this lab label must not
           compete with it. */}
-      <div className="ha-head">
-        <div className="ha-eyebrow">chadlewine.com / hero / webgl</div>
-        <p className="ha-title">Transcend the Machine</p>
-      </div>
+      {dev && (
+        <div className="ha-head">
+          <div className="ha-eyebrow">chadlewine.com / hero / webgl</div>
+          <p className="ha-title">Transcend the Machine</p>
+        </div>
+      )}
 
       <div className="ha-stage" ref={stageRef}>
-        <HeroCanvas ctl={ctl} hud={hud} />
+        <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} />
 
         <div className="ha-flood" ref={floodRef} aria-hidden="true" />
 
         {/* Beat name and timecode are dev instrumentation that rewrites itself
             every frame. Hidden from assistive tech: the intro is decorative and
             should not be narrated. */}
-        <div className="ha-hud" aria-hidden="true">
-          <span className="ha-beat" ref={beatRef}>THE PULL</span>
-          <span className="ha-tc" ref={tcRef}>0.00s</span>
-        </div>
+        {dev && (
+          <div className="ha-hud" aria-hidden="true">
+            <span className="ha-beat" ref={beatRef}>THE PULL</span>
+            <span className="ha-tc" ref={tcRef}>0.00s</span>
+          </div>
+        )}
 
         {/* No inline opacity: the hidden state is CSS gated on .ha-anim, so the
             server-rendered markup carries five live, visible links. It also
@@ -135,7 +181,9 @@ export default function HeroAnimatic() {
               href={d.route}
               style={{
                 left: layout.slots[i].leftPct + "%",
-                top: layout.slots[i].labelTopPct + "%",
+                top: layout.slots[i].cellTopPct + "%",
+                width: layout.slots[i].cellWidthPct + "%",
+                height: layout.slots[i].cellHeightPct + "%",
                 "--dh": d.hue,
               } as CSSProperties}
               aria-label={`${d.label} - ${d.route}`}
@@ -144,6 +192,31 @@ export default function HeroAnimatic() {
               <span className="ha-door__rt">{d.route}</span>
             </a>
           ))}
+
+          {/* The way in. Nothing else told you the page continued below a hero
+              that fills the whole screen. A real anchor, not a click handler:
+              the site already sets scroll-behavior:smooth globally, so this
+              smooth-scrolls with no JS at all and still works without it.
+              Lives inside .ha-doors so it arrives on the same clock as the
+              menu rather than needing its own line in the driver. */}
+          {!dev && (
+            <a className="ha-enter" href="#home-enter">
+              <span className="ha-enter__lab">enter homepage</span>
+              <svg
+                className="ha-enter__chev"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </a>
+          )}
         </div>
 
         {/* THE ADDRESS. Real DOM text, not drawn into the canvas, so it stays
@@ -184,75 +257,77 @@ export default function HeroAnimatic() {
         </div>
       </div>
 
-      <div className="ha-controls">
-        <div className="ha-transport">
-          <button
-            className="ha-tbtn"
-            type="button"
-            aria-label="Step back one frame"
-            title="Previous frame"
-            onClick={() => {
-              stepRef.current = -FRAME;
-            }}
-          >
-            ‹|
-          </button>
-          <button
-            className="ha-tbtn ha-tbtn--play"
-            type="button"
-            ref={playBtnRef}
-            aria-label="Play or pause"
-            title="Play / pause"
-            onClick={() => {
-              playingRef.current = !playingRef.current;
-            }}
-          >
-            ❚❚
-          </button>
-          <button
-            className="ha-tbtn"
-            type="button"
-            aria-label="Step forward one frame"
-            title="Next frame"
-            onClick={() => {
-              stepRef.current = FRAME;
-            }}
-          >
-            |›
-          </button>
-          <button
-            className="ha-tbtn"
-            type="button"
-            aria-label="Replay from the start"
-            title="Replay"
-            onClick={() => {
-              resetRef.current = true;
-            }}
-          >
-            ⟲
-          </button>
-        </div>
+      {dev && (
+        <div className="ha-controls">
+          <div className="ha-transport">
+            <button
+              className="ha-tbtn"
+              type="button"
+              aria-label="Step back one frame"
+              title="Previous frame"
+              onClick={() => {
+                stepRef.current = -FRAME;
+              }}
+            >
+              ‹|
+            </button>
+            <button
+              className="ha-tbtn ha-tbtn--play"
+              type="button"
+              ref={playBtnRef}
+              aria-label="Play or pause"
+              title="Play / pause"
+              onClick={() => {
+                playingRef.current = !playingRef.current;
+              }}
+            >
+              ❚❚
+            </button>
+            <button
+              className="ha-tbtn"
+              type="button"
+              aria-label="Step forward one frame"
+              title="Next frame"
+              onClick={() => {
+                stepRef.current = FRAME;
+              }}
+            >
+              |›
+            </button>
+            <button
+              className="ha-tbtn"
+              type="button"
+              aria-label="Replay from the start"
+              title="Replay"
+              onClick={() => {
+                resetRef.current = true;
+              }}
+            >
+              ⟲
+            </button>
+          </div>
 
-        <input
-          className="ha-scrub"
-          ref={scrubEl}
-          type="range"
-          min={0}
-          max={DUR * 100}
-          defaultValue={0}
-          step={1}
-          aria-label="Scrub the animatic"
-          onInput={(e) => {
-            scrubRef.current = e.currentTarget.valueAsNumber / 100;
-          }}
-          onPointerUp={() => {
-            scrubRef.current = null;
-          }}
-          onKeyUp={() => {
-            scrubRef.current = null;
-          }}
-        />
-      </div>
+          <input
+            className="ha-scrub"
+            ref={scrubEl}
+            type="range"
+            min={0}
+            max={DUR * 100}
+            defaultValue={0}
+            step={1}
+            aria-label="Scrub the animatic"
+            onInput={(e) => {
+              scrubRef.current = e.currentTarget.valueAsNumber / 100;
+            }}
+            onPointerUp={() => {
+              scrubRef.current = null;
+            }}
+            onKeyUp={() => {
+              scrubRef.current = null;
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

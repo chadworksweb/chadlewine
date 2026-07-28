@@ -33,8 +33,23 @@
   text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff;
 }
 
+/* THE HOMEPAGE BLOCK. Wall to wall and a full screen tall.
+   `main` carries padding-top: var(--nav-height) to clear the fixed header, so
+   the hero cancels it and starts at the true top of the viewport. The header
+   then sits OVER the hero, which works because its background is #07070d, the
+   same value as the scene's COL_VOID, so the bar disappears into the void
+   rather than cutting a band across it. Everything after the hero flows
+   normally, so the feed below begins exactly one screen down. */
+.hero-transcend {
+  margin-top: calc(-1 * var(--nav-height));
+}
+.hero-transcend .ha-stage {
+  height: 100vh; /* fallback first */
+  height: 100svh; /* the SMALL viewport: never cut by mobile browser chrome */
+}
+
 /* A size container, so every measurement inside resolves against the STAGE
-   rather than the window. On this dev route the stage is a 16:9 box inside a
+   rather than the window. On the dev route the stage is a 16:9 box inside a
    wider page and the two are not the same thing; on the homepage the stage IS
    the viewport. Container units keep both correct from one set of rules, and
    they degrade to the small-viewport units if containment is ever unavailable. */
@@ -42,12 +57,17 @@
   position: relative;
   container-type: size;
   width: 100%;
+  overflow: hidden;
+  background: #07070d;
+}
+
+/* Lab framing. Scoped to the dev page so the homepage block above inherits none
+   of it: no 1280 cap, no letterbox, no border, no drop shadow. */
+.ha-page .ha-stage {
   max-width: 1280px;
   aspect-ratio: 16 / 9;
   border: 1px solid rgba(139, 156, 247, 0.28);
   border-radius: 14px;
-  overflow: hidden;
-  background: #07070d;
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.9);
 }
 .ha-stage canvas {
@@ -88,10 +108,13 @@
   color: #00e0ff;
 }
 
+/* No opacity transition here. HudDriver writes this element's opacity every
+   single frame off the shared clock, so a transition was being retargeted
+   sixty times a second on a property that was already being animated by hand:
+   pure overhead, and it fought the curve it was sitting on top of. */
 .ha-doors {
   position: absolute;
   inset: 0;
-  transition: opacity 0.2s ease;
 }
 /* THE INVERSION. Everything below is hidden ONLY while the animation owns the
    frame. Without the .ha-anim class (no JS, a crawler that does not execute
@@ -103,28 +126,61 @@
   opacity: 0;
   pointer-events: none;
 }
-/* left and top are written from the projected slot (see heroLayout), so a label
-   always sits under its own shape at every aspect and in both the row and the
-   grid arrangement. The box is sized by its content on purpose: the old fixed
-   16% width wrapped "/music-videos" onto two lines below a 506px viewport, and
-   the 58% height made five invisible link columns that blanketed the hero,
-   swallowing keyboard focus and sitting exactly where a thumb swipes to
-   scroll. */
+/* Every dimension is written from the projected slot (see heroLayout), so the
+   column sits under its own shape at any aspect and in both arrangements. It is
+   a tall CELL rather than a box hugging the label: hovering anywhere in a
+   door's column washes it in that door's tier hue, which is the affordance, and
+   a label-sized target would have thrown that away. Cells are exactly one slot
+   spacing wide and tile without overlapping, so a pointer anywhere in the menu
+   belongs to one door and only one.
+   nowrap matters here: the cell can be narrower than "/music-videos" on a small
+   frame, and the route used to break onto two lines below a 506px viewport. */
 .ha-door {
   position: absolute;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.3rem 0.5rem 0.4rem;
+  padding-bottom: 0.4rem;
   text-decoration: none;
   white-space: nowrap;
   border-radius: 10px;
   transition: background 0.2s ease;
 }
-.ha-door:hover {
+/* The wash is a pseudo-element that is always present and fades on OPACITY.
+   It used to be a background-image swapped in on :hover with
+   `transition: background`, which cannot work: gradients are not interpolable,
+   so the browser has nothing to animate between `none` and a radial-gradient
+   and switches discretely. That is the blink. The lag is the same rule from the
+   other side, since changing a background-image repaints the whole column
+   rather than compositing it, and it is repainting over a live WebGL canvas.
+   Opacity on a positioned pseudo-element composites instead, so it actually
+   fades and costs the GPU almost nothing.
+   Absolutely positioned, so it is NOT a flex item and cannot disturb the
+   label stack it sits behind. */
+.ha-door::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
   background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--dh) 16%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 260ms ease;
+  pointer-events: none;
+}
+.ha-door:hover::before,
+.ha-door:focus-visible::before {
+  opacity: 1;
+}
+/* Above the wash. Explicit rather than relying on paint order, since the
+   pseudo-element is positioned and would otherwise paint over the text. */
+.ha-door__lab,
+.ha-door__rt {
+  position: relative;
+  z-index: 1;
 }
 /* Sized off viewport HEIGHT, like everything else in this composition. The
    camera's vertical fov is fixed, so a shape is always the same fraction of
@@ -144,6 +200,46 @@
   letter-spacing: 0.06em;
   color: var(--dh);
   opacity: 0.85;
+}
+
+/* THE WAY IN. Sits below the menu (door cells bottom out at 78% in the row and
+   72.7% in the grid, so this clears both) and reveals with it. */
+.ha-enter {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  text-decoration: none;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: clamp(0.6rem, 1.05cqh, 0.78rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #aab8e8;
+  transition: color 220ms ease;
+}
+.ha-enter:hover,
+.ha-enter:focus-visible {
+  color: #f2f5ff;
+}
+.ha-enter__chev {
+  width: 1.7em;
+  height: 1.7em;
+  animation: ha-bob 2.6s ease-in-out infinite;
+}
+@keyframes ha-bob {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50% { transform: translateY(0.3em); opacity: 1; }
+}
+/* The scroll target, a zero-height sentinel between the hero and the feed. The
+   offset keeps the feed clear of the fixed header once it lands. */
+#home-enter {
+  scroll-margin-top: var(--nav-height);
 }
 
 /* THE ADDRESS: sits above the menu, close enough to read as its heading rather
@@ -306,6 +402,16 @@
 @keyframes ha-caret {
   0%, 55% { opacity: 1; }
   55.01%, 100% { opacity: 0; }
+}
+
+/* The two looping CSS animations are decoration, so they stop when asked. The
+   scene itself is handled separately (the canvas drops to an on-demand render
+   loop and freezes on the rested menu). */
+@media (prefers-reduced-motion: reduce) {
+  .ha-enter__chev,
+  .ha-c.is-frontier::after {
+    animation: none;
+  }
 }
 
 .ha-controls {

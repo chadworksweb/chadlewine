@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// `dev` is what keeps the lab a lab: transport, scrubber, timecode HUD and the
+// framed 16:9 box. The homepage renders the same component without it.
 export default function HeroAnimaticPage() {
-  return <HeroAnimatic />;
+  return <HeroAnimatic dev />;
 }
