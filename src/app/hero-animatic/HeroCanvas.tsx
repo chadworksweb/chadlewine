@@ -56,24 +56,23 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   useEffect(() => () => composer.dispose(), [composer]);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
-    // Past the hero the composer is bypassed entirely for a plain render. Bloom
-    // is the single most expensive thing in the scene and its whole job is to
-    // light the menu; the starfield and nebula read fine without it. This is
-    // what makes it affordable to leave the loop running for the whole page.
-    if (ctl.heroFadeRef.current < 0.02) {
-      gl.render(scene, camera);
-      return;
-    }
+    const fade = ctl.heroFadeRef.current;
     const b = bloomRef.current;
     if (b) {
-      // steady phosphor, with a hard pump through the break flash. Scaled by
-      // the scroll fade so the glow leaves WITH the menu: bloom lights the
-      // starfield too, so holding it at full strength until the bypass switched
-      // the whole image's character in a single frame, which read as one more
-      // stage. By the time the bypass happens there is nothing left to lose.
+      // Steady phosphor, with a hard pump through the break flash, scaled by
+      // the scroll fade so the glow leaves WITH the menu.
+      //
+      // Past the hero the bloom PASS is switched off, which is where its cost
+      // lives, but the composer keeps rendering. Bypassing the composer for a
+      // plain gl.render also bypasses OutputPass, and that pass is doing the
+      // colour-space conversion: measured frame by frame, dropping it HALVED
+      // the luminance of the entire image, starfield included, in one frame.
+      // That cliff was the "stepped" fade. Disabling one pass costs the same
+      // and changes nothing about how the remaining image is written out.
       const base =
         0.7 + smooth(1.4, 2.3, t) * 0.5 + Math.max(0, smooth(2.2, 2.4, t) - smooth(2.5, 3.1, t)) * 1.1;
-      b.strength = base * ctl.heroFadeRef.current;
+      b.strength = base * fade;
+      b.enabled = fade > 0.001;
     }
     composer.render();
   }, 1);
