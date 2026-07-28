@@ -26,8 +26,8 @@ export default function HeroAnimatic() {
   const tcRef = useRef<HTMLElement | null>(null);
   const floodRef = useRef<HTMLDivElement | null>(null);
   const doorsRef = useRef<HTMLDivElement | null>(null);
-  const titleRef = useRef<HTMLParagraphElement | null>(null);
-  const markRef = useRef<HTMLSpanElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const markRef = useRef<HTMLHeadingElement | null>(null);
   const scrubEl = useRef<HTMLInputElement | null>(null);
   const playBtnRef = useRef<HTMLButtonElement | null>(null);
 
@@ -76,9 +76,12 @@ export default function HeroAnimatic() {
 
   return (
     <div className="ha-page">
+      {/* Dev chrome, and it does not ship. Deliberately NOT a heading: the
+          wordmark inside the hero is the h1 now, and this lab label must not
+          compete with it. */}
       <div className="ha-head">
         <div className="ha-eyebrow">chadlewine.com / hero / webgl</div>
-        <h1 className="ha-title">Transcend the Machine</h1>
+        <p className="ha-title">Transcend the Machine</p>
       </div>
 
       <div className="ha-stage" ref={stageRef}>
@@ -86,7 +89,10 @@ export default function HeroAnimatic() {
 
         <div className="ha-flood" ref={floodRef} aria-hidden="true" />
 
-        <div className="ha-hud">
+        {/* Beat name and timecode are dev instrumentation that rewrites itself
+            every frame. Hidden from assistive tech: the intro is decorative and
+            should not be narrated. */}
+        <div className="ha-hud" aria-hidden="true">
           <span className="ha-beat" ref={beatRef}>THE PULL</span>
           <span className="ha-tc" ref={tcRef}>0.00s</span>
         </div>
@@ -121,15 +127,20 @@ export default function HeroAnimatic() {
               per-character spans beside it are decorative. Split text still
               reads correctly to a crawler, but a screen reader would announce
               it letter by letter -- same reason the chadworks hero does this. */}
-          <span className="ha-mark" ref={markRef}>
+          {/* The site's own name at the top of the page, so it is the h1. The
+              homepage had no h1 at all before this: every heading on it was an
+              h2. Still a sibling of the line, never a parent, per the note
+              above. Grid items are blockified either way, so promoting this
+              from a span changes the semantics and nothing about the layout. */}
+          <h1 className="ha-mark" ref={markRef}>
             <span className="ha-sr">{MARK_TEXT}</span>
             <span className="ha-mark__chars" aria-hidden="true">
               {MARK_TEXT.split("").map((c, i) => (
                 <span key={i} className="ha-m">{c === " " ? "\u00a0" : c}</span>
               ))}
             </span>
-          </span>
-          <p className="ha-said" ref={titleRef} style={{ opacity: 0 }}>
+          </h1>
+          <h2 className="ha-said" ref={titleRef} style={{ opacity: 0 }}>
             <span className="ha-sr">{SAID_TEXT}</span>
             {/* Real spaces, not U+00A0. The parent carries white-space:pre-wrap,
                 which preserves a lone space inside its own span AND keeps it as
@@ -139,7 +150,7 @@ export default function HeroAnimatic() {
                 <span key={i} className="ha-c">{c}</span>
               ))}
             </span>
-          </p>
+          </h2>
         </div>
       </div>
 

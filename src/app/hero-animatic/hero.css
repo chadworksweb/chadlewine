@@ -185,6 +185,7 @@
    is the site's own name and it should carry over to the homepage graft as
    readable content. */
 .ha-mark {
+  margin: 0; /* it is an h1 now */
   white-space: nowrap;
   font-family: var(--font-ui, ui-sans-serif, system-ui, sans-serif);
   /* Height is the primary basis, matching the shapes. The vw term is a ceiling

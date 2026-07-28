@@ -24,6 +24,7 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
   MARK_IN, MARK_OUT, MARK_TEXT, COL_PERI, COL_VOID,
+  CAM_FOV, CAM_Z_REST,
   clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo, heroLayout,
   type Door, type HeroCtl, type HeroHud,
 } from "./heroShapes";
@@ -67,7 +68,9 @@ function CameraRig({ ctl }: { ctl: HeroCtl }) {
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     const dolly = lerp(15, 13.2, smooth(0, 2.2, t)); // barely a plunge -- steady, not a dive
-    const back = lerp(13.2, 13.4, smooth(2.4, 5, t)); // ease back to frame the menu
+    // ease back to frame the menu. The resting distance is the shared constant:
+    // heroLayout projects the DOM labels from it, so a literal here could drift.
+    const back = lerp(13.2, CAM_Z_REST, smooth(2.4, 5, t));
     camera.position.z = t < 2.4 ? dolly : back;
     camera.position.x = Math.sin(t * 0.16) * 0.25 * smooth(4.8, 6, t);
     camera.lookAt(0, 0, 0);
@@ -840,9 +843,21 @@ function HeroScene({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
   );
 }
 
+// The scene is decorative: every word it carries lives in the DOM overlay as
+// real text, so it is hidden from assistive tech. A screen reader goes straight
+// to the heading and the menu rather than waiting out an animation it cannot
+// see. The camera reads the shared constants because heroLayout projects the
+// DOM labels through the same numbers; two copies of the fov is precisely the
+// drift that put the labels off their shapes in the first place.
 export default function HeroCanvas({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
   return (
-    <Canvas flat camera={{ fov: 55, near: 0.1, far: 400, position: [0, 0, 13.4] }} gl={{ antialias: true }} dpr={[1, 2]}>
+    <Canvas
+      flat
+      aria-hidden="true"
+      camera={{ fov: CAM_FOV, near: 0.1, far: 400, position: [0, 0, CAM_Z_REST] }}
+      gl={{ antialias: true }}
+      dpr={[1, 2]}
+    >
       <HeroScene ctl={ctl} hud={hud} />
     </Canvas>
   );

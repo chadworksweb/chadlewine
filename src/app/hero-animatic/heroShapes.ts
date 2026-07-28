@@ -239,8 +239,9 @@ export interface HeroHud {
   tcRef: MutableRefObject<HTMLElement | null>;
   floodRef: MutableRefObject<HTMLDivElement | null>;
   doorsRef: MutableRefObject<HTMLDivElement | null>;
-  titleRef: MutableRefObject<HTMLParagraphElement | null>;
-  markRef: MutableRefObject<HTMLSpanElement | null>;
+  // Both are headings on the page now: h1 wordmark, h2 tagline.
+  titleRef: MutableRefObject<HTMLHeadingElement | null>;
+  markRef: MutableRefObject<HTMLHeadingElement | null>;
   scrubEl: MutableRefObject<HTMLInputElement | null>;
   playBtnRef: MutableRefObject<HTMLButtonElement | null>;
 }
