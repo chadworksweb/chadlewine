@@ -104,6 +104,13 @@ export function Nav({
       setHidden(y > threshold && y > lastScroll.current);
       lastScroll.current = y;
     }
+    // Run it once rather than waiting for the first scroll. A page restored
+    // mid-scroll (back/forward) never fires one, and the hero stamps
+    // ha-hero-top before first paint on the assumption that it owns the top of
+    // the viewport, which is not true when the browser has put you halfway down
+    // the page. Left to the first scroll, the header stays hidden and the
+    // cookie bar, which waits on the same class, stays away with it.
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
