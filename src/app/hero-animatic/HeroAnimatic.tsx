@@ -32,8 +32,15 @@ const FRAME = 1 / 30; // frame-step size (seconds)
 // The timeout is the failsafe. If the scene never starts (WebGL unavailable,
 // a blocked script, a GPU blocklist) nothing would ever clear the hidden state
 // and the hero would stay blank, so it releases on its own.
-const BOOT_SCRIPT =
+//
+// It also stamps ha-hero-top when the hero owns the top of the page, which
+// lifts the fixed site header out of view. That has to happen here rather than
+// from the nav's scroll handler, because the handler cannot run before the
+// first paint and the header would be drawn as a bar across the hero for a
+// frame. The nav clears the class once the hero has scrolled past.
+const bootScript = (ownsTop: boolean) =>
   '(function(){var d=document.documentElement;d.classList.add("ha-anim");' +
+  (ownsTop ? 'd.classList.add("ha-hero-top");' : "") +
   'setTimeout(function(){if(!d.hasAttribute("data-ha-running"))' +
   'd.classList.remove("ha-anim")},4000)})()';
 
@@ -139,8 +146,12 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   }, []);
 
   return (
-    <div className={dev ? "ha-page" : "hero-transcend full-bleed"}>
-      <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
+    <div
+      className={dev ? "ha-page" : "hero-transcend full-bleed"}
+      // The marker the nav watches to decide when it is allowed back on screen.
+      {...(dev ? {} : { "data-nav-below": "" })}
+    >
+      <script dangerouslySetInnerHTML={{ __html: bootScript(!dev) }} />
       <HeroNavJsonLd />
 
       {/* Dev chrome, and it does not ship. Deliberately NOT a heading: the

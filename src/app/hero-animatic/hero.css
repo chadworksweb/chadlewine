@@ -35,13 +35,28 @@
 
 /* THE HOMEPAGE BLOCK. Wall to wall and a full screen tall.
    `main` carries padding-top: var(--nav-height) to clear the fixed header, so
-   the hero cancels it and starts at the true top of the viewport. The header
-   then sits OVER the hero, which works because its background is #07070d, the
-   same value as the scene's COL_VOID, so the bar disappears into the void
-   rather than cutting a band across it. Everything after the hero flows
-   normally, so the feed below begins exactly one screen down. */
+   the hero cancels it and starts at the true top of the viewport. Everything
+   after the hero flows normally, so the feed begins exactly one screen down. */
 .hero-transcend {
   margin-top: calc(-1 * var(--nav-height));
+}
+
+/* THE HEADER SITS BELOW THE ANIMATIC, NOT OVER IT.
+   Nothing is allowed on top of the hero, so the fixed header is lifted out of
+   view for as long as the hero covers the top of the viewport, and slides back
+   in as the feed arrives. The class is stamped on <html> by the hero's boot
+   script before the first paint, so the bar is never drawn across the hero even
+   for a frame, and the nav's scroll handler clears it once the hero has passed.
+   visibility is carried along on a delay so the header is not merely moved
+   offscreen: a fixed element cannot be scrolled into view, so leaving it
+   focusable would put invisible tab stops ahead of the hero's own links. The
+   delay runs the hide AFTER the slide and returns instantly on the way back. */
+html.ha-hero-top .site-header {
+  transform: translateY(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--duration-base) var(--ease-out),
+    visibility 0s linear var(--duration-base);
 }
 .hero-transcend .ha-stage {
   height: 100vh; /* fallback first */
