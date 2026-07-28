@@ -142,15 +142,26 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   // Writes a ref rather than state on purpose: this fires on every scroll
   // crossing, and re-rendering a WebGL canvas to carry a boolean would be
   // absurd. The scene eases off it, so there is no pop at the boundary.
+  //
+  // Triggered on RATIO, not on isIntersecting. isIntersecting only goes false
+  // once the hero has left the viewport completely, so the fade would not even
+  // begin until a full screen had been scrolled and the menu would still be
+  // hanging over the feed after that. Half gone is the cue to start leaving.
   useEffect(() => {
     const el = stageRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([entry]) => {
-      pastRef.current = !entry.isIntersecting;
-    });
+    // Homepage only. In the lab the stage is a 16:9 box inside a scrolling
+    // page, so on a short viewport it can sit below half-visible at rest and
+    // the menu would fade out while you are trying to look at it.
+    if (dev || !el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        pastRef.current = entry.intersectionRatio < 0.5;
+      },
+      { threshold: [0, 0.2, 0.35, 0.45, 0.5, 0.55, 0.65, 0.8, 1] },
+    );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [dev]);
 
   return (
     <div

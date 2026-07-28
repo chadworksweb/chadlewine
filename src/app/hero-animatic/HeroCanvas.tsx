@@ -31,6 +31,10 @@ import {
 
 const FOG_DENSITY = 0.014; // the spike value: lets the grid + warp core read across depth
 
+// How long the hero's own layers take to leave once the page scrolls off them,
+// and to come back. The whole range, not a half-life.
+const FADE_SECS = 0.8;
+
 // ---- bloom composer (manual-render, no post-processing dep) -----------------
 function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   const { gl, scene, camera, size } = useThree();
@@ -62,8 +66,14 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
     }
     const b = bloomRef.current;
     if (b) {
-      // steady phosphor, with a hard pump through the break flash
-      b.strength = 0.7 + smooth(1.4, 2.3, t) * 0.5 + Math.max(0, smooth(2.2, 2.4, t) - smooth(2.5, 3.1, t)) * 1.1;
+      // steady phosphor, with a hard pump through the break flash. Scaled by
+      // the scroll fade so the glow leaves WITH the menu: bloom lights the
+      // starfield too, so holding it at full strength until the bypass switched
+      // the whole image's character in a single frame, which read as one more
+      // stage. By the time the bypass happens there is nothing left to lose.
+      const base =
+        0.7 + smooth(1.4, 2.3, t) * 0.5 + Math.max(0, smooth(2.2, 2.4, t) - smooth(2.5, 3.1, t)) * 1.1;
+      b.strength = base * ctl.heroFadeRef.current;
     }
     composer.render();
   }, 1);
@@ -674,7 +684,7 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     const breathe = 1 + 0.035 * Math.sin(t * 0.28 + index * 1.3);
     g.scale.setScalar(lerp(0.0, 1.2 * lay.k, easeOut(ap)) * breathe);
     const res = smooth(2.3, 3.6, t);
-    const alpha = 0.95 * smooth(2.5, 3.2, t) * fade;
+    const alpha = 0.95 * smooth(2.5, 3.2, t);
     const spin = index + 0.25 * t + 1.6 * smooth(2.2, 4.8, t); // rotation slowed ~50%
     g.rotation.set(spin * 0.5, spin, 0); // the door's own tumble, whole-body
     for (let i = 0; i < built.shells.length; i++) {
@@ -683,7 +693,12 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
       gyro(ls, i, t);
       const m = ls.material as THREE.LineBasicMaterial;
       m.color.lerpColors(COL_PERI, built.hue, res);
-      m.opacity = Math.max(0.04, alpha * (0.62 - i * built.fall));
+      // The 0.04 floor keeps the innermost shells from disappearing during the
+      // idle, so the scroll fade has to be applied AFTER it, not folded into
+      // alpha. Multiplied in beforehand, every shell dimmed smoothly down to
+      // the floor, sat there as a ghost over the feed, and then got cut when
+      // g.visible flipped: three stages instead of one dim to nothing.
+      m.opacity = Math.max(0.04, alpha * (0.62 - i * built.fall)) * fade;
     }
   });
   return (
@@ -710,11 +725,16 @@ function ClockDriver({ ctl }: { ctl: HeroCtl }) {
       ctl.playingRef.current = false; // stepping implies pause
     }
     // Ease the hero's own layers toward present/absent. Computed once here
-    // rather than in each consumer so every element leaves together, and eased
-    // rather than switched so scrolling past does not pop the menu out.
+    // rather than in each consumer so every element leaves together.
+    //
+    // LINEAR, not exponential. An exponential ease is fast then slow by
+    // definition, so it dims hard, then trails off for another second, and the
+    // long tail is what reads as a second stage rather than one dim. A fixed
+    // rate covers the whole range in FADE_SECS no matter which way it is going.
     const want = ctl.pastRef.current ? 0 : 1;
-    ctl.heroFadeRef.current += (want - ctl.heroFadeRef.current) * Math.min(1, d * 5);
-    if (Math.abs(want - ctl.heroFadeRef.current) < 0.002) ctl.heroFadeRef.current = want;
+    const f = ctl.heroFadeRef.current;
+    const step = d / FADE_SECS;
+    ctl.heroFadeRef.current = want > f ? Math.min(want, f + step) : Math.max(want, f - step);
 
     if (ctl.scrubRef.current != null) {
       ctl.tRef.current = ctl.scrubRef.current;
