@@ -5,7 +5,7 @@ import type { MutableRefObject } from "react";
 // hero. Kept framework-free so both the R3F scene and the DOM overlay driver
 // read the exact same clock and the exact same beat boundaries.
 
-export type Kind = "cube" | "octa" | "icosa" | "ring" | "wave";
+export type Kind = "cube" | "octa" | "icosa" | "ring" | "wave" | "star";
 
 export interface Door {
   key: string;
@@ -21,35 +21,231 @@ export interface Door {
 // The five doors: each a real live route, a Rising Compass tier hue, and a
 // distinct solid. Order = left-to-right in the resting menu.
 export const DOORS: Door[] = [
-  { key: "songs",   label: "Songs",   route: "/music/songs",  song: "Everything I Need", level: "L4 / DOOR", hue: "#b46bff", shape: "wave",  line: "The sirens were never the current. You were." },
-  { key: "art",     label: "Art",     route: "/art",          song: "I Got The Key",     level: "L3 / KEY",  hue: "#3dff9e", shape: "icosa", line: "You were holding it the whole walk." },
+  { key: "music",   label: "Music",   route: "/music",        song: "Everything I Need", level: "L4 / DOOR", hue: "#4d7cff", shape: "icosa", line: "The sirens were never the current. You were." },
+  { key: "art",     label: "Art",     route: "/art",          song: "I Got The Key",     level: "L3 / KEY",  hue: "#3dff9e", shape: "star",  line: "You were holding it the whole walk." },
   { key: "videos",  label: "Videos",  route: "/music-videos", song: "Finding Freedom",   level: "L5 / EGO",  hue: "#00e0ff", shape: "ring",  line: "No one handed you this. You wrote it." },
   { key: "merch",   label: "Merch",   route: "/merch",        song: "Machine",           level: "L1 / WAKE", hue: "#b46bff", shape: "cube",  line: "The loop was the lie." },
-  { key: "writing", label: "Writing", route: "/read",         song: "See Through Me",    level: "L2 / SEE",  hue: "#00ff88", shape: "octa",  line: "You just stopped pretending it was solid." },
+  { key: "writing", label: "Writing", route: "/read",         song: "See Through Me",    level: "L2 / SEE",  hue: "#ffc48a", shape: "octa",  line: "You just stopped pretending it was solid." },
 ];
 
 // PsycheAura constants (the icosahedron "language"): 4 golden-ratio-inset shells.
 export const PHI = (1 + Math.sqrt(5)) / 2;
 export const SHELLS = 4;
 
+// How fast each solid's shells dim as they nest inward, per shell index.
+//
+// One shared value cannot serve all five, because the shapes are nowhere near
+// equal in line count: cube, octahedron and star carry 12 edges each and the
+// icosahedron 30, but the torus at 8x28 carries roughly 450. Under additive
+// blending with depthWrite off, every one of those lines ADDS, so at the shared
+// falloff the ring's inner shells stacked into a solid glob while the sparse
+// solids looked right. Denser solids therefore fade faster per shell.
+//
+// Coarsening the torus instead was tried and reverted: the dense tessellation
+// is what makes it read as clearly round.
+export const SHELL_FALLOFF: Record<Kind, number> = {
+  cube: 0.11,
+  octa: 0.11,
+  star: 0.11,
+  wave: 0.11,
+  icosa: 0.11,
+  ring: 0.175,
+};
+
 // Resting slot x-positions (world units). Spacing 4 across the 16:9 frame.
 export const SLOT_X = [-8, -4, 0, 4, 8];
 
+// ---- responsive rest layout -------------------------------------------------
+//
+// The composition was authored at one aspect and nothing compensated for any
+// other. Visible world half-width is WORLD_HALF_H * aspect, so it moves with the
+// viewport, while the DOM overlay's percentages were constant. The stage's
+// aspect-ratio:16/9 lock was the only thing holding the two together, and going
+// full-bleed removes exactly that lock.
+//
+// Everything below is a pure function of aspect, and every consumer (the scene,
+// the DOM labels) reads THIS, so the shapes and their labels cannot drift apart.
+//
+// Vertical needs no compensation at all: the camera's vertical fov is fixed, so
+// a shape is always the same fraction of viewport height whatever the aspect.
+// Only horizontal moves.
+export const CAM_FOV = 55; // vertical, degrees
+export const CAM_Z_REST = 13.4;
+// World half-height at the z=0 plane. Constant, by the note above.
+export const WORLD_HALF_H = Math.tan((CAM_FOV * Math.PI) / 360) * CAM_Z_REST;
+
+// Geometry radii, so a door's true on-screen extent is known rather than
+// guessed. Getting these wrong only costs margin, but the Music door already
+// changed solid once, so this is a table rather than a magic number.
+export const SHAPE_R: Record<Kind, number> = {
+  icosa: 1.0,
+  octa: 1.0,
+  star: 1.18, // tetrahedron circumradius
+  ring: 1.15, // torus 0.85 + 0.3
+  cube: 1.169, // half space-diagonal of a 1.35 box
+  wave: 1.25, // retired, kept so the record stays total
+};
+export const DOOR_SCALE = 1.2; // the rested group scale
+const BREATHE_MAX = 1.035; // the idle breathe, counted so it never clips
+const doorR = (k: Kind) => SHAPE_R[k] * DOOR_SCALE * BREATHE_MAX;
+
+// Portrait cannot hold one row of five: at 9:16 the frame is 3.2 world units
+// wide either side of centre and the row needs 9.2. Below this aspect the menu
+// becomes a 3-over-2 grid instead. Row 1 takes Music/Art/Videos, row 2 the
+// remaining pair, indented, which is the layout that keeps the shapes readable
+// (~85px on a phone) instead of shrinking a single row to ~52px.
+export const GRID_ASPECT = 1.0;
+const GRID_X = [-4, 0, 4, -2, 2];
+const GRID_ROW = [0, 0, 0, 1, 1];
+const GRID_ROW_SEP = 2.9;
+
+// 8% of the visible half-width is left outside the outermost shape so it never
+// kisses the frame edge.
+const MARGIN = 0.92;
+
+// The widest reach of each arrangement, measured off the real radii.
+const reach = (xs: number[]) =>
+  DOORS.reduce((m, d, i) => Math.max(m, Math.abs(xs[i]) + doorR(d.shape)), 0);
+const FIT_ROW = reach(SLOT_X) / MARGIN;
+const FIT_GRID = reach(GRID_X) / MARGIN;
+
+// Each door owns a CELL: a tall box covering its shape with the label at the
+// bottom, which is both the hover affordance (the tier-hue glow washes the whole
+// column, not just the text) and the click target. Cells tile edge to edge and
+// never overlap, so a pointer anywhere in the menu belongs to exactly one door.
+//
+// Cell width is the slot spacing, which makes tiling exact by construction: the
+// gap between two centres and the width of one cell are the same number.
+// At 16:9 with k = 1 this reproduces the authored 16% / 20% / 58% exactly.
+const CELL_TOP_ROW = 30; // half-height above centre at k = 1 (centre 50 -> top 20)
+const CELL_H_ROW = 58;
+
+export interface HeroSlot {
+  x: number; // world units
+  y: number; // world units
+  leftPct: number; // projected horizontal centre, % of frame
+  cellTopPct: number; // hover/hit column, % of frame
+  cellHeightPct: number;
+  cellWidthPct: number;
+}
+export interface HeroLayout {
+  k: number; // one scale on both spacing and door size
+  grid: boolean;
+  halfW: number; // visible world half-width at this aspect
+  slots: HeroSlot[];
+}
+
+const layoutCache = new Map<number, HeroLayout>();
+
+export function heroLayout(aspect: number): HeroLayout {
+  // Quantised so the per-frame callers hit the cache instead of rebuilding.
+  const key = Math.round(aspect * 1000);
+  const hit = layoutCache.get(key);
+  if (hit) return hit;
+
+  const halfW = WORLD_HALF_H * (key / 1000);
+  const grid = key / 1000 < GRID_ASPECT;
+  // Capped at 1, so every aspect at or above 3:2 is the authored composition
+  // untouched rather than something merely close to it.
+  const k = Math.min(1, halfW / (grid ? FIT_GRID : FIT_ROW));
+
+  // Half the vertical gap between the two grid rows, as % of frame height. Grid
+  // cells are twice this tall, so the pair tiles the whole menu band and the
+  // split falls exactly on the centre line: no overlap, no dead strip.
+  const halfBand = ((GRID_ROW_SEP * k) / WORLD_HALF_H) * 50;
+  // Slot spacing is 4k world in both arrangements, and the cell is one spacing
+  // wide, so centre-to-centre distance and cell width are the same number.
+  const cellWidthPct = ((2 * k) / halfW) * 100;
+
+  const slots: HeroSlot[] = DOORS.map((d, i) => {
+    const x = (grid ? GRID_X[i] : SLOT_X[i]) * k;
+    const y = grid ? (GRID_ROW[i] === 0 ? 1 : -1) * GRID_ROW_SEP * k : 0;
+    return {
+      x,
+      y,
+      leftPct: 50 + (x / halfW) * 50,
+      cellTopPct: grid ? (GRID_ROW[i] === 0 ? 50 - 2 * halfBand : 50) : 50 - CELL_TOP_ROW * k,
+      cellHeightPct: grid ? 2 * halfBand : CELL_H_ROW * k,
+      cellWidthPct,
+    };
+  });
+
+  const out = { k, grid, halfW, slots };
+  layoutCache.set(key, out);
+  return out;
+}
+
+// The server has no viewport, so the first render uses the authored 16:9
+// composition. A ResizeObserver corrects it on mount. This also means the
+// pre-hydration HTML carries sensible positions rather than nothing.
+export const LAYOUT_16_9 = heroLayout(16 / 9);
+
 // Timeline (seconds). Names double as the HUD beat labels.
-export const DUR = 7;
+export const DUR = 11.6;
 export const BEATS: { t0: number; t1: number; name: string }[] = [
   { t0: 0.0, t1: 1.0, name: "THE PULL" },
   { t0: 1.0, t1: 2.2, name: "THE TUNNEL" },
   { t0: 2.2, t1: 3.2, name: "THE BREAK" },
   { t0: 3.2, t1: 5.0, name: "THE ASSEMBLY" },
   { t0: 5.0, t1: 5.9, name: "THE REST" },
-  { t0: 5.9, t1: 7.0, name: "THE ADDRESS" },
+  { t0: 5.9, t1: 8.0, name: "THE ADDRESS" },
+  { t0: 8.0, t1: 11.6, name: "THE NAME" },
 ];
-// When the line lands. It waits out a full beat of stillness after the menu has
-// settled (doors are fully in at 5.75) so it reads as arriving, not as part of
-// the assembly.
+
+// The copy. Both live here rather than in the markup because the driver needs
+// the lengths to compute the reveal, and two sources would drift apart.
+export const SAID_TEXT = "you are now tapped in with the deprogrammer";
+export const MARK_TEXT = "Chad Lewine";
+
+// THE ADDRESS: the line types in. It waits out a full beat of stillness after
+// the menu has settled (doors are fully in at 5.75) so it reads as arriving,
+// not as part of the assembly. 43 characters across 1.9s is ~44ms each --
+// brisk terminal cadence. The chadworks hero types at 92ms, but that is a
+// 9-character wordmark; at this length the same rate would run four seconds.
 export const SAID_IN = 5.95;
-export const SAID_OUT = 6.7;
+export const SAID_OUT = 7.85;
+
+// THE NAME: the wordmark glitches in LAST, a beat after the line has finished
+// typing, and takes a full 3s to settle.
+export const MARK_IN = 8.05;
+export const MARK_OUT = 11.05;
+
+// THE WAY OUT. The homepage holds the scroll until the animatic has finished,
+// so there has to be a way past it long before the menu lands, which is why
+// this no longer rides the doors' clock. It arrives during THE PULL, dim, and
+// comes up to full with the menu at 5.75. Half brightness during the intro so
+// it is findable without sitting on top of the composition.
+export const ENTER_IN = 0.6;
+export const ENTER_OUT = 1.3;
+export const ENTER_DIM = 0.5;
+// And it changes what it says. While the page is held the control is a SKIP;
+// once the animatic has finished there is nothing left to skip and it goes back
+// to being the way down into the page. The swap runs across the tail of THE
+// NAME, from the wordmark settling (MARK_OUT, which is also where the lock
+// lifts) to the end of the timeline, so the beat that was already sitting
+// still is what carries it.
+
+// THE VEIL. Black over the cosmos, tied to scroll position, fully on once the
+// hero is one whole screen behind you.
+export const VEIL_MAX = 0.5;
+
+// How long the hero's own layers take to leave once the page scrolls off them,
+// and to come back. The whole range, not a half-life. Shared: the scene eases
+// on it, and the skip transition runs the veil in on the same clock so one
+// gesture reads as one move.
+export const FADE_SECS = 0.8;
+
+// THE ABORT. How long the animatic takes to come to a close when SKIP is
+// pressed. It does not have to outrun anything: the page is held still until
+// this has finished and only then travels, which is the whole reason the
+// indicator exists. Long enough to read as the piece closing, short enough that
+// nobody is waiting on it.
+export const SKIP_SECS = 0.45;
+
+// The indicator that covers it. Up fast, because it has to be there before the
+// animatic starts leaving; out slower, dissolving into the travel.
+export const LOAD_IN = 0.18;
+export const LOAD_OUT = 0.32;
 export function beatName(t: number): string {
   const c = Math.min(t, DUR);
   for (const b of BEATS) if (c < b.t1) return b.name;
@@ -82,6 +278,24 @@ export interface HeroCtl {
   scrubRef: MutableRefObject<number | null>; // non-null while the scrubber is dragged
   stepRef: MutableRefObject<number>; // a pending frame-step (seconds), applied once
   resetRef: MutableRefObject<boolean>; // replay request
+  // The scene outlives the hero on the homepage: the canvas is fixed to the
+  // viewport so the cosmos stays behind the whole page while the feed scrolls
+  // through it. `pastRef` is the target and `bloomFadeRef` the eased value, and
+  // what they now govern is the BLOOM, which lights the starfield and is the
+  // expensive pass: past the hero it eases off and switches out. They no longer
+  // fade the hero's own geometry, because the hero's own geometry scrolls away
+  // like everything else on the page (see the scroll rig in HeroCanvas) and a
+  // thing that leaves the screen does not also need to dissolve.
+  // Refs, not state, so scrolling never re-renders the canvas.
+  pastRef: MutableRefObject<boolean>;
+  bloomFadeRef: MutableRefObject<number>;
+  // THE ABORT. `skipRef` is true from the moment SKIP is pressed until the page
+  // has finished travelling, and `abortRef` is the eased value every hero-owned
+  // layer multiplies its opacity by. This is the only thing that dissolves the
+  // hero now, and it exists because ending the animatic early is a different
+  // event from scrolling past it.
+  skipRef: MutableRefObject<boolean>;
+  abortRef: MutableRefObject<number>;
 }
 
 // DOM nodes the in-canvas HUD driver writes to each frame.
@@ -90,7 +304,12 @@ export interface HeroHud {
   tcRef: MutableRefObject<HTMLElement | null>;
   floodRef: MutableRefObject<HTMLDivElement | null>;
   doorsRef: MutableRefObject<HTMLDivElement | null>;
-  titleRef: MutableRefObject<HTMLParagraphElement | null>;
+  // The way out, on its own clock rather than the menu's: it is the release
+  // valve for the scroll lock, so it cannot wait for the doors to land.
+  enterRef: MutableRefObject<HTMLAnchorElement | null>;
+  // Both are headings on the page now: h1 wordmark, h2 tagline.
+  titleRef: MutableRefObject<HTMLHeadingElement | null>;
+  markRef: MutableRefObject<HTMLHeadingElement | null>;
   scrubEl: MutableRefObject<HTMLInputElement | null>;
   playBtnRef: MutableRefObject<HTMLButtonElement | null>;
 }
@@ -103,6 +322,9 @@ export function heroT(_elapsed: number, ctl: HeroCtl): number {
 // ---- geometry (built once, shared across every shell) -----------------------
 const geoCache: Partial<Record<Kind, THREE.BufferGeometry>> = {};
 
+// Retired: the Music door took the icosahedron. Kept because this is the only
+// build of the waveform and it read thin/scribbly nested rather than wrong --
+// if a sixth door ever wants it, it needs thicker strokes before reuse.
 function makeWaveGeo(): THREE.BufferGeometry {
   const pts: number[] = [];
   const N = 48;
@@ -129,6 +351,33 @@ function makeWaveGeo(): THREE.BufferGeometry {
   return g;
 }
 
+// Art's solid: a stella octangula (two interpenetrating tetrahedra). Picked for
+// SILHOUETTE separation -- next to a ball, a ring, a square and a diamond, the
+// row needs one spiked star that cannot be confused with any of them at menu
+// size. A dodecahedron was the obvious alternative and was rejected: nested and
+// spinning in wireframe it reads as another icosahedron.
+//
+// The second tetrahedron is negated, NOT rotated. TetrahedronGeometry's four
+// vertices are a diagonal subset of a cube's corners, so rotating one by PI on
+// any axis maps it back onto itself and you get no star at all. Scaling by -1
+// picks up the other four corners, which is the actual dual.
+function makeStarGeo(): THREE.BufferGeometry {
+  const R = 1.18;
+  const up = new THREE.EdgesGeometry(new THREE.TetrahedronGeometry(R, 0));
+  const dn = new THREE.EdgesGeometry(new THREE.TetrahedronGeometry(R, 0));
+  dn.scale(-1, -1, -1);
+  const a = up.getAttribute("position").array as Float32Array;
+  const b = dn.getAttribute("position").array as Float32Array;
+  const pts = new Float32Array(a.length + b.length);
+  pts.set(a, 0);
+  pts.set(b, a.length);
+  up.dispose();
+  dn.dispose();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  return g;
+}
+
 export function getGeo(kind: Kind): THREE.BufferGeometry {
   let g = geoCache[kind];
   if (g) return g;
@@ -143,10 +392,17 @@ export function getGeo(kind: Kind): THREE.BufferGeometry {
       g = new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1.0, 0));
       break;
     case "ring":
+      // Stays at 8x28. Coarsening this to thin the glob was tried and reverted:
+      // the dense tessellation is exactly what makes the ring read as CLEARLY
+      // round, and that is the point of the shape. The nested-glob problem is
+      // solved on opacity instead -- see SHELL_FALLOFF.
       g = new THREE.EdgesGeometry(new THREE.TorusGeometry(0.85, 0.3, 8, 28));
       break;
     case "wave":
       g = makeWaveGeo();
+      break;
+    case "star":
+      g = makeStarGeo();
       break;
   }
   geoCache[kind] = g;

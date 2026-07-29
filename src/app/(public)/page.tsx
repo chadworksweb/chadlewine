@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
+import HeroAnimatic from "@/app/hero-animatic/HeroAnimatic";
 import { HomepageFeed } from "@/components/HomepageFeed";
 import { ExploreSongs } from "@/components/ExploreSongs";
 import { GalleryWall, type GalleryPiece } from "@/components/GalleryWall";
@@ -450,6 +451,14 @@ export default async function HomePage() {
 
   return (
     <div id="page-home" className="page-home">
+      {/* THE HERO. Full-bleed and a full screen tall, so this is the whole of
+          the first view. It carries the page's h1 and the five doors as real
+          links, and the existing feed follows directly below it, unchanged. */}
+      <HeroAnimatic />
+      {/* Zero-height scroll target for the hero's "enter homepage" anchor. The
+          page-shell grid has no row-gap, so an empty child costs no space. */}
+      <div id="home-enter" aria-hidden="true" />
+
       <HomepageFeed
         songs={songs}
         featuredTrack={featuredTrack ? { ...featuredTrack, playbackMode: featuredPlaybackMode } : null}

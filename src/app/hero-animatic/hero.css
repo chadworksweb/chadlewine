@@ -33,14 +33,169 @@
   text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff;
 }
 
+/* THE HOMEPAGE BLOCK. Wall to wall and a full screen tall.
+   `main` carries padding-top: var(--nav-height) to clear the fixed header, so
+   the hero cancels it and starts at the true top of the viewport. Everything
+   after the hero flows normally, so the feed begins exactly one screen down. */
+.hero-transcend {
+  margin-top: calc(-1 * var(--nav-height));
+}
+
+/* THE HEADER SITS BELOW THE ANIMATIC, NOT OVER IT.
+   Nothing is allowed on top of the hero, so the fixed header is lifted out of
+   view for as long as the hero covers the top of the viewport, and slides back
+   in as the feed arrives. The class is stamped on <html> by the hero's boot
+   script before the first paint, so the bar is never drawn across the hero even
+   for a frame, and the nav's scroll handler clears it once the hero has passed.
+   visibility is carried along on a delay so the header is not merely moved
+   offscreen: a fixed element cannot be scrolled into view, so leaving it
+   focusable would put invisible tab stops ahead of the hero's own links. The
+   delay runs the hide AFTER the slide and returns instantly on the way back. */
+html.ha-hero-top .site-header {
+  transform: translateY(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--duration-base) var(--ease-out),
+    visibility 0s linear var(--duration-base);
+}
+.hero-transcend .ha-stage {
+  height: 100vh; /* fallback first */
+  height: 100svh; /* the SMALL viewport: never cut by mobile browser chrome */
+}
+
+/* THE SCROLL LOCK. The page holds still until the animatic has finished, so the
+   first screen is watched rather than scrolled through at the halfway mark. The
+   class is stamped on <html> by the hero's boot script before the first paint
+   and lifted by HudDriver when the wordmark settles; .ha-enter is the way out
+   of it in the meantime.
+   Only the y axis is named, but note what actually computes: the root carries
+   `overflow-x: clip`, and a clip axis paired with a non-clip, non-visible one
+   is defined to compute to hidden, so BOTH axes read hidden while this class is
+   on. That costs position:sticky for the duration, which is why it is scoped to
+   a class that only exists while a full-screen hero is covering the page and
+   nothing sticky is on screen to lose.
+   scrollbar-gutter is the part that is easy to miss. A root that stops
+   scrolling loses its scrollbar, the layout gains its width back, and the
+   full-bleed hero and the fixed canvas both resize -- once on lock and again on
+   release, which lands exactly on the animatic's last frame. Measured at 1280
+   with classic scrollbars: with the gutter reserved the stage holds 1270 either
+   side of the release; without it, it jumps 1280 -> 1270. (Overlay scrollbars
+   have no gutter to reserve, so this is a no-op on iOS and macOS.) */
+html.ha-lock {
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  overscroll-behavior: none;
+}
+
+/* A size container, so every measurement inside resolves against the STAGE
+   rather than the window. On the dev route the stage is a 16:9 box inside a
+   wider page and the two are not the same thing; on the homepage the stage IS
+   the viewport. Container units keep both correct from one set of rules, and
+   they degrade to the small-viewport units if containment is ever unavailable. */
 .ha-stage {
   position: relative;
+  container-type: size;
   width: 100%;
+  overflow: hidden;
+}
+
+/* THE COSMOS OUTLIVES THE HERO.
+   Fixed to the viewport and behind the page, so the feed scrolls THROUGH the
+   starfield instead of the page changing worlds at the fold. Deliberately not a
+   child of .ha-stage: size containment there would make the stage the
+   containing block and pin this to the hero instead of the viewport.
+   z-index -1 paints it above the root background (where the body colour lands)
+   and below every in-flow element, so no page section needs a z-index of its
+   own, and pointer-events are off so it can never eat a click on the feed. */
+.ha-cosmos {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.ha-cosmos canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* THE VEIL. Black over the cosmos, coming on with the scroll so the feed reads
+   against a settled sky instead of a live starfield.
+   The same stacking level as the canvas and immediately after it in source
+   order, which is exactly what puts it OVER the cosmos and still under the page
+   itself: an in-flow element that sets no z-index paints above every negative
+   layer, so the feed is never dimmed, only the sky behind it. That is also why
+   it dims nothing in the hero, which is in flow too.
+   Starts clear, and stays clear if nothing ever writes it. With no JS there is
+   no scroll position to read, and a black film that could never lift would be a
+   good deal worse than no film at all. */
+.ha-veil {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* THE INDICATOR, and the whole reason the page can hold still while the
+   animatic closes. Fixed rather than parked in the stage, so it keeps its place
+   on screen while the page travels underneath it once the closing is done.
+   Above the veil and above the hero, which is the one thing in this file that
+   is allowed to be.
+   Starts invisible and is only ever written by the skip transition, so with no
+   JS it is not there at all and the anchor below simply scrolls. */
+.ha-load {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  opacity: 0;
+  pointer-events: none;
+}
+/* Sized off viewport width only to keep it a sane bar on a phone and not a
+   hairline on an ultrawide. Everything else in the composition measures against
+   height because it has to track the shapes; this tracks nothing. */
+.ha-load__rail {
+  width: clamp(7rem, 22vw, 13rem);
+  height: 2px;
+  background: rgba(139, 156, 247, 0.22);
+  overflow: hidden;
+}
+/* Scaled, not width-animated: a transform composites and a width reflows, and
+   this is running over a live WebGL canvas. Origin left so it fills the way it
+   is read. The driver writes the scale from how much of the animatic has
+   actually gone, so the bar is reporting something real. */
+.ha-load__fill {
+  height: 100%;
+  background: #00e0ff;
+  box-shadow: 0 0 12px -2px #00e0ff;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.ha-load__lab {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: clamp(0.58rem, 1.6vw, 0.7rem);
+  letter-spacing: 0.42em;
+  text-indent: 0.42em; /* the tracking is trailing space; this re-centres it */
+  text-transform: uppercase;
+  color: #aab8e8;
+}
+
+/* Lab framing. Scoped to the dev page so the homepage block above inherits none
+   of it: no 1280 cap, no letterbox, no border, no drop shadow. The void fill
+   belongs here too: on the homepage the stage sits OVER the fixed cosmos, and a
+   solid background would paint straight over the thing it is meant to reveal. */
+.ha-page .ha-stage {
   max-width: 1280px;
   aspect-ratio: 16 / 9;
   border: 1px solid rgba(139, 156, 247, 0.28);
   border-radius: 14px;
-  overflow: hidden;
   background: #07070d;
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.9);
 }
@@ -82,16 +237,35 @@
   color: #00e0ff;
 }
 
+/* No opacity transition here. HudDriver writes this element's opacity every
+   single frame off the shared clock, so a transition was being retargeted
+   sixty times a second on a property that was already being animated by hand:
+   pure overhead, and it fought the curve it was sitting on top of. */
 .ha-doors {
   position: absolute;
   inset: 0;
-  transition: opacity 0.2s ease;
 }
+/* THE INVERSION. Everything below is hidden ONLY while the animation owns the
+   frame. Without the .ha-anim class (no JS, a crawler that does not execute
+   scripts, or the failsafe releasing after a scene that never started) the hero
+   renders in its settled state and every word of it is readable. The driver
+   writes inline opacity from its first frame onward, so these rules only govern
+   what is painted before it takes over. */
+.ha-anim .ha-doors {
+  opacity: 0;
+  pointer-events: none;
+}
+/* Every dimension is written from the projected slot (see heroLayout), so the
+   column sits under its own shape at any aspect and in both arrangements. It is
+   a tall CELL rather than a box hugging the label: hovering anywhere in a
+   door's column washes it in that door's tier hue, which is the affordance, and
+   a label-sized target would have thrown that away. Cells are exactly one slot
+   spacing wide and tile without overlapping, so a pointer anywhere in the menu
+   belongs to one door and only one.
+   nowrap matters here: the cell can be narrower than "/music-videos" on a small
+   frame, and the route used to break onto two lines below a 506px viewport. */
 .ha-door {
   position: absolute;
-  top: 20%;
-  height: 58%;
-  width: 16%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -100,15 +274,50 @@
   gap: 0.2rem;
   padding-bottom: 0.4rem;
   text-decoration: none;
+  white-space: nowrap;
   border-radius: 10px;
   transition: background 0.2s ease;
 }
-.ha-door:hover {
+/* The wash is a pseudo-element that is always present and fades on OPACITY.
+   It used to be a background-image swapped in on :hover with
+   `transition: background`, which cannot work: gradients are not interpolable,
+   so the browser has nothing to animate between `none` and a radial-gradient
+   and switches discretely. That is the blink. The lag is the same rule from the
+   other side, since changing a background-image repaints the whole column
+   rather than compositing it, and it is repainting over a live WebGL canvas.
+   Opacity on a positioned pseudo-element composites instead, so it actually
+   fades and costs the GPU almost nothing.
+   Absolutely positioned, so it is NOT a flex item and cannot disturb the
+   label stack it sits behind. */
+.ha-door::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
   background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--dh) 16%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 260ms ease;
+  pointer-events: none;
 }
+.ha-door:hover::before,
+.ha-door:focus-visible::before {
+  opacity: 1;
+}
+/* Above the wash. Explicit rather than relying on paint order, since the
+   pseudo-element is positioned and would otherwise paint over the text. */
+.ha-door__lab,
+.ha-door__rt {
+  position: relative;
+  z-index: 1;
+}
+/* Sized off viewport HEIGHT, like everything else in this composition. The
+   camera's vertical fov is fixed, so a shape is always the same fraction of
+   viewport height; type measured against width drifted away from the shapes it
+   labels at every aspect that was not 16:9. */
 .ha-door__lab {
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: clamp(0.8rem, 1.5vw, 1.05rem);
+  font-size: clamp(0.72rem, 1.55cqh, 1.05rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #f2f5ff;
@@ -116,35 +325,247 @@
 }
 .ha-door__rt {
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 0.64rem;
+  font-size: clamp(0.6rem, 0.95cqh, 0.68rem);
   letter-spacing: 0.06em;
   color: var(--dh);
   opacity: 0.85;
 }
 
-/* THE ADDRESS: sits above the menu, close enough to read as its heading rather
-   than as a separate banner. Opacity, letter-spacing, blur and the chromatic
-   split are all written per frame by HudDriver off the shared clock, so it
-   cannot drift from the scene. */
-.ha-said {
+/* THE WAY IN, AND THE WAY OUT. Sits below the menu (door cells bottom out at
+   78% in the row and 72.7% in the grid, so this clears both). No longer a child
+   of .ha-doors and no longer on the menu's clock: it is the release for the
+   scroll lock, so it has to be reachable long before the doors land. The driver
+   fades it in during THE PULL at half strength and brings it to full with the
+   menu. Hidden state is gated on .ha-anim like everything else, so the no-JS
+   render still ships it visible and clickable. */
+.ha-anim .ha-enter {
+  opacity: 0;
+  pointer-events: none;
+}
+.ha-enter {
   position: absolute;
   left: 50%;
-  top: 24%;
+  bottom: 6%;
   transform: translateX(-50%);
-  margin: 0;
-  width: max-content;
-  /* Never wrap. At its widest the ghost is spaced out past the frame edge, and
-     the stage clips it -- letting it wrap instead would reflow the line as it
-     lands. It converges inward to fit. */
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  text-decoration: none;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: clamp(0.6rem, 1.05cqh, 0.78rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #aab8e8;
+  transition: color 220ms ease;
+}
+.ha-enter:hover,
+.ha-enter:focus-visible {
+  color: #f2f5ff;
+}
+/* Both labels stacked in ONE cell so the crossfade cannot move anything. They
+   are different widths, and swapping the text (or laying them out in sequence)
+   would slide a centred control sideways in the middle of its own transition.
+   The cell takes the width of the wider one, so the hit area is constant too.
+   Settled state, and the only state without JS: the real label on, the costume
+   off. The driver crossfades them across the tail of the timeline. */
+.ha-enter__labs {
+  display: grid;
+  place-items: center;
+}
+.ha-enter__labs > * {
+  grid-area: 1 / 1;
+}
+.ha-enter__skip {
+  opacity: 0;
+}
+.ha-enter__chev {
+  width: 1.7em;
+  height: 1.7em;
+  animation: ha-bob 2.6s ease-in-out infinite;
+}
+@keyframes ha-bob {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50% { transform: translateY(0.3em); opacity: 1; }
+}
+/* The scroll target, a zero-height sentinel between the hero and the feed. The
+   offset keeps the feed clear of the fixed header once it lands. */
+#home-enter {
+  scroll-margin-top: var(--nav-height);
+}
+
+/* THE ADDRESS: sits above the menu, close enough to read as its heading rather
+   than as a separate banner. Since the typed reveal replaced the resolve, the
+   only thing HudDriver still writes on the line is opacity plus the per
+   character classes; the tracking and the chromatic split below are static. */
+/* The address block: wordmark and line stacked in ONE grid cell, so the big
+   wordmark stays centred on the line whatever either one's width does. */
+.ha-address {
+  position: absolute;
+  /* Spans the frame rather than sitting at left:50%. Anchored at 50% with no
+     width, an absolutely positioned box shrinks to fit against only the
+     REMAINING half of the frame, which did not matter while the line was
+     nowrap (it simply overflowed and the -50% translate re-centred it) but
+     capped the wrap width at half the frame the moment wrapping was allowed.
+     Full width + place-items:center centres the same way with no translate. */
+  left: 0;
+  right: 0;
+  top: 24%;
+  /* The lift raises the whole block, wordmark and line together, so their
+     relative offset is untouched. In cqh rather than px so it stays
+     proportional to type that now scales with the frame (1.85cqh is the
+     original 20px in a 1080-tall frame). */
+  transform: translateY(-1.85cqh);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.ha-address > * {
+  grid-area: 1 / 1;
+}
+
+/* Screen-reader copy of each line, so the decorative per-character spans can
+   stay aria-hidden without the copy going missing. */
+.ha-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+  border: 0;
+}
+
+/* The wordmark behind the line. Matches the nav logo's treatment (same UI face,
+   weight, tracking, uppercase) at hero scale. Real text, not aria-hidden: this
+   is the site's own name and it should carry over to the homepage graft as
+   readable content. */
+.ha-mark {
+  margin: 0; /* it is an h1 now */
+  white-space: nowrap;
+  font-family: var(--font-ui, ui-sans-serif, system-ui, sans-serif);
+  /* Height is the primary basis, matching the shapes. The vw term is a ceiling
+     only: a phone is tall and narrow, so 8.9cqh alone would render the wordmark
+     551px wide inside a 390px frame. Whichever constraint bites first wins.
+     At 1920x1080 this resolves to 96px, exactly what it was. */
+  font-size: clamp(1.75rem, min(8.9cqh, 11.5cqw), 7rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: #dfe6ff;
+  /* Lifted off the shared grid cell's centre so the line sits low against the
+     wordmark rather than splitting it in half. In em, so the lift stays the
+     same fraction of the wordmark at any size (it was 10px against 96px). */
+  transform: translateY(-0.104em);
+  /* The settled value, which is what no-JS renders. The driver animates from 0
+     up to this during THE NAME. */
+  opacity: 0.05;
+}
+.ha-anim .ha-mark {
+  opacity: 0;
+}
+/* Glitch characters. Transform-only jitter: nudging position never reflows,
+   whereas swapping in substitute glyphs would change each character's advance
+   width and make a centred, nowrap wordmark shimmy sideways for three seconds. */
+.ha-m {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+.ha-anim .ha-m {
+  opacity: 0;
+}
+
+.ha-said {
+  margin: 0;
+  /* Sits above the wordmark in the shared grid cell. The nudge moves the line
+     alone against the wordmark; offsetting via top rather than transform keeps
+     it clear of the driver, which rewrites this element's style every frame.
+     In em so it holds its proportion as the type scales (it was 3px at 21px). */
+  position: relative;
+  top: -0.142em;
+  z-index: 1;
+  /* No longer nowrap, and no longer width:max-content. Both existed so the wide
+     blurred ghost clipped at the frame edge instead of reflowing as it landed,
+     and that entrance was replaced by the typed reveal. The reveal is
+     opacity-only with the whole line laid out from the first frame, so a
+     wrapped line cannot reflow as it types. Portrait needs the wrap: held on
+     one line the tagline bottomed out at 9.3px and stopped shrinking, so it
+     outgrew the wordmark it is supposed to sit inside. */
+  max-width: 88cqw;
+  line-height: 1.4;
   text-align: center;
   pointer-events: none;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: clamp(0.58rem, 1.75vw, 1.32rem);
+  font-size: clamp(0.78rem, 1.96cqh, 1.6rem);
   font-weight: 700;
   text-transform: uppercase;
   color: #f2f5ff;
+  /* The landed look is unchanged from the resolve version: same tracking, same
+     1.6px chromatic fringe. Only the ENTRANCE changed, so these are now static
+     instead of being written per frame. */
+  letter-spacing: 0.26em;
+  text-shadow: -1.6px 0 #ff2e63, 1.6px 0 #00e0ff;
+}
+.ha-anim .ha-said {
   opacity: 0;
+}
+
+/* Each character is its own span, so the spaces between words are spans holding
+   a single space. Under normal white-space processing that space is a candidate
+   for collapsing, which is why it used to be a non-breaking space. A NBSP is
+   also a non-breaking OPPORTUNITY though, so the line physically could not wrap
+   anywhere. pre-wrap preserves the space AND keeps it as a break opportunity,
+   which is what lets the tagline wrap on portrait. It also puts real spaces in
+   the extracted text rather than U+00A0. */
+.ha-said__chars {
+  white-space: pre-wrap;
+}
+
+/* Typed characters. Opacity, never display or insertion -- the full line is
+   laid out from the first frame, so revealing a character cannot reflow the
+   ones after it and the centred block never jumps as it types. */
+.ha-c {
+  position: relative;
+}
+.ha-anim .ha-c {
+  opacity: 0;
+}
+/* Scoped deliberately: unscoped, `.ha-c.is-on` (0,2,0) would lose to
+   `.ha-anim .ha-c` (0,2,1) and no character would ever reveal. */
+.ha-anim .ha-c.is-on {
+  opacity: 1;
+}
+/* The caret rides the typing frontier as a pseudo-element on whichever
+   character is currently last, so it needs no measurement and it follows the
+   text through any resize or font-size change on its own. */
+.ha-c.is-frontier::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 0.02em;
+  width: 0.09em;
+  height: 1em;
+  background: #00e0ff;
+  animation: ha-caret 0.9s steps(1, end) infinite;
+}
+@keyframes ha-caret {
+  0%, 55% { opacity: 1; }
+  55.01%, 100% { opacity: 0; }
+}
+
+/* The two looping CSS animations are decoration, so they stop when asked. The
+   scene itself is handled separately (the canvas drops to an on-demand render
+   loop and freezes on the rested menu). */
+@media (prefers-reduced-motion: reduce) {
+  .ha-enter__chev,
+  .ha-c.is-frontier::after {
+    animation: none;
+  }
 }
 
 .ha-controls {

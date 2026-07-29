@@ -14,6 +14,17 @@
  * with AdditiveBlending over black FogExp2, lit entirely by a real UnrealBloom
  * pass (the transcend-spike stack). Crystal-facet surfaces are a later upgrade. */
 
+/* eslint-disable react-hooks/immutability -- The shared clock IS mutation. Every
+ * driver in this file reads and writes `ctl`, a bag of refs handed down as a
+ * prop, because one clock read identically by every useFrame and by the DOM
+ * overlay is the only thing keeping the scene and its labels from drifting
+ * apart (see HeroCtl in heroShapes). Carrying that through React state would
+ * re-render a WebGL canvas sixty times a second to move a number. The rule
+ * cannot see the difference between mutating a prop and mutating a ref that
+ * arrived as one, and it fires nine times here, which is nine standing errors
+ * nobody reads and a tenth real one nobody would notice. Scoped to this file
+ * and this rule only. */
+
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
@@ -22,8 +33,10 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  DOORS, PHI, SHELLS, SLOT_X, DUR, SAID_IN, SAID_OUT, COL_PERI, COL_VOID,
-  clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo,
+  DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
+  MARK_IN, MARK_OUT, MARK_TEXT, ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
+  CAM_FOV, CAM_Z_REST,
+  clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo, heroLayout,
   type Door, type HeroCtl, type HeroHud,
 } from "./heroShapes";
 
@@ -50,10 +63,26 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   useEffect(() => () => composer.dispose(), [composer]);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
+    const fade = ctl.bloomFadeRef.current;
     const b = bloomRef.current;
     if (b) {
-      // steady phosphor, with a hard pump through the break flash
-      b.strength = 0.7 + smooth(1.4, 2.3, t) * 0.5 + Math.max(0, smooth(2.2, 2.4, t) - smooth(2.5, 3.1, t)) * 1.1;
+      // Steady phosphor, with a hard pump through the break flash, eased off as
+      // the page leaves the hero behind. This is all the scroll fade still
+      // does: the hero's own geometry rides the scroll rig off the top of the
+      // frame and needs no dissolve, but the glow is thrown across the whole
+      // canvas and would otherwise sit on the feed.
+      //
+      // Past the hero the bloom PASS is switched off, which is where its cost
+      // lives, but the composer keeps rendering. Bypassing the composer for a
+      // plain gl.render also bypasses OutputPass, and that pass is doing the
+      // colour-space conversion: measured frame by frame, dropping it HALVED
+      // the luminance of the entire image, starfield included, in one frame.
+      // That cliff was the "stepped" fade. Disabling one pass costs the same
+      // and changes nothing about how the remaining image is written out.
+      const base =
+        0.7 + smooth(1.4, 2.3, t) * 0.5 + Math.max(0, smooth(2.2, 2.4, t) - smooth(2.5, 3.1, t)) * 1.1;
+      b.strength = base * fade;
+      b.enabled = fade > 0.001;
     }
     composer.render();
   }, 1);
@@ -66,7 +95,9 @@ function CameraRig({ ctl }: { ctl: HeroCtl }) {
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     const dolly = lerp(15, 13.2, smooth(0, 2.2, t)); // barely a plunge -- steady, not a dive
-    const back = lerp(13.2, 13.4, smooth(2.4, 5, t)); // ease back to frame the menu
+    // ease back to frame the menu. The resting distance is the shared constant:
+    // heroLayout projects the DOM labels from it, so a literal here could drift.
+    const back = lerp(13.2, CAM_Z_REST, smooth(2.4, 5, t));
     camera.position.z = t < 2.4 ? dolly : back;
     camera.position.x = Math.sin(t * 0.16) * 0.25 * smooth(4.8, 6, t);
     camera.lookAt(0, 0, 0);
@@ -175,15 +206,20 @@ type StreakSeed = { ang: number; r0: number; lf: number; wf: number };
 type StreakSet = { geo: THREE.BufferGeometry; pos: Float32Array; mat: THREE.MeshBasicMaterial; mesh: THREE.Mesh; seeds: StreakSeed[] };
 
 // THE SURGE: nothing at all until 1.46 (before that the streaks are the plain
-// thin lines they always were), then it ramps hard, keeps building, and stays
-// hot right up to the break at 2.2, where it hands the momentum straight off to
-// the flood instead of petering out first. Story-time, so the 0.5x intro
-// clock-stretch renders it about twice this long in real seconds.
+// thin lines they always were), then ONE forward sequence and nothing else.
+// A held beat of hesitation, then a single slow climb that never reverses,
+// arriving at full right at the break at 2.2, where it hands the momentum
+// straight off to the flood instead of petering out first.
+//
+// The ramp is SQUARED, which is the hesitation: the first third of the window
+// barely moves, and the swell only commits once it has waited. One smooth()
+// alone eases in and out symmetrically, which reads as the field deciding
+// immediately. Story-time, so the 0.5x intro clock-stretch renders this about
+// twice this long in real seconds -- roughly a second and a half of build.
 function warpSurge(t: number): number {
-  const attack = smooth(1.46, 1.8, t);
-  const climb = 0.8 + 0.2 * smooth(1.8, 2.18, t); // still gaining, never flat
+  const ramp = smooth(1.46, 2.26, t);
   const release = 1 - smooth(2.55, 2.95, t); // stays lit through the drop-out, so they leave hot
-  return attack * climb * release;
+  return ramp * ramp * release;
 }
 
 function RushStreaks({ ctl }: { ctl: HeroCtl }) {
@@ -257,7 +293,6 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
     const evac = exit * exit * 24; // world units the inner tip races outward
     const rush = drive * (1 - smooth(2.9, 3.15, t));
     const surge = warpSurge(t);
-    const shudder = 1 + 0.12 * Math.sin(t * 31) * surge; // the drive judders at peak
 
     const draw = (set: StreakSet, lenK: number, op: number, baseW: number, surgeW: number, gate: number) => {
       const vis = rush * gate;
@@ -266,9 +301,15 @@ function RushStreaks({ ctl }: { ctl: HeroCtl }) {
       if (vis <= 0.01) return;
       for (let s = 0; s < set.seeds.length; s++) {
         const sd = set.seeds[s];
-        const wob = 1 + 0.06 * Math.sin(t * 9 + s);
-        const len = (0.6 + lenK * drive) * (1 + surge * 0.9) * (1 + exit * 1.8) * sd.lf * wob; // stretches as it surges, then again as it leaves
-        const hw = (baseW + surgeW * surge) * sd.wf * shudder * (1 - 0.62 * exit); // thins out on the way off
+        // NO per-streak sine terms. A length wobble phased by streak index and a
+        // global width judder were what made the field percolate: a few hundred
+        // streaks each breathing on their own phase reads as boiling, not as
+        // speed. Length and width now move only with surge and exit, both
+        // monotonic, so the whole field swells once, together, and never comes
+        // back. The peak width is unchanged -- the old judder only spiked 12%
+        // above this for a few frames at a time, so this holds the same ceiling.
+        const len = (0.6 + lenK * drive) * (1 + surge * 0.9) * (1 + exit * 1.8) * sd.lf; // stretches as it surges, then again as it leaves
+        const hw = (baseW + surgeW * surge) * sd.wf * (1 - 0.62 * exit); // thins out on the way off
         const c = Math.cos(sd.ang);
         const si = Math.sin(sd.ang);
         const nx = -si; // unit normal, perpendicular to the streak
@@ -534,6 +575,39 @@ function Nebula({ ctl }: { ctl: HeroCtl }) {
 
 // ---- a hero door: nested golden-ratio shells of one solid -------------------
 const Z_CORE = -34; // where the warp core sits and the doors are born
+
+// PER-SHELL GYROSCOPE. The shells used to share one dominant spin term and
+// differ only by a fixed offset plus a shear of a few hundredths, on two axes,
+// which is why the nest read as one rigid object instead of four independent
+// ones. Now the door's own tumble lives on the GROUP and each shell carries its
+// own free three-axis rotation on top.
+//
+// Rates are stepped by powers of the golden ratio, so no two shells share a
+// period and the nest can never re-sync into looking rigid. Inner shells still
+// run a little faster (they are smaller, so equal angular rate reads as less
+// motion), and neighbours counter-rotate, which is what sells gimbals rather
+// than drift.
+//
+// GYRO_RATE is the one dial for the whole nest. The inner-shell exponent is
+// deliberately shallow: at 0.5 the innermost shell ran over 2x the outermost
+// and churned, which is the thing that had to come down.
+const GYRO_RATE = 0.5;
+const GYRO = Array.from({ length: SHELLS }, (_, i) => {
+  const k = Math.pow(PHI, i * 0.3) * GYRO_RATE;
+  const flip = i % 2 ? -1 : 1;
+  return {
+    rx: 0.150 * k * flip,
+    ry: 0.243 * k,
+    rz: 0.097 * k * -flip,
+    px: i * 1.3,
+    py: i * 0.9,
+    pz: i * 2.1, // phases so they start visibly apart, not stacked
+  };
+});
+function gyro(ls: THREE.Object3D, i: number, t: number) {
+  const r = GYRO[i];
+  ls.rotation.set(r.px + t * r.rx, r.py + t * r.ry, r.pz + t * r.rz);
+}
 function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroCtl }) {
   const built = useMemo(() => {
     const group = new THREE.Group();
@@ -551,7 +625,8 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     trailGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3));
     const trailMat = new THREE.LineBasicMaterial({ color: hue.clone(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     const trail = new THREE.LineSegments(trailGeo, trailMat);
-    return { group, shells, hue, trail, trailGeo, trailMat };
+    const fall = SHELL_FALLOFF[door.shape]; // denser solids dim faster inward
+    return { group, shells, hue, trail, trailGeo, trailMat, fall };
   }, [door.shape, door.hue]);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
@@ -576,14 +651,14 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
       g.scale.setScalar(lerp(0.25, 2.4, life));
       const alpha = 0.95 * (1 - gone);
       const spin = t * 1.5 + index; // slower tumble
+      g.rotation.set(spin * 0.5, spin, 0); // the door's own tumble, whole-body
       for (let i = 0; i < built.shells.length; i++) {
         const ls = built.shells[i];
         ls.scale.setScalar(Math.pow(1 / PHI, i));
-        ls.rotation.y = spin + i * 0.9;
-        ls.rotation.x = spin * 0.5 + i * 1.3;
+        gyro(ls, i, t);
         const m = ls.material as THREE.LineBasicMaterial;
         m.color.copy(built.hue); // ignites in its tier hue straight out of the core
-        m.opacity = Math.max(0.03, alpha * (0.62 - i * 0.11));
+        m.opacity = Math.max(0.03, alpha * (0.62 - i * built.fall));
       }
       const p = built.trailGeo.attributes.position as THREE.BufferAttribute;
       p.setXYZ(0, 0, 0, Z_CORE);
@@ -595,27 +670,47 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     }
 
     // ASSEMBLY -> REST: the same door returns to the centre and settles into its slot
+    //
+    // The slot is the ONLY part of this that is responsive. Everything before
+    // 2.2 (the pull, the tunnel, the eject) is untouched at every aspect, so the
+    // intro is identical everywhere; only where the doors LAND moves, and only
+    // below 3:2 where the authored row genuinely does not fit the frame.
+    const lay = heroLayout(state.size.width / state.size.height);
+    const slot = lay.slots[index];
     built.trailMat.opacity = 0;
-    g.visible = true;
+    // The doors belong to the hero, not to the background it leaves behind.
+    // They no longer dim on scroll -- they ride the scroll rig off the top of
+    // the frame with their own labels. This is the ABORT only: the one case
+    // where the menu has to leave without going anywhere.
+    const fade = ctl.abortRef.current;
+    g.visible = fade > 0.01;
+    if (!g.visible) return;
     const ap = clamp((t - 3.2) / 1.5, 0, 1);
     const emerge = t < 3.15 ? 0 : backOut(ap);
-    // the artifact's ordered wave: each door phased by index so the row ripples
+    // the artifact's ordered wave: each door phased by index so the row ripples.
+    // Scaled with the menu, so the idle drift stays proportional to the shape
+    // rather than swamping it on a phone.
     const settle = smooth(4.6, 5.7, t);
-    const wave = settle * (Math.sin(t * 1.3 + index * 1.1) * 0.16 + Math.sin(t * 0.7 + index) * 0.1);
-    g.position.set(lerp(0, SLOT_X[index], emerge), wave, lerp(-2, 0, emerge));
+    const wave = settle * lay.k * (Math.sin(t * 1.3 + index * 1.1) * 0.16 + Math.sin(t * 0.7 + index) * 0.1);
+    g.position.set(lerp(0, slot.x, emerge), lerp(0, slot.y, emerge) + wave, lerp(-2, 0, emerge));
     const breathe = 1 + 0.035 * Math.sin(t * 0.28 + index * 1.3);
-    g.scale.setScalar(lerp(0.0, 1.2, easeOut(ap)) * breathe);
+    g.scale.setScalar(lerp(0.0, 1.2 * lay.k, easeOut(ap)) * breathe);
     const res = smooth(2.3, 3.6, t);
     const alpha = 0.95 * smooth(2.5, 3.2, t);
     const spin = index + 0.25 * t + 1.6 * smooth(2.2, 4.8, t); // rotation slowed ~50%
+    g.rotation.set(spin * 0.5, spin, 0); // the door's own tumble, whole-body
     for (let i = 0; i < built.shells.length; i++) {
       const ls = built.shells[i];
       ls.scale.setScalar(Math.pow(1 / PHI, i)); // golden-ratio inset
-      ls.rotation.y = spin + i * 0.9 + t * (0.06 + i * 0.03); // incommensurate shear, slowed
-      ls.rotation.x = spin * 0.5 + i * 1.3 + t * (0.045 - i * 0.015);
+      gyro(ls, i, t);
       const m = ls.material as THREE.LineBasicMaterial;
       m.color.lerpColors(COL_PERI, built.hue, res);
-      m.opacity = Math.max(0.04, alpha * (0.62 - i * 0.11));
+      // The 0.04 floor keeps the innermost shells from disappearing during the
+      // idle, so the scroll fade has to be applied AFTER it, not folded into
+      // alpha. Multiplied in beforehand, every shell dimmed smoothly down to
+      // the floor, sat there as a ghost over the feed, and then got cut when
+      // g.visible flipped: three stages instead of one dim to nothing.
+      m.opacity = Math.max(0.04, alpha * (0.62 - i * built.fall)) * fade;
     }
   });
   return (
@@ -641,6 +736,32 @@ function ClockDriver({ ctl }: { ctl: HeroCtl }) {
       ctl.stepRef.current = 0;
       ctl.playingRef.current = false; // stepping implies pause
     }
+    // Ease the hero's own layers toward present/absent. Computed once here
+    // rather than in each consumer so every element leaves together.
+    //
+    // LINEAR, not exponential. An exponential ease is fast then slow by
+    // definition, so it dims hard, then trails off for another second, and the
+    // long tail is what reads as a second stage rather than one dim. A fixed
+    // rate covers the whole range in FADE_SECS no matter which way it is going.
+    // The scroll dim. This is the BLOOM's now, not the hero's: the hero scrolls
+    // away under the rig above, and a thing that leaves the screen does not
+    // need to dissolve as well. What is left for this to do is take the glow
+    // off the starfield and switch the expensive pass out once the page has
+    // moved on from the hero.
+    const want = ctl.pastRef.current ? 0 : 1;
+    const f = ctl.bloomFadeRef.current;
+    const step = d / FADE_SECS;
+    ctl.bloomFadeRef.current = want > f ? Math.min(want, f + step) : Math.max(want, f - step);
+
+    // The abort, on its own clock. Ending the animatic early is a different
+    // event from scrolling past it: it goes out faster, over SKIP_SECS, and it
+    // comes back on the slow rate so that returning to a hero that was skipped
+    // is not a snap.
+    const wantA = ctl.skipRef.current ? 0 : 1;
+    const a = ctl.abortRef.current;
+    const stepA = d / (ctl.skipRef.current ? SKIP_SECS : FADE_SECS);
+    ctl.abortRef.current = wantA > a ? Math.min(wantA, a + stepA) : Math.max(wantA, a - stepA);
+
     if (ctl.scrubRef.current != null) {
       ctl.tRef.current = ctl.scrubRef.current;
     } else if (ctl.playingRef.current) {
@@ -655,32 +776,158 @@ function ClockDriver({ ctl }: { ctl: HeroCtl }) {
 }
 
 // ---- HUD driver: writes the DOM overlay from the same clock ------------------
+// Deterministic noise. The glitch has to be a pure function of t like every
+// other part of this scene: Math.random would resolve differently on every
+// frame and, worse, scrubbing backward would show a different glitch than
+// playing forward through the same moment.
+function hash(a: number, b: number): number {
+  const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+// The order the wordmark's characters commit in. Scrambled, not left-to-right,
+// so it reads as a signal locking in rather than as a second typing effect.
+const MARK_RANK: number[] = (() => {
+  const n = MARK_TEXT.length;
+  const seq = Array.from({ length: n }, (_, i) => i).sort((a, b) => hash(a, 1) - hash(b, 1));
+  const rank = new Array<number>(n);
+  seq.forEach((charIndex, k) => {
+    rank[charIndex] = k;
+  });
+  return rank;
+})();
+
 function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+  // Cached child lookups + the last state written, so the per-character work
+  // only touches the DOM when something actually changed.
+  const saidChars = useRef<HTMLElement[] | null>(null);
+  const markChars = useRef<HTMLElement[] | null>(null);
+  const enterLabs = useRef<{ lab: HTMLElement; skip: HTMLElement } | null>(null);
+  const lastTyped = useRef(-1);
+  const announced = useRef(false);
+  const released = useRef(false);
   useFrame((state) => {
+    // Tells the boot script the scene really started. That script hides the
+    // hero so the animation can play, and releases it again if this never
+    // fires, so a browser with no WebGL gets the settled hero rather than a
+    // blank frame. Set from the driver's first frame because the driver is
+    // what actually takes ownership of the opacities below.
+    if (!announced.current) {
+      announced.current = true;
+      document.documentElement.setAttribute("data-ha-running", "1");
+    }
     const t = heroT(state.clock.elapsedTime, ctl);
     const td = Math.min(t, DUR);
     if (hud.beatRef.current) hud.beatRef.current.textContent = beatName(td);
     if (hud.tcRef.current) hud.tcRef.current.textContent = td.toFixed(2) + "s";
     const flood = smooth(2.2, 2.35, t) * (1 - smooth(2.45, 3.0, t)); // a quick flash, then it clears for the spiral
     if (hud.floodRef.current) hud.floodRef.current.style.opacity = String(flood);
+    // The overlay is pure f(t) and scrolls off with the stage, which is all it
+    // ever needed to do. The one thing it cannot handle on its own is the
+    // abort: SKIP ends the animatic where it stands, with the page still held,
+    // so the shapes dissolve and text that ignored that would be the one thing
+    // left hanging in an empty frame. Hence the abort, and only the abort.
+    const fade = ctl.abortRef.current;
+    const live = fade > 0.02; // nothing invisible stays clickable
     const doorsIn = smooth(5.0, 5.75, t);
     if (hud.doorsRef.current) {
-      hud.doorsRef.current.style.opacity = String(doorsIn);
-      hud.doorsRef.current.style.pointerEvents = t > 5.3 ? "auto" : "none";
+      hud.doorsRef.current.style.opacity = String(doorsIn * fade);
+      hud.doorsRef.current.style.pointerEvents = t > 5.3 && live ? "auto" : "none";
     }
-    // THE ADDRESS: the line resolves out of a wide, blurred, chromatically split
-    // ghost into clean type -- the same "resolve from periwinkle" move the shapes
-    // make, done in the DOM so the copy stays real crawlable text.
-    const said = smooth(SAID_IN, SAID_OUT, t);
+    // THE WAY OUT, on its own clock. It arrives at half strength during THE
+    // PULL and comes up to full on the menu's curve, so the escape from the
+    // scroll lock exists from about a second in without a second element
+    // competing with the doors once they land. Clickable as soon as it is
+    // visible: it is the only way past the lock and it must never be a target
+    // you can see but not hit.
+    if (hud.enterRef.current) {
+      const enter = hud.enterRef.current;
+      const early = smooth(ENTER_IN, ENTER_OUT, t);
+      enter.style.opacity = String((ENTER_DIM * early + (1 - ENTER_DIM) * doorsIn) * fade);
+      enter.style.pointerEvents = t > ENTER_IN && live ? "auto" : "none";
+      // And it stops calling itself a skip once there is nothing left to skip.
+      // A crossfade in a single grid cell, not a textContent swap: the two
+      // words are different widths, and rewriting the label would jump a
+      // centred control sideways in the middle of its own transition. Both
+      // spans are laid out from the first frame and only their opacity moves.
+      if (!enterLabs.current) {
+        enterLabs.current = {
+          lab: enter.querySelector<HTMLElement>(".ha-enter__lab")!,
+          skip: enter.querySelector<HTMLElement>(".ha-enter__skip")!,
+        };
+      }
+      const said = smooth(MARK_OUT, DUR, t);
+      enterLabs.current.lab.style.opacity = String(said);
+      enterLabs.current.skip.style.opacity = String(1 - said);
+    }
+    // THE LOCK RELEASES ITSELF. The page holds still until the last element of
+    // the animatic has settled, which is the wordmark, not DUR: the beat runs
+    // 0.55s past the point where nothing is moving any more. Written once, and
+    // from here rather than from an effect, because this driver is the only
+    // thing that knows where the clock actually is. Removing a class that was
+    // never added (the lab, reduced motion, a page that loaded scrolled) is a
+    // no-op, so this needs no guard beyond the once-only flag.
+    if (!released.current && t >= MARK_OUT) {
+      released.current = true;
+      document.documentElement.classList.remove("ha-lock");
+    }
+    // THE ADDRESS: the line TYPES in, character by character, at a linear rate.
+    // Linear on purpose -- an eased curve would make a typewriter accelerate and
+    // brake, which no terminal does. The whole line is laid out from the first
+    // frame and characters only toggle opacity, so nothing reflows as it types.
     const el = hud.titleRef.current;
     if (el) {
-      el.style.opacity = String(said);
-      el.style.letterSpacing = lerp(0.9, 0.26, said).toFixed(3) + "em";
-      el.style.filter = "blur(" + lerp(9, 0, said).toFixed(2) + "px)";
-      // The split closes as it lands. It still lands ON, just eased off 2px to
-      // 1.6px so the fringe reads as colour rather than fighting the letterforms.
-      const split = lerp(15, 1.6, said).toFixed(2);
-      el.style.textShadow = "-" + split + "px 0 #ff2e63, " + split + "px 0 #00e0ff";
+      if (!saidChars.current) {
+        saidChars.current = Array.from(el.querySelectorAll<HTMLElement>(".ha-c"));
+      }
+      el.style.opacity = String((t >= SAID_IN ? 1 : 0) * fade);
+      const chars = saidChars.current;
+      const p = clamp((t - SAID_IN) / (SAID_OUT - SAID_IN), 0, 1);
+      const typed = Math.round(p * chars.length);
+      if (typed !== lastTyped.current) {
+        // The caret retires the moment the last character lands. Leaving it on
+        // would blink through the wordmark's whole entrance and then forever in
+        // the idle, reading as a stray artifact rather than as typing.
+        const caretAt = typed < chars.length ? typed - 1 : -1;
+        for (let i = 0; i < chars.length; i++) {
+          const on = i < typed;
+          chars[i].className = on ? (i === caretAt ? "ha-c is-on is-frontier" : "ha-c is-on") : "ha-c";
+        }
+        lastTyped.current = typed;
+      }
+    }
+
+    // THE NAME: the wordmark glitches in LAST, over a full 3s, after the line
+    // has finished typing. Characters commit in a scrambled order; until one
+    // settles it drops out and jitters, and the whole mark carries a chromatic
+    // split that closes as it locks. Transform-only jitter, so a centred nowrap
+    // wordmark cannot shimmy sideways while it resolves.
+    const mk = hud.markRef.current;
+    if (mk) {
+      if (!markChars.current) {
+        markChars.current = Array.from(mk.querySelectorAll<HTMLElement>(".ha-m"));
+      }
+      const g = clamp((t - MARK_IN) / (MARK_OUT - MARK_IN), 0, 1);
+      mk.style.opacity = String(smooth(0, 1, g) * 0.05 * fade);
+      const sp = ((1 - g) * 5).toFixed(2);
+      mk.style.textShadow = g >= 1 ? "none" : "-" + sp + "px 0 #ff2e63, " + sp + "px 0 #00e0ff";
+      const chars = markChars.current;
+      const bucket = Math.floor(t * 18); // the glitch re-rolls 18x a second
+      for (let i = 0; i < chars.length; i++) {
+        // Committed by 63% of the window, then each character settles over the
+        // next 30% -- so the last one to arrive still gets time to stabilise.
+        const gOn = 0.06 + (MARK_RANK[i] / chars.length) * 0.57;
+        const settle = clamp((g - gOn) / 0.3, 0, 1);
+        if (g < gOn) {
+          chars[i].style.opacity = "0";
+          continue;
+        }
+        const unstable = 1 - settle;
+        const drop = hash(i, bucket) < 0.3 * unstable; // blinks out while unstable
+        chars[i].style.opacity = drop ? "0" : "1";
+        const jx = (hash(i, bucket + 7) - 0.5) * 12 * unstable;
+        const jy = (hash(i, bucket + 13) - 0.5) * 7 * unstable;
+        chars[i].style.transform = settle >= 1 ? "none" : "translate(" + jx.toFixed(2) + "px," + jy.toFixed(2) + "px)";
+      }
     }
     if (hud.scrubEl.current && ctl.scrubRef.current == null) {
       hud.scrubEl.current.value = String(Math.round(td * 100));
@@ -694,32 +941,115 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
 }
 
 // ---- scene ------------------------------------------------------------------
-function HeroScene({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+// THE SKY IS ONE THING, AND IT NEVER MOVES.
+//
+// Three ways to build the same scene file, because the homepage draws it across
+// two canvases and the lab draws it in one:
+//
+//   cosmos  the sky, alone, in a canvas fixed to the viewport. It is behind
+//           everything, all the time, and it is the ONLY copy of the starfield
+//           and the nebula on the homepage.
+//   hero    everything the animatic owns and nothing else, in a canvas that
+//           sits in the page and scrolls with it. No sky and no background
+//           fill: it is transparent, and the fixed cosmos above shows straight
+//           through it. Drawing its own sky is what made the backdrop scroll
+//           away with the hero, which is the one thing the backdrop must never
+//           do.
+//   full    both at once, opaque, for the lab, where there is only one canvas
+//           and nothing behind it to show through.
+//
+// The split exists because a canvas pinned to the viewport can only move what
+// it draws by drawing it again, so the shapes lagged the page by however long a
+// frame took. An element in normal flow is moved by the browser at any frame
+// rate, for free. So the thing that must scroll is in the page and the thing
+// that must not is pinned, and neither one has to fake it.
+//
+// The clock lives with the hero and the cosmos only reads it, so the two
+// canvases cannot drift: one t, one camera, one set of constants.
+function HeroScene({
+  ctl,
+  hud,
+  mode,
+}: {
+  ctl: HeroCtl;
+  hud: HeroHud;
+  mode: "full" | "hero" | "cosmos";
+}) {
+  const sky = mode !== "hero";
+  const stage = mode !== "cosmos";
   return (
     <>
-      <color attach="background" args={[COL_VOID]} />
+      {/* The void is painted by whichever canvas is at the back. On the
+          homepage that is the cosmos; the hero canvas must stay transparent or
+          it would paint over the sky it is supposed to be standing in. */}
+      {sky && <color attach="background" args={[COL_VOID]} />}
       <fogExp2 attach="fog" args={[COL_VOID, FOG_DENSITY]} />
-      <ClockDriver ctl={ctl} />
+      {stage && <ClockDriver ctl={ctl} />}
       <CameraRig ctl={ctl} />
-      <Starfield ctl={ctl} />
-      <Nebula ctl={ctl} />
-      <MachineField ctl={ctl} />
-      <WarpCore ctl={ctl} />
-      <RushStreaks ctl={ctl} />
-      <BreakShards ctl={ctl} />
-      {DOORS.map((d, i) => (
-        <HeroShape key={d.key} door={d} index={i} ctl={ctl} />
-      ))}
-      <HudDriver ctl={ctl} hud={hud} />
+      {sky && (
+        <>
+          <Starfield ctl={ctl} />
+          <Nebula ctl={ctl} />
+        </>
+      )}
+      {stage && (
+        <>
+          <MachineField ctl={ctl} />
+          <WarpCore ctl={ctl} />
+          <RushStreaks ctl={ctl} />
+          <BreakShards ctl={ctl} />
+          {DOORS.map((d, i) => (
+            <HeroShape key={d.key} door={d} index={i} ctl={ctl} />
+          ))}
+          <HudDriver ctl={ctl} hud={hud} />
+        </>
+      )}
       <HeroBloom ctl={ctl} />
     </>
   );
 }
 
-export default function HeroCanvas({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
+// The scene is decorative: every word it carries lives in the DOM overlay as
+// real text, so it is hidden from assistive tech. A screen reader goes straight
+// to the heading and the menu rather than waiting out an animation it cannot
+// see. The camera reads the shared constants because heroLayout projects the
+// DOM labels through the same numbers; two copies of the fov is precisely the
+// drift that put the labels off their shapes in the first place.
+export default function HeroCanvas({
+  ctl,
+  hud,
+  frameloop = "always",
+  mode = "full",
+}: {
+  ctl: HeroCtl;
+  hud: HeroHud;
+  frameloop?: "always" | "demand" | "never";
+  // "hero" is the animatic alone, transparent, in the page and scrolling with
+  // it. "cosmos" is the sky alone, opaque, fixed behind the whole page. "full"
+  // is both in one opaque canvas, which is the lab.
+  mode?: "full" | "hero" | "cosmos";
+}) {
+  // Pixel-ratio ceiling. This module is client-only (ssr:false), so window is
+  // always here. At [1,2] on a 390x844 phone with a 3x screen the scene renders
+  // a 780x1688 buffer and then runs a multi-pass bloom over it, which was
+  // acceptable on a preview route nothing linked to and is not acceptable as
+  // the first paint of the homepage on a phone.
+  const dpr = useMemo<[number, number]>(
+    () => (Math.min(window.innerWidth, window.innerHeight) < 700 ? [1, 1.5] : [1, 2]),
+    [],
+  );
   return (
-    <Canvas flat camera={{ fov: 55, near: 0.1, far: 400, position: [0, 0, 13.4] }} gl={{ antialias: true }} dpr={[1, 2]}>
-      <HeroScene ctl={ctl} hud={hud} />
+    <Canvas
+      flat
+      aria-hidden="true"
+      frameloop={frameloop}
+      camera={{ fov: CAM_FOV, near: 0.1, far: 400, position: [0, 0, CAM_Z_REST] }}
+      // alpha explicitly, not by default: the hero canvas has to be see-through
+      // or the fixed sky behind it is wasted work nobody can see.
+      gl={{ antialias: true, alpha: true }}
+      dpr={dpr}
+    >
+      <HeroScene ctl={ctl} hud={hud} mode={mode} />
     </Canvas>
   );
 }

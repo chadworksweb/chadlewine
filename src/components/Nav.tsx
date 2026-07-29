@@ -70,6 +70,25 @@ export function Nav({
     // one-shot scroll) tucks it away, and scroll-up brings it back.
     function onScroll() {
       const y = window.scrollY;
+      // A page can hand the whole first screen to a full-bleed hero by tagging
+      // it `data-nav-below`. Nothing is allowed on top of that hero, so the
+      // header stays lifted while it still covers the top of the viewport and
+      // returns as the content below arrives. The class is stamped before first
+      // paint by the hero itself (a scroll handler cannot run that early, and
+      // the bar would flash across the hero); this only has to clear it.
+      const below = document.querySelector<HTMLElement>("[data-nav-below]");
+      if (below) {
+        // Strictly "below": the header is only allowed back once the hero has
+        // left the viewport entirely, not merely once it has cleared the header
+        // line. At the crossover the content underneath is already at the top,
+        // so the bar arrives over the feed and never over the hero.
+        const covering = below.getBoundingClientRect().bottom > 0;
+        document.documentElement.classList.toggle("ha-hero-top", covering);
+        if (covering) {
+          lastScroll.current = y;
+          return;
+        }
+      }
       // data-nav-keep-until keeps the nav pinned through a section (homepage
       // Latest Songs) on desktop/tablet. On mobile (<=768px) we want the nav to
       // auto-hide everywhere so the feed headings can pin flush at the viewport
@@ -85,6 +104,13 @@ export function Nav({
       setHidden(y > threshold && y > lastScroll.current);
       lastScroll.current = y;
     }
+    // Run it once rather than waiting for the first scroll. A page restored
+    // mid-scroll (back/forward) never fires one, and the hero stamps
+    // ha-hero-top before first paint on the assumption that it owns the top of
+    // the viewport, which is not true when the browser has put you halfway down
+    // the page. Left to the first scroll, the header stays hidden and the
+    // cookie bar, which waits on the same class, stays away with it.
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
