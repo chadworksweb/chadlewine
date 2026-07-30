@@ -188,7 +188,7 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     const apply = (w: number, h: number) => {
       // heroLayout is memoised per aspect, so an unchanged aspect returns the
       // same object and React bails out rather than re-rendering.
-      if (w > 0 && h > 0) setLayout(heroLayout(w / h));
+      if (w > 0 && h > 0) setLayout(heroLayout(w / h, h));
     };
     // Measure once, straight away, rather than waiting on the observer's first
     // callback: those are delivered with the rendering steps, so on a route

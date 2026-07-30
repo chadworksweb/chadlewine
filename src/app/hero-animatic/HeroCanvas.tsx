@@ -34,7 +34,8 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
-  MARK_IN, MARK_OUT, MARK_TEXT, ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
+  MARK_IN, MARK_OUT, MARK_TEXT, MARK_ALPHA, MARK_ALPHA_MOBILE, HERO_MOBILE_MQ,
+  ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
   CAM_FOV, CAM_Z_REST,
   clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo, heroLayout,
   type Door, type HeroCtl, type HeroHud,
@@ -693,7 +694,7 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     // 2.2 (the pull, the tunnel, the eject) is untouched at every aspect, so the
     // intro is identical everywhere; only where the doors LAND moves, and only
     // below 3:2 where the authored row genuinely does not fit the frame.
-    const lay = heroLayout(state.size.width / state.size.height);
+    const lay = heroLayout(state.size.width / state.size.height, state.size.height);
     const slot = lay.slots[index];
     built.trailMat.opacity = 0;
     // The doors belong to the hero, not to the background it leaves behind.
@@ -823,6 +824,20 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
   const lastTyped = useRef(-1);
   const announced = useRef(false);
   const released = useRef(false);
+  // The wordmark's settled alpha, which the phone runs hotter. Held in a ref and
+  // resolved from a media query rather than sampled per frame: useFrame must not
+  // touch matchMedia sixty times a second, and a query follows an orientation
+  // change on its own where a one-time width read would not.
+  const markAlpha = useRef(MARK_ALPHA);
+  useEffect(() => {
+    const mq = window.matchMedia(HERO_MOBILE_MQ);
+    const sync = () => {
+      markAlpha.current = mq.matches ? MARK_ALPHA_MOBILE : MARK_ALPHA;
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
   useFrame((state) => {
     // Tells the boot script the scene really started. That script hides the
     // hero so the animation can play, and releases it again if this never
@@ -925,7 +940,7 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
         markChars.current = Array.from(mk.querySelectorAll<HTMLElement>(".ha-m"));
       }
       const g = clamp((t - MARK_IN) / (MARK_OUT - MARK_IN), 0, 1);
-      mk.style.opacity = String(smooth(0, 1, g) * 0.05 * fade);
+      mk.style.opacity = String(smooth(0, 1, g) * markAlpha.current * fade);
       const sp = ((1 - g) * 5).toFixed(2);
       mk.style.textShadow = g >= 1 ? "none" : "-" + sp + "px 0 #ff2e63, " + sp + "px 0 #00e0ff";
       const chars = markChars.current;
