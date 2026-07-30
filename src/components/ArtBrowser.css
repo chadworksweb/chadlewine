@@ -34,6 +34,23 @@
   right: 20px;
 }
 
+/* MOBILE: pull the immersive toggle up and out toward the corner. The 66px inset
+   is there to tuck it inside the slider's 50px bezel, which is desktop framing;
+   on a phone there is far less room to give away and that much inset sits the
+   button in the middle of the artwork. Half the gap on both axes.
+   Only the inset halves. The --nav-height term is the header it has to clear,
+   not spacing, so moving it would put the button under the bar.
+   768px is the breakpoint the slider itself uses (SlidingArtPortfolio.css), so
+   the toggle and the controls it sits among change over together.
+   The grid variant is deliberately untouched: it is already in the page corner
+   at 16/20 and has no bezel to clear. */
+@media (max-width: 768px) {
+  .art-view-toggle--slide {
+    top: calc(var(--nav-height, 80px) + 33px);
+    right: 33px;
+  }
+}
+
 /* Cross-fade the incoming view (the two mechanisms can't share elements, so a
    fade is the honest transition). */
 .art-browser__view {
