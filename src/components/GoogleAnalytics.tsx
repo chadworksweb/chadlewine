@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
-import { analyticsAllowed } from "@/lib/consent";
+import { analyticsAllowed, subscribeConsent } from "@/lib/consent";
 
 const GA_ID = "G-9EE3EK7X3R";
 
@@ -30,6 +30,13 @@ export function GoogleAnalytics() {
   // The first allowed page_view comes from gtag('config') on script load.
   // Skip the manual send on that first render so it is not counted twice.
   const initialized = useRef(false);
+
+  // Consent is the other input to the gate below, and it can change without a
+  // navigation. Without this the effect only re-ran on a pathname change, so
+  // accepting analytics did nothing until the visitor moved pages, which is why
+  // the banner used to reload instead.
+  const [consentTick, setConsentTick] = useState(0);
+  useEffect(() => subscribeConsent(() => setConsentTick((n) => n + 1)), []);
 
   // Per-navigation gate. Unmounting <Script> cannot stop an already-loaded
   // gtag, so admin exclusion now works two ways that DO survive load:
@@ -58,7 +65,7 @@ export function GoogleAnalytics() {
         page_title: document.title,
       });
     }
-  }, [pathname]);
+  }, [pathname, consentTick]);
 
   if (!loadScript) return null;
 

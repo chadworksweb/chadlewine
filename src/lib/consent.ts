@@ -105,6 +105,23 @@ export function analyticsAllowed(): boolean {
   return !!(c && c.analytics);
 }
 
+/* Consent changed under a surface that had already decided what to do about it.
+ *
+ * Most analytics call sites re-read analyticsAllowed() per event, so they pick a
+ * new choice up on their own. Two do not: GoogleAnalytics decides in an effect
+ * keyed on the pathname, and PostHog is initialised once at mount. Those two
+ * used to be brought into line by reloading the whole page, which is a visible
+ * blink and, on the homepage, rebooted the hero's animatic and took the scroll
+ * with it. Subscribing is the same correction without the blink. */
+export const CONSENT_CHANGE_EVENT = "cl-consent-change";
+
+/** Fires whenever the choice changes. Returns its own unsubscribe. */
+export function subscribeConsent(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(CONSENT_CHANGE_EVENT, onChange);
+  return () => window.removeEventListener(CONSENT_CHANGE_EVENT, onChange);
+}
+
 /** Persist the choice to the cookie + window bridge (client only). */
 export function applyConsentClient(c: Consent): void {
   if (typeof document === "undefined") return;
@@ -119,6 +136,9 @@ export function applyConsentClient(c: Consent): void {
     analytics: c.analytics,
     marketing: c.marketing,
   };
+  // After the bridge is written, never before: a subscriber's first move is to
+  // read analyticsAllowed(), and it has to see the new answer.
+  window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
 }
 
 export function readConsentCookieClient(): string | null {
