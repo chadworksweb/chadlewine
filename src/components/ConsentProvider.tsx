@@ -74,25 +74,37 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
   const [managerOpen, setManagerOpen] = useState(false);
   const reconciledRef = useRef(false);
 
-  const applyLocal = useCallback((next: Consent, allowReload = true) => {
-    const prevAnalytics = window.__CL_CONSENT__?.analytics ? 1 : 0;
+  const applyLocal = useCallback((next: Consent) => {
     applyConsentClient(next);
     setDecided(true);
     setConsent(next);
     setManagerOpen(false);
-    // Reload whenever analytics flips state so GA/PostHog cleanly load/unload
-    // (they resolve at mount; flipping in place can't unload an already-loaded
-    // tracker). Matches chadrising's reload-on-change behavior.
+    // NO RELOAD. This used to reload the page whenever analytics flipped, on the
+    // grounds that GA and PostHog resolve at mount and an already-loaded tracker
+    // cannot be unloaded in place. Both halves of that are now handled without
+    // it, because the reload was a visible blink and, on the homepage, it booted
+    // the hero's animatic from zero and took the scroll with it: accepting a
+    // cookie choice from halfway down the page pinned the reader there for the
+    // length of the intro.
     //
-    // Only an explicit user toggle (via update) may reload. The silent
-    // cross-device reconcile passes allowReload=false: a route that never
-    // persists the consent cookie (e.g. a Cloudflare-cached 404 that strips
-    // Set-Cookie) would otherwise reconcile -> reload -> reconcile forever.
-    // GA's ga-disable kill switch + PostHog opt-out enforce the reconciled
-    // choice in place until the next navigation, so no reload is needed here.
-    if (allowReload && next.analytics !== prevAnalytics) {
-      window.setTimeout(() => window.location.reload(), 120);
-    }
+    // What enforces the choice instead, in place, both directions:
+    //   - applyConsentClient now fires CONSENT_CHANGE_EVENT.
+    //   - GoogleAnalytics re-runs its gate on that event. Granting loads gtag
+    //     (and gtag('config') sends the first page_view itself); revoking sets
+    //     window['ga-disable-<ID>'], gtag's documented kill switch, which is
+    //     honoured on every hit and was already the mechanism admin exclusion
+    //     relied on precisely BECAUSE unmounting the script cannot unload gtag.
+    //   - PostHogProvider opts the already-initialised client in or out, which
+    //     stops capture and session recording without a page load.
+    // Every other analytics call site re-reads analyticsAllowed() per event and
+    // needed nothing.
+    //
+    // The allowReload parameter went with the reload rather than being left as a
+    // flag that no longer decides anything. If a reload is ever reintroduced,
+    // the hazard it guarded is still real and worth knowing: the silent
+    // cross-device reconcile below must never trigger one, because a route that
+    // fails to persist the consent cookie (a cached 404 that strips Set-Cookie,
+    // say) would reconcile, reload, and reconcile again forever.
   }, []);
 
   const update = useCallback(
@@ -160,7 +172,7 @@ export function ConsentProvider({ children }: { children: React.ReactNode }) {
             marketing: d.consent.marketing ? 1 : 0,
           };
           if (serializeConsent(acct) !== serializeConsent(local.consent) || !local.decided) {
-            applyLocal(acct, false); // account is authoritative across devices; never reload from the silent reconcile
+            applyLocal(acct); // account is authoritative across devices
           }
         } else if (local.decided) {
           // Account has no stored choice yet; seed it from this device.

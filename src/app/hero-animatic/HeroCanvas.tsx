@@ -56,10 +56,28 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
     return c;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gl, scene, camera]);
+  // The composer's pixel ratio has to BE the renderer's, read back off the
+  // renderer rather than computed a second time. This used to compute its own
+  // min(dpr, 2), which on a 3x phone is 2 while the Canvas above caps the buffer
+  // at 1.5, and EffectComposer.setPixelRatio calls renderer.setPixelRatio for
+  // you, so the two were arguing over one number every time the size changed.
+  //
+  // Measured, R3F won that argument: the draw buffer came out 585x1266 for a
+  // 390x844 box either way, before the resize and after it. What the old line
+  // actually did was size the composer's own render TARGETS for a ratio of 2
+  // against a buffer being drawn at 1.5, so every pass ran at a resolution the
+  // output did not share. Reading the value back keeps them in lockstep by
+  // construction and there is no second number left to drift.
+  //
+  // Worth being precise about what this is NOT: it was changed while chasing
+  // coloured speckle over the nebula on a phone, and it does not explain it.
+  // The mismatch is real and this is the right shape, but the speckle was never
+  // reproduced off-device (SwiftShader renders the same frame clean), so it is
+  // not evidence either way and the phone is still the only judge of it.
   useEffect(() => {
+    composer.setPixelRatio(gl.getPixelRatio());
     composer.setSize(size.width, size.height);
-    composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  }, [composer, size]);
+  }, [composer, gl, size]);
   useEffect(() => () => composer.dispose(), [composer]);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);

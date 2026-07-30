@@ -17,6 +17,21 @@ const HERO_SLIDE_DEFAULT = 10;
 // depend on the runtime's timezone, which produces a server/client text
 // mismatch and a React hydration crash (#418) that takes down the whole
 // client tree. Never format SSR'd dates with local-time getters.
+//
+// Pinning the timezone was necessary and not sufficient. The LITERALS between
+// the fields are ICU's to choose, and CLDR has changed its mind about them:
+// en-US joins a date to a time as either "{date}, {time}" or "{date} at {time}"
+// depending on the ICU version, and separates the clock from AM/PM with either a
+// plain space or U+202F NARROW NO-BREAK SPACE. Two runtimes on the same date, in
+// the same timezone, in the same locale therefore disagree by bytes that are
+// invisible on screen. Measured on this page: Node 24 (ICU 77) rendered
+// "Jul 27, 2026, 7:06:38 PM" while an iPhone rendered "Jul 27, 2026 at 7:06:38
+// PM", which is #418 again, and it wiped every class the hero had stamped on
+// <html> for its intro along with the rest of the tree.
+//
+// So no ICU literal reaches the output. formatToParts hands over the fields and
+// this builds the string from them with literals written HERE, which is the only
+// version of this that cannot drift out from under the next runtime upgrade.
 const STREAM_DATE_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/New_York",
   month: "short",
@@ -29,7 +44,14 @@ const STREAM_DATE_FMT = new Intl.DateTimeFormat("en-US", {
 });
 
 function formatStreamDate(iso: string): string {
-  return STREAM_DATE_FMT.format(new Date(iso));
+  const f: Record<string, string> = {};
+  for (const part of STREAM_DATE_FMT.formatToParts(new Date(iso))) {
+    if (part.type !== "literal") f[part.type] = part.value;
+  }
+  // dayPeriod is upper-cased rather than trusted: en-US has shipped both "PM"
+  // and "pm" across CLDR releases, and it costs nothing to make it ours.
+  const ampm = (f.dayPeriod || "").toUpperCase();
+  return `${f.month} ${f.day}, ${f.year}, ${f.hour}:${f.minute}:${f.second} ${ampm}`;
 }
 
 interface Song {

@@ -6,6 +6,7 @@ import {
 import dynamic from "next/dynamic";
 import {
   DOORS, DUR, MARK_TEXT, SAID_TEXT, VEIL_MAX, FADE_SECS, SKIP_SECS, LOAD_IN, LOAD_OUT,
+  T_SETTLED,
   heroLayout, LAYOUT_16_9,
   type HeroCtl, type HeroHud, type HeroLayout,
 } from "./heroShapes";
@@ -34,6 +35,23 @@ const FRAME = 1 / 30; // frame-step size (seconds)
 // a blocked script, a GPU blocklist) nothing would ever clear the hidden state
 // and the hero would stay blank, so it releases on its own.
 //
+// It used to be 4 seconds, and 4 seconds called every phone broken. Time to the
+// scene's first frame, measured on the production build: 2.9s on the desktop
+// this was written on, 4.5s at 2x CPU throttle, 7.2s at 4x, 12.7s at 6x. So on
+// a phone the failsafe fired mid-intro essentially every time, and that is not
+// a graceful degradation: it leaves the driver running against markup that is
+// no longer hidden. Every character of the tagline sits there from the first
+// frame while the caret types across text that is already visible, and ha-lock
+// goes out with it, so the page never holds still either. Both of those were
+// reported as separate mobile bugs. They were this one line.
+//
+// A timeout cannot tell "broken" from "slow", so it no longer tries. The number
+// is now a true ceiling, matched to the lock's own so there is one figure to
+// reason about, and the case it used to be racing (no usable WebGL) is answered
+// directly by a probe in an effect below rather than waited out. What is left
+// for the ceiling is only the pathological tail: a context that dies after it
+// was created, a hydration error, a chunk that never arrives.
+//
 // It also stamps ha-hero-top when the hero owns the top of the page, which
 // lifts the fixed site header out of view. That has to happen here rather than
 // from the nav's scroll handler, because the handler cannot run before the
@@ -57,18 +75,24 @@ const FRAME = 1 / 30; // frame-step size (seconds)
 //   - the timeout is the hard ceiling. HudDriver lifts the lock when the
 //     wordmark settles, but that is a render loop, and a lost WebGL context or
 //     a throttled tab must not be able to strand the page.
-// The 4s failsafe below covers the other half: a scene that never starts.
+// The scene failsafe below covers the other half: a scene that never starts.
 const bootScript = (home: boolean) =>
   '(function(){var d=document.documentElement;d.classList.add("ha-anim");' +
+  'var m=matchMedia("(prefers-reduced-motion:reduce)").matches;' +
   (home
     ? 'd.classList.add("ha-hero-top");' +
-      'if(!window.scrollY&&!location.hash&&' +
-      '!matchMedia("(prefers-reduced-motion:reduce)").matches){' +
+      'if(!window.scrollY&&!location.hash&&!m){' +
       'd.classList.add("ha-lock");' +
       'setTimeout(function(){d.classList.remove("ha-lock")},20000)}'
     : "") +
   'setTimeout(function(){if(!d.hasAttribute("data-ha-running")){' +
-  'd.classList.remove("ha-anim");d.classList.remove("ha-lock")}},4000)})()';
+  'd.classList.remove("ha-anim");d.classList.remove("ha-lock")}},20000);' +
+  // A restored scroll position means this is not the top of a fresh page,
+  // whatever scrollY read at parse time. Browsers restore AFTER this script
+  // runs, so the guard above cannot see it, and being held on a screen you did
+  // not ask to sit on is the one failure the lock must never produce.
+  'addEventListener("load",function(){if(window.scrollY)' +
+  'd.classList.remove("ha-lock")})})()';
 
 // Reduced motion as an external store. Declared at module scope so the
 // subscribe and snapshot functions keep a stable identity across renders.
@@ -134,7 +158,7 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   const reduced = useSyncExternalStore(subscribeReduced, getReduced, getReducedOnServer);
   useEffect(() => {
     if (!reduced) return;
-    tRef.current = 11.4; // rest with the line typed AND the wordmark settled
+    tRef.current = T_SETTLED;
     playingRef.current = false;
     // There is no animatic left to hold the page for. The boot script already
     // declines to lock when reduced motion is set at load; this covers the
@@ -142,6 +166,7 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     // reacts to but the render loop may not, since it is on demand by then.
     document.documentElement.classList.remove("ha-lock");
   }, [reduced]);
+
 
   // The cosmos is the page's background, so the loop keeps running rather than
   // stopping when the hero scrolls off. What stops is the expensive half: past
@@ -324,6 +349,37 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
       window.removeEventListener("scroll", paint);
       window.removeEventListener("resize", remeasure);
     };
+  }, [dev]);
+
+  // NO USABLE WEBGL, NO WAITING. This is the case the boot script's failsafe was
+  // really built for, and asking the question outright beats timing it: the
+  // ceiling above can only be generous enough for a slow phone, which makes it
+  // far too slow to be the answer for a device that was never going to draw
+  // anything. A blocklisted GPU still MOUNTS the canvas and still creates the
+  // React tree, so nothing further down the pipeline can be used as the signal
+  // either. Only a context can.
+  //
+  // In an effect rather than the boot script deliberately. Creating a context is
+  // a few milliseconds, but the boot script runs before the first paint and the
+  // homepage's LCP is already a WebGL canvas, so nothing optional belongs in
+  // front of it. The probe context is thrown away immediately: iOS caps how many
+  // live contexts a page gets, and the two real ones are about to ask for theirs.
+  useEffect(() => {
+    if (dev) return;
+    const d = document.documentElement;
+    if (!d.classList.contains("ha-anim")) return;
+    let ok = false;
+    try {
+      const probe = document.createElement("canvas").getContext("webgl2");
+      ok = !!probe;
+      probe?.getExtension("WEBGL_lose_context")?.loseContext();
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      d.classList.remove("ha-anim");
+      d.classList.remove("ha-lock");
+    }
   }, [dev]);
 
   // The two halves of the scroll lock that CSS cannot do on its own. The lock

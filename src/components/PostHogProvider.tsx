@@ -3,7 +3,7 @@
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useEffect } from "react";
-import { analyticsAllowed } from "@/lib/consent";
+import { analyticsAllowed, subscribeConsent } from "@/lib/consent";
 
 const SKIP_KEY = "cl_skip_analytics";
 
@@ -90,6 +90,23 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         .catch(() => {});
     }
   }, []);
+
+  // Consent can change after init, and init only reads it once. PostHog is
+  // already loaded by then and merely opted out, so both directions are a flag
+  // it supports flipping in place: no reload, and nothing to unload. Guarded on
+  // __loaded because init is skipped entirely off production, where opting a
+  // client that was never initialised in or out is meaningless.
+  useEffect(
+    () =>
+      subscribeConsent(() => {
+        if (!(posthog as unknown as { __loaded?: boolean }).__loaded) return;
+        try {
+          if (analyticsAllowed()) posthog.opt_in_capturing();
+          else posthog.opt_out_capturing();
+        } catch {}
+      }),
+    [],
+  );
 
   return <PHProvider client={posthog}>{children}</PHProvider>;
 }

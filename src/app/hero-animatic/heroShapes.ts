@@ -246,6 +246,12 @@ export const SKIP_SECS = 0.45;
 // animatic starts leaving; out slower, dissolving into the travel.
 export const LOAD_IN = 0.18;
 export const LOAD_OUT = 0.32;
+
+// Where the clock is parked when there is no animatic to play: the line typed
+// and the wordmark settled. Named rather than written as a literal at the one
+// place that parks there, because "rested" is a real position in this timeline
+// and a second copy of it would drift.
+export const T_SETTLED = 11.4;
 export function beatName(t: number): string {
   const c = Math.min(t, DUR);
   for (const b of BEATS) if (c < b.t1) return b.name;

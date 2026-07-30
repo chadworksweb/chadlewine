@@ -67,7 +67,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    // suppressHydrationWarning because <html> is deliberately mutated before
+    // hydration and React does not know about it. The hero's boot script stamps
+    // ha-anim / ha-lock / ha-hero-top here in the HTML, ahead of the first paint,
+    // which is the whole point of them: a class applied after hydration is a
+    // frame of finished hero, or a scroll you can already have made. React's tree
+    // carries no className for this element, so it reports the difference and, in
+    // its own words, will not patch it up. Scoped to this element and one level of
+    // its attributes, which is exactly the surface the script writes to.
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
         <script dangerouslySetInnerHTML={{ __html: CONSENT_BOOTSTRAP }} />
         <SiteJsonLd />
