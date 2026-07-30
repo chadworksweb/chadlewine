@@ -109,7 +109,12 @@ export function PantheonStage({ video, onShare, showDate = true }: Props) {
     const el = videoRef.current;
     if (!el) return;
 
-    setLoadState("loading");
+    // NOT "loading" yet. Safari takes the native branch below, where the only
+    // thing that happens is setting src on a preload="metadata" element, so
+    // nothing is fetched until the viewer asks for it and a spinner would be
+    // claiming work that is not happening. hls.js starts pulling the moment
+    // loadSource runs, so that branch turns it on for itself.
+    setLoadState("idle");
     setStarted(false);
     setPosition(0);
     let cancelled = false;
@@ -131,6 +136,8 @@ export function PantheonStage({ video, onShare, showDate = true }: Props) {
           setLoadState("error");
           return;
         }
+        // This one really is loading: loadSource fetches immediately.
+        setLoadState("loading");
         const hls = new Hls();
         hlsRef.current = hls as unknown as { destroy(): void };
         hls.loadSource(src!);
@@ -167,10 +174,17 @@ export function PantheonStage({ video, onShare, showDate = true }: Props) {
     const el = videoRef.current;
     if (!el) return;
 
-    const onCanPlay = () => setLoadState((s) => (s === "error" ? s : "ready"));
+    // METADATA IS A READINESS SIGNAL, not just a duration. `canplay` waits until
+    // enough frames are buffered to actually start, which an element left at
+    // preload="metadata" never reaches on its own, so keying readiness to
+    // canplay alone left Safari spinning forever on a video it was perfectly
+    // able to play the moment it was asked. Safari is exactly the browser that
+    // takes the native branch above, which is why this only ever showed on iOS.
+    const onReady = () => setLoadState((s) => (s === "error" ? s : "ready"));
     const onTime = () => setPosition(el.currentTime);
     const onMeta = () => {
       if (el.duration && Number.isFinite(el.duration)) setDuration(el.duration);
+      onReady();
     };
     const onProgress = () => {
       try {
@@ -184,7 +198,12 @@ export function PantheonStage({ video, onShare, showDate = true }: Props) {
     const onEnded = () => { setIsPlaying(false); setPosition(el.duration || 0); };
     const onErr = () => setLoadState("error");
 
-    el.addEventListener("canplay", onCanPlay);
+    // The element can already hold metadata by the time this binds (a cached
+    // video, or a remount against a src it still has), and that event is long
+    // gone. Read the state instead of waiting for a repeat that never comes.
+    if (el.readyState >= 1 /* HAVE_METADATA */) onReady();
+
+    el.addEventListener("canplay", onReady);
     el.addEventListener("timeupdate", onTime);
     el.addEventListener("loadedmetadata", onMeta);
     el.addEventListener("progress", onProgress);
@@ -193,7 +212,7 @@ export function PantheonStage({ video, onShare, showDate = true }: Props) {
     el.addEventListener("ended", onEnded);
     el.addEventListener("error", onErr);
     return () => {
-      el.removeEventListener("canplay", onCanPlay);
+      el.removeEventListener("canplay", onReady);
       el.removeEventListener("timeupdate", onTime);
       el.removeEventListener("loadedmetadata", onMeta);
       el.removeEventListener("progress", onProgress);
