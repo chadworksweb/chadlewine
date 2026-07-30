@@ -229,7 +229,7 @@ export async function markComplete(opts: {
         .rpc("upsert_audience_event", {
           p_audience_id: actor.audienceId,
           p_event_type: "transcend_completed",
-          p_metadata: { source: "transcend-spike" },
+          p_metadata: { source: "transcend-the-machine" },
         })
         .then(undefined, () => {
           /* non-fatal */

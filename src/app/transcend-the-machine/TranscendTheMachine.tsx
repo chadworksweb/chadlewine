@@ -1754,7 +1754,7 @@ function FlyCam({
 // ---------------------------------------------------------------------------
 // Top-level: level loader, L1 state machine, wake gate, audio, HUD.
 // ---------------------------------------------------------------------------
-export function TranscendSpike({ levelReactive }: { levelReactive: Record<number, ReactiveData | null> }) {
+export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<number, ReactiveData | null> }) {
   const [started, setStarted] = useState(false);
   const [levelId, setLevelId] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
@@ -2605,14 +2605,14 @@ export function TranscendSpike({ levelReactive }: { levelReactive: Record<number
             <div className="tm-acct__actions">
               <Link
                 className="tm-acct__btn tm-acct__btn--primary"
-                href="/account/register?next=/transcend-spike"
+                href="/account/register?next=/transcend-the-machine"
                 onClick={() => track("tm_account_cta", { action: "register", to_level: accountGate })}
               >
                 Create a free account
               </Link>
               <Link
                 className="tm-acct__btn"
-                href="/account/login?next=/transcend-spike"
+                href="/account/login?next=/transcend-the-machine"
                 onClick={() => track("tm_account_cta", { action: "login", to_level: accountGate })}
               >
                 I already have one
