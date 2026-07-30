@@ -359,6 +359,47 @@ h2, h3, h4, h5, h6 {
   transform: translateY(-100%);
 }
 
+/* MOBILE: lift the header off the page it floats over. Its background is
+   --bg-deep and so is the page behind it, so on a phone nothing separated the
+   two and the bar dissolved into the black. A hairline in the theme accent plus
+   a soft fall below it reads as a lit shelf rather than as a border.
+   Bottom only, by construction: the header is full-bleed, so its left and right
+   edges are off-screen and a symmetric shadow would be paint nobody sees. The
+   negative spread on the second layer keeps the glow from creeping sideways.
+   640px is where the nav becomes the hamburger, so this is exactly the state
+   that is actually "the mobile header".
+   Hiding travels FURTHER rather than fading the shadow out. translateY(-100%)
+   only carries the bar's own box, so its bottom edge lands at y=0 and the fall
+   below it stays on screen as a blue strip. Fading the shadow to clear it reads
+   as two movements: the bar leaves, then the glow does. Going the extra distance
+   keeps it one gesture, on the transform transition the header already had. */
+@media (max-width: 640px) {
+  .site-header {
+    /* How far the fall reaches past the bar's own bottom edge: 6px offset, minus
+       the 4px of negative spread, plus half of the 18px blur, so 11px exactly.
+       Carrying 3px more absorbs subpixel rounding at dpr 3, where an exact fit
+       can leave a hairline of glow sitting at the top of the viewport. The hide
+       distance is written against this so the two cannot drift apart. */
+    --header-shadow-reach: 14px;
+    box-shadow:
+      0 1px 0 color-mix(in srgb, var(--text-accent) 45%, transparent),
+      0 6px 18px -4px color-mix(in srgb, var(--text-accent) 30%, transparent);
+    /* Own layer, which is what makes the travel smooth. Without it the browser
+       repaints a full-width 18px-blurred shadow every frame of the slide, and
+       the cost shows going UP because that direction exposes the content behind
+       the bar (coming down only covers it, which is why only one direction read
+       as rough).
+       Safe here specifically: promotion makes an element a containing block for
+       positioned descendants, and under 640px the header's only children are the
+       logo, the hamburger and .nav-mobile-menu, which is normal-flow max-height,
+       not fixed. The desktop dropdown is display:none at this width. */
+    will-change: transform;
+  }
+  .site-header--hidden {
+    transform: translateY(calc(-100% - var(--header-shadow-reach)));
+  }
+}
+
 /* Immersive art slider (/art slide mode): fullscreen, no page scroll, and no
    global footer -- hide the footer siblings that sit after <main>. */
 body.art-immersive {
