@@ -48,7 +48,30 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   const { gl, scene, camera, size } = useThree();
   const bloomRef = useRef<UnrealBloomPass | null>(null);
   const composer = useMemo(() => {
-    const c = new EffectComposer(gl);
+    // MULTISAMPLING, and it has to live on the composer's OWN target. The Canvas
+    // asks for `antialias: true`, but that only ever governed the default
+    // framebuffer, and RenderPass draws the scene into a render target instead,
+    // so the composed image was rasterised with no MSAA at all. That request has
+    // been a no-op for as long as there has been a composer, which is the whole
+    // reason this is here.
+    // Worth being precise about what this is NOT, since the pixel-ratio note
+    // below had to say the same thing: this was added while chasing the coloured
+    // speckle, on the theory that it was the doors' nested LineSegments shells
+    // aliasing. It was not. The speckle was the nebula's dithered gradient
+    // texture (see Nebula), it was fixed there, and this changed nothing about
+    // it on device. Kept because a no-op antialias request is worth closing on
+    // its own merits, not because it fixed anything.
+    // three's default here is HalfFloat with samples 0. This is that target plus
+    // multisampling: setSize preserves samples, and renderTarget2 is cloned from
+    // this one, so both buffers carry it. Sized from the current box rather than
+    // 1x1 so no frame can land before the effect below corrects it.
+    // It is not free on a phone running two contexts. `samples` is the dial, and
+    // 2 still buys most of the edge quality.
+    const rt = new THREE.WebGLRenderTarget(size.width, size.height, {
+      type: THREE.HalfFloatType,
+      samples: 4,
+    });
+    const c = new EffectComposer(gl, rt);
     c.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.28);
     bloomRef.current = bloom;
