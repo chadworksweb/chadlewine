@@ -15,12 +15,20 @@ const nextConfig: NextConfig = {
   // Local Sites, OneDrive, AppData -- grinding dev to a halt. Pin the root to
   // this project so only the app tree is watched.
   outputFileTracingRoot: path.join(__dirname),
-  allowedDevOrigins: ["10.0.0.181"],
+  allowedDevOrigins: ["10.0.0.181", "192.168.1.153"],
   experimental: {
     // proxy.ts buffers request bodies in memory; default 10MB cap cuts off
     // large media uploads (print/wallpaper/art fullres). Match server-side
     // MAX_BYTES in /api/admin/media/upload.
     proxyClientMaxBodySize: "200mb",
+    // Static-generation workers. Next defaults to (cores - 1), which is 15 on
+    // this machine, and 15 workers each holding a server bundle with three.js
+    // in it exhausts RAM. The nine heaviest pages (/, /art, /art/murals,
+    // /chad-d, /chad-lewine, /music/songs, /music/songs-over-5-minutes,
+    // /observations, /transcend-spike) then blow the 60s
+    // staticPageGenerationTimeout on all 3 attempts and fail the build. Fewer
+    // workers is slower but finishes.
+    cpus: 4,
   },
   images: {
     // Direct-Bunny: sources already live on Bunny's global CDN (*.b-cdn.net),
