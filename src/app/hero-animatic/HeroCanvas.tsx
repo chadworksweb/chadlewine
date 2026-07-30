@@ -552,21 +552,45 @@ function Starfield({ ctl }: { ctl: HeroCtl }) {
 }
 
 // ---- cosmos: nebula blobs ---------------------------------------------------
-function makeBlobTex(): THREE.Texture {
-  const c = document.createElement("canvas");
-  c.width = 256; c.height = 256;
-  const ctx = c.getContext("2d")!;
-  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  g.addColorStop(0, "rgba(255,255,255,1)");
-  g.addColorStop(0.4, "rgba(255,255,255,0.34)");
-  g.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 256);
-  return new THREE.CanvasTexture(c);
-}
+// The falloff is COMPUTED, not sampled. It used to be a 256x256 canvas radial
+// gradient, and that texture was the source of the coloured speckle on the
+// phone: browsers DITHER canvas gradients to keep an 8-bit ramp from banding, so
+// the noise was baked into the texels, and each plane below then magnified it
+// across tens of world units. Four planes, four different colours, all additive,
+// so every one of them laid down its own differently tinted noise and the worst
+// of it piled up where the purple and the blue overlap. Safari's dither is not
+// Chromium's, which is why this never reproduced off-device and why the phone
+// stayed the only judge of it.
+// A per-fragment falloff has no texels to dither and stays exact at any
+// magnification, however large the plane gets. The curve below is the old
+// gradient's, stop for stop, so this changes the noise and nothing else: the
+// desktop renders the same shape it always did.
+const NEBULA_VERT = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }`;
+const NEBULA_FRAG = `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  void main() {
+    // 0 at the centre, 1 at the edge midpoints, past 1 into the corners, which
+    // is exactly how a 128px-radius gradient sat inside a 256px square.
+    float d = length(vUv - 0.5) * 2.0;
+    // The old stops: 1.0 at the centre, 0.34 at 0.4, 0 at the rim. Canvas walks
+    // between its stops linearly, so this is a straight two-piece mix.
+    float a = d < 0.4
+      ? mix(1.0, 0.34, d / 0.4)
+      : mix(0.34, 0.0, clamp((d - 0.4) / 0.6, 0.0, 1.0));
+    // Alpha carries the whole contribution: AdditiveBlending scales the source
+    // by its own alpha and adds, which is precisely what MeshBasicMaterial with
+    // a white map and an opacity was doing before.
+    gl_FragColor = vec4(uColor, a * uOpacity);
+  }`;
 function Nebula({ ctl }: { ctl: HeroCtl }) {
   const built = useMemo(() => {
-    const tex = makeBlobTex();
     const group = new THREE.Group();
     const defs = [
       { c: "#6a4bd0", x: -15, y: 6, z: -30, s: 36 },
@@ -574,9 +598,20 @@ function Nebula({ ctl }: { ctl: HeroCtl }) {
       { c: "#00e0ff", x: 3, y: 11, z: -26, s: 20 },
       { c: "#8b9cf7", x: -7, y: -11, z: -28, s: 26 },
     ];
-    const mats: THREE.MeshBasicMaterial[] = [];
+    const mats: THREE.ShaderMaterial[] = [];
     for (const d of defs) {
-      const mat = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(d.c), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
+      // THREE.Color converts the hex out of sRGB on construction, so the uniform
+      // arrives in the same working space MeshBasicMaterial's diffuse did and
+      // the colours are unchanged.
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: new THREE.Color(d.c) }, uOpacity: { value: 0 } },
+        vertexShader: NEBULA_VERT,
+        fragmentShader: NEBULA_FRAG,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false,
+      });
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(d.s, d.s), mat);
       mesh.position.set(d.x, d.y, d.z);
       group.add(mesh);
@@ -587,7 +622,11 @@ function Nebula({ ctl }: { ctl: HeroCtl }) {
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     const inn = smooth(2.5, 4.4, t);
-    for (let i = 0; i < built.mats.length; i++) built.mats[i].opacity = inn * (0.22 + 0.05 * Math.sin(t * 0.3 + i));
+    // Same numbers as before, now written to the uniform instead of to
+    // Material.opacity, which a ShaderMaterial does not read.
+    for (let i = 0; i < built.mats.length; i++) {
+      built.mats[i].uniforms.uOpacity.value = inn * (0.22 + 0.05 * Math.sin(t * 0.3 + i));
+    }
   });
   return <primitive object={built.group} />;
 }
