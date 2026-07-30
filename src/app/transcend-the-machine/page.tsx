@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
 import { createPublicClient } from "@/lib/supabase-server";
-import { TranscendSpike } from "./TranscendSpike";
+import { TranscendTheMachine } from "./TranscendTheMachine";
 import { LEVELS, type BeatEvent, type ReactiveData, type SynthEnvelope } from "./levels";
 
-// Phase 1 core-engine spike for Transcend the Machine. Throwaway route, kept
-// out of nav and out of the index. See CHADLEWINE-TRANSCEND-THE-MACHINE.md.
+// Transcend the Machine. A feature in progress, no longer a spike: the Phase 1
+// core-engine proving ground earned its way in, so it is named for what it is
+// and kept under source control as a feature rather than as scaffolding.
+//
+// It lives on feature/transcend-the-machine and is deliberately NOT on master.
+// It was reachable on production until it was pulled 2026-07-30, unlinked and
+// noindexed but live, along with its four /api/transcend endpoints. Unlisted is
+// not absent. It ships when it is finished, not before.
+//
+// noindex STAYS while that is true. See CHADLEWINE-TRANSCEND-THE-MACHINE.md.
 export const metadata: Metadata = {
-  title: "Transcend the Machine - spike",
+  title: "Transcend the Machine",
   robots: { index: false, follow: false },
 };
 
@@ -81,7 +89,7 @@ async function getLevelReactive(): Promise<Record<number, ReactiveData | null>> 
   return out;
 }
 
-export default async function TranscendSpikePage() {
+export default async function TranscendTheMachinePage() {
   const levelReactive = await getLevelReactive();
-  return <TranscendSpike levelReactive={levelReactive} />;
+  return <TranscendTheMachine levelReactive={levelReactive} />;
 }
