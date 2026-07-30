@@ -280,8 +280,14 @@ export const HERO_MOBILE_MQ = "(max-width: 700px)";
 // this no longer rides the doors' clock. It arrives during THE PULL, dim, and
 // comes up to full with the menu at 5.75. Half brightness during the intro so
 // it is findable without sitting on top of the composition.
-export const ENTER_IN = 0.6;
-export const ENTER_OUT = 1.3;
+// Brought a full real-time second forward, which is HALF a unit here: the clock
+// runs at rate 0.5 until story-t 2.0 (see ClockDriver), so one second on a watch
+// is 0.5 of t during the intro. The control now shows about a fifth of a second
+// in rather than 1.2s in. Both ends move together so the fade keeps its shape.
+// Not screen-dependent, and deliberately so: this is the only way past the
+// scroll lock, and how soon you can leave should not depend on the device.
+export const ENTER_IN = 0.1;
+export const ENTER_OUT = 0.8;
 export const ENTER_DIM = 0.5;
 // And it changes what it says. While the page is held the control is a SKIP;
 // once the animatic has finished there is nothing left to skip and it goes back

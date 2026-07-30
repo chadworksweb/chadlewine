@@ -81,6 +81,26 @@ const bootScript = (home: boolean) =>
   'var m=matchMedia("(prefers-reduced-motion:reduce)").matches;' +
   (home
     ? 'd.classList.add("ha-hero-top");' +
+      // A RELOAD STARTS THE INTRO OVER, so it has to start from the top. The
+      // guard below reads scrollY at parse time, when it is still 0 because
+      // browsers restore scroll AFTER this script; the lock therefore went on,
+      // the page was then restored down the feed, and the animatic played out of
+      // sight while holding the scroll. The `load` handler at the end was meant
+      // to catch that, but restoration frequently lands after `load` fires, so
+      // it read 0 too and the lock stayed until the wordmark settled.
+      // Only a reload: back/forward must still restore the reader where they
+      // left, which is the whole point of the scrollY guard. Only without a
+      // hash, since /#home-enter means "put me at the feed". Restoration goes
+      // back to auto once loaded so later history moves are unaffected.
+      // Runs BEFORE the guard, so scrollY is genuinely 0 by the time it is read
+      // and the lock applies with the animatic actually on screen.
+      // try/catch because this runs pre-paint and before hydration: a throw here
+      // would take every line after it, including the lock's own timeout.
+      'try{var n=performance.getEntriesByType("navigation")[0];' +
+      'if(n&&n.type==="reload"&&!location.hash&&!m){' +
+      'history.scrollRestoration="manual";scrollTo(0,0);' +
+      'addEventListener("load",function(){history.scrollRestoration="auto"})}}' +
+      'catch(e){}' +
       'if(!window.scrollY&&!location.hash&&!m){' +
       'd.classList.add("ha-lock");' +
       'setTimeout(function(){d.classList.remove("ha-lock")},20000)}'
