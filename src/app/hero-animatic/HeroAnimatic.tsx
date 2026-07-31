@@ -239,6 +239,13 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     // setting being turned on while the page is open, which the store above
     // reacts to but the render loop may not, since it is on demand by then.
     document.documentElement.classList.remove("ha-lock");
+    // And for the same reason, nothing is waiting on: whatever holds itself back
+    // until the animatic has settled may go now. HudDriver announces this on the
+    // frame the wordmark lands, but an on-demand loop may never reach that
+    // frame, so the case where there was never anything to watch is answered
+    // here instead. Both paths are idempotent.
+    document.documentElement.classList.add("ha-done");
+    window.dispatchEvent(new Event("hero:done"));
   }, [reduced]);
 
   // Whether the WebGL scene is allowed to mount at all, which is what decides

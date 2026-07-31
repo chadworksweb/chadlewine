@@ -1010,9 +1010,19 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
     // thing that knows where the clock actually is. Removing a class that was
     // never added (the lab, reduced motion, a page that loaded scrolled) is a
     // no-op, so this needs no guard beyond the once-only flag.
+    // The same moment is also the answer to "may anything else interrupt the
+    // page yet". The animatic is a held beat with a scroll lock over it, and
+    // something that covers it (the subscribe modal) is not an interruption of
+    // the page, it is an interruption of the ONE thing the visitor came in on.
+    // Announced from here for the same reason the lock is released from here:
+    // this driver is the only thing that knows where the clock actually is. The
+    // class is the state a late listener can read; the event is for one already
+    // waiting, since it cannot be missed by anything mounted before the scene.
     if (!released.current && t >= MARK_OUT) {
       released.current = true;
       document.documentElement.classList.remove("ha-lock");
+      document.documentElement.classList.add("ha-done");
+      window.dispatchEvent(new Event("hero:done"));
     }
     // THE ADDRESS: the line TYPES in, character by character, at a linear rate.
     // Linear on purpose -- an eased curve would make a typewriter accelerate and

@@ -85,6 +85,38 @@ export function SubscribeModalController({
   const { count } = useCart();
   const [show, setShow] = useState(false);
   const [eligible, setEligible] = useState(false);
+  // THE ANIMATIC IS NOT AN INTERRUPTIBLE MOMENT. The homepage opens on a held
+  // beat with a scroll lock over it, and a modal that lands during it does not
+  // interrupt the page, it interrupts the one thing the visitor arrived on.
+  // Exit-intent is the real offender: it arms three seconds in, so a cursor
+  // drifting toward the tab bar four seconds into a thirteen second intro used
+  // to cover it. Dwell can reach it too whenever an admin tunes it under the
+  // intro's length.
+  //
+  // Starts false and is corrected on mount, which also means the dwell timer
+  // below starts counting when the animatic ENDS rather than when the document
+  // did. Forty seconds on the page should mean forty seconds of the page.
+  const [heroSettled, setHeroSettled] = useState(false);
+  useEffect(() => {
+    const d = document.documentElement;
+    // `ha-anim` says an animatic is going to run on this document, and the hero
+    // removes it outright when there is no usable WebGL. `ha-lite` never adds
+    // it. `ha-done` says one has already settled, which is also what a visitor
+    // who clicked through to a second page carries with them.
+    const waiting =
+      d.classList.contains("ha-anim") &&
+      !d.classList.contains("ha-done") &&
+      // Navigated away mid-intro: the class is still on the document but the
+      // scene that would clear it has unmounted, so nothing is coming.
+      !!document.querySelector(".ha-stage");
+    if (!waiting) {
+      setHeroSettled(true);
+      return;
+    }
+    const onDone = () => setHeroSettled(true);
+    window.addEventListener("hero:done", onDone);
+    return () => window.removeEventListener("hero:done", onDone);
+  }, [pathname]);
 
   // The (public) layout used to decide server-side whether to mount this at all
   // (session / admin / admin-IP gating). It now always mounts it -- so public
@@ -106,6 +138,7 @@ export function SubscribeModalController({
   useEffect(() => {
     if (show) return; // already open this load
     if (!eligible) return; // server-side gate (session/admin/IP) not satisfied
+    if (!heroSettled) return; // the hero animatic still owns the screen
     if (isSuppressedPath(pathname)) return;
 
     const reshowMs = reshowDays * 24 * 60 * 60 * 1000;
@@ -176,6 +209,7 @@ export function SubscribeModalController({
     count,
     show,
     eligible,
+    heroSettled,
     dwellSeconds,
     cartDwellSeconds,
     scrollDepthPct,
