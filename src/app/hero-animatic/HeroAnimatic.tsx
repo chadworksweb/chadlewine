@@ -77,11 +77,62 @@ const FRAME = 1 / 30; // frame-step size (seconds)
 //     a throttled tab must not be able to strand the page.
 // The scene failsafe below covers the other half: a scene that never starts.
 const bootScript = (home: boolean) =>
-  '(function(){var d=document.documentElement;d.classList.add("ha-anim");' +
+  '(function(){var d=document.documentElement;' +
+  // A WEAK DEVICE IS NEVER ASKED TO RUN THE SCENE, and the question is settled
+  // HERE so that it is settled before the first paint. Measured 2026-07-30
+  // against production: the gap from first paint to the scene's first frame is
+  // 2.48s on a desktop CPU and 8.82s at 4x throttle. It scales with the
+  // PROCESSOR while the network figure holds still, so the cost is parse,
+  // compile and construction rather than download. On a mid-range phone that is
+  // nine seconds of black before a 13.3s animatic even begins, and none of those
+  // seconds are the art.
+  //
+  // Deciding here rather than in React buys two things: the chunk is never
+  // requested at all, and the hero paints SETTLED on the very first frame
+  // instead of painting hidden and being revealed a moment later.
+  //
+  // These are the only honest signals. hardwareConcurrency is not one of them:
+  // it reports core COUNT, and a budget Android and an iPhone both answer 8
+  // while performing nothing alike. iOS Safari exposes none of these three,
+  // which sounds fatal and is not: the devices worth catching are overwhelmingly
+  // Android, which is exactly where the APIs exist. An old iPhone that still
+  // struggles needs frame sampling once the scene runs, which is separate work.
+  // saveData is an explicit ask to be sent less, and a WebGL bundle for a
+  // decorative intro is precisely what it is asking us not to send.
+  'var n=navigator,c=n.connection||{};' +
+  'var lite=(typeof n.deviceMemory==="number"&&n.deviceMemory<=4)||!!c.saveData||' +
+  '/^(slow-2g|2g|3g)$/.test(c.effectiveType||"");' +
+  // No ha-anim means the settled hero the markup already ships is what paints,
+  // and stays. ha-lite is the flag the component reads to keep the canvas
+  // unmounted; the class is the single source of that decision.
+  'if(lite){d.classList.add("ha-lite")}else{d.classList.add("ha-anim")}' +
   'var m=matchMedia("(prefers-reduced-motion:reduce)").matches;' +
   (home
     ? 'd.classList.add("ha-hero-top");' +
-      'if(!window.scrollY&&!location.hash&&!m){' +
+      // A RELOAD STARTS THE INTRO OVER, so it has to start from the top. The
+      // guard below reads scrollY at parse time, when it is still 0 because
+      // browsers restore scroll AFTER this script; the lock therefore went on,
+      // the page was then restored down the feed, and the animatic played out of
+      // sight while holding the scroll. The `load` handler at the end was meant
+      // to catch that, but restoration frequently lands after `load` fires, so
+      // it read 0 too and the lock stayed until the wordmark settled.
+      // Only a reload: back/forward must still restore the reader where they
+      // left, which is the whole point of the scrollY guard. Only without a
+      // hash, since /#home-enter means "put me at the feed". Restoration goes
+      // back to auto once loaded so later history moves are unaffected.
+      // Runs BEFORE the guard, so scrollY is genuinely 0 by the time it is read
+      // and the lock applies with the animatic actually on screen.
+      // try/catch because this runs pre-paint and before hydration: a throw here
+      // would take every line after it, including the lock's own timeout.
+      'try{var n=performance.getEntriesByType("navigation")[0];' +
+      'if(n&&n.type==="reload"&&!location.hash&&!m){' +
+      'history.scrollRestoration="manual";scrollTo(0,0);' +
+      'addEventListener("load",function(){history.scrollRestoration="auto"})}}' +
+      'catch(e){}' +
+      // `!lite` joins the same list for the same reason `!m` is on it: there is
+      // no animatic to hold the page for, so holding it would be a freeze with
+      // nothing behind it.
+      'if(!window.scrollY&&!location.hash&&!m&&!lite){' +
       'd.classList.add("ha-lock");' +
       'setTimeout(function(){d.classList.remove("ha-lock")},20000)}'
     : "") +
@@ -104,6 +155,29 @@ const subscribeReduced = (onChange: () => void) => {
 };
 const getReduced = () => window.matchMedia(REDUCE_MOTION).matches;
 const getReducedOnServer = () => false;
+
+// `ha-lite` on <html> is the boot script's verdict that this device should not be
+// asked to run the scene. It is decided there, before the first paint, and read
+// here. See the low-power block in bootScript for what it tests and why.
+//
+// Read as an external store, for the same reason reduced motion is: the server
+// cannot know the answer, so the server and the client MUST disagree, and
+// useSyncExternalStore is the one way to let them disagree without it counting as
+// a hydration mismatch. React hydrates with the server snapshot and only then
+// re-reads the client one.
+//
+// This was first written as a useState initialiser reading the class directly,
+// on the reasoning that HeroCanvas is dynamic(ssr:false) and renders no DOM on
+// either side, so a differing value could not mismatch. That was WRONG and it
+// cost an hour: ssr:false wraps the component in a Suspense boundary, so
+// rendering it on the client but not on the server is a structural difference
+// even with identical DOM output. React threw, re-rendered from the root, and
+// reverted <html> to bare `ha-hero-top` (Nav re-adds that one on mount, which is
+// what makes the wipe look selective). Exactly the 2026-07-29 failure. AGENTS.md
+// says a hydration failure is never local; believe it.
+const subscribeSceneAllowed = () => () => {};
+const getSceneAllowed = () => !document.documentElement.classList.contains("ha-lite");
+const getSceneAllowedOnServer = () => false;
 
 // One component, two homes. `dev` adds the lab chrome (page header, transport,
 // scrubber) and the framed 16:9 box; without it the hero is a full-bleed,
@@ -167,6 +241,18 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     document.documentElement.classList.remove("ha-lock");
   }, [reduced]);
 
+  // Whether the WebGL scene is allowed to mount at all, which is what decides
+  // whether the three.js chunk is ever REQUESTED. That is the whole win: a weak
+  // device does not download it, so it never pays the parse, compile and scene
+  // construction that measured 8.8s at 4x CPU throttle on 2026-07-30.
+  //
+  // The store hydrates false and corrects on the very next render, so a capable
+  // device starts the import a render later than it used to (immaterial) and a
+  // weak one never starts it at all (the entire point).
+  const capable = useSyncExternalStore(subscribeSceneAllowed, getSceneAllowed, getSceneAllowedOnServer);
+  // The lab is the one place the scene is the subject rather than the backdrop.
+  const sceneAllowed = dev || capable;
+
 
   // The cosmos is the page's background, so the loop keeps running rather than
   // stopping when the hero scrolls off. What stops is the expensive half: past
@@ -188,7 +274,7 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     const apply = (w: number, h: number) => {
       // heroLayout is memoised per aspect, so an unchanged aspect returns the
       // same object and React bails out rather than re-rendering.
-      if (w > 0 && h > 0) setLayout(heroLayout(w / h));
+      if (w > 0 && h > 0) setLayout(heroLayout(w / h, h));
     };
     // Measure once, straight away, rather than waiting on the observer's first
     // callback: those are delivered with the rendering steps, so on a route
@@ -450,9 +536,13 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
           This is the ONLY sky on the homepage. The hero canvas is transparent
           and stands in front of it, so the backdrop is fixed from the first
           frame of the animatic to the bottom of the feed and never moves. */}
+      {/* The wrapper renders unconditionally and only the CANVAS is gated. It is
+          a transparent fixed container with no paint of its own, so an empty one
+          costs nothing, and keeping it in the tree means the server and the
+          client emit identical DOM here whatever the device turns out to be. */}
       {!dev && (
         <div className="ha-cosmos" aria-hidden="true">
-          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="cosmos" />
+          {sceneAllowed && <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="cosmos" />}
         </div>
       )}
 
@@ -484,7 +574,9 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
             were before the cosmos was extracted: it belongs to the stage, it
             scrolls with the stage, and its shapes stay welded to their labels
             because the browser is moving both of them, not a render loop. */}
-        <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode={dev ? "full" : "hero"} />
+        {sceneAllowed && (
+          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode={dev ? "full" : "hero"} />
+        )}
 
         <div className="ha-flood" ref={floodRef} aria-hidden="true" />
 

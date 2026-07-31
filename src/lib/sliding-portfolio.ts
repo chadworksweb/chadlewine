@@ -36,6 +36,13 @@ export class SlidingPortfolio {
   private tooltip: HTMLElement | null = null;
   private gyroIndicator: HTMLElement | null = null;
   private gyroDot: HTMLElement | null = null;
+  // The labelled tilt button. It starts life as the iOS permission prompt and
+  // stays on afterwards as the toggle, so it is held rather than discarded.
+  private gyroToggleBtn: HTMLElement | null = null;
+  // Whether iOS has already granted motion access. Once it has, the button must
+  // route through toggleGyro instead of setupGyroControl: that call binds a
+  // deviceorientation listener, and running it a second time would bind another.
+  private gyroGranted = false;
 
   private items: PortfolioItem[];
   private fullscreen: boolean;
@@ -196,6 +203,18 @@ export class SlidingPortfolio {
       this.state.targetVelY = 0;
       if (this.gyroDot) this.gyroDot.style.transform = "translate(0px, 0px)";
     }
+    this.syncGyroLabel();
+  }
+
+  /* The labelled button says what the next tap DOES, so it reads "Disable Tilt
+     Control" while tilt is on. Driven from here rather than from the button's
+     own handler because the icon indicator toggles the same state: set from the
+     handler, tapping the icon would leave the words contradicting the mode. */
+  private syncGyroLabel() {
+    if (!this.gyroToggleBtn) return;
+    this.gyroToggleBtn.textContent = this.state.gyroEnabled
+      ? "Disable Tilt Control"
+      : "Enable Tilt Control";
   }
 
   private requestGyroPermission() {
@@ -206,16 +225,31 @@ export class SlidingPortfolio {
       permBtn.type = "button";
       permBtn.textContent = "Enable Tilt Control";
       this.viewport.appendChild(permBtn);
+      this.gyroToggleBtn = permBtn;
       this.addListener(permBtn, "click", async () => {
+        // Already granted, so this is the toggle now, not a prompt. It has to go
+        // through toggleGyro: setupGyroControl binds a deviceorientation
+        // listener, and calling it again per tap would stack a new one every
+        // time, each one fighting the others for targetVel.
+        if (this.gyroGranted) {
+          this.toggleGyro();
+          return;
+        }
         try {
           const response = await DOE.requestPermission!();
           if (response === "granted") {
+            this.gyroGranted = true;
+            // The button stays. It was the way in, and it is now the way back
+            // out; removing it left the icon indicator as the only way to turn
+            // tilt off, which is not obvious once the words have gone.
             this.setupGyroControl();
-            permBtn.remove();
           }
         } catch {
           permBtn.textContent = "Permission denied";
-          setTimeout(() => permBtn.remove(), 2000);
+          setTimeout(() => {
+            permBtn.remove();
+            this.gyroToggleBtn = null;
+          }, 2000);
         }
       });
     } else if ("DeviceOrientationEvent" in window) {
@@ -226,6 +260,10 @@ export class SlidingPortfolio {
   private setupGyroControl() {
     this.state.gyroEnabled = true;
     this.gyroIndicator?.classList.add("is-active");
+    // Sets gyroEnabled directly rather than via toggleGyro, so the label has to
+    // be brought along by hand or the button would still read "Enable" with tilt
+    // already running.
+    this.syncGyroLabel();
     this.addListener(window, "deviceorientation", (ev) => {
       if (this.state.paused || !this.state.gyroEnabled) return;
       const e = ev as DeviceOrientationEvent;

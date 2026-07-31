@@ -317,7 +317,10 @@ html.ha-lock {
    labels at every aspect that was not 16:9. */
 .ha-door__lab {
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: clamp(0.72rem, 1.55cqh, 1.05rem);
+  /* Held in a variable so the mobile block can scale it without restating the
+     whole clamp, which would leave two definitions to keep in step. */
+  --ha-lab-size: clamp(0.72rem, 1.55cqh, 1.05rem);
+  font-size: var(--ha-lab-size);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #f2f5ff;
@@ -556,6 +559,70 @@ html.ha-lock {
 @keyframes ha-caret {
   0%, 55% { opacity: 1; }
   55.01%, 100% { opacity: 0; }
+}
+
+/* MOBILE ADDRESS. The desktop overlaps the two lines on purpose: one grid cell,
+   the big wordmark sitting BEHIND the tagline as a watermark. A phone frame is
+   too narrow to carry that. The wordmark's own ceiling (11.5cqw) shrinks it to
+   roughly the width of the tagline, so instead of reading as a watermark behind
+   the line the two just collide. So the phone stacks them: the wordmark takes a
+   row of its own ABOVE the tagline, and the block lifts to sit higher in the
+   frame.
+   The query is HERO_MOBILE_MQ in heroShapes.ts, repeated here because CSS cannot
+   read it. The driver matchMedia()s the same string to pick the matching alpha,
+   so the two must be changed together. */
+@media (max-width: 700px) {
+  .ha-address {
+    /* THE LIFT: how much higher the block sits than it does on the desktop, on
+       top of the shared cqh nudge. This is the one number to turn if the tagline
+       wants to be higher or lower. */
+    --ha-lift: 50px;
+    /* The space between wordmark and line, which only exists once they have
+       stopped sharing a cell. In cqh so it tracks the type, like the rest. */
+    --ha-row-gap: 1.5cqh;
+    transform: translateY(calc(-1.85cqh - var(--ha-lift)));
+    row-gap: var(--ha-row-gap);
+  }
+  /* Out of the one shared cell and into two rows. The h1 precedes the h2 in the
+     DOM, so ordinary grid flow puts the wordmark on top with nothing to order. */
+  .ha-address > * {
+    grid-area: auto;
+  }
+  .ha-mark {
+    /* Tagline on top, wordmark under it. Done with `order` rather than by moving
+       the h1 in the markup: the h1 must stay first in the DOM so the document
+       still opens with its own heading, and these are not focusable, so visual
+       order and focus order cannot disagree here. */
+    order: 2;
+    /* The desktop lift only existed to stop the line splitting the wordmark in
+       half. Stacked, it would just drag the wordmark into its own row edge. */
+    transform: none;
+    /* Mirrors MARK_ALPHA_MOBILE in heroShapes.ts. This is the settled value that
+       no-JS renders; the driver writes the same number inline every frame while
+       the animatic runs, so the two have to move together. */
+    opacity: 0.75;
+  }
+  .ha-said {
+    order: 1;
+    /* Same reasoning as the wordmark's transform: this seated the line against a
+       wordmark it was overlapping, and there is no overlap left to seat. */
+    top: 0;
+  }
+  /* THE NAV TEXT AT DOUBLE SIZE, to see whether the chromatic split reads at a
+     size that is not tiny. The label is what carries the split; the route line
+     under it has no text-shadow at all, so it is left alone and the two are
+     deliberately no longer proportional.
+     Worth knowing while judging it: the split is a FIXED pixel offset (2px here,
+     1.6px on the tagline), so it does not grow with the type. Doubling the label
+     makes the fringe a smaller fraction of each glyph, not a bigger one. If it
+     still reads weak at this size, the offset is the thing to scale, and putting
+     it in em would make it track the type from then on. */
+  .ha-doors {
+    --ha-nav-scale: 1.8;
+  }
+  .ha-door__lab {
+    font-size: calc(var(--ha-lab-size) * var(--ha-nav-scale));
+  }
 }
 
 /* The two looping CSS animations are decoration, so they stop when asked. The

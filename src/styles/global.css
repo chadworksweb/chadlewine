@@ -1,4 +1,50 @@
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+/* FONTS, SERVED BY US. These came from fonts.googleapis.com until 2026-07-30,
+   which handed every visitor's IP address to Google before the page had asked
+   them about anything. A stylesheet link cannot be held back by a consent banner
+   the way a script can, so it fired for EU visitors too, whose consent default
+   is deny: measured that day, a simulated German visitor loaded no analytics at
+   all and still reached fonts.googleapis.com and fonts.gstatic.com. A Munich
+   court found that arrangement to breach GDPR in 2022 and it has been a standing
+   target for warning letters since.
+
+   It is also two extra third-party connections, both render-blocking, sitting in
+   front of the first paint on a page whose FCP is already the thing being
+   worked on.
+
+   Both faces are OFL licensed, so serving them ourselves is permitted.
+
+   The unicode-range values are Google's own, kept verbatim so a browser still
+   downloads only the subset it needs rather than all of them. VT323's Vietnamese
+   subset is deliberately not carried: nothing here uses it. Share Tech Mono is
+   published as latin only.
+
+   To refresh these: request the css2 endpoint with a modern browser
+   User-Agent (that is what makes it serve woff2 rather than ttf) and re-pull the
+   files named below into public/fonts/. */
+@font-face {
+  font-family: 'Share Tech Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/share-tech-mono-latin-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'VT323';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/vt323-latin-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'VT323';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/vt323-latin-ext-400.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 /* ============================================================
    chadlewine.com — Global Styles
@@ -357,6 +403,47 @@ h2, h3, h4, h5, h6 {
 
 .site-header--hidden {
   transform: translateY(-100%);
+}
+
+/* MOBILE: lift the header off the page it floats over. Its background is
+   --bg-deep and so is the page behind it, so on a phone nothing separated the
+   two and the bar dissolved into the black. A hairline in the theme accent plus
+   a soft fall below it reads as a lit shelf rather than as a border.
+   Bottom only, by construction: the header is full-bleed, so its left and right
+   edges are off-screen and a symmetric shadow would be paint nobody sees. The
+   negative spread on the second layer keeps the glow from creeping sideways.
+   640px is where the nav becomes the hamburger, so this is exactly the state
+   that is actually "the mobile header".
+   Hiding travels FURTHER rather than fading the shadow out. translateY(-100%)
+   only carries the bar's own box, so its bottom edge lands at y=0 and the fall
+   below it stays on screen as a blue strip. Fading the shadow to clear it reads
+   as two movements: the bar leaves, then the glow does. Going the extra distance
+   keeps it one gesture, on the transform transition the header already had. */
+@media (max-width: 640px) {
+  .site-header {
+    /* How far the fall reaches past the bar's own bottom edge: 6px offset, minus
+       the 4px of negative spread, plus half of the 18px blur, so 11px exactly.
+       Carrying 3px more absorbs subpixel rounding at dpr 3, where an exact fit
+       can leave a hairline of glow sitting at the top of the viewport. The hide
+       distance is written against this so the two cannot drift apart. */
+    --header-shadow-reach: 14px;
+    box-shadow:
+      0 1px 0 color-mix(in srgb, var(--text-accent) 45%, transparent),
+      0 6px 18px -4px color-mix(in srgb, var(--text-accent) 30%, transparent);
+    /* Own layer, which is what makes the travel smooth. Without it the browser
+       repaints a full-width 18px-blurred shadow every frame of the slide, and
+       the cost shows going UP because that direction exposes the content behind
+       the bar (coming down only covers it, which is why only one direction read
+       as rough).
+       Safe here specifically: promotion makes an element a containing block for
+       positioned descendants, and under 640px the header's only children are the
+       logo, the hamburger and .nav-mobile-menu, which is normal-flow max-height,
+       not fixed. The desktop dropdown is display:none at this width. */
+    will-change: transform;
+  }
+  .site-header--hidden {
+    transform: translateY(calc(-100% - var(--header-shadow-reach)));
+  }
 }
 
 /* Immersive art slider (/art slide mode): fullscreen, no page scroll, and no

@@ -34,7 +34,8 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
-  MARK_IN, MARK_OUT, MARK_TEXT, ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
+  MARK_IN, MARK_OUT, MARK_TEXT, MARK_ALPHA, MARK_ALPHA_MOBILE, HERO_MOBILE_MQ,
+  ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
   CAM_FOV, CAM_Z_REST,
   clamp, lerp, smooth, easeOut, backOut, beatName, heroT, getGeo, heroLayout,
   type Door, type HeroCtl, type HeroHud,
@@ -42,12 +43,74 @@ import {
 
 const FOG_DENSITY = 0.014; // the spike value: lets the grid + warp core read across depth
 
+// THE COSMOS IS BILLED SEPARATELY FROM THE ANIMATIC, and these two constants are
+// where. The homepage runs two full-viewport WebGL contexts, each with its own
+// composer and its own bloom chain, and measured on an Intel Iris Xe at 2560x1400
+// on 2026-07-30 they cost almost exactly the same as each other: killing either
+// context took the page from 19fps to 33fps. The total is the sum, and it scales
+// with the window, so a large desktop display is the worst case rather than the
+// easiest one.
+//
+// Only one of those two is the art. The hero canvas draws the animatic -- thin
+// additive line geometry where resolution is the whole legibility of the image --
+// and it is left alone deliberately. The cosmos canvas draws a starfield and four
+// soft nebula planes that drift, and it is a BACKDROP. Both dials below apply to
+// the backdrop only.
+//
+// Resolution first: a soft, glowing, out-of-focus sky is the one thing that
+// survives being drawn smaller and scaled up, so the cosmos gets a pixel budget
+// instead of the display's ratio. At 2560x1400 that is a ratio near 0.8.
+const COSMOS_PIXEL_BUDGET = 2.2e6;
+// Frame rate second: nothing in the sky moves fast. The starfield drifts and the
+// nebula breathes on a 0.3Hz sine, so redrawing it 60 times a second spends most
+// of its frames redrawing the same picture. The canvas holds its last frame while
+// it waits, which is why this is invisible rather than a stutter: the hero canvas
+// in front of it keeps running at full rate and the sky simply persists.
+const COSMOS_HZ = 30;
+
 // ---- bloom composer (manual-render, no post-processing dep) -----------------
-function HeroBloom({ ctl }: { ctl: HeroCtl }) {
+function HeroBloom({ ctl, maxHz = 0 }: { ctl: HeroCtl; maxHz?: number }) {
   const { gl, scene, camera, size } = useThree();
   const bloomRef = useRef<UnrealBloomPass | null>(null);
+  // When the last frame was actually composed, for the throttle below. Wall
+  // clock, not the story clock: this is about the display, not the animation.
+  const lastDraw = useRef(0);
   const composer = useMemo(() => {
-    const c = new EffectComposer(gl);
+    // NO MULTISAMPLING, and that is a decision rather than an oversight. The
+    // Canvas asks for `antialias: true`, and on this composer that flag is a
+    // no-op: it governs the default framebuffer, while RenderPass draws into a
+    // render target instead. `samples: 4` was set here on 2026-07-30 to close
+    // that gap, and it was reverted the same day because it made the homepage
+    // unusable on integrated graphics.
+    //
+    // The arithmetic is the whole story, and it is not subtle. RGBA16F is 8
+    // bytes a pixel. At 4 samples a 3200x1662 buffer is ~170MB, renderTarget2 is
+    // cloned from this one so it carries the samples too, and the homepage runs
+    // TWO of these composers side by side (the pinned cosmos and the hero). That
+    // is well over half a gigabyte of framebuffer on a part that has no memory
+    // of its own and reads system RAM across the same bus as the CPU. Every pass
+    // swap then resolves those samples down, so the cost is paid several times a
+    // frame, not once.
+    //
+    // The content makes it worse rather than better. This scene is additive
+    // geometry with depthTest off, four nebula planes tens of world units across
+    // stacked over a starfield, so most pixels are written many times over. MSAA
+    // multiplies exactly that write traffic. An overdraw-bound scene is the one
+    // place multisampling has no good trade to offer.
+    //
+    // And it bought nothing: measured on device the day it landed, it changed
+    // neither the coloured speckle it was written to chase (that was the
+    // nebula's dithered gradient texture, fixed separately) nor anything else
+    // anyone could see. A cost with no picture attached is not a tradeoff.
+    //
+    // What survives from that commit is the explicit target, sized from the
+    // current box rather than three's 1x1 default, so no frame can land at the
+    // wrong resolution before the effect below corrects it. Everything else here
+    // is three's default: HalfFloat, samples 0.
+    const rt = new THREE.WebGLRenderTarget(size.width, size.height, {
+      type: THREE.HalfFloatType,
+    });
+    const c = new EffectComposer(gl, rt);
     c.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.28);
     bloomRef.current = bloom;
@@ -80,6 +143,16 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   }, [composer, gl, size]);
   useEffect(() => () => composer.dispose(), [composer]);
   useFrame((state) => {
+    // The throttle, before any work is done rather than after: the point is to
+    // skip the composer, and everything below it exists only to feed the
+    // composer. Zero means every frame, which is what the hero and the lab get.
+    if (maxHz > 0) {
+      const now = state.clock.elapsedTime;
+      // A small tolerance so a 30Hz target does not systematically miss every
+      // other 60Hz frame and land on 20.
+      if (now - lastDraw.current < 1 / maxHz - 0.002) return;
+      lastDraw.current = now;
+    }
     const t = heroT(state.clock.elapsedTime, ctl);
     const fade = ctl.bloomFadeRef.current;
     const b = bloomRef.current;
@@ -551,21 +624,45 @@ function Starfield({ ctl }: { ctl: HeroCtl }) {
 }
 
 // ---- cosmos: nebula blobs ---------------------------------------------------
-function makeBlobTex(): THREE.Texture {
-  const c = document.createElement("canvas");
-  c.width = 256; c.height = 256;
-  const ctx = c.getContext("2d")!;
-  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  g.addColorStop(0, "rgba(255,255,255,1)");
-  g.addColorStop(0.4, "rgba(255,255,255,0.34)");
-  g.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 256);
-  return new THREE.CanvasTexture(c);
-}
+// The falloff is COMPUTED, not sampled. It used to be a 256x256 canvas radial
+// gradient, and that texture was the source of the coloured speckle on the
+// phone: browsers DITHER canvas gradients to keep an 8-bit ramp from banding, so
+// the noise was baked into the texels, and each plane below then magnified it
+// across tens of world units. Four planes, four different colours, all additive,
+// so every one of them laid down its own differently tinted noise and the worst
+// of it piled up where the purple and the blue overlap. Safari's dither is not
+// Chromium's, which is why this never reproduced off-device and why the phone
+// stayed the only judge of it.
+// A per-fragment falloff has no texels to dither and stays exact at any
+// magnification, however large the plane gets. The curve below is the old
+// gradient's, stop for stop, so this changes the noise and nothing else: the
+// desktop renders the same shape it always did.
+const NEBULA_VERT = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }`;
+const NEBULA_FRAG = `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  void main() {
+    // 0 at the centre, 1 at the edge midpoints, past 1 into the corners, which
+    // is exactly how a 128px-radius gradient sat inside a 256px square.
+    float d = length(vUv - 0.5) * 2.0;
+    // The old stops: 1.0 at the centre, 0.34 at 0.4, 0 at the rim. Canvas walks
+    // between its stops linearly, so this is a straight two-piece mix.
+    float a = d < 0.4
+      ? mix(1.0, 0.34, d / 0.4)
+      : mix(0.34, 0.0, clamp((d - 0.4) / 0.6, 0.0, 1.0));
+    // Alpha carries the whole contribution: AdditiveBlending scales the source
+    // by its own alpha and adds, which is precisely what MeshBasicMaterial with
+    // a white map and an opacity was doing before.
+    gl_FragColor = vec4(uColor, a * uOpacity);
+  }`;
 function Nebula({ ctl }: { ctl: HeroCtl }) {
   const built = useMemo(() => {
-    const tex = makeBlobTex();
     const group = new THREE.Group();
     const defs = [
       { c: "#6a4bd0", x: -15, y: 6, z: -30, s: 36 },
@@ -573,9 +670,20 @@ function Nebula({ ctl }: { ctl: HeroCtl }) {
       { c: "#00e0ff", x: 3, y: 11, z: -26, s: 20 },
       { c: "#8b9cf7", x: -7, y: -11, z: -28, s: 26 },
     ];
-    const mats: THREE.MeshBasicMaterial[] = [];
+    const mats: THREE.ShaderMaterial[] = [];
     for (const d of defs) {
-      const mat = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(d.c), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false });
+      // THREE.Color converts the hex out of sRGB on construction, so the uniform
+      // arrives in the same working space MeshBasicMaterial's diffuse did and
+      // the colours are unchanged.
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: new THREE.Color(d.c) }, uOpacity: { value: 0 } },
+        vertexShader: NEBULA_VERT,
+        fragmentShader: NEBULA_FRAG,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false,
+      });
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(d.s, d.s), mat);
       mesh.position.set(d.x, d.y, d.z);
       group.add(mesh);
@@ -586,7 +694,11 @@ function Nebula({ ctl }: { ctl: HeroCtl }) {
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     const inn = smooth(2.5, 4.4, t);
-    for (let i = 0; i < built.mats.length; i++) built.mats[i].opacity = inn * (0.22 + 0.05 * Math.sin(t * 0.3 + i));
+    // Same numbers as before, now written to the uniform instead of to
+    // Material.opacity, which a ShaderMaterial does not read.
+    for (let i = 0; i < built.mats.length; i++) {
+      built.mats[i].uniforms.uOpacity.value = inn * (0.22 + 0.05 * Math.sin(t * 0.3 + i));
+    }
   });
   return <primitive object={built.group} />;
 }
@@ -693,7 +805,7 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
     // 2.2 (the pull, the tunnel, the eject) is untouched at every aspect, so the
     // intro is identical everywhere; only where the doors LAND moves, and only
     // below 3:2 where the authored row genuinely does not fit the frame.
-    const lay = heroLayout(state.size.width / state.size.height);
+    const lay = heroLayout(state.size.width / state.size.height, state.size.height);
     const slot = lay.slots[index];
     built.trailMat.opacity = 0;
     // The doors belong to the hero, not to the background it leaves behind.
@@ -823,6 +935,20 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
   const lastTyped = useRef(-1);
   const announced = useRef(false);
   const released = useRef(false);
+  // The wordmark's settled alpha, which the phone runs hotter. Held in a ref and
+  // resolved from a media query rather than sampled per frame: useFrame must not
+  // touch matchMedia sixty times a second, and a query follows an orientation
+  // change on its own where a one-time width read would not.
+  const markAlpha = useRef(MARK_ALPHA);
+  useEffect(() => {
+    const mq = window.matchMedia(HERO_MOBILE_MQ);
+    const sync = () => {
+      markAlpha.current = mq.matches ? MARK_ALPHA_MOBILE : MARK_ALPHA;
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
   useFrame((state) => {
     // Tells the boot script the scene really started. That script hides the
     // hero so the animation can play, and releases it again if this never
@@ -925,7 +1051,7 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
         markChars.current = Array.from(mk.querySelectorAll<HTMLElement>(".ha-m"));
       }
       const g = clamp((t - MARK_IN) / (MARK_OUT - MARK_IN), 0, 1);
-      mk.style.opacity = String(smooth(0, 1, g) * 0.05 * fade);
+      mk.style.opacity = String(smooth(0, 1, g) * markAlpha.current * fade);
       const sp = ((1 - g) * 5).toFixed(2);
       mk.style.textShadow = g >= 1 ? "none" : "-" + sp + "px 0 #ff2e63, " + sp + "px 0 #00e0ff";
       const chars = markChars.current;
@@ -1022,7 +1148,9 @@ function HeroScene({
           <HudDriver ctl={ctl} hud={hud} />
         </>
       )}
-      <HeroBloom ctl={ctl} />
+      {/* Only the pinned backdrop is throttled. The hero and the lab compose
+          every frame, because that canvas IS the animatic. */}
+      <HeroBloom ctl={ctl} maxHz={mode === "cosmos" ? COSMOS_HZ : 0} />
     </>
   );
 }
@@ -1052,19 +1180,60 @@ export default function HeroCanvas({
   // a 780x1688 buffer and then runs a multi-pass bloom over it, which was
   // acceptable on a preview route nothing linked to and is not acceptable as
   // the first paint of the homepage on a phone.
-  const dpr = useMemo<[number, number]>(
-    () => (Math.min(window.innerWidth, window.innerHeight) < 700 ? [1, 1.5] : [1, 2]),
-    [],
-  );
+  //
+  // The cosmos is budgeted by AREA instead, because a ceiling on the ratio does
+  // not bound the thing that actually costs: a 2560x1400 window at ratio 1 is
+  // 3.6 megapixels, more than a 390x844 phone at ratio 3, and it runs a bloom
+  // chain over every one of them twice over. A budget is the same rule for both
+  // -- draw about this many pixels, whatever the display calls them -- and it is
+  // the backdrop that can afford to be drawn small and scaled up.
+  const dpr = useMemo<number | [number, number]>(() => {
+    const ceiling = Math.min(window.innerWidth, window.innerHeight) < 700 ? 1.5 : 2;
+    if (mode !== "cosmos") return [1, ceiling] as [number, number];
+    const area = window.innerWidth * window.innerHeight;
+    // Never sharper than the display and never softer than half of it: past that
+    // the starfield's points start to drop out rather than merely soften.
+    const ratio = Math.sqrt(COSMOS_PIXEL_BUDGET / area);
+    return Math.max(0.5, Math.min(window.devicePixelRatio, ceiling, ratio));
+  }, [mode]);
   return (
     <Canvas
       flat
       aria-hidden="true"
       frameloop={frameloop}
       camera={{ fov: CAM_FOV, near: 0.1, far: 400, position: [0, 0, CAM_Z_REST] }}
-      // alpha explicitly, not by default: the hero canvas has to be see-through
-      // or the fixed sky behind it is wasted work nobody can see.
-      gl={{ antialias: true, alpha: true }}
+      // ANTIALIAS OFF, DELIBERATELY. WebGL defaults it to true and r3f keeps
+      // that default, so the homepage was asking for a 4x multisampled default
+      // framebuffer on EACH of two full-viewport contexts without anyone
+      // choosing it. Prod measured 4.1fps at rest with this on, on an Intel
+      // Iris Xe at 2550x1142 / dpr 1.42 (2026-07-30).
+      //
+      // It buys nothing here, and that is a fact about the pipeline rather than
+      // a judgement about quality: the composer's final pass blits a fullscreen
+      // quad into the default framebuffer, so the only primitive edges MSAA
+      // could resolve there are the four edges of the screen. It still
+      // allocates that multisampled buffer at the full drawing size and
+      // resolves it on every present, twice a frame across the two contexts.
+      // The note on the composer target above already said this flag governs
+      // the default framebuffer and is a no-op for the picture; what was missed
+      // is that a no-op for the picture is not a no-op for the COST.
+      //
+      // Measured on two stacked full-viewport canvases doing nothing but a
+      // clear -- no scene, no composer, no bloom:
+      //   aa=1                27.5ms a frame   (36 fps)  <- what shipped
+      //   aa=0                13.9ms a frame   (72 fps)
+      //   aa=0, base opaque    7.1ms a frame  (141 fps)
+      // ONE canvas was free at every setting. That is the control that matters:
+      // the two-canvas split is NOT the ceiling and does not need revisiting.
+      //
+      // The third row is a lever NOT taken. `alpha` stays true for both modes
+      // because three ignores the parameter: WebGLRenderer hardcodes
+      // `alpha: true` into its context attributes and uses the argument only
+      // for the clear alpha, so passing false here changes nothing the
+      // compositor can see. Making the cosmos genuinely opaque means building
+      // the context by hand and passing it in as `context`. Worth about 7ms a
+      // frame in the synthetic test, never measured on the real page.
+      gl={{ antialias: false, alpha: true }}
       dpr={dpr}
     >
       <HeroScene ctl={ctl} hud={hud} mode={mode} />

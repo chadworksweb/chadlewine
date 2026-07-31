@@ -99,6 +99,20 @@ const GRID_X = [-4, 0, 4, -2, 2];
 const GRID_ROW = [0, 0, 0, 1, 1];
 const GRID_ROW_SEP = 2.9;
 
+// THE TOP ROW SITS LOWER. Grid only, because a top row is something only the
+// 3-over-2 arrangement has, so this is portrait by construction and needs no
+// media query. Stated in px because that is how it was asked for and how it is
+// judged, on a phone; the layout converts it into both currencies it deals in
+// (world units for the shapes, % of frame height for the cells) so a row cannot
+// half-move.
+// The cap in heroLayout means values past the inter-row half-band stop taking
+// effect: at that point the row has travelled the whole gap and further travel
+// would put its label through the row below. Measured at 390x844, that band is
+// 95.8px, and taking all of it leaves row 1's shapes starting exactly at the top
+// edge of their own hit cell. Around 55px is where row 1 keeps its shapes fully
+// inside their cell, so this sits just under that.
+export const GRID_ROW0_DROP_PX = 50;
+
 // 8% of the visible half-width is left outside the outermost shape so it never
 // kisses the frame edge.
 const MARGIN = 0.92;
@@ -137,14 +151,24 @@ export interface HeroLayout {
 
 const layoutCache = new Map<number, HeroLayout>();
 
-export function heroLayout(aspect: number): HeroLayout {
-  // Quantised so the per-frame callers hit the cache instead of rebuilding.
-  const key = Math.round(aspect * 1000);
+// frameH is the stage's height in CSS px, and it is optional because the server
+// has no viewport to measure. It buys exactly one thing: GRID_ROW0_DROP_PX is a
+// pixel quantity, and aspect alone cannot turn pixels into either world units or
+// percentages. Both callers already hold it, and both hold the SAME box (the
+// scene reads its canvas, the overlay observes the stage, and the canvas fills
+// the stage), so passing it keeps this a single source of truth rather than
+// introducing a second one.
+export function heroLayout(aspect: number, frameH = 0): HeroLayout {
+  // Quantised so the per-frame callers hit the cache instead of rebuilding. Both
+  // inputs are in the key now: the same aspect at a different height is a
+  // different layout, and returning the cached one would ignore the drop.
+  const aq = Math.round(aspect * 1000);
+  const key = aq * 100000 + Math.round(frameH);
   const hit = layoutCache.get(key);
   if (hit) return hit;
 
-  const halfW = WORLD_HALF_H * (key / 1000);
-  const grid = key / 1000 < GRID_ASPECT;
+  const halfW = WORLD_HALF_H * (aq / 1000);
+  const grid = aq / 1000 < GRID_ASPECT;
   // Capped at 1, so every aspect at or above 3:2 is the authored composition
   // untouched rather than something merely close to it.
   const k = Math.min(1, halfW / (grid ? FIT_GRID : FIT_ROW));
@@ -157,15 +181,39 @@ export function heroLayout(aspect: number): HeroLayout {
   // wide, so centre-to-centre distance and cell width are the same number.
   const cellWidthPct = ((2 * k) / halfW) * 100;
 
+  // The row-0 drop in the two currencies this layout deals in. Capped at
+  // halfBand, which is the whole gap between the rows: past that the cell would
+  // carry row 0's label down through row 1's shape and the two would be fighting
+  // for the same pointer.
+  const dropPct =
+    grid && frameH > 0 ? Math.min((GRID_ROW0_DROP_PX / frameH) * 100, halfBand) : 0;
+  // % of frame height into world units. The full frame is 2 * WORLD_HALF_H tall.
+  const dropWorld = (dropPct / 50) * WORLD_HALF_H;
+
   const slots: HeroSlot[] = DOORS.map((d, i) => {
+    const top = grid && GRID_ROW[i] === 0;
     const x = (grid ? GRID_X[i] : SLOT_X[i]) * k;
-    const y = grid ? (GRID_ROW[i] === 0 ? 1 : -1) * GRID_ROW_SEP * k : 0;
+    // Minus, because world +y is up and the row is going down.
+    const y = (grid ? (GRID_ROW[i] === 0 ? 1 : -1) * GRID_ROW_SEP * k : 0) - (top ? dropWorld : 0);
     return {
       x,
       y,
       leftPct: 50 + (x / halfW) * 50,
-      cellTopPct: grid ? (GRID_ROW[i] === 0 ? 50 - 2 * halfBand : 50) : 50 - CELL_TOP_ROW * k,
-      cellHeightPct: grid ? 2 * halfBand : CELL_H_ROW * k,
+      // Row 0's cell travels WHOLE, which is what carries its label: the label
+      // rides the cell's bottom edge (.ha-door is justify-content:flex-end), so
+      // a cell that moved its top alone would leave the label behind while the
+      // shape went down.
+      // Row 1 then gives up the same amount off its TOP rather than moving, so
+      // the two cells still tile edge to edge with no overlap and row 1's own
+      // shape and label do not budge. Without that, row 0's cell would overlap
+      // row 1's, and row 1 wins a shared strip (it is later in the DOM), which
+      // would quietly make row 0's labels unclickable.
+      cellTopPct: grid
+        ? (GRID_ROW[i] === 0 ? 50 - 2 * halfBand + dropPct : 50 + dropPct)
+        : 50 - CELL_TOP_ROW * k,
+      cellHeightPct: grid
+        ? (GRID_ROW[i] === 0 ? 2 * halfBand : 2 * halfBand - dropPct)
+        : CELL_H_ROW * k,
       cellWidthPct,
     };
   });
@@ -210,13 +258,36 @@ export const SAID_OUT = 7.85;
 export const MARK_IN = 8.05;
 export const MARK_OUT = 11.05;
 
+// What the wordmark settles AT. The driver writes this inline every frame, so
+// this is the value that decides the look, and hero.css only mirrors it for the
+// no-JS/settled path. Change both together or the settled frame will not match
+// the animated one.
+export const MARK_ALPHA = 0.05;
+// The phone runs it as real type, not as a watermark. On mobile the wordmark is
+// no longer BEHIND the tagline: it takes its own row above it (see the mobile
+// block in hero.css), and nothing is layered over it there, so the watermark
+// alpha that works on the desktop just leaves it invisible.
+export const MARK_ALPHA_MOBILE = 0.75;
+// One definition of "mobile" for the hero, because two would drift. The driver
+// matchMedia()s this for the alpha above; the mobile block in hero.css repeats
+// the same query for the layout. Deliberately width-only, unlike the dpr cap in
+// HeroCanvas (which samples min(innerWidth, innerHeight) < 700): that form would
+// also catch a short desktop window and restack the address on the desktop.
+export const HERO_MOBILE_MQ = "(max-width: 700px)";
+
 // THE WAY OUT. The homepage holds the scroll until the animatic has finished,
 // so there has to be a way past it long before the menu lands, which is why
 // this no longer rides the doors' clock. It arrives during THE PULL, dim, and
 // comes up to full with the menu at 5.75. Half brightness during the intro so
 // it is findable without sitting on top of the composition.
-export const ENTER_IN = 0.6;
-export const ENTER_OUT = 1.3;
+// Brought a full real-time second forward, which is HALF a unit here: the clock
+// runs at rate 0.5 until story-t 2.0 (see ClockDriver), so one second on a watch
+// is 0.5 of t during the intro. The control now shows about a fifth of a second
+// in rather than 1.2s in. Both ends move together so the fade keeps its shape.
+// Not screen-dependent, and deliberately so: this is the only way past the
+// scroll lock, and how soon you can leave should not depend on the device.
+export const ENTER_IN = 0.1;
+export const ENTER_OUT = 0.8;
 export const ENTER_DIM = 0.5;
 // And it changes what it says. While the page is held the control is a SKIP;
 // once the animatic has finished there is nothing left to skip and it goes back

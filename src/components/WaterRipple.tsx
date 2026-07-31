@@ -35,9 +35,44 @@ export const WaterRipple = forwardRef<WaterRippleHandle, WaterRippleProps>(funct
   const widthRef = useRef(0);
   const heightRef = useRef(0);
 
+  // THE SOURCE PIXELS, CUT ONCE. The displacement samples an undistorted copy of
+  // the cropped image, and that copy depends only on the image, the crop and the
+  // canvas size -- none of which change between frames. It used to be rebuilt
+  // every frame: a fresh <canvas> allocated, the image redrawn into it, and
+  // getImageData called on it, plus a second getImageData on the display canvas.
+  // Two full readbacks and an allocation, sixty times a second, for pixels that
+  // were identical every time. Profiled 2026-07-30 on the homepage, getImageData
+  // alone was 48% of all main-thread time on the page.
+  const srcDataRef = useRef<Uint8ClampedArray | null>(null);
+  // The output buffer, reused. Seeded from the source, so the border pixels the
+  // displacement loop skips are already the base image and stay correct without
+  // a per-frame drawImage to lay them down.
+  const outRef = useRef<ImageData | null>(null);
+  // What the cached pair was cut for. Any change to size, crop or focal point
+  // makes it stale.
+  const srcKeyRef = useRef("");
+
+  // How much the water is still moving. Recorded by the simulation, which is
+  // already touching every cell, so it costs nothing to know. Once it falls
+  // below the threshold the surface is flat and there is no reason to keep
+  // redrawing it.
+  const energyRef = useRef(0);
+  // Whether the settled, undistorted frame has been painted. Marks the point
+  // where the loop may stop.
+  const settledRef = useRef(false);
+  // On screen and in a visible tab. Both must hold for the loop to run.
+  const onScreenRef = useRef(false);
+  const runningRef = useRef(false);
+  // Set by the effect below so a click can wake the loop from anywhere.
+  const wakeRef = useRef<() => void>(() => {});
+
   const damping = 0.98;
   const resolution = 2;
   const stepsPerFrame = 3;
+  // Below this peak displacement the sampling offset rounds to zero everywhere,
+  // so the next frame would be pixel-identical to the settled image. Expressed
+  // in the simulation's own units, where a click lands 55.
+  const STILL = 0.02;
 
   function initBuffers(w: number, h: number) {
     const sw = Math.floor(w / resolution);
@@ -69,6 +104,12 @@ export const WaterRipple = forwardRef<WaterRippleHandle, WaterRippleProps>(funct
         buf[py * w + px] += strength * factor;
       }
     }
+    // A drop is the one thing that can start the water moving, so it is also the
+    // one thing that has to restart a loop that stopped because the water was
+    // still.
+    energyRef.current = strength;
+    settledRef.current = false;
+    wakeRef.current();
   }
 
   function stepSimulation() {
@@ -78,6 +119,9 @@ export const WaterRipple = forwardRef<WaterRippleHandle, WaterRippleProps>(funct
     const h = heightRef.current;
     if (!b1 || !b2) return;
 
+    // The peak displacement left in the surface, taken on the pass that is
+    // already visiting every cell. This is what lets the loop know it is done.
+    let peak = 0;
     for (let y = 1; y < h - 1; y++) {
       for (let x = 1; x < w - 1; x++) {
         const i = y * w + x;
@@ -86,8 +130,11 @@ export const WaterRipple = forwardRef<WaterRippleHandle, WaterRippleProps>(funct
           b1[i - w] + b1[i + w]
         ) / 2 - b2[i];
         b2[i] *= damping;
+        const a = b2[i] < 0 ? -b2[i] : b2[i];
+        if (a > peak) peak = a;
       }
     }
+    energyRef.current = peak;
 
     // Swap
     buf1Ref.current = b2;
@@ -119,33 +166,56 @@ export const WaterRipple = forwardRef<WaterRippleHandle, WaterRippleProps>(funct
     const dpr = window.devicePixelRatio || 1;
     const stride = resolution * dpr;
 
-    for (let s = 0; s < stepsPerFrame; s++) {
-      stepSimulation();
-    }
-
-    // Draw base image with cover-crop + focal point (preserves source aspect).
+    // Cut the source once, and re-cut only when the thing it was cut for
+    // changes. The crop is part of the key because the focal point is a prop and
+    // can move under us.
+    const focal = focalRef.current;
     const crop = getCoverCropRect(
       img.naturalWidth,
       img.naturalHeight,
       cw / ch,
-      focalRef.current.x,
-      focalRef.current.y,
-      focalRef.current.z,
+      focal.x,
+      focal.y,
+      focal.z,
     );
-    ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cw, ch);
-
-    // Apply displacement
-    const imageData = ctx.getImageData(0, 0, cw, ch);
+    const key = `${cw}x${ch}:${crop.sx},${crop.sy},${crop.sw},${crop.sh}`;
+    if (srcKeyRef.current !== key || !srcDataRef.current || !outRef.current) {
+      const srcCanvas = document.createElement("canvas");
+      srcCanvas.width = cw;
+      srcCanvas.height = ch;
+      const srcCtx = srcCanvas.getContext("2d")!;
+      srcCtx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cw, ch);
+      srcDataRef.current = srcCtx.getImageData(0, 0, cw, ch).data;
+      // Seeded from the source so the border ring the loop below skips is
+      // already the base image, and so alpha is right without being written
+      // per pixel.
+      const out = ctx.createImageData(cw, ch);
+      out.data.set(srcDataRef.current);
+      outRef.current = out;
+      srcKeyRef.current = key;
+      settledRef.current = false;
+    }
+    const srcData = srcDataRef.current;
+    const imageData = outRef.current;
     const pixels = imageData.data;
 
-    // Source pixels for sampling — sized to the device-resolution canvas so
-    // base pixels stay sharp; ctx.drawImage handles the high-quality resample.
-    const srcCanvas = document.createElement("canvas");
-    srcCanvas.width = cw;
-    srcCanvas.height = ch;
-    const srcCtx = srcCanvas.getContext("2d")!;
-    srcCtx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, cw, ch);
-    const srcData = srcCtx.getImageData(0, 0, cw, ch).data;
+    for (let s = 0; s < stepsPerFrame; s++) {
+      stepSimulation();
+    }
+
+    // STILL WATER IS NOT REDRAWN. Below the threshold the displacement rounds to
+    // the same pixel everywhere, so every further frame would paint an identical
+    // image. One clean frame is painted to land on, and then the loop lets go of
+    // the browser entirely until the next drop wakes it.
+    if (energyRef.current < STILL) {
+      if (!settledRef.current) {
+        pixels.set(srcData);
+        ctx.putImageData(imageData, 0, 0);
+        settledRef.current = true;
+      }
+      runningRef.current = false;
+      return;
+    }
 
     for (let py = 0; py < ch; py++) {
       for (let px = 0; px < cw; px++) {
@@ -200,15 +270,58 @@ export const WaterRipple = forwardRef<WaterRippleHandle, WaterRippleProps>(funct
       initBuffers(cssW, cssH);
     };
 
-    img.onload = resize;
-    window.addEventListener("resize", resize);
+    // THE LOOP ONLY RUNS WHEN THERE IS SOMEONE TO SEE IT. This effect is an
+    // expensive per-pixel simulation, and it used to run from mount to unmount
+    // regardless of whether it was on screen, in a visible tab, or moving at
+    // all. On the homepage that put it a thousand pixels below the fold,
+    // running flat out underneath the hero animatic while the page was scroll
+    // locked at the top -- profiled 2026-07-30, it and its readbacks were ~80%
+    // of main-thread time and the animatic was rendering at 24fps because of it.
+    const start = () => {
+      if (runningRef.current) return;
+      if (!onScreenRef.current || document.hidden) return;
+      runningRef.current = true;
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    const stop = () => {
+      runningRef.current = false;
+      cancelAnimationFrame(rafRef.current);
+    };
+    wakeRef.current = start;
+
+    const resizeAndStart = () => {
+      resize();
+      // A resize invalidates the cached cut, so the settled frame has to be
+      // repainted at the new size even if the water is perfectly still.
+      settledRef.current = false;
+      start();
+    };
+
+    img.onload = resizeAndStart;
+    window.addEventListener("resize", resizeAndStart);
     resize();
 
-    rafRef.current = requestAnimationFrame(draw);
+    // rootMargin so a slide that is about to scroll into view has already
+    // painted its settled frame by the time it arrives.
+    const io = new IntersectionObserver(
+      (entries) => {
+        onScreenRef.current = entries[entries.length - 1].isIntersecting;
+        if (onScreenRef.current) start();
+        else stop();
+      },
+      { rootMargin: "200px" },
+    );
+    if (containerRef.current) io.observe(containerRef.current);
+
+    const onVisibility = () => (document.hidden ? stop() : start());
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      window.removeEventListener("resize", resize);
-      cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("resize", resizeAndStart);
+      document.removeEventListener("visibilitychange", onVisibility);
+      io.disconnect();
+      wakeRef.current = () => {};
+      stop();
     };
   }, [src, draw]);
 
