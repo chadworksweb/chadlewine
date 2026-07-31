@@ -540,18 +540,44 @@ function makeSparkleTex(): THREE.Texture {
   ctx.fillRect(0, 0, S, S);
   return new THREE.CanvasTexture(c);
 }
+// A TWINKLE IS AN EVENT, NOT A WAVEFORM. This used to be one sine per star at a
+// shared 2.1 rad/s, about three seconds a cycle, with only the AMPLITUDE varying
+// per star. Every star in the sky was therefore twinkling all of the time and
+// they all did it at the same rate, which reads as shimmer: a surface effect
+// over the whole field rather than individual stars catching the light.
+//
+// Now each star rests, then flares, on its OWN long cycle. Two attributes carry
+// it: aPeriod is how long between one flare and the next, aDur is how long a
+// single flare takes. Both vary per star, so at any moment only a handful of the
+// field is doing anything, some flares are quick and some are slow, and no two
+// stars are ever in step.
+//
+// sin(PI*k) squared is the flare: it leaves the rest state at zero, rounds up to
+// a peak, and returns to exactly zero. k is CLAMPED at 1, so once the flare is
+// spent the star sits still until its period comes round again. That clamp is
+// what puts real dark time between twinkles; without it this is just a sine
+// again with extra steps.
 const STAR_VERT = `
   attribute float aSize;
   attribute float aPhase;
   attribute float aTwinkle;
+  attribute float aPeriod;
+  attribute float aDur;
   attribute vec3 aColor;
   uniform float uTime;
   varying vec3 vColor;
   varying float vB;
   void main() {
     vColor = aColor;
-    float pulse = 0.5 + 0.5 * sin(uTime * 2.1 + aPhase);
-    float b = mix(0.85, pulse, aTwinkle); // twinkly stars swing hard, steady stars barely move
+    float cyc = mod(uTime + aPhase, aPeriod);
+    float k = min(cyc / aDur, 1.0);
+    float flare = sin(3.14159265 * k);
+    flare *= flare;
+    // A star that twinkles hard also rests DIMMER, so its flare is a real change
+    // rather than a bright thing getting brighter. Steady stars barely move,
+    // exactly as before.
+    float rest = 0.85 - aTwinkle * 0.45;
+    float b = mix(rest, 1.0, flare * aTwinkle);
     vB = 0.22 + 0.9 * b;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_PointSize = aSize * (0.7 + 0.5 * b) * (190.0 / max(0.1, -mv.z));
@@ -575,6 +601,8 @@ function Starfield({ ctl }: { ctl: HeroCtl }) {
     const siz = new Float32Array(N);
     const pha = new Float32Array(N);
     const twk = new Float32Array(N);
+    const per = new Float32Array(N); // seconds between one flare and the next
+    const dur = new Float32Array(N); // seconds a single flare takes
     const cW = new THREE.Color("#ffffff");
     const cP = new THREE.Color("#b4bfff"); // pale periwinkle
     const cV = new THREE.Color("#a78bfa");
@@ -595,13 +623,29 @@ function Starfield({ ctl }: { ctl: HeroCtl }) {
       const rnd = ((i * 17) % 100) / 100;
       siz[i] = big ? 5 + rnd * 4.5 : 1.0 + rnd * 1.6;
       twk[i] = big ? 0.6 + rnd * 0.4 : i % 3 === 0 ? 0.4 + rnd * 0.4 : 0.08 + rnd * 0.18; // only some twinkle hard
-      pha[i] = ((i * 41) % 628) / 100;
+      // Coprime-ish strides against N so period, duration and phase never fall
+      // into a repeating pattern down the buffer, which is what would show up as
+      // bands of the sky twinkling together.
+      const rp = ((i * 23) % 97) / 97;
+      const rd = ((i * 61) % 89) / 89;
+      // Long, and long-tailed: most stars wait around ten seconds, a few wait the
+      // better part of half a minute. The big sparkles get the shorter waits so
+      // the ones worth watching are the ones that actually go off.
+      per[i] = (big ? 7.0 : 11.0) + rp * rp * (big ? 14.0 : 20.0);
+      // And some of them take their time going off. The slowest flare here is
+      // over four seconds, against the three-second CYCLE everything used to run.
+      dur[i] = 0.9 + rd * (big ? 3.4 : 2.2);
+      // Spread across the whole period rather than a fixed 0..2pi, or every star
+      // would fire in the first few seconds and then go quiet together.
+      pha[i] = (((i * 41) % 997) / 997) * per[i];
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
     geo.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
     geo.setAttribute("aPhase", new THREE.BufferAttribute(pha, 1));
     geo.setAttribute("aTwinkle", new THREE.BufferAttribute(twk, 1));
+    geo.setAttribute("aPeriod", new THREE.BufferAttribute(per, 1));
+    geo.setAttribute("aDur", new THREE.BufferAttribute(dur, 1));
     const mat = new THREE.ShaderMaterial({
       uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 }, uTex: { value: makeSparkleTex() } },
       vertexShader: STAR_VERT,
