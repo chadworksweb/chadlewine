@@ -25,8 +25,8 @@ import { SubscribeModal } from "@/components/SubscribeModal";
    Thresholds are admin-tunable (site_settings) and passed in as props; the
    defaults below are only a fallback if a prop is omitted. */
 
-const DEFAULT_DWELL_SECONDS = 40;
-const DEFAULT_CART_DWELL_SECONDS = 15;
+const DEFAULT_DWELL_SECONDS = 48;
+const DEFAULT_CART_DWELL_SECONDS = 18;
 const DEFAULT_SCROLL_DEPTH_PCT = 60;
 const DEFAULT_RESHOW_DAYS = 14;
 
@@ -95,7 +95,8 @@ export function SubscribeModalController({
   //
   // Starts false and is corrected on mount, which also means the dwell timer
   // below starts counting when the animatic ENDS rather than when the document
-  // did. Forty seconds on the page should mean forty seconds of the page.
+  // did. Time on the page should mean time on the PAGE, not time spent watching
+  // an intro that holds the scroll.
   const [heroSettled, setHeroSettled] = useState(false);
   useEffect(() => {
     const d = document.documentElement;
