@@ -5,7 +5,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import {
-  DOORS, DUR, MARK_TEXT, SAID_TEXT, VEIL_MAX, FADE_SECS, SKIP_SECS, LOAD_IN, LOAD_OUT,
+  DOORS, DUR, SKY_MOUNT_T, MARK_TEXT, SAID_TEXT, VEIL_MAX, FADE_SECS, SKIP_SECS, LOAD_IN, LOAD_OUT,
   T_SETTLED,
   heroLayout, LAYOUT_16_9,
   type HeroCtl, type HeroHud, type HeroLayout,
@@ -259,6 +259,37 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   const capable = useSyncExternalStore(subscribeSceneAllowed, getSceneAllowed, getSceneAllowedOnServer);
   // The lab is the one place the scene is the subject rather than the backdrop.
   const sceneAllowed = dev || capable;
+
+  // THE SKY IS NOT IN THE TREE UNTIL IT IS WANTED. An idle full-viewport canvas
+  // is not a free one: measured through the break spiral, one that drew nothing
+  // at all still cost about 13.6ms a frame purely by existing, nearly twice what
+  // DRAWING it cost. See SKY_MOUNT_T in heroShapes for the numbers.
+  //
+  // Polled off the story clock rather than a wall-clock timer, because the story
+  // clock is what the sky's own fade is written against, and a page running
+  // slowly stretches one and not the other. Stops polling the moment it fires.
+  const [skyMounted, setSkyMounted] = useState(false);
+  useEffect(() => {
+    if (dev) return;
+    // Nothing will advance the clock in these two, so waiting on it would wait
+    // forever: reduced motion freezes at the settled menu, and a lite device
+    // never mounts a scene at all.
+    if (reduced) {
+      setSkyMounted(true);
+      return;
+    }
+    if (!sceneAllowed) return;
+    let raf = 0;
+    const poll = () => {
+      if (tRef.current >= SKY_MOUNT_T) {
+        setSkyMounted(true);
+        return;
+      }
+      raf = requestAnimationFrame(poll);
+    };
+    raf = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(raf);
+  }, [dev, reduced, sceneAllowed]);
 
 
   // The cosmos is the page's background, so the loop keeps running rather than
@@ -549,7 +580,9 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
           client emit identical DOM here whatever the device turns out to be. */}
       {!dev && (
         <div className="ha-cosmos" aria-hidden="true">
-          {sceneAllowed && <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="cosmos" />}
+          {sceneAllowed && skyMounted && (
+            <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="cosmos" />
+          )}
         </div>
       )}
 

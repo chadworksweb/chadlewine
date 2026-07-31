@@ -34,6 +34,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
+  SKY_IN, SKY_FULL,
   MARK_IN, MARK_OUT, MARK_TEXT, MARK_ALPHA, MARK_ALPHA_MOBILE, HERO_MOBILE_MQ,
   ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
   CAM_FOV, CAM_Z_REST,
@@ -60,13 +61,34 @@ const FOG_DENSITY = 0.014; // the spike value: lets the grid + warp core read ac
 // Resolution first: a soft, glowing, out-of-focus sky is the one thing that
 // survives being drawn smaller and scaled up, so the cosmos gets a pixel budget
 // instead of the display's ratio. At 2560x1400 that is a ratio near 0.8.
-const COSMOS_PIXEL_BUDGET = 2.2e6;
+// CUT HARD, and deliberately harder than the animatic. The sky is soft, out of
+// focus and drifting on a 0.3Hz sine, so it is the one surface here that survives
+// being drawn small and scaled up. The animatic is thin additive line geometry,
+// which is the one that does not. Budgeting the ANIMATIC down instead bought
+// frame rate and lost the line work, which is the wrong half to spend.
+const COSMOS_PIXEL_BUDGET = 0.8e6;
 // Frame rate second: nothing in the sky moves fast. The starfield drifts and the
 // nebula breathes on a 0.3Hz sine, so redrawing it 60 times a second spends most
 // of its frames redrawing the same picture. The canvas holds its last frame while
 // it waits, which is why this is invisible rather than a stutter: the hero canvas
 // in front of it keeps running at full rate and the sky simply persists.
-const COSMOS_HZ = 30;
+// AND THEN EVERY FRAME, because the 30Hz cap was never the saving it looked
+// like. It did not remove the sky's cost, it made that cost INTERMITTENT:
+// measured, frames where the cosmos composed ran 55-90ms and frames where it
+// skipped ran 7ms, and alternating between them is what reads as stutter. A
+// uniform frame is worth more to the eye than a cheap one beside an expensive
+// one. Cheap enough to draw every time is the actual fix, which is what the
+// budget above buys.
+const COSMOS_HZ = 0;
+// THE GLOW IS DRAWN AT HALF, THE LINES ARE NOT. UnrealBloomPass is a five-level
+// down-and-up blur across the whole buffer and it is the bulk of what a canvas
+// here costs; RenderPass, where the actual line geometry lands, is comparatively
+// cheap. They do not deserve the same resolution. Blur is the one thing in this
+// scene that cannot tell the difference: a glow is already a low-frequency
+// image, so halving the chain's input costs a quarter of its fill and looks like
+// the same glow. The final blend that lays it back over the scene stays full
+// size, so nothing crisp is ever resampled.
+const BLOOM_SCALE = 0.5;
 
 // ---- bloom composer (manual-render, no post-processing dep) -----------------
 function HeroBloom({ ctl, maxHz = 0 }: { ctl: HeroCtl; maxHz?: number }) {
@@ -140,6 +162,17 @@ function HeroBloom({ ctl, maxHz = 0 }: { ctl: HeroCtl; maxHz?: number }) {
   useEffect(() => {
     composer.setPixelRatio(gl.getPixelRatio());
     composer.setSize(size.width, size.height);
+    // AFTER the composer, deliberately: setSize hands every pass the full
+    // effective size, so the bloom has to be put back down again once it has
+    // been told. Device pixels, because that is what the composer passed on.
+    const b = bloomRef.current;
+    if (b) {
+      const ratio = gl.getPixelRatio();
+      b.setSize(
+        Math.max(1, Math.round(size.width * ratio * BLOOM_SCALE)),
+        Math.max(1, Math.round(size.height * ratio * BLOOM_SCALE)),
+      );
+    }
   }, [composer, gl, size]);
   useEffect(() => () => composer.dispose(), [composer]);
   useFrame((state) => {
@@ -660,7 +693,7 @@ function Starfield({ ctl }: { ctl: HeroCtl }) {
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     built.mat.uniforms.uTime.value = t;
-    built.mat.uniforms.uOpacity.value = smooth(2.6, 4.4, t) * 0.95;
+    built.mat.uniforms.uOpacity.value = smooth(SKY_IN, SKY_FULL, t) * 0.95;
     built.pts.rotation.y = t * 0.008; // perpetual seamless wipe
     built.pts.rotation.x = Math.sin(t * 0.05) * 0.04;
   });
@@ -737,7 +770,7 @@ function Nebula({ ctl }: { ctl: HeroCtl }) {
   }, []);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
-    const inn = smooth(2.5, 4.4, t);
+    const inn = smooth(SKY_IN, SKY_FULL, t);
     // Same numbers as before, now written to the uniform instead of to
     // Material.opacity, which a ShaderMaterial does not read.
     for (let i = 0; i < built.mats.length; i++) {
