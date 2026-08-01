@@ -11,6 +11,7 @@ import {
   type HeroCtl, type HeroHud, type HeroLayout,
 } from "./heroShapes";
 import { HeroNavJsonLd } from "./HeroNavJsonLd";
+import { prefersReducedMotion } from "@/lib/motion";
 import "./hero.css";
 
 // WebGL/Canvas is client-only: no SSR attempt (avoids window/WebGL-on-server).
@@ -106,7 +107,14 @@ const bootScript = (home: boolean) =>
   // and stays. ha-lite is the flag the component reads to keep the canvas
   // unmounted; the class is the single source of that decision.
   'if(lite){d.classList.add("ha-lite")}else{d.classList.add("ha-anim")}' +
-  'var m=matchMedia("(prefers-reduced-motion:reduce)").matches;' +
+  // Reduced motion, UNLESS the visitor has already said otherwise. The root
+  // layout re-stamps `cl-force-motion` from sessionStorage before this runs, so
+  // reading the class here is reading a decision that has already been made.
+  // Without this the opt-in would be undone before it could take effect: the
+  // reload it triggers would come straight back through this script, see the OS
+  // preference, and decline to run the very animatic it was asked for.
+  'var m=matchMedia("(prefers-reduced-motion:reduce)").matches&&' +
+  '!d.classList.contains("cl-force-motion");' +
   (home
     ? 'd.classList.add("ha-hero-top");' +
       // A RELOAD STARTS THE INTRO OVER, so it has to start from the top. The
@@ -153,7 +161,10 @@ const subscribeReduced = (onChange: () => void) => {
   mq.addEventListener("change", onChange);
   return () => mq.removeEventListener("change", onChange);
 };
-const getReduced = () => window.matchMedia(REDUCE_MOTION).matches;
+// Through prefersReducedMotion rather than matchMedia directly, so a visitor who
+// accepted the invite is not still treated as having asked for stillness. That
+// helper returns false whenever `cl-force-motion` is on <html>; see src/lib/motion.ts.
+const getReduced = () => prefersReducedMotion();
 const getReducedOnServer = () => false;
 
 // `ha-lite` on <html> is the boot script's verdict that this device should not be

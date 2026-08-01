@@ -628,9 +628,12 @@ html.ha-lock {
 /* The two looping CSS animations are decoration, so they stop when asked. The
    scene itself is handled separately (the canvas drops to an on-demand render
    loop and freezes on the rested menu). */
+/* Gated on :not(.cl-force-motion) so a visitor who accepted the invite gets the
+   motion they asked for rather than a half-still hero. The class is stamped on
+   <html> before the first paint; see src/lib/motion.ts. */
 @media (prefers-reduced-motion: reduce) {
-  .ha-enter__chev,
-  .ha-c.is-frontier::after {
+  html:not(.cl-force-motion) .ha-enter__chev,
+  html:not(.cl-force-motion) .ha-c.is-frontier::after {
     animation: none;
   }
 }
