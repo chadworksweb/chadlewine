@@ -231,7 +231,7 @@ export const LAYOUT_16_9 = heroLayout(16 / 9);
 // Timeline (seconds). Names double as the HUD beat labels.
 export const DUR = 11.6;
 
-// THE SKY ARRIVES LATE, AND UNTIL IT DOES ITS CANVAS DOES NOT EXIST.
+// THE SKY ARRIVES LATE.
 //
 // Measured 2026-07-31 on an Intel Iris Xe, through the break spiral, full bleed:
 //   sky composing normally               p95 62.3ms
@@ -251,15 +251,7 @@ export const DUR = 11.6;
 // to 3.0 anyway, so a sky fading up under it was never what was being watched.
 export const SKY_IN = 4.25;
 export const SKY_FULL = 6.0;
-// Mounted EARLY, but not too early, and the difference is measurable. Creating a
-// WebGL context costs a one-off hitch: shader compile, the sparkle texture,
-// eleven hundred points of geometry. Measured at 90ms, which is six frames.
-//
-// It has to land in a gap. A mount at 3.3 put that 90ms squarely inside the
-// break, which is the one beat this whole change exists to protect. Here it sits
-// after the spiral is gone and before the sky starts fading up at SKY_IN, where
-// nothing is moving and nothing is visible yet.
-export const SKY_MOUNT_T = 3.75;
+
 export const BEATS: { t0: number; t1: number; name: string }[] = [
   { t0: 0.0, t1: 1.0, name: "THE PULL" },
   { t0: 1.0, t1: 2.2, name: "THE TUNNEL" },

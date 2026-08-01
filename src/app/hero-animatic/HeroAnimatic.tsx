@@ -5,7 +5,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import {
-  DOORS, DUR, SKY_MOUNT_T, MARK_TEXT, SAID_TEXT, VEIL_MAX, FADE_SECS, SKIP_SECS, LOAD_IN, LOAD_OUT,
+  DOORS, DUR, MARK_TEXT, SAID_TEXT, VEIL_MAX, FADE_SECS, SKIP_SECS, LOAD_IN, LOAD_OUT,
   T_SETTLED,
   heroLayout, LAYOUT_16_9,
   type HeroCtl, type HeroHud, type HeroLayout,
@@ -271,44 +271,43 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
   // The lab is the one place the scene is the subject rather than the backdrop.
   const sceneAllowed = dev || capable;
 
-  // THE SKY IS NOT IN THE TREE UNTIL IT IS WANTED. An idle full-viewport canvas
-  // is not a free one: measured through the break spiral, one that drew nothing
-  // at all still cost about 13.6ms a frame purely by existing, nearly twice what
-  // DRAWING it cost. See SKY_MOUNT_T in heroShapes for the numbers.
+
+
+  // OFF SCREEN IS OFF. The loop stops dead once the stage leaves the viewport
+  // and picks up exactly where it left off when it comes back.
   //
-  // Polled off the story clock rather than a wall-clock timer, because the story
-  // clock is what the sky's own fade is written against, and a page running
-  // slowly stretches one and not the other. Stops polling the moment it fires.
-  const [skyMounted, setSkyMounted] = useState(false);
+  // It could not do this until now, and the reason is worth keeping. The sky
+  // used to be a separate canvas pinned to the viewport, backing the whole
+  // homepage, so something had to keep drawing all the way down the feed; the
+  // most that could be done was to fade the doors out and skip the bloom pass
+  // while the composer kept running. Now that the sky ends where the hero ends,
+  // there is nothing left on screen to draw for, and "cheaper" can be "nothing".
+  //
+  // `never` rather than `demand`: demand still renders when something asks, and
+  // the point here is that nothing should. r3f stops ticking the root entirely,
+  // so the story clock does not advance either, which is what makes this a
+  // freeze rather than a scene that plays on in the dark and is rejoined
+  // half-finished. ClockDriver already clamps delta at 0.05, so the first frame
+  // back cannot jump.
+  //
+  // STATE, not a ref, unlike the scroll fade below. That one deliberately avoids
+  // re-rendering a WebGL canvas to carry a boolean; this one has to, because
+  // frameloop is a prop and a ref would never reach the Canvas.
+  const [onScreen, setOnScreen] = useState(true);
   useEffect(() => {
-    if (dev) return;
-    // Nothing will advance the clock in these two, so waiting on it would wait
-    // forever: reduced motion freezes at the settled menu, and a lite device
-    // never mounts a scene at all.
-    if (reduced) {
-      setSkyMounted(true);
-      return;
-    }
-    if (!sceneAllowed) return;
-    let raf = 0;
-    const poll = () => {
-      if (tRef.current >= SKY_MOUNT_T) {
-        setSkyMounted(true);
-        return;
-      }
-      raf = requestAnimationFrame(poll);
-    };
-    raf = requestAnimationFrame(poll);
-    return () => cancelAnimationFrame(raf);
-  }, [dev, reduced, sceneAllowed]);
-
-
-  // The cosmos is the page's background, so the loop keeps running rather than
-  // stopping when the hero scrolls off. What stops is the expensive half: past
-  // the hero the doors fade out and the bloom composer is bypassed for a plain
-  // render, leaving only the starfield and the nebula, which are sprites and
-  // points and cost very little.
-  const frameloop = reduced ? "demand" : "always";
+    const el = stageRef.current;
+    if (!el) return;
+    // A generous margin on purpose: resuming slightly before the stage is
+    // actually visible means the first frame back is already drawn, rather than
+    // the visitor scrolling up into a canvas that is still deciding.
+    const io = new IntersectionObserver(
+      ([entry]) => setOnScreen(entry.isIntersecting),
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  const frameloop = reduced ? "demand" : onScreen ? "always" : "never";
 
   // The rest layout is a pure function of the STAGE's aspect, not the window's:
   // on this dev route the stage is a 16:9 box inside a wider page, and on the
@@ -577,25 +576,15 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
           which would pin the canvas to the stage instead of the viewport. In
           the lab it stays inside the framed box, where being clipped is the
           point. */}
-      {/* THE BACKDROP, in a canvas of its own. It is fixed, so the feed scrolls
-          through the starfield, and it is SEPARATE so the hero never has to be.
-          A pinned canvas can only move what it draws by drawing it again, which
-          made the shapes lag the page by a frame or more; the hero's canvas is
-          in the stage below, in flow, moved by the browser for free.
-          This is the ONLY sky on the homepage. The hero canvas is transparent
-          and stands in front of it, so the backdrop is fixed from the first
-          frame of the animatic to the bottom of the feed and never moves. */}
-      {/* The wrapper renders unconditionally and only the CANVAS is gated. It is
-          a transparent fixed container with no paint of its own, so an empty one
-          costs nothing, and keeping it in the tree means the server and the
-          client emit identical DOM here whatever the device turns out to be. */}
-      {!dev && (
-        <div className="ha-cosmos" aria-hidden="true">
-          {sceneAllowed && skyMounted && (
-            <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="cosmos" />
-          )}
-        </div>
-      )}
+      {/* THE BACKDROP USED TO BE A CANVAS OF ITS OWN, pinned to the viewport so
+          the feed scrolled through the starfield. It is gone, and the sky is
+          drawn by the hero's own canvas again (mode "full"), so it ends where
+          the hero ends.
+          Two reasons, and the second is the one that decided it. A second
+          full-viewport WebGL context cost about 13.6ms a frame purely by
+          existing, measured before it drew anything. And a live starfield behind
+          the feed was working against the legibility of the page it was backing.
+          See the note at the top of HeroCanvas. */}
 
       {/* THE VEIL. Black over the cosmos, coming on with the scroll, so the
           feed reads against a settled sky rather than a live starfield. A
@@ -626,7 +615,7 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
             scrolls with the stage, and its shapes stay welded to their labels
             because the browser is moving both of them, not a render loop. */}
         {sceneAllowed && (
-          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode={dev ? "full" : "hero"} />
+          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="full" />
         )}
 
         <div className="ha-flood" ref={floodRef} aria-hidden="true" />

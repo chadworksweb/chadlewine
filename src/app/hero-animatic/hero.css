@@ -99,25 +99,9 @@ html.ha-lock {
   overflow: hidden;
 }
 
-/* THE COSMOS OUTLIVES THE HERO.
-   Fixed to the viewport and behind the page, so the feed scrolls THROUGH the
-   starfield instead of the page changing worlds at the fold. Deliberately not a
-   child of .ha-stage: size containment there would make the stage the
-   containing block and pin this to the hero instead of the viewport.
-   z-index -1 paints it above the root background (where the body colour lands)
-   and below every in-flow element, so no page section needs a z-index of its
-   own, and pointer-events are off so it can never eat a click on the feed. */
-.ha-cosmos {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-}
-.ha-cosmos canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
+/* The pinned .ha-cosmos layer is gone; the sky is drawn by the hero's own
+   canvas again. Its rules are removed rather than left dormant so nothing is
+   tempted to reuse a fixed full-viewport layer without reading why it went. */
 
 /* THE VEIL. Black over the cosmos, coming on with the scroll so the feed reads
    against a settled sky instead of a live starfield.
