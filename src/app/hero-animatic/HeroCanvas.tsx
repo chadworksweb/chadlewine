@@ -34,6 +34,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
+  SKY_IN, SKY_FULL,
   MARK_IN, MARK_OUT, MARK_TEXT, MARK_ALPHA, MARK_ALPHA_MOBILE, HERO_MOBILE_MQ,
   ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
   CAM_FOV, CAM_Z_REST,
@@ -43,38 +44,22 @@ import {
 
 const FOG_DENSITY = 0.014; // the spike value: lets the grid + warp core read across depth
 
-// THE COSMOS IS BILLED SEPARATELY FROM THE ANIMATIC, and these two constants are
-// where. The homepage runs two full-viewport WebGL contexts, each with its own
-// composer and its own bloom chain, and measured on an Intel Iris Xe at 2560x1400
-// on 2026-07-30 they cost almost exactly the same as each other: killing either
-// context took the page from 19fps to 33fps. The total is the sum, and it scales
-// with the window, so a large desktop display is the worst case rather than the
-// easiest one.
+// ONE CANVAS. The sky and the animatic are drawn together again.
 //
-// Only one of those two is the art. The hero canvas draws the animatic -- thin
-// additive line geometry where resolution is the whole legibility of the image --
-// and it is left alone deliberately. The cosmos canvas draws a starfield and four
-// soft nebula planes that drift, and it is a BACKDROP. Both dials below apply to
-// the backdrop only.
+// They were split on 2026-07-29 so the sky could stay pinned to the viewport and
+// back the whole homepage while the hero scrolled away over it. That cost two
+// full-viewport WebGL contexts, and measured on an Intel Iris Xe the second one
+// cost about 13.6ms a frame purely by EXISTING, before it drew anything. It also
+// left the feed being read over a live, moving starfield, which is the reason it
+// is being undone: the backdrop was hurting legibility of the page it backed.
 //
-// Resolution first: a soft, glowing, out-of-focus sky is the one thing that
-// survives being drawn smaller and scaled up, so the cosmos gets a pixel budget
-// instead of the display's ratio. At 2560x1400 that is a ratio near 0.8.
-const COSMOS_PIXEL_BUDGET = 2.2e6;
-// Frame rate second: nothing in the sky moves fast. The starfield drifts and the
-// nebula breathes on a 0.3Hz sine, so redrawing it 60 times a second spends most
-// of its frames redrawing the same picture. The canvas holds its last frame while
-// it waits, which is why this is invisible rather than a stutter: the hero canvas
-// in front of it keeps running at full rate and the sky simply persists.
-const COSMOS_HZ = 30;
-
+// So the sky ends where the hero ends. Below it the page is plain --bg-deep,
+// which is the same #07070d the scene clears to, so there is no seam.
+const BLOOM_SCALE = 1;
 // ---- bloom composer (manual-render, no post-processing dep) -----------------
-function HeroBloom({ ctl, maxHz = 0 }: { ctl: HeroCtl; maxHz?: number }) {
+function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   const { gl, scene, camera, size } = useThree();
   const bloomRef = useRef<UnrealBloomPass | null>(null);
-  // When the last frame was actually composed, for the throttle below. Wall
-  // clock, not the story clock: this is about the display, not the animation.
-  const lastDraw = useRef(0);
   const composer = useMemo(() => {
     // NO MULTISAMPLING, and that is a decision rather than an oversight. The
     // Canvas asks for `antialias: true`, and on this composer that flag is a
@@ -113,6 +98,24 @@ function HeroBloom({ ctl, maxHz = 0 }: { ctl: HeroCtl; maxHz?: number }) {
     const c = new EffectComposer(gl, rt);
     c.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.28);
+    // A SOFT THRESHOLD, and this is what stops the little orbs jittering.
+    //
+    // The orbs are the bloom: every small bright point, which here means a line
+    // crossing, gets a round halo. UnrealBloomPass ships smoothWidth at 0.01,
+    // which against a threshold of 0.28 is effectively a hard on/off. Everything
+    // in this scene is in continuous motion (the whole-body spin, a 3.5% breathe,
+    // a positional wave), so a crossing sitting near the threshold wobbles across
+    // it every frame and its halo pops in and out rather than fading.
+    //
+    // 0.45 turns that step into a long ramp: a point drifting around the
+    // threshold now changes its halo smoothly instead of switching it. It also
+    // gives merch and music, at luma 0.274 and 0.232, a little bloom for the
+    // first time -- they sat just under the hard cutoff and got none, which is
+    // why they looked flat next to the other three and why they had no orbs to
+    // jitter in the first place.
+    // Cast because three types highPassUniforms as {}. The uniform is real and
+    // set in UnrealBloomPass's own constructor; see its line 137.
+    (bloom.highPassUniforms as Record<string, { value: number }>).smoothWidth.value = 0.45;
     bloomRef.current = bloom;
     c.addPass(bloom);
     c.addPass(new OutputPass());
@@ -140,19 +143,20 @@ function HeroBloom({ ctl, maxHz = 0 }: { ctl: HeroCtl; maxHz?: number }) {
   useEffect(() => {
     composer.setPixelRatio(gl.getPixelRatio());
     composer.setSize(size.width, size.height);
+    // AFTER the composer, deliberately: setSize hands every pass the full
+    // effective size, so the bloom has to be put back down again once it has
+    // been told. Device pixels, because that is what the composer passed on.
+    const b = bloomRef.current;
+    if (b) {
+      const ratio = gl.getPixelRatio();
+      b.setSize(
+        Math.max(1, Math.round(size.width * ratio * BLOOM_SCALE)),
+        Math.max(1, Math.round(size.height * ratio * BLOOM_SCALE)),
+      );
+    }
   }, [composer, gl, size]);
   useEffect(() => () => composer.dispose(), [composer]);
   useFrame((state) => {
-    // The throttle, before any work is done rather than after: the point is to
-    // skip the composer, and everything below it exists only to feed the
-    // composer. Zero means every frame, which is what the hero and the lab get.
-    if (maxHz > 0) {
-      const now = state.clock.elapsedTime;
-      // A small tolerance so a 30Hz target does not systematically miss every
-      // other 60Hz frame and land on 20.
-      if (now - lastDraw.current < 1 / maxHz - 0.002) return;
-      lastDraw.current = now;
-    }
     const t = heroT(state.clock.elapsedTime, ctl);
     const fade = ctl.bloomFadeRef.current;
     const b = bloomRef.current;
@@ -540,18 +544,44 @@ function makeSparkleTex(): THREE.Texture {
   ctx.fillRect(0, 0, S, S);
   return new THREE.CanvasTexture(c);
 }
+// A TWINKLE IS AN EVENT, NOT A WAVEFORM. This used to be one sine per star at a
+// shared 2.1 rad/s, about three seconds a cycle, with only the AMPLITUDE varying
+// per star. Every star in the sky was therefore twinkling all of the time and
+// they all did it at the same rate, which reads as shimmer: a surface effect
+// over the whole field rather than individual stars catching the light.
+//
+// Now each star rests, then flares, on its OWN long cycle. Two attributes carry
+// it: aPeriod is how long between one flare and the next, aDur is how long a
+// single flare takes. Both vary per star, so at any moment only a handful of the
+// field is doing anything, some flares are quick and some are slow, and no two
+// stars are ever in step.
+//
+// sin(PI*k) squared is the flare: it leaves the rest state at zero, rounds up to
+// a peak, and returns to exactly zero. k is CLAMPED at 1, so once the flare is
+// spent the star sits still until its period comes round again. That clamp is
+// what puts real dark time between twinkles; without it this is just a sine
+// again with extra steps.
 const STAR_VERT = `
   attribute float aSize;
   attribute float aPhase;
   attribute float aTwinkle;
+  attribute float aPeriod;
+  attribute float aDur;
   attribute vec3 aColor;
   uniform float uTime;
   varying vec3 vColor;
   varying float vB;
   void main() {
     vColor = aColor;
-    float pulse = 0.5 + 0.5 * sin(uTime * 2.1 + aPhase);
-    float b = mix(0.85, pulse, aTwinkle); // twinkly stars swing hard, steady stars barely move
+    float cyc = mod(uTime + aPhase, aPeriod);
+    float k = min(cyc / aDur, 1.0);
+    float flare = sin(3.14159265 * k);
+    flare *= flare;
+    // A star that twinkles hard also rests DIMMER, so its flare is a real change
+    // rather than a bright thing getting brighter. Steady stars barely move,
+    // exactly as before.
+    float rest = 0.85 - aTwinkle * 0.45;
+    float b = mix(rest, 1.0, flare * aTwinkle);
     vB = 0.22 + 0.9 * b;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_PointSize = aSize * (0.7 + 0.5 * b) * (190.0 / max(0.1, -mv.z));
@@ -575,6 +605,8 @@ function Starfield({ ctl }: { ctl: HeroCtl }) {
     const siz = new Float32Array(N);
     const pha = new Float32Array(N);
     const twk = new Float32Array(N);
+    const per = new Float32Array(N); // seconds between one flare and the next
+    const dur = new Float32Array(N); // seconds a single flare takes
     const cW = new THREE.Color("#ffffff");
     const cP = new THREE.Color("#b4bfff"); // pale periwinkle
     const cV = new THREE.Color("#a78bfa");
@@ -594,14 +626,46 @@ function Starfield({ ctl }: { ctl: HeroCtl }) {
       const big = i % 7 === 0; // ~1 in 7 is a prominent sparkle, the rest are dots
       const rnd = ((i * 17) % 100) / 100;
       siz[i] = big ? 5 + rnd * 4.5 : 1.0 + rnd * 1.6;
-      twk[i] = big ? 0.6 + rnd * 0.4 : i % 3 === 0 ? 0.4 + rnd * 0.4 : 0.08 + rnd * 0.18; // only some twinkle hard
-      pha[i] = ((i * 41) % 628) / 100;
+      // HOW MANY STARS MOVE AT ALL, which is a separate question from how hard
+      // they move, and the one that was wrong. Every star used to carry some
+      // twinkle, so the whole field was always in motion. Cut to roughly a third
+      // (65% fewer), and the rest are now genuinely FIXED rather than merely
+      // subtle: aTwinkle 0 leaves them sitting at their rest brightness forever.
+      //
+      // It matters more than it sounds. The hero canvas draws the sky and the
+      // door shapes together, so a star that flares behind an open wireframe
+      // reads as a flash on the shape itself. Fewer movers, fewer of those.
+      const animates = (i * 31) % 100 < 35;
+      twk[i] = !animates
+        ? 0
+        : big
+          ? 0.6 + rnd * 0.4
+          : i % 3 === 0
+            ? 0.4 + rnd * 0.4
+            : 0.08 + rnd * 0.18; // only some twinkle hard
+      // Coprime-ish strides against N so period, duration and phase never fall
+      // into a repeating pattern down the buffer, which is what would show up as
+      // bands of the sky twinkling together.
+      const rp = ((i * 23) % 97) / 97;
+      const rd = ((i * 61) % 89) / 89;
+      // Long, and long-tailed: most stars wait around ten seconds, a few wait the
+      // better part of half a minute. The big sparkles get the shorter waits so
+      // the ones worth watching are the ones that actually go off.
+      per[i] = (big ? 7.0 : 11.0) + rp * rp * (big ? 14.0 : 20.0);
+      // And some of them take their time going off. The slowest flare here is
+      // over four seconds, against the three-second CYCLE everything used to run.
+      dur[i] = 0.9 + rd * (big ? 3.4 : 2.2);
+      // Spread across the whole period rather than a fixed 0..2pi, or every star
+      // would fire in the first few seconds and then go quiet together.
+      pha[i] = (((i * 41) % 997) / 997) * per[i];
     }
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
     geo.setAttribute("aSize", new THREE.BufferAttribute(siz, 1));
     geo.setAttribute("aPhase", new THREE.BufferAttribute(pha, 1));
     geo.setAttribute("aTwinkle", new THREE.BufferAttribute(twk, 1));
+    geo.setAttribute("aPeriod", new THREE.BufferAttribute(per, 1));
+    geo.setAttribute("aDur", new THREE.BufferAttribute(dur, 1));
     const mat = new THREE.ShaderMaterial({
       uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 }, uTex: { value: makeSparkleTex() } },
       vertexShader: STAR_VERT,
@@ -616,7 +680,16 @@ function Starfield({ ctl }: { ctl: HeroCtl }) {
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
     built.mat.uniforms.uTime.value = t;
-    built.mat.uniforms.uOpacity.value = smooth(2.6, 4.4, t) * 0.95;
+    const op = smooth(SKY_IN, SKY_FULL, t) * 0.95;
+    built.mat.uniforms.uOpacity.value = op;
+    // NOT DRAWN AT ALL UNTIL IT IS VISIBLE. Opacity zero is not free: eleven
+    // hundred additive points still rasterise, still blend, and still cost fill
+    // for an image nobody can see. The sky does not start fading up until
+    // SKY_IN, so everything before that was pure waste, and it was landing on
+    // the break spiral, which is the most expensive beat in the animatic. The
+    // machine field and the warp core have gated themselves this way all along.
+    built.pts.visible = op > 0.001;
+    if (!built.pts.visible) return;
     built.pts.rotation.y = t * 0.008; // perpetual seamless wipe
     built.pts.rotation.x = Math.sin(t * 0.05) * 0.04;
   });
@@ -693,7 +766,12 @@ function Nebula({ ctl }: { ctl: HeroCtl }) {
   }, []);
   useFrame((state) => {
     const t = heroT(state.clock.elapsedTime, ctl);
-    const inn = smooth(2.5, 4.4, t);
+    const inn = smooth(SKY_IN, SKY_FULL, t);
+    // Same reasoning as the starfield: four planes tens of world units across,
+    // additive and depth-test off, are close to the most expensive thing here to
+    // draw for nothing.
+    built.group.visible = inn > 0.001;
+    if (!built.group.visible) return;
     // Same numbers as before, now written to the uniform instead of to
     // Material.opacity, which a ShaderMaterial does not read.
     for (let i = 0; i < built.mats.length; i++) {
@@ -722,30 +800,89 @@ const Z_CORE = -34; // where the warp core sits and the doors are born
 // deliberately shallow: at 0.5 the innermost shell ran over 2x the outermost
 // and churned, which is the thing that had to come down.
 const GYRO_RATE = 0.5;
-const GYRO = Array.from({ length: SHELLS }, (_, i) => {
-  const k = Math.pow(PHI, i * 0.3) * GYRO_RATE;
-  const flip = i % 2 ? -1 : 1;
-  return {
-    rx: 0.150 * k * flip,
-    ry: 0.243 * k,
-    rz: 0.097 * k * -flip,
-    px: i * 1.3,
-    py: i * 0.9,
-    pz: i * 2.1, // phases so they start visibly apart, not stacked
-  };
-});
+// ONE RATE FOR THE WHOLE NEST, and the counter-rotation is gone. This is what
+// stops the glow jittering, and the reason is worth writing down because the
+// symptom pointed everywhere except here.
+//
+// Each shell used to carry its own rate and direction, so their lines swept
+// across one another continuously. Even with the shells no longer summing (see
+// the blending note in HeroShape) an overlap still lifts a pixel from about
+// 0.62 of the hue to 0.93, and because the sweeping never stops, that lift is
+// always moving. Bloom multiplies it, and a moving 50% swing in bloom is a
+// glow that will not sit still.
+//
+// It showed on exactly three doors: art, writing and videos, at linear luma
+// 0.750, 0.626 and 0.605. Merch and music, at 0.274 and 0.232, were reported as
+// fine. The bloom threshold is 0.28. The two "fine" doors were not stabler,
+// they simply never reached the bloom pass at all, which is the same reason
+// they glow less.
+//
+// So the sweeping goes and the nest keeps everything else. The PHASES stay, so
+// the shells still sit at visibly different angles and still read as a nest
+// rather than one thick line. What is now shared is the RATE, which makes the
+// nest rigid in its own frame: overlaps land in fixed places and hold there.
+// The door still tumbles, from the whole-body spin on the group.
+const GYRO = Array.from({ length: SHELLS }, (_, i) => ({
+  rx: 0.150 * GYRO_RATE,
+  ry: 0.243 * GYRO_RATE,
+  rz: 0.097 * GYRO_RATE,
+  px: i * 1.3,
+  py: i * 0.9,
+  pz: i * 2.1, // phases so they sit visibly apart, not stacked
+}));
 function gyro(ls: THREE.Object3D, i: number, t: number) {
   const r = GYRO[i];
   ls.rotation.set(r.px + t * r.rx, r.py + t * r.ry, r.pz + t * r.rz);
 }
+// A NOTE ON THE PALETTE AND THE BLOOM, because it cost a day to work out and
+// the numbers are worth keeping. UnrealBloomPass high-passes on linear luma at a
+// threshold of 0.28, and the door hues straddle it:
+//
+//   art     #3dff9e  0.750      writing #ffc48a  0.626
+//   videos  #00e0ff  0.605      merch   #b46bff  0.274
+//   music   #4d7cff  0.232
+//
+// Green carries 0.7152 of the luma weight against blue's 0.0722, so colours
+// picked to look equally bright sit on opposite sides of that line. When the
+// shells were ADDITIVE this was the whole problem: a hue already three times
+// over the threshold turned every sweeping shell coincidence into a hot blob.
+//
+// The hues were levelled down to merch to fix that, and it was the wrong fix.
+// Once the shells stopped summing (see the blending note below) the overlap was
+// bounded structurally, and the levelling was left doing nothing but holding
+// every door just UNDER the threshold, which took the glow off all five. The
+// palette is used as designed again. Unequal glow across the doors is the
+// palette's own character, not a defect.
 function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroCtl }) {
   const built = useMemo(() => {
     const group = new THREE.Group();
     const geo = getGeo(door.shape);
     const hue = new THREE.Color(door.hue);
     const shells: THREE.LineSegments[] = [];
-    for (let i = 0; i < SHELLS; i++) {
-      const mat = new THREE.LineBasicMaterial({ color: COL_PERI.clone(), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+    // THE RING GIVES UP ITS INNERMOST SHELL. Its torus is tessellated 8x28,
+    // far denser than any other door, so a fourth nested copy inside the third
+    // was not reading as depth, it was filling the middle in. The dense
+    // tessellation is what makes the shape read as round and is deliberately
+    // kept (see the geometry note in heroShapes); what goes is the copy of it.
+    const count = door.shape === "ring" ? SHELLS - 1 : SHELLS;
+    for (let i = 0; i < count; i++) {
+      // NOT ADDITIVE, and this is the fix for the flaring joints and edges.
+      //
+      // Four nested shells gyroscope at different rates and directions, so their
+      // lines constantly sweep across each other. Summed additively, a two-shell
+      // coincidence was about 1.1x the hue and a four-way reached 1.82x, and
+      // because the rates differ those coincidences form and dissolve at moving
+      // points. That is what read as flashing joints. When two edges swept into
+      // ALIGNMENT rather than merely crossing, a whole line lit up at once,
+      // which is the other half of the report.
+      //
+      // Over the void a single line is IDENTICAL either way: normal blending at
+      // alpha 0.62 over black gives 0.62 * hue, exactly what additive gave. The
+      // only thing that changes is what an overlap can reach. Additive was
+      // unbounded; normal blending cannot exceed the source colour, so the same
+      // two shells now land near 0.81 and all four near 0.93 instead of 1.82.
+      // The base look is kept and only the blowout is capped.
+      const mat = new THREE.LineBasicMaterial({ color: COL_PERI.clone(), transparent: true, opacity: 0.6, blending: THREE.NormalBlending, depthWrite: false });
       const ls = new THREE.LineSegments(geo, mat);
       group.add(ls);
       shells.push(ls);
@@ -1010,9 +1147,19 @@ function HudDriver({ ctl, hud }: { ctl: HeroCtl; hud: HeroHud }) {
     // thing that knows where the clock actually is. Removing a class that was
     // never added (the lab, reduced motion, a page that loaded scrolled) is a
     // no-op, so this needs no guard beyond the once-only flag.
+    // The same moment is also the answer to "may anything else interrupt the
+    // page yet". The animatic is a held beat with a scroll lock over it, and
+    // something that covers it (the subscribe modal) is not an interruption of
+    // the page, it is an interruption of the ONE thing the visitor came in on.
+    // Announced from here for the same reason the lock is released from here:
+    // this driver is the only thing that knows where the clock actually is. The
+    // class is the state a late listener can read; the event is for one already
+    // waiting, since it cannot be missed by anything mounted before the scene.
     if (!released.current && t >= MARK_OUT) {
       released.current = true;
       document.documentElement.classList.remove("ha-lock");
+      document.documentElement.classList.add("ha-done");
+      window.dispatchEvent(new Event("hero:done"));
     }
     // THE ADDRESS: the line TYPES in, character by character, at a linear rate.
     // Linear on purpose -- an eased curve would make a typewriter accelerate and
@@ -1148,9 +1295,7 @@ function HeroScene({
           <HudDriver ctl={ctl} hud={hud} />
         </>
       )}
-      {/* Only the pinned backdrop is throttled. The hero and the lab compose
-          every frame, because that canvas IS the animatic. */}
-      <HeroBloom ctl={ctl} maxHz={mode === "cosmos" ? COSMOS_HZ : 0} />
+      <HeroBloom ctl={ctl} />
     </>
   );
 }
@@ -1187,15 +1332,10 @@ export default function HeroCanvas({
   // chain over every one of them twice over. A budget is the same rule for both
   // -- draw about this many pixels, whatever the display calls them -- and it is
   // the backdrop that can afford to be drawn small and scaled up.
-  const dpr = useMemo<number | [number, number]>(() => {
+  const dpr = useMemo<[number, number]>(() => {
     const ceiling = Math.min(window.innerWidth, window.innerHeight) < 700 ? 1.5 : 2;
-    if (mode !== "cosmos") return [1, ceiling] as [number, number];
-    const area = window.innerWidth * window.innerHeight;
-    // Never sharper than the display and never softer than half of it: past that
-    // the starfield's points start to drop out rather than merely soften.
-    const ratio = Math.sqrt(COSMOS_PIXEL_BUDGET / area);
-    return Math.max(0.5, Math.min(window.devicePixelRatio, ceiling, ratio));
-  }, [mode]);
+    return [1, ceiling] as [number, number];
+  }, []);
   return (
     <Canvas
       flat
