@@ -98,6 +98,24 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
     const c = new EffectComposer(gl, rt);
     c.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.28);
+    // A SOFT THRESHOLD, and this is what stops the little orbs jittering.
+    //
+    // The orbs are the bloom: every small bright point, which here means a line
+    // crossing, gets a round halo. UnrealBloomPass ships smoothWidth at 0.01,
+    // which against a threshold of 0.28 is effectively a hard on/off. Everything
+    // in this scene is in continuous motion (the whole-body spin, a 3.5% breathe,
+    // a positional wave), so a crossing sitting near the threshold wobbles across
+    // it every frame and its halo pops in and out rather than fading.
+    //
+    // 0.45 turns that step into a long ramp: a point drifting around the
+    // threshold now changes its halo smoothly instead of switching it. It also
+    // gives merch and music, at luma 0.274 and 0.232, a little bloom for the
+    // first time -- they sat just under the hard cutoff and got none, which is
+    // why they looked flat next to the other three and why they had no orbs to
+    // jitter in the first place.
+    // Cast because three types highPassUniforms as {}. The uniform is real and
+    // set in UnrealBloomPass's own constructor; see its line 137.
+    (bloom.highPassUniforms as Record<string, { value: number }>).smoothWidth.value = 0.45;
     bloomRef.current = bloom;
     c.addPass(bloom);
     c.addPass(new OutputPass());
@@ -782,62 +800,89 @@ const Z_CORE = -34; // where the warp core sits and the doors are born
 // deliberately shallow: at 0.5 the innermost shell ran over 2x the outermost
 // and churned, which is the thing that had to come down.
 const GYRO_RATE = 0.5;
-const GYRO = Array.from({ length: SHELLS }, (_, i) => {
-  const k = Math.pow(PHI, i * 0.3) * GYRO_RATE;
-  const flip = i % 2 ? -1 : 1;
-  return {
-    rx: 0.150 * k * flip,
-    ry: 0.243 * k,
-    rz: 0.097 * k * -flip,
-    px: i * 1.3,
-    py: i * 0.9,
-    pz: i * 2.1, // phases so they start visibly apart, not stacked
-  };
-});
+// ONE RATE FOR THE WHOLE NEST, and the counter-rotation is gone. This is what
+// stops the glow jittering, and the reason is worth writing down because the
+// symptom pointed everywhere except here.
+//
+// Each shell used to carry its own rate and direction, so their lines swept
+// across one another continuously. Even with the shells no longer summing (see
+// the blending note in HeroShape) an overlap still lifts a pixel from about
+// 0.62 of the hue to 0.93, and because the sweeping never stops, that lift is
+// always moving. Bloom multiplies it, and a moving 50% swing in bloom is a
+// glow that will not sit still.
+//
+// It showed on exactly three doors: art, writing and videos, at linear luma
+// 0.750, 0.626 and 0.605. Merch and music, at 0.274 and 0.232, were reported as
+// fine. The bloom threshold is 0.28. The two "fine" doors were not stabler,
+// they simply never reached the bloom pass at all, which is the same reason
+// they glow less.
+//
+// So the sweeping goes and the nest keeps everything else. The PHASES stay, so
+// the shells still sit at visibly different angles and still read as a nest
+// rather than one thick line. What is now shared is the RATE, which makes the
+// nest rigid in its own frame: overlaps land in fixed places and hold there.
+// The door still tumbles, from the whole-body spin on the group.
+const GYRO = Array.from({ length: SHELLS }, (_, i) => ({
+  rx: 0.150 * GYRO_RATE,
+  ry: 0.243 * GYRO_RATE,
+  rz: 0.097 * GYRO_RATE,
+  px: i * 1.3,
+  py: i * 0.9,
+  pz: i * 2.1, // phases so they sit visibly apart, not stacked
+}));
 function gyro(ls: THREE.Object3D, i: number, t: number) {
   const r = GYRO[i];
   ls.rotation.set(r.px + t * r.rx, r.py + t * r.ry, r.pz + t * r.rz);
 }
-// THE BLOOM SEES LUMINANCE, NOT COLOUR, and the five doors were never equal in
-// its eyes. UnrealBloomPass high-passes on linear luma with a threshold of 0.28,
-// and the palette straddled it:
+// A NOTE ON THE PALETTE AND THE BLOOM, because it cost a day to work out and
+// the numbers are worth keeping. UnrealBloomPass high-passes on linear luma at a
+// threshold of 0.28, and the door hues straddle it:
 //
-//   art     #3dff9e  0.750  above -> blooms
-//   writing #ffc48a  0.626  above -> blooms
-//   videos  #00e0ff  0.605  above -> blooms
-//   merch   #b46bff  0.274  BELOW -> clean
-//   music   #4d7cff  0.232  BELOW -> clean
+//   art     #3dff9e  0.750      writing #ffc48a  0.626
+//   videos  #00e0ff  0.605      merch   #b46bff  0.274
+//   music   #4d7cff  0.232
 //
-// Green carries 0.7152 of the luma weight against blue's 0.0722, so two colours
-// that look equally bright to a designer can sit on opposite sides of that line.
-// The two above it were reported as blown out and the two below it as fine,
-// which is the whole diagnosis: it was never the shapes, the stars or the bloom
-// resolution. Each door is several nested LineSegments shells, so a crossing is
-// two or three lines summed under additive blending, and a hue already riding
-// three times over the threshold turns every crossing into a hot blob.
+// Green carries 0.7152 of the luma weight against blue's 0.0722, so colours
+// picked to look equally bright sit on opposite sides of that line. When the
+// shells were ADDITIVE this was the whole problem: a hue already three times
+// over the threshold turned every sweeping shell coincidence into a hot blob.
 //
-// So the hues are levelled to the one that reads correctly. Merch is the
-// reference because it is the brightest door that stays clean, and matching it
-// rather than dropping under the threshold entirely keeps the doors glowing:
-// single lines sit just under, crossings go just over, which is exactly what
-// merch already does.
-//
-// Hue and saturation are untouched. This is a uniform scale in linear space, so
-// green stays green; it stops being brighter than the bloom can handle.
-const BLOOM_SAFE_LUMA = 0.274; // merch, #b46bff
-function levelForBloom(c: THREE.Color): THREE.Color {
-  const luma = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-  // Never brighten. A door already below the line is left exactly as it is.
-  return luma <= BLOOM_SAFE_LUMA ? c : c.multiplyScalar(BLOOM_SAFE_LUMA / luma);
-}
+// The hues were levelled down to merch to fix that, and it was the wrong fix.
+// Once the shells stopped summing (see the blending note below) the overlap was
+// bounded structurally, and the levelling was left doing nothing but holding
+// every door just UNDER the threshold, which took the glow off all five. The
+// palette is used as designed again. Unequal glow across the doors is the
+// palette's own character, not a defect.
 function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroCtl }) {
   const built = useMemo(() => {
     const group = new THREE.Group();
     const geo = getGeo(door.shape);
-    const hue = levelForBloom(new THREE.Color(door.hue));
+    const hue = new THREE.Color(door.hue);
     const shells: THREE.LineSegments[] = [];
-    for (let i = 0; i < SHELLS; i++) {
-      const mat = new THREE.LineBasicMaterial({ color: COL_PERI.clone(), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+    // THE RING GIVES UP ITS INNERMOST SHELL. Its torus is tessellated 8x28,
+    // far denser than any other door, so a fourth nested copy inside the third
+    // was not reading as depth, it was filling the middle in. The dense
+    // tessellation is what makes the shape read as round and is deliberately
+    // kept (see the geometry note in heroShapes); what goes is the copy of it.
+    const count = door.shape === "ring" ? SHELLS - 1 : SHELLS;
+    for (let i = 0; i < count; i++) {
+      // NOT ADDITIVE, and this is the fix for the flaring joints and edges.
+      //
+      // Four nested shells gyroscope at different rates and directions, so their
+      // lines constantly sweep across each other. Summed additively, a two-shell
+      // coincidence was about 1.1x the hue and a four-way reached 1.82x, and
+      // because the rates differ those coincidences form and dissolve at moving
+      // points. That is what read as flashing joints. When two edges swept into
+      // ALIGNMENT rather than merely crossing, a whole line lit up at once,
+      // which is the other half of the report.
+      //
+      // Over the void a single line is IDENTICAL either way: normal blending at
+      // alpha 0.62 over black gives 0.62 * hue, exactly what additive gave. The
+      // only thing that changes is what an overlap can reach. Additive was
+      // unbounded; normal blending cannot exceed the source colour, so the same
+      // two shells now land near 0.81 and all four near 0.93 instead of 1.82.
+      // The base look is kept and only the blowout is capped.
+      const mat = new THREE.LineBasicMaterial({ color: COL_PERI.clone(), transparent: true, opacity: 0.6, blending: THREE.NormalBlending, depthWrite: false });
       const ls = new THREE.LineSegments(geo, mat);
       group.add(ls);
       shells.push(ls);
