@@ -52,6 +52,24 @@ export const SHELL_FALLOFF: Record<Kind, number> = {
   ring: 0.175,
 };
 
+// HOW BRIGHT THE WIREFRAMES ARE DRAWN. The outermost shell's line alpha, which
+// the shells below step down from by SHELL_FALLOFF. Under NormalBlending over
+// the void this is not a hint, it is the answer: a line lands at exactly
+// alpha * hue, so these numbers ARE the fraction of the hue that reaches the
+// frame.
+//
+// TWO VALUES, because the doors are asked for two different things. Out of the
+// core they are debris going past at speed, read against a frame that is
+// filling with streaks. In the menu they are the navigation: still, looked AT
+// rather than glimpsed, and carrying a label. Only the menu is lifted.
+//
+// The handover costs nothing. The eject path ends at 2.2 and the menu path
+// fades in on smooth(2.5, 3.2, t), so the doors sit at zero alpha across the
+// switch and there is no frame in which a value change could show. The break
+// flood whites the frame out over that same window in any case.
+export const SHELL_ALPHA_EJECT = 0.62;
+export const SHELL_ALPHA_MENU = 0.82;
+
 // Resting slot x-positions (world units). Spacing 4 across the 16:9 frame.
 export const SLOT_X = [-8, -4, 0, 4, 8];
 

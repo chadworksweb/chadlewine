@@ -33,7 +33,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
-  DOORS, PHI, SHELLS, SHELL_FALLOFF, DUR, SAID_IN, SAID_OUT,
+  DOORS, PHI, SHELLS, SHELL_FALLOFF, SHELL_ALPHA_EJECT, SHELL_ALPHA_MENU, DUR, SAID_IN, SAID_OUT,
   SKY_IN, SKY_FULL,
   MARK_IN, MARK_OUT, MARK_TEXT, MARK_ALPHA, MARK_ALPHA_MOBILE, HERO_MOBILE_MQ,
   ENTER_IN, ENTER_OUT, ENTER_DIM, FADE_SECS, SKIP_SECS, COL_PERI, COL_VOID,
@@ -56,6 +56,38 @@ const FOG_DENSITY = 0.014; // the spike value: lets the grid + warp core read ac
 // So the sky ends where the hero ends. Below it the page is plain --bg-deep,
 // which is the same #07070d the scene clears to, so there is no seam.
 const BLOOM_SCALE = 1;
+
+// THE KNEE TRAVELS WITH THE WIREFRAMES, and this is what lets the menu be
+// brighter without the glow coming back with it.
+//
+// UnrealBloomPass high-passes on linear luma: a pixel's contribution is
+// smoothstep(threshold, threshold + smoothWidth, luma). Both ends of that ramp
+// were tuned against lines drawn at SHELL_ALPHA_EJECT, so raising a door's
+// alpha does not merely brighten its lines, it slides every one of them up a
+// fixed ramp. Art sits at 0.442 in the menu today and lands at 0.584 once
+// lifted, which is 0.30 -> 0.75 of high-pass alpha: a 32% brighter line buying
+// a 4x brighter halo. That is exactly the flare that came off on 2026-07-31,
+// arriving again by a different door.
+//
+// Scaling BOTH ends of the ramp by the same ratio holds
+// (luma - threshold) / smoothWidth fixed, so every door keeps the high-pass
+// alpha it has now and its halo grows only in step with the line casting it.
+// What the bloom picks out is unchanged; only how much light there was to pick
+// from. Measured over the settled row, line brightness +10% with lit coverage
+// going DOWN 4%, which is the whole test: brighter lines, no wider glow.
+//
+// AND IT HAS TO BE A FUNCTION OF t, because only the MENU is lifted. Holding
+// the raised knee across the whole timeline would quietly take the bloom off
+// the eject, whose shells never brightened, so it would be paying a tax it
+// never incurred. The ramp rides the doors' own fade-in, so the knee arrives
+// with the brightness that needs it and the intro keeps the pass it was tuned
+// with.
+const BLOOM_THRESHOLD = 0.28;
+const BLOOM_SMOOTH = 0.45;
+const BLOOM_KNEE_MENU = SHELL_ALPHA_MENU / SHELL_ALPHA_EJECT;
+// The doors' own curve, quoted from the menu path below so the two cannot part.
+const bloomKnee = (t: number) => lerp(1, BLOOM_KNEE_MENU, smooth(2.5, 3.2, t));
+
 // ---- bloom composer (manual-render, no post-processing dep) -----------------
 function HeroBloom({ ctl }: { ctl: HeroCtl }) {
   const { gl, scene, camera, size } = useThree();
@@ -97,7 +129,7 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
     });
     const c = new EffectComposer(gl, rt);
     c.addPass(new RenderPass(scene, camera));
-    const bloom = new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, 0.28);
+    const bloom = new UnrealBloomPass(new THREE.Vector2(size.width, size.height), 0.7, 0.6, BLOOM_THRESHOLD);
     // A SOFT THRESHOLD, and this is what stops the little orbs jittering.
     //
     // The orbs are the bloom: every small bright point, which here means a line
@@ -115,7 +147,10 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
     // jitter in the first place.
     // Cast because three types highPassUniforms as {}. The uniform is real and
     // set in UnrealBloomPass's own constructor; see its line 137.
-    (bloom.highPassUniforms as Record<string, { value: number }>).smoothWidth.value = 0.45;
+    //
+    // Both ends of the ramp are the UNLIFTED pair, which is the right state for
+    // t = 0. The frame loop rewrites them through bloomKnee() from there.
+    (bloom.highPassUniforms as Record<string, { value: number }>).smoothWidth.value = BLOOM_SMOOTH;
     bloomRef.current = bloom;
     c.addPass(bloom);
     c.addPass(new OutputPass());
@@ -178,6 +213,14 @@ function HeroBloom({ ctl }: { ctl: HeroCtl }) {
         0.7 + smooth(1.4, 2.3, t) * 0.5 + Math.max(0, smooth(2.2, 2.4, t) - smooth(2.5, 3.1, t)) * 1.1;
       b.strength = base * fade;
       b.enabled = fade > 0.001;
+      // The knee opens up as the menu brightens. `threshold` is a property the
+      // pass copies into its uniform every render (UnrealBloomPass line 309),
+      // so writing it here is enough; `smoothWidth` is set once in the pass's
+      // constructor and never refreshed, so that one has to be written straight
+      // to the uniform or the ramp's two ends would drift apart.
+      const knee = bloomKnee(t);
+      b.threshold = BLOOM_THRESHOLD * knee;
+      (b.highPassUniforms as Record<string, { value: number }>).smoothWidth.value = BLOOM_SMOOTH * knee;
     }
     composer.render();
   }, 1);
@@ -925,7 +968,7 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
         gyro(ls, i, t);
         const m = ls.material as THREE.LineBasicMaterial;
         m.color.copy(built.hue); // ignites in its tier hue straight out of the core
-        m.opacity = Math.max(0.03, alpha * (0.62 - i * built.fall));
+        m.opacity = Math.max(0.03, alpha * (SHELL_ALPHA_EJECT - i * built.fall));
       }
       const p = built.trailGeo.attributes.position as THREE.BufferAttribute;
       p.setXYZ(0, 0, 0, Z_CORE);
@@ -977,7 +1020,7 @@ function HeroShape({ door, index, ctl }: { door: Door; index: number; ctl: HeroC
       // alpha. Multiplied in beforehand, every shell dimmed smoothly down to
       // the floor, sat there as a ghost over the feed, and then got cut when
       // g.visible flipped: three stages instead of one dim to nothing.
-      m.opacity = Math.max(0.04, alpha * (0.62 - i * built.fall)) * fade;
+      m.opacity = Math.max(0.04, alpha * (SHELL_ALPHA_MENU - i * built.fall)) * fade;
     }
   });
   return (
