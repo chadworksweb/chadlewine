@@ -89,6 +89,45 @@ function PauseGlyph() {
   );
 }
 
+// The play/pause button + progress ring on its own. Exported because the cube
+// visualizer on the song page overlays this exact control on the album art:
+// one implementation, so the two can never drift apart. Every class here is
+// styled in global.css; the `--art` sizing (72px circle, 42px glyph) comes
+// from an ancestor carrying .mini-player--art.
+export function MiniPlayerTransport({
+  playing,
+  progress,
+  playbackMode = "preview",
+  onToggle,
+}: {
+  playing: boolean;
+  progress: number;
+  playbackMode?: PlaybackMode;
+  onToggle: () => void;
+}) {
+  const ringOffset = CIRCUMFERENCE - progress * CIRCUMFERENCE;
+  return (
+    <button
+      type="button"
+      className="mini-player__play-btn"
+      onClick={onToggle}
+      aria-label={playing ? "Pause" : `Play ${playbackMode === "preview" ? "preview" : ""}`}
+    >
+      <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
+        <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
+        <circle
+          className="mini-player__ring-progress"
+          cx="20"
+          cy="20"
+          r="18"
+          style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
+        />
+      </svg>
+      <span className="mini-player__icon">{playing ? <PauseGlyph /> : <PlayGlyph />}</span>
+    </button>
+  );
+}
+
 export function MiniPlayer({
   songId,
   songSlug,
@@ -126,28 +165,14 @@ export function MiniPlayer({
     });
   }
 
-  const ringOffset = CIRCUMFERENCE - progress * CIRCUMFERENCE;
-
   // The play button + progress ring, reused by both variants.
   const playButton = (
-    <button
-      type="button"
-      className="mini-player__play-btn"
-      onClick={handleToggle}
-      aria-label={playing ? "Pause" : `Play ${playbackMode === "preview" ? "preview" : ""}`}
-    >
-      <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
-        <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
-        <circle
-          className="mini-player__ring-progress"
-          cx="20"
-          cy="20"
-          r="18"
-          style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
-        />
-      </svg>
-      <span className="mini-player__icon">{playing ? <PauseGlyph /> : <PlayGlyph />}</span>
-    </button>
+    <MiniPlayerTransport
+      playing={playing}
+      progress={progress}
+      playbackMode={playbackMode}
+      onToggle={handleToggle}
+    />
   );
 
   if (variant === "art") {

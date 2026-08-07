@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { usePlayer } from "@/components/PlayerContext";
+import { usePlayer, type PlaybackMode } from "@/components/PlayerContext";
+import { MiniPlayerTransport } from "@/components/MiniPlayer";
 import { focalCropStyle } from "@/lib/focal-crop";
 import type { BeatMorphRequest, MeshAnimRef, PulseRequest, SnarePulseRequest } from "@/components/CubeVisualizerMesh";
 
@@ -73,6 +74,15 @@ interface CubeVisualizerProps {
    *  song's MIDI range). Same sample rate + length as envelope. Drives
    *  ambient/glow hue rotation per note. */
   bassSynthPitch?: number[] | null;
+  /** Toggles playback for this song. When supplied, a play/pause button is
+   *  overlaid on the art. The cube already knows whether it is the playing
+   *  song, but not how to START one (it never receives the streaming URL), so
+   *  the owner passes the toggle down rather than the payload. Omit on
+   *  surfaces with nothing to play and no button renders. */
+  onTogglePlay?: () => void;
+  /** Only shapes the overlay button's aria-label ("Play" vs "Play preview"),
+   *  matching whatever the MiniPlayer for this song was given. */
+  playbackMode?: PlaybackMode;
   /** Effective render-lever config (global defaults merged with this song's
    *  overrides), keyed by lever id from src/lib/librosa-levers.ts. Any key
    *  absent falls back to the documented RENDER_FALLBACK constants below, so
@@ -258,6 +268,8 @@ export function CubeVisualizer({
   bassSynthEnvelope,
   bassSynthEnvelopeHz,
   bassSynthPitch,
+  onTogglePlay,
+  playbackMode,
   renderConfig,
 }: CubeVisualizerProps) {
   const player = usePlayer();
@@ -964,6 +976,45 @@ export function CubeVisualizer({
           </svg>
         )}
       </button>
+
+      {/* Touch-layout transport, overlaid on the art. The mini player drops
+          below the fold once the grid stacks, so on a phone there was no way
+          to stop playback from the thing you are looking at. Hidden on the
+          two-column layout, where the mini player sits alongside.
+
+          Two states, never both:
+            idle    -> centered play button.
+            playing -> button gone, whole container is the pause target, so
+                       nothing sits on top of the cube while it moves.
+
+          Deliberately NOT tied to --cv-unfold like the fullscreen toggle
+          above: that fades to 0 while idle, which is exactly when the play
+          button has to be visible. */}
+      {onTogglePlay && !playing && (
+        // The homepage featured track's art-overlay button, reused as-is.
+        // .mini-player--art on the wrapper is what pulls in its 72px circle
+        // and 42px glyph; CubeVisualizer.css only moves it from that
+        // variant's bottom-right anchor to the middle of the cube.
+        <div className="cube-vis__transport mini-player--art">
+          <MiniPlayerTransport
+            playing={false}
+            progress={isThis ? player.progress : 0}
+            playbackMode={playbackMode}
+            onToggle={onTogglePlay}
+          />
+        </div>
+      )}
+
+      {/* Full-bleed pause target. Sits UNDER the fullscreen toggle's z-index
+          so that button keeps working while playing. */}
+      {onTogglePlay && playing && (
+        <button
+          type="button"
+          className="cube-vis__tap-pause"
+          onClick={onTogglePlay}
+          aria-label="Pause"
+        />
+      )}
 
       <div className="cube-vis__stage" aria-hidden="true">
         <div ref={boxOuterRef} className="cube-vis__box-outer">
