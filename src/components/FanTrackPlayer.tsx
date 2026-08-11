@@ -63,10 +63,17 @@ export function FanTrackPlayer({
           return;
         }
         const hls = new Hls({
-          // Don't try to recover from session-expiration errors silently —
-          // they should bubble so the player shows an error state.
-          xhrSetup: (xhr) => {
-            xhr.withCredentials = true;
+          // Credentials belong only on our own endpoints (the manifest and
+          // the key), which are cookie-gated. Sending them to the Bunny CDN
+          // too makes the segment request credentialed, and a credentialed
+          // cross-origin request is rejected unless the CDN echoes an exact
+          // origin and allows credentials, which no CDN CORS toggle does.
+          // Session-expiration errors still bubble to the error state.
+          xhrSetup: (xhr, url) => {
+            const sameOrigin =
+              new URL(url, window.location.href).origin ===
+              window.location.origin;
+            if (sameOrigin) xhr.withCredentials = true;
           },
         });
         hlsRef.current = hls as unknown as { destroy(): void };
