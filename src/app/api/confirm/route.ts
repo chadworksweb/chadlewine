@@ -1,4 +1,5 @@
 import { confirmSubscriptionByToken } from "@/lib/audience";
+import { publicOrigin } from "@/lib/request-origin";
 
 /* Double opt-in confirmation endpoint.
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
-  const dest = new URL("/confirm", url.origin);
+  const dest = new URL("/confirm", publicOrigin(request));
   if (token) dest.searchParams.set("token", token);
   return Response.redirect(dest, 303);
 }
