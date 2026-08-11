@@ -51,6 +51,7 @@ export interface AccountAudience {
   emails_received: number;
   emails_opened: number;
   notify_new_releases: boolean;
+  notify_youtube_video: boolean;
   notify_archive_highlights: boolean;
   notify_curated: boolean;
   notify_observations: boolean;
