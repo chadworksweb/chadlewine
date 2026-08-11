@@ -1,11 +1,11 @@
 -- Tripwire: contract probes for chadlewine.com.
 --
 -- Motivated by 2026-08-11, when three faults ran silently in prod.
--- Every unsubscribe and confirm link in every email had pointed at
--- https://0.0.0.0:3006 since the move off Vercel on 2026-07-05, and
--- the fan-track player could not read a single audio segment because
--- the CDN sent no CORS header. None of it threw an exception. Every
--- route returned 200. An error ledger would have stayed green.
+-- The fan-track key URI had pointed at https://0.0.0.0:3006 since the
+-- move off Vercel on 2026-07-05, the player could not read a single
+-- audio segment because the CDN sent no CORS header, and the Stripe
+-- billing-portal return URL sent members nowhere. None of it threw an
+-- exception. Every route returned 200. An error ledger stays green.
 --
 -- So Tripwire does not watch for crashes. Each check asserts an
 -- observable fact about production, and trips when the fact stops

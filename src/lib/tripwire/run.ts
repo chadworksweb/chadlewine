@@ -1,7 +1,13 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase-server";
 import { sendEmail } from "@/lib/email";
-import { TRIPWIRE_CHECKS, findCheck, type CheckStatus, type TripwireCheck } from "./checks";
+import {
+  TRIPWIRE_CHECKS,
+  findCheck,
+  currentEnvironment,
+  type CheckStatus,
+  type TripwireCheck,
+} from "./checks";
 
 /* The Tripwire runner.
 
@@ -61,7 +67,7 @@ async function executeOne(check: TripwireCheck): Promise<{
   }
 }
 
-function alertHtml(outcomes: RunOutcome[]): string {
+function alertHtml(outcomes: RunOutcome[], environment: string): string {
   const rows = outcomes
     .map(
       (o) => `
@@ -73,15 +79,42 @@ function alertHtml(outcomes: RunOutcome[]): string {
     .join("");
   return `
     <div style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;">
-      <h2 style="margin:0 0 4px;font-size:18px;">Tripwire tripped</h2>
+      <h2 style="margin:0 0 4px;font-size:18px;">Tripwire tripped on ${environment}</h2>
       <p style="margin:0 0 16px;color:#555;font-size:14px;">
-        ${outcomes.length} check${outcomes.length === 1 ? "" : "s"} on chadlewine.com stopped asserting true.
+        ${outcomes.length} check${outcomes.length === 1 ? "" : "s"} stopped asserting true.
       </p>
       <table style="border-collapse:collapse;width:100%;font-size:14px;">${rows}</table>
       <p style="margin:16px 0 0;font-size:13px;">
         <a href="${SITE_URL}/admin/tripwire" style="color:#4f46e5;">Open the Tripwire panel</a>
       </p>
     </div>`;
+}
+
+/* Sends a synthetic alert through the real delivery path, so the channel can
+   be proven without waiting for something to actually break. An alert route
+   nobody has ever seen arrive is indistinguishable from no alerting at all.
+   Writes nothing: no runs, no state, no alert timestamps. */
+export async function sendTestAlert(): Promise<{ delivered: boolean; to: string }> {
+  const environment = currentEnvironment();
+  const delivered = await sendEmail({
+    to: ADMIN_INBOX,
+    subject: `Tripwire: test alert from ${environment}`,
+    html: alertHtml(
+      [
+        {
+          check_id: "__test__",
+          label: "Test alert (nothing is wrong)",
+          status: "fail",
+          detail:
+            "Sent from the Tripwire panel to prove the alert channel delivers. No check is failing.",
+          duration_ms: 0,
+          alerted: true,
+        },
+      ],
+      environment,
+    ),
+  });
+  return { delivered, to: ADMIN_INBOX };
 }
 
 export async function runTripwire(opts?: { only?: string }): Promise<RunOutcome[]> {
@@ -92,9 +125,15 @@ export async function runTripwire(opts?: { only?: string }): Promise<RunOutcome[
 
   if (checks.length === 0) return [];
 
+  // Scope everything to this environment. Prod, staging, and local dev all
+  // point at the same Supabase, so without this a sweep from localhost
+  // overwrites prod's board.
+  const environment = currentEnvironment();
+
   const { data: stateRows } = await supabase
     .from("tripwire_state")
-    .select("check_id, status, since, consecutive_failures, last_alert_at, muted");
+    .select("check_id, status, since, consecutive_failures, last_alert_at, muted")
+    .eq("environment", environment);
   const prior = new Map<string, StateRow>(
     ((stateRows ?? []) as StateRow[]).map((r) => [r.check_id, r]),
   );
@@ -139,10 +178,12 @@ export async function runTripwire(opts?: { only?: string }): Promise<RunOutcome[
       status: res.status,
       detail: res.detail,
       duration_ms: res.duration_ms,
+      environment,
     });
 
     await supabase.from("tripwire_state").upsert(
       {
+        environment,
         check_id: check.id,
         status: res.status,
         detail: res.detail,
@@ -154,7 +195,7 @@ export async function runTripwire(opts?: { only?: string }): Promise<RunOutcome[
         last_alert_at: alertDue ? nowIso : (was?.last_alert_at ?? null),
         muted,
       },
-      { onConflict: "check_id" },
+      { onConflict: "environment,check_id" },
     );
   }
 
@@ -162,8 +203,8 @@ export async function runTripwire(opts?: { only?: string }): Promise<RunOutcome[
     try {
       await sendEmail({
         to: ADMIN_INBOX,
-        subject: `Tripwire: ${toAlert.map((o) => o.label).join(", ")}`,
-        html: alertHtml(toAlert),
+        subject: `Tripwire (${environment}): ${toAlert.map((o) => o.label).join(", ")}`,
+        html: alertHtml(toAlert, environment),
       });
     } catch (e) {
       // Never let a mail failure fail the sweep; the state row is the record.

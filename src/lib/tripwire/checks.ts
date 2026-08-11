@@ -35,7 +35,7 @@ export interface TripwireCheck {
   run: () => Promise<CheckResult>;
 }
 
-function siteUrl(): string {
+export function siteUrl(): string {
   return (
     process.env.SITE_URL ??
     process.env.NEXT_PUBLIC_SITE_URL ??
@@ -43,13 +43,34 @@ function siteUrl(): string {
   ).replace(/\/+$/, "");
 }
 
+export type TripwireEnvironment = "local" | "staging" | "prod";
+
+// Which board this process writes to. Derived from SITE_URL rather than
+// NODE_ENV, because prod and staging are both production builds against the
+// same Supabase and only SITE_URL tells them apart. Without this, a sweep
+// from localhost overwrites prod's board.
+export function currentEnvironment(): TripwireEnvironment {
+  const host = siteUrl();
+  if (host === "https://chadlewine.com") return "prod";
+  if (host === "https://staging.chadlewine.com") return "staging";
+  return "local";
+}
+
 /* --- Origin checks -------------------------------------------------------
 
+   Canaries for publicOrigin(), NOT coverage of the unsubscribe flow.
+
    `new URL(request.url).origin` resolves to the container's own bind address
-   behind the le-nginx proxy. From 2026-07-05 to 2026-08-11 that silently sent
-   every unsubscribe and confirm recipient to https://0.0.0.0:3006. Both routes
-   answer a GET with a 303 whose Location is built from the same helper the
-   rest of the app uses, so probing one proves the helper for all of them. */
+   behind the le-nginx proxy, and from 2026-07-05 to 2026-08-11 these two
+   routes answered a GET with a 303 pointing at https://0.0.0.0:3006.
+
+   Real recipients never hit that. The visible link in an email points at the
+   /unsubscribe and /confirm PAGES, built by siteOrigin() from env, and RFC
+   8058 one-click POSTs rather than GETs. So a green light here does not mean
+   the unsubscribe flow works; it means publicOrigin() still resolves
+   correctly behind the proxy. That matters because the same helper builds the
+   Stripe billing-portal return_url, which is a real user path and cannot be
+   probed without creating a portal session. */
 
 async function probeRedirectOrigin(
   path: string,
@@ -255,16 +276,16 @@ const checkTurnstile: TripwireCheck = {
 export const TRIPWIRE_CHECKS: TripwireCheck[] = [
   {
     id: "public_origin_unsubscribe",
-    label: "Unsubscribe links point at the site",
+    label: "publicOrigin() resolves to the site",
     because:
-      "Every marketing email carries this link. If it points at the container's internal address, recipients cannot unsubscribe and you cannot tell.",
+      "Behind the proxy this helper once resolved to the container's own address. It builds the Stripe billing-portal return URL, which sends a paying member nowhere when it breaks. Does NOT cover the unsubscribe flow: emails link to the /unsubscribe page, not this route.",
     run: () => probeRedirectOrigin("/api/unsubscribe", "/api/unsubscribe"),
   },
   {
     id: "public_origin_confirm",
-    label: "Confirm links point at the site",
+    label: "publicOrigin() resolves on a second route",
     because:
-      "Double opt-in dies silently when this breaks. Subscribers confirm into nothing and never appear.",
+      "Same helper, independent route, so a regression that somehow touches only one of them still surfaces. Also not coverage of double opt-in: those emails link to the /confirm page.",
     run: () => probeRedirectOrigin("/api/confirm", "/api/confirm"),
   },
   checkCdnCors,

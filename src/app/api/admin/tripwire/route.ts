@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
-import { TRIPWIRE_CHECKS } from "@/lib/tripwire/checks";
-import { runTripwire } from "@/lib/tripwire/run";
+import { TRIPWIRE_CHECKS, currentEnvironment } from "@/lib/tripwire/checks";
+import { runTripwire, sendTestAlert } from "@/lib/tripwire/run";
 
 // Admin control surface for Tripwire. GET returns every registered check
 // joined to its stored state plus recent history. POST runs a sweep on demand
@@ -16,11 +16,17 @@ const HISTORY_LIMIT = 20;
 export async function GET() {
   const supabase = createAdminClient();
 
+  // Every query is scoped to this instance's environment. The three
+  // environments share one Supabase, so an unscoped read would show prod
+  // staging's board and vice versa.
+  const environment = currentEnvironment();
+
   const [{ data: stateRows }, { data: history }] = await Promise.all([
-    supabase.from("tripwire_state").select("*"),
+    supabase.from("tripwire_state").select("*").eq("environment", environment),
     supabase
       .from("tripwire_runs")
       .select("check_id, status, detail, duration_ms, created_at")
+      .eq("environment", environment)
       .order("created_at", { ascending: false })
       .limit(HISTORY_LIMIT * TRIPWIRE_CHECKS.length),
   ]);
@@ -52,6 +58,7 @@ export async function GET() {
 
   return Response.json({
     checks,
+    environment,
     summary: {
       total: checks.length,
       failing: checks.filter((c) => c.status === "fail" && !c.muted).length,
@@ -63,6 +70,14 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
+
+  // Proving the alert channel delivers, rather than waiting for a real
+  // failure to find out it never worked. Writes nothing.
+  if (body.test_alert === true) {
+    const res = await sendTestAlert();
+    return Response.json({ test_alert: true, ...res });
+  }
+
   const only = typeof body.check_id === "string" ? body.check_id : undefined;
   const outcomes = await runTripwire(only ? { only } : undefined);
   return Response.json({ ran: outcomes.length, outcomes });
@@ -82,17 +97,23 @@ export async function PATCH(request: Request) {
   // and keeps its history; it just stops emailing. Upserting a whole row here
   // would overwrite a real failure with a placeholder, so update the existing
   // row when there is one and only insert a placeholder when there is not.
+  const environment = currentEnvironment();
   const { data: existing } = await supabase
     .from("tripwire_state")
     .select("check_id")
+    .eq("environment", environment)
     .eq("check_id", checkId)
     .maybeSingle();
 
   const { error } = existing
-    ? await supabase.from("tripwire_state").update({ muted }).eq("check_id", checkId)
+    ? await supabase
+        .from("tripwire_state")
+        .update({ muted })
+        .eq("environment", environment)
+        .eq("check_id", checkId)
     : await supabase
         .from("tripwire_state")
-        .insert({ check_id: checkId, muted, status: "skip", detail: "Never run" });
+        .insert({ environment, check_id: checkId, muted, status: "skip", detail: "Never run" });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
 

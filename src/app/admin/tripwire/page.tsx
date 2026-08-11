@@ -33,6 +33,7 @@ interface CheckView {
 
 interface PanelResponse {
   checks: CheckView[];
+  environment: string;
   summary: { total: number; failing: number; skipped: number; never_run: number };
 }
 
@@ -77,6 +78,7 @@ export default function TripwireAdminPage() {
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [testAlert, setTestAlert] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -111,6 +113,21 @@ export default function TripwireAdminPage() {
     }
   }
 
+  async function sendTestAlert() {
+    setTestAlert("sending");
+    try {
+      const res = await fetch("/api/admin/tripwire", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test_alert: true }),
+      });
+      const json = await res.json();
+      setTestAlert(json.delivered ? `sent to ${json.to}` : "send failed, check RESEND_API_KEY");
+    } catch (e) {
+      setTestAlert((e as Error).message);
+    }
+  }
+
   async function toggleMute(check: CheckView) {
     await fetch("/api/admin/tripwire", {
       method: "PATCH",
@@ -129,16 +146,30 @@ export default function TripwireAdminPage() {
           <Link href="/admin/settings" className="admin-page__back-link">
             &larr; Settings
           </Link>
-          <h1 className="admin-page__title">Tripwire</h1>
+          <h1 className="admin-page__title">
+            Tripwire
+            {data && (
+              <span className="admin-badge admin-badge--muted">{data.environment}</span>
+            )}
+          </h1>
         </div>
-        <button
-          onClick={() => runNow()}
-          disabled={running !== null}
-          className="admin-btn admin-btn--primary"
-        >
-          {running === "__all__" ? "Running..." : "Run all now"}
-        </button>
+        <div className="tripwire__actions">
+          <button onClick={sendTestAlert} className="admin-btn">
+            {testAlert === "sending" ? "Sending..." : "Send test alert"}
+          </button>
+          <button
+            onClick={() => runNow()}
+            disabled={running !== null}
+            className="admin-btn admin-btn--primary"
+          >
+            {running === "__all__" ? "Running..." : "Run all now"}
+          </button>
+        </div>
       </div>
+
+      {testAlert && testAlert !== "sending" && (
+        <p className="tripwire__intro">Test alert: {testAlert}</p>
+      )}
 
       <p className="tripwire__intro">
         Each check asserts something that must stay true in production. These
