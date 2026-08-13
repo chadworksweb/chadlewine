@@ -43,6 +43,10 @@ export function Nav({
   // first paint and pushes the rest of the menu around.
   const [signedIn, setSignedIn] = useState<boolean | null>(initialSignedIn);
   const lastScroll = useRef(0);
+  // Whether a [data-nav-below] hero was covering the header's band on the last
+  // scroll event, so the moment it stops can be treated as an arrival rather
+  // than as one more scroll down. See the handler.
+  const heroCovering = useRef(false);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -63,6 +67,11 @@ export function Nav({
   useEffect(() => { onArtRef.current = onArt; }, [onArt]);
 
   useEffect(() => {
+    // The header's own band, read once rather than per event so scrolling never
+    // forces a style recalc. It is a single :root value with no breakpoint
+    // override, so there is nothing to remeasure on resize.
+    const navHeight =
+      parseInt(getComputedStyle(document.documentElement).getPropertyValue("--nav-height"), 10) || 80;
     // Pages can opt to keep the nav visible past 200px by tagging an
     // element with `data-nav-keep-until` — auto-hide only kicks in once
     // the user scrolls past that element's bottom. On the art template the
@@ -78,13 +87,37 @@ export function Nav({
       // the bar would flash across the hero); this only has to clear it.
       const below = document.querySelector<HTMLElement>("[data-nav-below]");
       if (below) {
-        // Strictly "below": the header is only allowed back once the hero has
-        // left the viewport entirely, not merely once it has cleared the header
-        // line. At the crossover the content underneath is already at the top,
-        // so the bar arrives over the feed and never over the hero.
-        const covering = below.getBoundingClientRect().bottom > 0;
+        // "Covering" is measured against the header's own band, not against the
+        // viewport top, and the animatic's exit is why. #home-enter sits at the
+        // hero's bottom edge carrying scroll-margin-top: var(--nav-height), so
+        // the move that ends the intro -- skip and "enter homepage" both run it
+        // -- lands with the hero's last nav-height strip still on screen,
+        // directly behind where the bar sits. Tested against 0 that reads as
+        // "still covering", and the header never came back from the one journey
+        // whose whole purpose is to bring it back.
+        //
+        // Nothing is on top of the hero either way: at the crossing the bar
+        // covers exactly the strip the page has already travelled past, and the
+        // feed underneath is at the top of the viewport where it belongs. The
+        // spare pixel absorbs the sub-pixel slop in 100svh, which can otherwise
+        // leave the landing a fraction short of the crossing and hold the
+        // header out over a rounding error.
+        const covering = below.getBoundingClientRect().bottom > navHeight + 1;
+        const wasCovering = heroCovering.current;
+        heroCovering.current = covering;
         document.documentElement.classList.toggle("ha-hero-top", covering);
         if (covering) {
+          lastScroll.current = y;
+          return;
+        }
+        if (wasCovering) {
+          // ARRIVING IS THE REVEAL. The travel down off the hero is still a
+          // downward scroll, and the auto-hide below reads every one of those
+          // as "tuck the bar away" -- so on the frame the header was finally
+          // allowed back it was sent straight out again, which on a phone (no
+          // data-nav-keep-until below 768px) looked exactly like the header
+          // never returning at all.
+          setHidden(false);
           lastScroll.current = y;
           return;
         }
@@ -101,7 +134,12 @@ export function Nav({
         : keepUntil
           ? y + keepUntil.getBoundingClientRect().bottom
           : 200;
-      setHidden(y > threshold && y > lastScroll.current);
+      // A couple of pixels of slack on "scrolled down", because a smooth scroll
+      // settles rather than stops: the last frames of the intro's own journey
+      // land sub-pixel apart, and read literally each of those is a downward
+      // scroll that hides the bar again immediately after it arrived. No real
+      // gesture moves the page two pixels and stops.
+      setHidden(y > threshold && y > lastScroll.current + 2);
       lastScroll.current = y;
     }
     // Run it once rather than waiting for the first scroll. A page restored
