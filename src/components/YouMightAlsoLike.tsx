@@ -1,5 +1,6 @@
 import { createPublicClient } from "@/lib/supabase-server";
 import { resolveEntities, type EntityType, type EntityRef } from "@/lib/related-entities";
+import { MerchNewBadge } from "@/components/MerchNewBadge";
 import "./YouMightAlsoLike.css";
 
 interface Props {
@@ -39,6 +40,7 @@ export async function YouMightAlsoLike({ sourceType, sourceId, heading = "You mi
                 ) : (
                   <span className="ymal__thumb ymal__thumb--empty" />
                 )}
+                {it.isNew && <MerchNewBadge seed={it.slug || it.id} />}
               </span>
               <span className="ymal__title">{it.title}</span>
             </a>

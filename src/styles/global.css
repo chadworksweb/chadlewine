@@ -10759,10 +10759,18 @@ html {
      720px, so a viewport-keyed size grows in relative terms exactly where the
      cards are narrowest: 104px on a 404px desktop card is 26%, and the same
      104px on a 232px tablet card would be 45%. */
-  width: clamp(66px, 26%, 104px);
+  width: clamp(48px, 26%, 104px);
   aspect-ratio: 1;
   container-type: inline-size; /* lets the word track the badge */
   pointer-events: none;
+}
+
+/* The badge rides every grid that shows a merch item, so it has to sit on
+   several card shells. Each one needs a positioning context; the merch card's
+   image link already has one. */
+.ymal__thumb-wrap,
+.si-merch-carousel__image-link {
+  position: relative;
 }
 
 /* Two of these stack: inner shells under the word, outer shells over it.
@@ -10789,7 +10797,7 @@ html {
   left: 50%;
   transform: translate(-50%, -50%);
   font-family: var(--font-mono);
-  font-size: clamp(10px, 13cqw, 13px);
+  font-size: clamp(9px, 13cqw, 13px);
   font-weight: 600;
   line-height: 1;
   letter-spacing: 0.18em;
