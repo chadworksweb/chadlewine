@@ -451,7 +451,11 @@ h2, h3, h4, h5, h6 {
 body.art-immersive {
   overflow: hidden;
 }
-body.art-immersive main ~ * {
+/* The player is the exception. It is a sibling of <main> in the root layout,
+   so the blanket rule above was switching it off the moment the portfolio
+   went immersive — a song would keep playing with no transport anywhere on
+   screen. Music outlives the view it was started from. */
+body.art-immersive main ~ *:not(.cl-sticky-player) {
   display: none;
 }
 
