@@ -149,7 +149,7 @@ export default async function MerchProductPage({
         linkedPrintSlug={linkedPrintSlug}
         isSuperIndividual={isSuperIndividual}
       />
-      <YouMightAlsoLike sourceType="merch" sourceId={product.id} />
+      <YouMightAlsoLike sourceType="merch" sourceId={product.id} className="ymal--flush" />
       <ExploreStrip excludeMerchIds={[product.id]} wrap />
     </>
   );
