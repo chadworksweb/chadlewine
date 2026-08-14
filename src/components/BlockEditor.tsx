@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { uploadMedia } from "@/lib/upload-media";
 import {
   DndContext,
   PointerSensor,
@@ -691,22 +692,15 @@ function ImageEditor({
     setErr(null);
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("type", "site-image");
-      fd.append("folder", "email/campaigns");
-      const res = await fetch("/api/admin/media/upload", {
-        method: "POST",
-        body: fd,
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setErr(d.error || "Upload failed");
-      } else if (d.url) {
-        onUpdate({ src: d.url, alt: block.alt || file.name.replace(/\.[^.]+$/, "") });
+      const result = await uploadMedia(file, { type: "site-image", folder: "email/campaigns" });
+      if (result.url) {
+        onUpdate({ src: result.url, alt: block.alt || file.name.replace(/\.[^.]+$/, "") });
       }
-    } catch {
-      setErr("Upload failed");
+      if (result.renamedTo) {
+        setErr(`That name was taken, so it uploaded as "${result.renamedTo}".`);
+      }
+    } catch (e) {
+      setErr((e as Error).message || "Upload failed");
     } finally {
       setUploading(false);
     }

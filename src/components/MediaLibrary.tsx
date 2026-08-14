@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { uploadMedia } from "@/lib/upload-media";
 
 interface MediaImage {
   name: string;
@@ -196,60 +197,24 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
   async function uploadFile(file: File) {
     setUploading(true);
     setError("");
-
-    // The library never replaces a file. Uploading onto an existing name
-    // rewrote whatever else used that URL, and the CDN went on serving the old
-    // bytes anyway (the pull zone ignores query strings, so the URL cannot be
-    // busted), which is how three uploads in a row could look like none.
-    // Claim the next free name instead: photo.png, photo-2.png, photo-3.png.
-    const dot = file.name.lastIndexOf(".");
-    const stem = dot > 0 ? file.name.slice(0, dot) : file.name;
-    const ext = dot > 0 ? file.name.slice(dot) : "";
-
-    let res: Response | null = null;
-    let renamedTo: string | null = null;
-    for (let attempt = 1; attempt <= 20; attempt++) {
-      const candidate = attempt === 1 ? file.name : `${stem}-${attempt}${ext}`;
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", uploadZone);
-      formData.append("filename", candidate);
-      formData.append("noOverwrite", "1");
-      if (uploadFolder) formData.append("folder", uploadFolder);
-
-      res = await fetch("/api/admin/media/upload", { method: "POST", body: formData });
-      if (res.status !== 409) {
-        if (attempt > 1) renamedTo = candidate;
-        break;
-      }
-    }
-    if (!res) {
-      setError("Upload failed");
-      setUploading(false);
-      return;
-    }
-
-    if (res.ok) {
-      const data = (await res.json()) as { path?: string };
+    try {
+      const result = await uploadMedia(file, { type: uploadZone, folder: uploadFolder });
       const fresh = await fetchImages();
       // Land on the file that was just written, wherever it sorted, so the
       // upload is never something you have to go hunting for.
-      if (data.path) {
-        const idx = fresh.findIndex((img) => img.name === data.path);
-        if (idx >= 0) {
-          setSearchInput("");
-          setVisibleCount((n) => Math.max(n, idx + PAGE_SIZE));
-          setSelected(fresh[idx]);
-          setEditAlt(fresh[idx].alt_text);
-          setEditTitle(fresh[idx].title);
-        }
+      const idx = fresh.findIndex((img) => img.name === result.path);
+      if (idx >= 0) {
+        setSearchInput("");
+        setVisibleCount((n) => Math.max(n, idx + PAGE_SIZE));
+        setSelected(fresh[idx]);
+        setEditAlt(fresh[idx].alt_text);
+        setEditTitle(fresh[idx].title);
       }
-      if (renamedTo) {
-        setError(`That name was taken, so it uploaded as "${renamedTo}".`);
+      if (result.renamedTo) {
+        setError(`That name was taken, so it uploaded as "${result.renamedTo}".`);
       }
-    } else {
-      const data = await res.json();
-      setError(data.error || "Upload failed");
+    } catch (err) {
+      setError((err as Error).message);
     }
     setUploading(false);
   }

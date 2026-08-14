@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { uploadMedia } from "@/lib/upload-media";
 import { useRouter } from "next/navigation";
 import { slugify } from "@/lib/utils";
 import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
@@ -209,21 +210,14 @@ function FullResArtPanel({
   async function handleUpload(variant: "print" | "wallpaper", file: File) {
     setUploading(variant);
     setUploadError("");
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("type", "art-fullres");
-    fd.append("noOverwrite", "1");
-    const res = await fetch("/api/admin/media/upload", { method: "POST", body: fd });
-    if (res.ok) {
-      const data = await res.json();
-      onPathChange(variant, data.path as string);
-    } else if (res.status === 409) {
-      const err = await res.json().catch(() => ({ error: "File already exists" }));
-      alert(err.error || "A file with this name already exists. Rename the file and try again.");
-      setUploadError("File already exists — rename and retry.");
-    } else {
-      const err = await res.json().catch(() => ({ error: `Upload failed (${res.status})` }));
-      setUploadError(err.error || `Upload failed (${res.status})`);
+    try {
+      const result = await uploadMedia(file, { type: "art-fullres" });
+      onPathChange(variant, result.path);
+      if (result.renamedTo) {
+        setUploadError(`That name was taken, so it uploaded as "${result.renamedTo}".`);
+      }
+    } catch (e) {
+      setUploadError((e as Error).message || "Upload failed");
     }
     setUploading(null);
   }
