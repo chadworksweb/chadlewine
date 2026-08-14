@@ -9,6 +9,31 @@ import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowc
 import { CompassIcon } from "@/components/RisingCompassMark";
 import type { SkuGalleryImage } from "@/lib/release-skus";
 
+// release_date is a bare YYYY-MM-DD, so the formatter is pinned to UTC -- left
+// on the runtime zone, new Date("2026-01-01") is UTC midnight and every viewer
+// west of Greenwich reads Dec 31 of the prior year.
+//
+// The string is assembled from formatToParts rather than taken from
+// toLocaleDateString because this renders during SSR: ICU picks the literals
+// between the fields and CLDR has changed its mind about them between versions,
+// so Node and a visitor's browser can disagree on bytes that are invisible on
+// screen and hand React a #418 that discards the whole server tree. See the
+// hydration section in AGENTS.md and formatStreamDate in HomepageFeed.tsx.
+const RELEASE_DATE_FMT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
+
+function formatReleaseDate(date: string): string {
+  const f: Record<string, string> = {};
+  for (const part of RELEASE_DATE_FMT.formatToParts(new Date(date))) {
+    if (part.type !== "literal") f[part.type] = part.value;
+  }
+  return `${f.month} ${f.day}, ${f.year}`;
+}
+
 interface AlbumProps {
   id: string;
   title: string;
@@ -146,8 +171,8 @@ export function ReleaseDetail({
   }, []);
   const cart = useCart();
 
-  const year = album.release_date
-    ? new Date(album.release_date).getFullYear()
+  const releasedLabel = album.release_date
+    ? formatReleaseDate(album.release_date)
     : null;
 
   // Playback is delegated to the shared PlayerContext (same engine as the
@@ -290,15 +315,15 @@ export function ReleaseDetail({
              (FormatShowcase already shows them all), so we hide it and pull
              the Rising Compass badge up into the info bar in its place. */}
           {/* Info bar */}
-          <div className="track-detail__info-bar" data-cols={3}>
+          <div className="track-detail__info-bar track-detail__info-bar--release" data-cols={3}>
             <div className="track-detail__info-cell">
               <span className="track-detail__info-label">Tracks</span>
               <span className="track-detail__info-value">{songs.length}</span>
             </div>
-            {year ? (
+            {releasedLabel ? (
               <div className="track-detail__info-cell">
                 <span className="track-detail__info-label">Released</span>
-                <span className="track-detail__info-value">{year}</span>
+                <span className="track-detail__info-value">{releasedLabel}</span>
               </div>
             ) : album.release_window ? (
               <div className="track-detail__info-cell">

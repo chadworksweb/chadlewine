@@ -13189,6 +13189,13 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 .track-detail__info-bar[data-cols="3"],
 .product-detail__info-bar[data-cols="3"] { grid-template-columns: 1fr 1fr 1fr; }
 
+/* Release pages only. The track count is one or two digits and never needs a
+   third of the bar, so it gives half its width back to the two cells that
+   carry a full date and a format name (or the RC badge). Scoped to the
+   modifier so the song and product info bars, whose first cell is not a
+   number, keep their even thirds. */
+.track-detail__info-bar--release[data-cols="3"] { grid-template-columns: 2fr 5fr 5fr; }
+
 .track-detail__info-cell,
 .product-detail__info-cell {
   display: flex;
@@ -16103,6 +16110,15 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 /* --- Responsive --- */
 
 @media (max-width: 900px) {
+  /* Once the grid stacks, the cover art is the first thing in main, and
+     main's padding-top only clears the fixed nav -- it leaves no gap, so the
+     art sits flush against the header. Desktop never shows this because the
+     art column is height-capped and the content column sets the top edge. */
+  .track-detail,
+  .product-detail {
+    padding-top: var(--space-lg);
+  }
+
   .track-detail__grid,
   .product-detail__grid {
     grid-template-columns: 1fr;
@@ -16178,6 +16194,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 
   .track-detail__info-bar[data-cols="2"],
   .track-detail__info-bar[data-cols="3"],
+  /* Listed explicitly: the release modifier outweighs the plain selector
+     above, so without this the 2fr 5fr 5fr split would survive the collapse. */
+  .track-detail__info-bar--release[data-cols="3"],
   .product-detail__info-bar[data-cols="2"],
   .product-detail__info-bar[data-cols="3"] {
     grid-template-columns: 1fr;
