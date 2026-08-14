@@ -185,7 +185,13 @@ export async function GET(
     ? pathOrUrl
     : signBunnyUrl(getMediaConfig("music-download"), pathOrUrl);
 
-  if (format === "mp3") {
+  // A raw MP3 plays inline in the browser, so it gets proxied with a
+  // Content-Disposition to force a save. A pack is a .zip and already saves on
+  // its own: sending it as audio/mpeg named "<title>.mp3" handed album buyers a
+  // zip wearing the wrong extension, which no player can open. Decide on what
+  // the resolved path actually is, not on the format the buyer asked for.
+  const isZip = /\.zip(\?|$)/i.test(pathOrUrl);
+  if (format === "mp3" && !isZip) {
     const title = await resolveTitle(supabase, purchase.item_type, purchase.item_id);
     const filename = `${sanitizeFilename(title ?? "download")}.mp3`;
     return streamAsAttachment(finalUrl, filename, "audio/mpeg");
