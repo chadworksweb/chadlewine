@@ -1,13 +1,14 @@
 import { getCurrentSession } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase-server";
 import { resolveSkuDownloadPaths } from "@/lib/release-skus";
+import { DOWNLOAD_FORMATS, type DownloadFormat } from "@/lib/audio-formats";
 
 // Returns all digital purchases for the signed-in customer, enriched with
 // per-format download URLs (signed by /api/download/[purchaseId]). Mirrors
 // the recovery-flow shape so the same renderer can be reused if needed.
 
-type FormatKey = "mp3" | "flac" | "wav";
-const FORMATS: FormatKey[] = ["mp3", "flac", "wav"];
+type FormatKey = DownloadFormat;
+const FORMATS: readonly FormatKey[] = DOWNLOAD_FORMATS;
 
 export async function GET() {
   const session = await getCurrentSession();
@@ -80,7 +81,7 @@ export async function GET() {
     // Per-format availability comes from the SKU-attached download paths
     // (physical SKUs resolve to their digital sibling). Purchases without a
     // SKU reference have no path source — links empty.
-    let pathSource: { mp3: string | null; flac: string | null; wav: string | null } | undefined;
+    let pathSource: Record<FormatKey, string | null> | undefined;
     if (p.release_sku_id) {
       pathSource = byReleaseSku.get(p.release_sku_id);
     } else if (p.song_sku_id) {

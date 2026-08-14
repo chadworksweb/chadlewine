@@ -39,6 +39,7 @@ interface SkuRow {
   download_path_mp3: string | null;
   download_path_flac: string | null;
   download_path_wav: string | null;
+  download_path_aac: string | null;
   weight_grams: number | null;
   ships_in_days: number | null;
   shipping_first_cents: number | null;
@@ -76,6 +77,7 @@ function emptyDraft(parentSlug: string): DraftSku {
     download_path_mp3: null,
     download_path_flac: null,
     download_path_wav: null,
+    download_path_aac: null,
     weight_grams: null,
     ships_in_days: null,
     shipping_first_cents: null,
@@ -199,6 +201,7 @@ export function SkuPanel({ kind, parentId, parentSlug }: Props) {
         download_path_mp3: row.download_path_mp3,
         download_path_flac: row.download_path_flac,
         download_path_wav: row.download_path_wav,
+        download_path_aac: row.download_path_aac,
         weight_grams: row.weight_grams,
         ships_in_days: row.ships_in_days,
         shipping_first_cents: row.shipping_first_cents,
@@ -706,6 +709,17 @@ function SkuFormFields({
               onChange={(e) => onChange({ download_path_wav: e.target.value || null })}
               onBlur={onBlurSave}
               placeholder="https://cdn.bunny.net/...wav.zip"
+            />
+          </div>
+          <div className={fieldCls}>
+            <label className={labelCls}>AAC download path (the iTunes pack)</label>
+            <input
+              type="text"
+              className={monoCls}
+              value={row.download_path_aac || ""}
+              onChange={(e) => onChange({ download_path_aac: e.target.value || null })}
+              onBlur={onBlurSave}
+              placeholder="https://cdn.bunny.net/...aac.zip"
             />
           </div>
         </div>
