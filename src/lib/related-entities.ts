@@ -13,6 +13,33 @@ export const ENTITY_LABEL: Record<EntityType, string> = {
   observation: "Observation",
 };
 
+// Where each entity type actually lives. Kept next to ENTITY_TYPES so a new
+// type can't be added without deciding its table.
+export const ENTITY_TABLE: Record<EntityType, string> = {
+  song: "songs",
+  release: "releases",
+  merch: "merch",
+  art: "art_pieces",
+  observation: "posts",
+};
+
+// Guard for the link endpoints: an id is only linkable if a row with that id
+// exists in the table its type points at. Without this, a picker that sends a
+// mismatched (type, id) pair writes a row that resolves to "(missing)" forever.
+export async function entityExists(
+  supabase: SupabaseClient,
+  type: EntityType,
+  id: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from(ENTITY_TABLE[type])
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) return false;
+  return !!data;
+}
+
 export interface EntityRef {
   entity_type: EntityType;
   entity_id: string;

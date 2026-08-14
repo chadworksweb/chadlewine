@@ -66,6 +66,7 @@ export async function POST(request: Request) {
       shipping_row_first_cents: body.shipping_row_first_cents ?? null,
       shipping_row_addl_cents: body.shipping_row_addl_cents ?? null,
       free_shipping_exempt: body.free_shipping_exempt ?? false,
+      is_new: body.is_new ?? false,
     })
     .select()
     .single();

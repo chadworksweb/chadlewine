@@ -112,6 +112,31 @@ interface PsycheAuraProps {
   hex?: string | null;
   /** Any stable per-song value (slug); seeds the rotation phases. */
   seed?: string | number;
+  /**
+   * Cursor tilt, the centre pause hotspot and its tooltip. Off for decorative
+   * placements that sit inside somebody else's click target (the merch NEW
+   * badge rides on top of a product link), where a second affordance would
+   * just fight the link.
+   */
+  interactive?: boolean;
+  /**
+   * Which shells this instance draws, as [start, end) into the nested set.
+   * Defaults to all of them. The merch NEW badge splits the same cluster
+   * across two stacked canvases -- inner shells under the word, outer shells
+   * over it -- which a single canvas cannot do, since the word is DOM.
+   */
+  shellRange?: [number, number];
+  /**
+   * The radial aura behind the cluster and the bright core at its centre.
+   * Off for a stacked instance so the pair doesn't paint them twice.
+   */
+  decor?: boolean;
+  /**
+   * Multiplier on the wireframe's radius only. The aura bloom is keyed to the
+   * host box and stays put, so this shrinks the solid inside its field rather
+   * than shrinking the whole field.
+   */
+  scale?: number;
 }
 
 // Number of nested shells and how fast the whole cluster turns (rad/s). Kept
@@ -119,7 +144,7 @@ interface PsycheAuraProps {
 const SHELLS = 4;
 const BASE_SPIN = 0.055;
 
-export function PsycheAura({ hex, seed = 0 }: PsycheAuraProps) {
+export function PsycheAura({ hex, seed = 0, interactive = true, shellRange, decor = true, scale = 1 }: PsycheAuraProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
@@ -147,6 +172,11 @@ export function PsycheAura({ hex, seed = 0 }: PsycheAuraProps) {
       // faint inner shells: dimmer as they recede in scale
       alpha: 0.5 - i * 0.09,
     }));
+    // Build every shell, then draw only the requested slice: the per-shell
+    // config is indexed, so slicing after the fact keeps a partial instance
+    // identical to the same shells inside a whole one.
+    const innermostIndex = shells.length - 1;
+    const drawShells = shells.slice(shellRange?.[0] ?? 0, shellRange?.[1] ?? shells.length);
 
     let DPR = 1;
     let cssW = 0;
@@ -173,8 +203,9 @@ export function PsycheAura({ hex, seed = 0 }: PsycheAuraProps) {
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Touch devices can't hover -- drop all cursor interaction (tilt, glow,
-    // pause, tooltip) there and just let the field breathe.
-    const noHover = window.matchMedia("(hover: none)").matches;
+    // pause, tooltip) there and just let the field breathe. A non-interactive
+    // placement opts out of the same set.
+    const noHover = !interactive || window.matchMedia("(hover: none)").matches;
     const tip = tipRef.current;
 
     // ---- interaction state ------------------------------------------------
@@ -338,26 +369,27 @@ export function PsycheAura({ hex, seed = 0 }: PsycheAuraProps) {
       const breathe = 1 + 0.05 * Math.sin(t * 0.11 + phase0);
       // Shape at 1.5x, but never wider than the canvas so it can't clip in the
       // narrow desktop side strip. The aura bloom below is left as-is.
-      const unit = Math.min(size * 0.51 * breathe, w * 0.42);
+      const unit = Math.min(size * 0.51 * breathe, w * 0.42) * scale;
 
       // --- aura: a soft radial bloom, pulsing counter to the breath ----------
-      const auraR = size * (0.52 + 0.05 * Math.sin(t * 0.09 + phase0 + 1.3));
       const pulse = 0.5 + 0.5 * Math.sin(t * 0.13 + phase0);
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, auraR);
-      grad.addColorStop(0, rgba(0.16 + 0.06 * pulse));
-      grad.addColorStop(0.45, rgba(0.05 + 0.02 * pulse));
-      grad.addColorStop(1, rgba(0));
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, w, h);
+      if (decor) {
+        const auraR = size * (0.52 + 0.05 * Math.sin(t * 0.09 + phase0 + 1.3));
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, auraR);
+        grad.addColorStop(0, rgba(0.16 + 0.06 * pulse));
+        grad.addColorStop(0.45, rgba(0.05 + 0.02 * pulse));
+        grad.addColorStop(1, rgba(0));
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+      }
 
       // --- nested wireframe shells, additive so crossings glow --------------
       ctx.globalCompositeOperation = "lighter";
       ctx.lineWidth = 1;
       ctx.lineCap = "round";
       const seg: number[] = [];
-      const innermost = shells.length - 1;
-      for (let si = 0; si < shells.length; si++) {
-        const sh = shells[si];
+      for (let si = 0; si < drawShells.length; si++) {
+        const sh = drawShells[si];
         // autonomous drift + the shared cursor tilt (added to every shell so
         // the whole cluster leans coherently toward the pointer)
         const ax = t * BASE_SPIN * sh.rx + sh.phase + tiltX;
@@ -369,7 +401,7 @@ export function PsycheAura({ hex, seed = 0 }: PsycheAuraProps) {
         const s = sh.scale;
 
         // hovering the pause hotspot fades a glow up on the innermost shape
-        const glow = si === innermost && glowAmt > 0.01;
+        const glow = sh === shells[innermostIndex] && glowAmt > 0.01;
         if (glow) {
           ctx.shadowColor = rgba(0.9);
           ctx.shadowBlur = 12 * glowAmt;
@@ -400,11 +432,13 @@ export function PsycheAura({ hex, seed = 0 }: PsycheAuraProps) {
       segments = seg;
 
       // a small bright core where the shells converge
-      const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, unit * 0.18);
-      core.addColorStop(0, rgba(0.5 + 0.2 * pulse));
-      core.addColorStop(1, rgba(0));
-      ctx.fillStyle = core;
-      ctx.fillRect(0, 0, w, h);
+      if (decor) {
+        const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, unit * 0.18);
+        core.addColorStop(0, rgba(0.5 + 0.2 * pulse));
+        core.addColorStop(1, rgba(0));
+        ctx.fillStyle = core;
+        ctx.fillRect(0, 0, w, h);
+      }
 
       ctx.globalCompositeOperation = "source-over";
     };
@@ -451,12 +485,12 @@ export function PsycheAura({ hex, seed = 0 }: PsycheAuraProps) {
       host.removeEventListener("pointerleave", onLeave);
       canvas.removeEventListener("click", onClick);
     };
-  }, [hex, seed]);
+  }, [hex, seed, interactive, shellRange, decor, scale]);
 
   return (
     <div ref={hostRef} className="psyche-aura__host" aria-hidden="true">
       <canvas ref={canvasRef} className="psyche-aura__canvas" />
-      <div ref={tipRef} className="psyche-aura__tip">Pause</div>
+      {interactive && <div ref={tipRef} className="psyche-aura__tip">Pause</div>}
     </div>
   );
 }

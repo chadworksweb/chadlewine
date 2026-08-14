@@ -21,6 +21,9 @@ export interface SyncResult {
   updated: number;
   skipped: number;
   errors: Array<{ printify_id: string; error: string }>;
+  // Gallery deltas across every product touched this run, so the merch admin
+  // can say what the re-pull actually changed.
+  gallery: { inserted: number; updated: number; hidden: number };
   hint?: string;
   error?: string;
 }
@@ -119,6 +122,7 @@ export async function syncPrintifyProducts(
       updated: 0,
       skipped: 0,
       errors: [],
+      gallery: { inserted: 0, updated: 0, hidden: 0 },
       error: `Printify env not set (token_present=${!!rawToken}, shop_present=${!!rawShop})`,
     };
   }
@@ -130,6 +134,7 @@ export async function syncPrintifyProducts(
       updated: 0,
       skipped: 0,
       errors: [],
+      gallery: { inserted: 0, updated: 0, hidden: 0 },
       error: `Printify env has surrounding whitespace. Re-add via vercel env to clean it up.`,
     };
   }
@@ -145,6 +150,7 @@ export async function syncPrintifyProducts(
       updated: 0,
       skipped: 0,
       errors: [],
+      gallery: { inserted: 0, updated: 0, hidden: 0 },
       error: (err as Error).message,
       hint: `shop=${rawShop.slice(0, 12)}, token_len=${rawToken.length}, token_prefix=${rawToken.slice(0, 12)}`,
     };
@@ -156,6 +162,7 @@ export async function syncPrintifyProducts(
   let updated = 0;
   let skipped = 0;
   const errors: Array<{ printify_id: string; error: string }> = [];
+  const gallery = { inserted: 0, updated: 0, hidden: 0 };
 
   for (const p of shopProducts.data || []) {
     if (options.onlyPrintifyId && p.id !== options.onlyPrintifyId) continue;
@@ -202,7 +209,10 @@ export async function syncPrintifyProducts(
 
       if (fields.images) {
         try {
-          await applyPrintifyImagesToGallery(supabase, existing.id, p.images);
+          const delta = await applyPrintifyImagesToGallery(supabase, existing.id, p.images);
+          gallery.inserted += delta.inserted;
+          gallery.updated += delta.updated;
+          gallery.hidden += delta.hidden;
           await syncDerivedProductColumns(supabase, existing.id);
         } catch (err) {
           errors.push({ printify_id: p.id, error: (err as Error).message });
@@ -253,7 +263,10 @@ export async function syncPrintifyProducts(
       }
 
       try {
-        await applyPrintifyImagesToGallery(supabase, insertedRows.id, p.images);
+        const delta = await applyPrintifyImagesToGallery(supabase, insertedRows.id, p.images);
+        gallery.inserted += delta.inserted;
+        gallery.updated += delta.updated;
+        gallery.hidden += delta.hidden;
         await syncDerivedProductColumns(supabase, insertedRows.id);
       } catch (err) {
         errors.push({ printify_id: p.id, error: (err as Error).message });
@@ -270,5 +283,6 @@ export async function syncPrintifyProducts(
     updated,
     skipped,
     errors,
+    gallery,
   };
 }

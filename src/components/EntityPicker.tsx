@@ -11,7 +11,10 @@ interface PickedRow {
   title: string;
   image: string | null;
 }
-interface Candidate { id: string; title: string; slug: string | null; image: string | null }
+// `type` is the entity type the lookup was fetched for. Carry it on the row so
+// add() links what was actually clicked, not whatever tab happens to be active
+// when the click lands.
+interface Candidate { id: string; title: string; slug: string | null; image: string | null; type: EntityType }
 
 // Shared admin picker for the YMAL ("You Might Also Like") section. Curates an
 // ordered, mixed list of entities (song/release/merch/art/observation) for any
@@ -23,6 +26,7 @@ export function EntityPicker({ sourceType, sourceId }: { sourceType: EntityType 
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
 
   const base = `/api/admin/related-entities`;
   const srcQS = `source_type=${encodeURIComponent(sourceType)}&source_id=${encodeURIComponent(sourceId)}`;
@@ -37,12 +41,19 @@ export function EntityPicker({ sourceType, sourceId }: { sourceType: EntityType 
 
   useEffect(() => { load(); }, [load]);
 
-  // Candidate search whenever type or query changes.
+  // Candidate search whenever type or query changes. Rows carry the type they
+  // were fetched for; the render filters on it, so the previous type's results
+  // can't sit on screen during the next fetch. Leaving them visible is what let
+  // a click file a release id under entity_type 'song'.
   useEffect(() => {
     let cancelled = false;
     fetch(`${base}/lookup?type=${searchType}&q=${encodeURIComponent(query)}`)
       .then((r) => r.json())
-      .then((d) => { if (!cancelled) setCandidates(Array.isArray(d) ? d : []); })
+      .then((d) => {
+        if (cancelled) return;
+        const rows = Array.isArray(d) ? (d as Candidate[]) : [];
+        setCandidates(rows.map((c) => ({ ...c, type: c.type ?? searchType })));
+      })
       .catch(() => { if (!cancelled) setCandidates([]); });
     return () => { cancelled = true; };
   }, [base, searchType, query]);
@@ -51,14 +62,27 @@ export function EntityPicker({ sourceType, sourceId }: { sourceType: EntityType 
     () => new Set(rows.map((r) => `${r.entity_type}:${r.entity_id}`)),
     [rows],
   );
-  const shownCandidates = candidates.filter((c) => !pickedKeys.has(`${searchType}:${c.id}`)).slice(0, 20);
+  const shownCandidates = candidates
+    .filter((c) => c.type === searchType && !pickedKeys.has(`${c.type}:${c.id}`))
+    .slice(0, 20);
 
-  async function add(entity_id: string) {
-    await fetch(base, {
+  async function add(candidate: Candidate) {
+    setError("");
+    const res = await fetch(base, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source_type: sourceType, source_id: sourceId, entity_type: searchType, entity_id }),
+      body: JSON.stringify({
+        source_type: sourceType,
+        source_id: sourceId,
+        entity_type: candidate.type,
+        entity_id: candidate.id,
+      }),
     });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error || "Could not link that item");
+      return;
+    }
     setQuery("");
     setOpen(false);
     load();
@@ -86,6 +110,7 @@ export function EntityPicker({ sourceType, sourceId }: { sourceType: EntityType 
 
   return (
     <div className="entity-picker">
+      {error && <p className="obsv-editor__error">{error}</p>}
       {rows.length === 0 && <p className="entity-picker__empty">Nothing linked yet.</p>}
 
       {rows.length > 0 && (
@@ -141,7 +166,7 @@ export function EntityPicker({ sourceType, sourceId }: { sourceType: EntityType 
                 key={c.id}
                 type="button"
                 className="entity-picker__candidate"
-                onMouseDown={(e) => { e.preventDefault(); add(c.id); }}
+                onMouseDown={(e) => { e.preventDefault(); add(c); }}
               >
                 {c.image ? (
                   // eslint-disable-next-line @next/next/no-img-element -- admin thumbnail
