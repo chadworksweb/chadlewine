@@ -153,6 +153,13 @@ export async function fetchBadgesCached(
 // Live RC lookup. Returns the full record, or null when RC has no calibration
 // (404) or the call fails. Split out so both the read-through path and any
 // direct caller share one implementation.
+// Cached at the Next layer, not no-store. An explicit no-store makes the whole
+// ROUTE dynamic -- from the Next docs on ISR: "if any of the fetch requests
+// used on a route have a revalidate time of 0, or an explicit no-store, the
+// route will be dynamically rendered." That is what kept the album pages out
+// of the prerender manifest and had them re-rendering, and re-fetching, on
+// every request. An hour of badge staleness is far cheaper; RC scores move
+// rarely, and the song badges sit behind their own DB cache besides.
 async function fetchBadgeLive(
   title: string,
   artist: string,
@@ -163,7 +170,7 @@ async function fetchBadgeLive(
   try {
     const res = await fetch(url, {
       headers: { "X-Api-Key": RC_KEY },
-      cache: "no-store",
+      next: { revalidate: 3600 },
       signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
     if (res.status === 404) return { badge: null, ok: true }; // RC has no calibration
@@ -268,7 +275,7 @@ export async function fetchAlbumBadge(
     const params = new URLSearchParams({ title, artist });
     const res = await fetch(`${RC_API_URL}/api/badge/album-lookup?${params}`, {
       headers: { "X-Api-Key": RC_KEY },
-      cache: "no-store",
+      next: { revalidate: 3600 },
       signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
     });
 
@@ -317,7 +324,7 @@ async function fetchAlbumBadgeFromArtistTrajectory(
 
   const res = await fetch(`${RC_API_URL}/api/artists/${artistSlug}`, {
     headers: { "X-Api-Key": RC_KEY },
-    cache: "no-store",
+    next: { revalidate: 3600 },
     signal: AbortSignal.timeout(BADGE_TIMEOUT_MS),
   });
   if (!res.ok) return null;

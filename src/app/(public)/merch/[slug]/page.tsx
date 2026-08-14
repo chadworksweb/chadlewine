@@ -12,6 +12,20 @@ import { getGalleryForProduct, type GalleryImage } from "@/lib/product-images";
 
 export const revalidate = 60;
 
+// Prerender every active product. Without this the whole merch catalogue was
+// rendered on demand, every request, while songs and art were being served
+// from the cache -- the static pass that covered the other content types never
+// reached merch.
+export async function generateStaticParams() {
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from("merch")
+    .select("slug")
+    .eq("status", "active")
+    .not("slug", "is", null);
+  return (data || []).map((p) => ({ slug: p.slug as string }));
+}
+
 interface ProductRow {
   id: string;
   slug: string | null;
