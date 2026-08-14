@@ -1,0 +1,63 @@
+/* Route progress: a hairline across the very top of the viewport, above the
+   header, standing in for the browser tab spinner that client-side navigation
+   never triggers. Periwinkle, same accent the rest of the site navigates by. */
+
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  /* Above the sticky header (100) and the sticky player (80); below a modal. */
+  z-index: 200;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.route-progress__bar {
+  height: 100%;
+  width: 100%;
+  transform-origin: 0 50%;
+  background: linear-gradient(
+    90deg,
+    rgba(139, 156, 247, 0.25) 0%,
+    var(--text-accent, #8b9cf7) 55%,
+    #4d7cff 100%
+  );
+  box-shadow: 0 0 10px rgba(139, 156, 247, 0.6);
+}
+
+/* Creeps toward 90% and waits there. The curve is front-loaded: most of the
+   travel happens in the first second, so a short wait still reads as motion
+   and a long one doesn't look stalled at the same spot. */
+.route-progress--loading .route-progress__bar {
+  animation: route-progress-creep 10s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+}
+
+/* Completion: whatever it had reached, snap to full and fade. */
+.route-progress--done .route-progress__bar {
+  transform: scaleX(1);
+  transition: transform 120ms ease-out, opacity 200ms ease-in 60ms;
+  opacity: 0;
+}
+
+@keyframes route-progress-creep {
+  0% { transform: scaleX(0.02); }
+  12% { transform: scaleX(0.35); }
+  35% { transform: scaleX(0.62); }
+  70% { transform: scaleX(0.82); }
+  100% { transform: scaleX(0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No creep, no fade -- it appears at a fixed width while pending and goes
+     away when the page lands. */
+  .route-progress--loading .route-progress__bar {
+    animation: none;
+    transform: scaleX(0.6);
+  }
+  .route-progress--done .route-progress__bar {
+    transition: none;
+    opacity: 0;
+  }
+}
