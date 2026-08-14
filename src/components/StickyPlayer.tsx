@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useRef } from "react";
-import { usePlayer } from "@/components/PlayerContext";
+import { usePlayer, usePlayerTime } from "@/components/PlayerContext";
 import "./StickyPlayer.css";
 
 function formatTime(seconds: number): string {
@@ -36,14 +36,53 @@ function CloseIcon() {
   );
 }
 
+// The bar's fill and the clock readout are the only parts that move with
+// playback. They subscribe; the artwork, title and buttons around them don't.
+function SeekBar({
+  barRef,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  barRef: React.RefObject<HTMLDivElement | null>;
+  onPointerDown: (e: React.PointerEvent) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  onPointerUp: () => void;
+}) {
+  const { progress } = usePlayerTime();
+  return (
+    <div
+      ref={barRef}
+      className="cl-sticky-player__seek"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      role="slider"
+      aria-label="Seek"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress * 100)}
+    >
+      <div className="cl-sticky-player__seek-fill" style={{ width: `${progress * 100}%` }} />
+    </div>
+  );
+}
+
+function TimeReadout({ isPreview }: { isPreview: boolean }) {
+  const { displayTime, displayDuration } = usePlayerTime();
+  return (
+    <span className="cl-sticky-player__time">
+      {formatTime(displayTime)} / {formatTime(displayDuration)}
+      {isPreview && <span className="cl-sticky-player__preview-tag"> · Preview</span>}
+    </span>
+  );
+}
+
 export function StickyPlayer() {
   const {
     current,
     playing,
     loading,
-    displayTime,
-    displayDuration,
-    progress,
     pause,
     resume,
     stop,
@@ -83,23 +122,12 @@ export function StickyPlayer() {
 
   return (
     <div className="cl-sticky-player" role="region" aria-label="Now playing">
-      <div
-        ref={barRef}
-        className="cl-sticky-player__seek"
+      <SeekBar
+        barRef={barRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        role="slider"
-        aria-label="Seek"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(progress * 100)}
-      >
-        <div
-          className="cl-sticky-player__seek-fill"
-          style={{ width: `${progress * 100}%` }}
-        />
-      </div>
+      />
 
       <div className="cl-sticky-player__row">
         <Link
@@ -124,10 +152,7 @@ export function StickyPlayer() {
 
           <div className="cl-sticky-player__meta">
             <span className="cl-sticky-player__title">{current.title}</span>
-            <span className="cl-sticky-player__time">
-              {formatTime(displayTime)} / {formatTime(displayDuration)}
-              {isPreview && <span className="cl-sticky-player__preview-tag"> · Preview</span>}
-            </span>
+            <TimeReadout isPreview={isPreview} />
           </div>
         </Link>
 

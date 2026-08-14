@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/components/Cart";
-import { usePlayer } from "@/components/PlayerContext";
+import { usePlayer, usePlayerTime } from "@/components/PlayerContext";
 import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
 import { CompassIcon } from "@/components/RisingCompassMark";
 import type { SkuGalleryImage } from "@/lib/release-skus";
@@ -60,6 +60,44 @@ function formatDuration(seconds: number): string {
 
 const PLAY_RING_RADIUS = 12;
 const PLAY_RING_CIRCUMFERENCE = 2 * Math.PI * PLAY_RING_RADIUS;
+
+// The ring, drawn from a number. No hooks, so a row that isn't playing costs
+// nothing per tick.
+function TrackPlayRing({ progress }: { progress: number }) {
+  return (
+    <svg className="tracklist-row__play-ring" viewBox="0 0 26 26" aria-hidden="true">
+      <circle
+        className="tracklist-row__play-ring-track"
+        cx="13"
+        cy="13"
+        r={PLAY_RING_RADIUS}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <circle
+        className="tracklist-row__play-ring-progress"
+        cx="13"
+        cy="13"
+        r={PLAY_RING_RADIUS}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray={PLAY_RING_CIRCUMFERENCE}
+        strokeDashoffset={PLAY_RING_CIRCUMFERENCE * (1 - progress)}
+        transform="rotate(-90 13 13)"
+      />
+    </svg>
+  );
+}
+
+// The one subscriber on this page: the active row's ring. Everything else in
+// the tracklist re-renders only when the track or the play state changes.
+function LiveTrackPlayRing() {
+  const { progress } = usePlayerTime();
+  return <TrackPlayRing progress={progress} />;
+}
 
 export function ReleaseDetail({
   album,
@@ -310,7 +348,6 @@ export function ReleaseDetail({
               {songs.map((song) => {
                 const isActive = player.isCurrent(song.id);
                 const isPlaying = isActive && player.playing;
-                const rowProgress = isActive ? player.progress : 0;
                 const hasAudio = !!song.streaming_path;
                 const canDownload = !!song.sku_id && song.price !== null;
                 const inCart = canDownload
@@ -352,36 +389,7 @@ export function ReleaseDetail({
                         disabled={!hasAudio}
                         aria-label={isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
                       >
-                        <svg
-                          className="tracklist-row__play-ring"
-                          viewBox="0 0 26 26"
-                          aria-hidden="true"
-                        >
-                          <circle
-                            className="tracklist-row__play-ring-track"
-                            cx="13"
-                            cy="13"
-                            r={PLAY_RING_RADIUS}
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <circle
-                            className="tracklist-row__play-ring-progress"
-                            cx="13"
-                            cy="13"
-                            r={PLAY_RING_RADIUS}
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeDasharray={PLAY_RING_CIRCUMFERENCE}
-                            strokeDashoffset={
-                              PLAY_RING_CIRCUMFERENCE * (1 - rowProgress)
-                            }
-                            transform="rotate(-90 13 13)"
-                          />
-                        </svg>
+                        {isActive ? <LiveTrackPlayRing /> : <TrackPlayRing progress={0} />}
                         <span
                           className={`tracklist-row__play-icon${isPlaying ? " tracklist-row__play-icon--pause" : ""}`}
                           aria-hidden="true"

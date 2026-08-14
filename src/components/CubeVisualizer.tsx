@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { usePlayer, type PlaybackMode } from "@/components/PlayerContext";
-import { MiniPlayerTransport } from "@/components/MiniPlayer";
+import { LiveMiniPlayerTransport, MiniPlayerTransport } from "@/components/MiniPlayer";
 import { focalCropStyle } from "@/lib/focal-crop";
 import type { BeatMorphRequest, MeshAnimRef, PulseRequest, SnarePulseRequest } from "@/components/CubeVisualizerMesh";
 
@@ -996,12 +996,20 @@ export function CubeVisualizer({
         // and 42px glyph; CubeVisualizer.css only moves it from that
         // variant's bottom-right anchor to the middle of the cube.
         <div className="cube-vis__transport mini-player--art">
-          <MiniPlayerTransport
-            playing={false}
-            progress={isThis ? player.progress : 0}
-            playbackMode={playbackMode}
-            onToggle={onTogglePlay}
-          />
+          {isThis ? (
+            <LiveMiniPlayerTransport
+              playing={false}
+              playbackMode={playbackMode}
+              onToggle={onTogglePlay}
+            />
+          ) : (
+            <MiniPlayerTransport
+              playing={false}
+              progress={0}
+              playbackMode={playbackMode}
+              onToggle={onTogglePlay}
+            />
+          )}
         </div>
       )}
 
