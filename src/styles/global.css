@@ -2655,6 +2655,20 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border-bottom: 2px solid var(--text-accent);
 }
 
+/* Inline subtitle on a sidebar heading. Stays inline rather than turning the
+   heading into a flex row, so the observations heading keeps its ::before and
+   ::after decorations untouched. */
+.home-split__section-sub {
+  margin-left: var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
 .home-split__observations .home-split__section-heading {
   /* Local override: stick directly at the nav's bottom so there's no
      gap between the nav and the heading for content to scroll through.
