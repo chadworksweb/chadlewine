@@ -127,6 +127,30 @@ async function encodeStream(
   ]);
 }
 
+// Names already taken in the release's streaming folder on Bunny.
+async function remoteNames(zone: string, password: string, dir: string): Promise<Set<string>> {
+  const res = await fetch(`https://${STORAGE_HOSTNAME}/${zone}/${dir}/`, {
+    headers: { AccessKey: password },
+  });
+  if (!res.ok) return new Set();
+  const rows = (await res.json()) as Array<{ ObjectName: string }>;
+  return new Set(rows.map((r) => r.ObjectName));
+}
+
+// Re-uploading a name leaves the CDN serving the old bytes: the pull zone caches
+// for 30 days, ignores query strings, and there is no account API key here to
+// purge with. So a re-render claims the next free name (03-fractals.mp3 ->
+// 03-fractals-2.mp3) and the song row is pointed at the new URL. A new name is
+// the only reliable way past the cache. The old object is left in place.
+function nextFreeName(base: string, ext: string, taken: Set<string>): string {
+  if (!taken.has(`${base}.${ext}`)) return `${base}.${ext}`;
+  for (let n = 2; n < 100; n++) {
+    const candidate = `${base}-${n}.${ext}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  throw new Error(`No free name for ${base}.${ext}`);
+}
+
 async function uploadToBunny(zone: string, password: string, path: string, src: string) {
   const url = `https://${STORAGE_HOSTNAME}/${zone}/${path}`;
   const size = statSync(src).size;
@@ -151,12 +175,16 @@ async function main() {
   const folder = arg("folder");
   if (!slug || !folder) {
     console.error(
-      'Usage: npx tsx scripts/stream-release.ts --slug <release-slug> --folder "<RECORDS folder>" [--all] [--dry-run]',
+      'Usage: npx tsx scripts/stream-release.ts --slug <release-slug> --folder "<RECORDS folder>" [--all] [--only 1,2,5] [--dry-run]',
     );
     process.exit(1);
   }
   const dryRun = flag("dry-run");
   const all = flag("all");
+  const only = (arg("only") || "")
+    .split(",")
+    .map((n) => parseInt(n.trim(), 10))
+    .filter((n) => Number.isFinite(n));
 
   const releaseDir = join(RECORDS_ROOT, folder);
   const digitalName = readdirSync(releaseDir, { withFileTypes: true })
@@ -210,14 +238,27 @@ async function main() {
     });
   }
 
-  const targets = all ? tracks : tracks.filter((t) => !t.hasStream);
+  const targets =
+    only.length > 0
+      ? tracks.filter((t) => only.includes(t.trackNumber))
+      : all
+        ? tracks
+        : tracks.filter((t) => !t.hasStream);
   const zone = requireEnv("BUNNY_STORAGE_ZONE_MUSIC_STREAMING");
   const password = requireEnv("BUNNY_STORAGE_ZONE_MUSIC_STREAMING_PASSWORD");
   const pull = requireEnv("NEXT_PUBLIC_BUNNY_PULL_ZONE_MUSIC_STREAMING").replace(/\/+$/, "");
+  const taken = dryRun ? new Set<string>() : await remoteNames(zone, password, slug);
+
+  const mode =
+    only.length > 0
+      ? `only tracks ${only.join(", ")}`
+      : all
+        ? "ALL tracks re-rendered"
+        : "missing streams only";
 
   console.log(`Release : ${release.title} (${slug})`);
   console.log(`Masters : ${digitalDir}`);
-  console.log(`Mode    : ${all ? "ALL tracks (re-encode + overwrite live files)" : "missing streams only"}`);
+  console.log(`Mode    : ${mode}`);
   console.log(`Targets : ${targets.length} of ${tracks.length}`);
   for (const t of tracks) {
     const mark = targets.includes(t) ? "->" : "  ";
@@ -237,7 +278,9 @@ async function main() {
   mkdirSync(outDir, { recursive: true });
 
   for (const t of targets) {
-    const name = `${String(t.trackNumber).padStart(2, "0")}-${t.slug}.mp3`;
+    const base = `${String(t.trackNumber).padStart(2, "0")}-${t.slug}`;
+    const name = nextFreeName(base, "mp3", taken);
+    taken.add(name);
     const local = join(outDir, name);
     await encodeStream(t.master, local, {
       title: t.title,
@@ -254,8 +297,9 @@ async function main() {
       .update({ streaming_path: url, duration_seconds: seconds })
       .eq("id", t.songId);
     if (error) throw new Error(`db update ${t.slug}: ${error.message}`);
+    const renamed = name !== `${base}.mp3` ? "  (new name, past the CDN cache)" : "";
     console.log(
-      `  ${name}  ${(size / 1024 / 1024).toFixed(1)} MB  ${seconds}s  uploaded + row updated`,
+      `  ${name}  ${(size / 1024 / 1024).toFixed(1)} MB  ${seconds}s  uploaded + row updated${renamed}`,
     );
   }
 

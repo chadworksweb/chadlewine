@@ -1,7 +1,11 @@
 // Homemade email notification pipeline
 // Uses Resend API (or SMTP) to send new Observation notifications
 
-import { type DownloadFormat, downloadFormatLabel } from "@/lib/audio-formats";
+import {
+  type DownloadFormat,
+  downloadFormatLabel,
+  downloadFormatNote,
+} from "@/lib/audio-formats";
 
 const SITE_URL = "https://chadlewine.com";
 
@@ -109,6 +113,27 @@ function shell(innerHtml: string, footerNote: string): string {
 </html>`.trim();
 }
 
+// A download button, with the format's qualifier under it when it has one.
+// Email gets no stylesheet, so the note is inlined rather than classed.
+function renderDownloadButton(
+  href: string,
+  label: string,
+  format: string,
+  padding: string,
+  fontSize: string,
+): string {
+  const note = downloadFormatNote(format);
+  const button = `<a href="${href}" style="display:inline-block;padding:${padding};background:#8b9cf7;color:#0a0a14;text-decoration:none;border-radius:4px;font-weight:600;font-size:${fontSize};">${escapeHtml(
+    label,
+  )}</a>`;
+  if (!note) {
+    return `<span style="display:inline-block;margin:0 6px 6px 0;vertical-align:top;">${button}</span>`;
+  }
+  return `<span style="display:inline-block;margin:0 6px 6px 0;vertical-align:top;text-align:center;">${button}<span style="display:block;font-size:10px;color:#808090;margin-top:3px;">${escapeHtml(
+    note,
+  )}</span></span>`;
+}
+
 function renderThumb(url: string | undefined): string {
   // Always render the cell for column alignment; show a placeholder block if
   // no image URL is available (rare — every product type has an image source).
@@ -137,9 +162,7 @@ function renderItemRowsCustomer(items: OrderEmailLine[]): string {
                 : multi
                   ? `Download ${downloadFormatLabel(f.format)}`
                   : "Download";
-            return `<a href="${f.url}" style="display:inline-block;padding:8px 16px;margin:0 6px 6px 0;background:#8b9cf7;color:#0a0a14;text-decoration:none;border-radius:4px;font-weight:600;font-size:12px;">${escapeHtml(
-              label,
-            )}</a>`;
+            return renderDownloadButton(f.url, label, f.format, "8px 16px", "12px");
           })
           .join("")}</div>`;
       }
@@ -274,9 +297,7 @@ export function buildPreorderReadyHtml(d: PreorderReadyEmailData): string {
   const buttons = d.formatLinks
     .map((f) => {
       const label = multi ? `Download ${downloadFormatLabel(f.format)}` : "Download";
-      return `<a href="${f.url}" style="display:inline-block;padding:10px 20px;margin:0 8px 8px 0;background:#8b9cf7;color:#0a0a14;text-decoration:none;border-radius:4px;font-weight:600;font-size:13px;">${escapeHtml(
-        label,
-      )}</a>`;
+      return renderDownloadButton(f.url, label, f.format, "10px 20px", "13px");
     })
     .join("");
 

@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { type DownloadFormat, downloadFormatChip } from "@/lib/audio-formats";
+import { type DownloadFormat, downloadFormatNote } from "@/lib/audio-formats";
 
 interface RecoveryItem {
   purchase_id: string;
@@ -116,7 +116,12 @@ function RecoverViewContent() {
                       className="patronage__submit"
                       style={{ textDecoration: "none" }}
                     >
-                      {it.formatLinks.length > 1 ? downloadFormatChip(link.format) : "Download"}
+                      {it.formatLinks.length > 1 ? link.format.toUpperCase() : "Download"}
+                      {downloadFormatNote(link.format) && (
+                        <span className="download-format-note">
+                          {downloadFormatNote(link.format)}
+                        </span>
+                      )}
                     </a>
                   ))
                 ) : (

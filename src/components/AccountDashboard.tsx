@@ -9,7 +9,7 @@ import {
   NOTIFICATION_CATEGORIES,
   OPTIONAL_CATEGORIES,
 } from "@/lib/notification-categories";
-import { type DownloadFormat, downloadFormatChip } from "@/lib/audio-formats";
+import { type DownloadFormat, downloadFormatNote } from "@/lib/audio-formats";
 
 interface DownloadItem {
   purchase_id: string;
@@ -734,7 +734,12 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
                                 href={f.url}
                                 className="account-dashboard__download-btn"
                               >
-                                {downloadFormatChip(f.format)}
+                                {f.format.toUpperCase()}
+                                {downloadFormatNote(f.format) && (
+                                  <span className="download-format-note">
+                                    {downloadFormatNote(f.format)}
+                                  </span>
+                                )}
                               </a>
                             ))
                           )}

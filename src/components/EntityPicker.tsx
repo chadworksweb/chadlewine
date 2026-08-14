@@ -10,11 +10,22 @@ interface PickedRow {
   entity_id: string;
   title: string;
   image: string | null;
+  subtype: string | null;
+}
+
+// A release's own type wins over the generic "Release". An album and its lead
+// single carry the same title and the same cover, so the badge is the only
+// thing that tells them apart.
+function badgeText(entityType: EntityType, subtype: string | null | undefined): string {
+  if (entityType === "release" && subtype) {
+    return subtype === "ep" ? "EP" : subtype.charAt(0).toUpperCase() + subtype.slice(1);
+  }
+  return ENTITY_LABEL[entityType];
 }
 // `type` is the entity type the lookup was fetched for. Carry it on the row so
 // add() links what was actually clicked, not whatever tab happens to be active
 // when the click lands.
-interface Candidate { id: string; title: string; slug: string | null; image: string | null; type: EntityType }
+interface Candidate { id: string; title: string; slug: string | null; image: string | null; type: EntityType; subtype: string | null }
 
 // Shared admin picker for the YMAL ("You Might Also Like") section. Curates an
 // ordered, mixed list of entities (song/release/merch/art/observation) for any
@@ -125,7 +136,7 @@ export function EntityPicker({ sourceType, sourceId }: { sourceType: EntityType 
               )}
               <div className="entity-picker__meta">
                 <span className="entity-picker__title">{r.title}</span>
-                <span className="entity-picker__badge">{ENTITY_LABEL[r.entity_type]}</span>
+                <span className="entity-picker__badge">{badgeText(r.entity_type, r.subtype)}</span>
               </div>
               <div className="entity-picker__controls">
                 <button type="button" className="admin-btn admin-btn--small" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
@@ -175,6 +186,9 @@ export function EntityPicker({ sourceType, sourceId }: { sourceType: EntityType 
                   <span className="entity-picker__thumb entity-picker__thumb--sm entity-picker__thumb--empty" />
                 )}
                 <span className="entity-picker__title">{c.title}</span>
+                {c.type === "release" && c.subtype && (
+                  <span className="entity-picker__badge">{badgeText(c.type, c.subtype)}</span>
+                )}
               </button>
             ))}
           </div>

@@ -7206,6 +7206,19 @@ html {
 }
 .account-dashboard__download-btn:hover { opacity: 0.85; }
 
+/* Qualifier under a download format chip. AAC is the pack that imports into
+   iTunes cleanly and nothing about the file name says so. */
+.download-format-note {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  text-align: center;
+  opacity: 0.72;
+}
+
 /* Unsubscribe public page */
 .unsubscribe-page {
   /* Full site width via the page-static content rail -- never a centered

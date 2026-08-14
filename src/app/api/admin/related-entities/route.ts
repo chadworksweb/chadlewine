@@ -38,6 +38,7 @@ export async function GET(request: Request) {
       entity_id: r.entity_id,
       title: d?.title ?? "(missing)",
       image: d?.image ?? null,
+      subtype: d?.subtype ?? null,
     };
   });
   return Response.json(out);

@@ -55,6 +55,9 @@ export interface ResolvedEntity {
   href: string;
   /** Merch only: the NEW badge flag, so cross-linked cards can wear it too. */
   isNew?: boolean;
+  /** Releases only: album / single / ep / compilation. An album and its lead
+   *  single share a title, so "Release" alone cannot tell them apart. */
+  subtype?: string | null;
 }
 
 interface Row { id: string; slug: string | null; title: string }
@@ -79,7 +82,7 @@ export async function resolveEntities(
       ? (() => { const q = supabase.from("songs").select("id, slug, title, art_image_path, art_alt").in("id", idsByType.song); return all ? q : q.in("status", ["published", "unreleased"]); })()
       : Promise.resolve({ data: [] }),
     idsByType.release.length
-      ? (() => { const q = supabase.from("releases").select("id, slug, title, cover_art_path, cover_art_alt").in("id", idsByType.release); return all ? q : q.in("status", ["published", "unreleased"]); })()
+      ? (() => { const q = supabase.from("releases").select("id, slug, title, cover_art_path, cover_art_alt, release_type").in("id", idsByType.release); return all ? q : q.in("status", ["published", "unreleased"]); })()
       : Promise.resolve({ data: [] }),
     idsByType.merch.length
       ? (() => { const q = supabase.from("merch").select("id, slug, title, image_url, image_alt, is_new").in("id", idsByType.merch); return all ? q : q.eq("status", "active"); })()
@@ -93,7 +96,11 @@ export async function resolveEntities(
   ]);
 
   type SongRow = Row & { art_image_path: string | null; art_alt: string | null };
-  type ReleaseRow = Row & { cover_art_path: string | null; cover_art_alt: string | null };
+  type ReleaseRow = Row & {
+    cover_art_path: string | null;
+    cover_art_alt: string | null;
+    release_type: string | null;
+  };
   type ProductRow = Row & { image_url: string | null; image_alt: string | null; is_new: boolean | null };
   type ArtRow = Row & { image_path: string | null; image_alt: string | null };
   type ObsRow = Row & { art_image_path: string | null; art_alt: string | null; kind: string | null };
@@ -133,7 +140,7 @@ export async function resolveEntities(
       }
       case "release": {
         const r = maps.release.get(id); if (!r || !r.slug) break;
-        out.push({ entity_type: "release", id, slug: r.slug, title: r.title, image: r.cover_art_path, alt: r.cover_art_alt || r.title, href: `/music/releases/${r.slug}` });
+        out.push({ entity_type: "release", id, slug: r.slug, title: r.title, image: r.cover_art_path, alt: r.cover_art_alt || r.title, href: `/music/releases/${r.slug}`, subtype: r.release_type });
         break;
       }
       case "merch": {

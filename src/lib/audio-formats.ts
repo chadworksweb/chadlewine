@@ -16,14 +16,14 @@ export function isDownloadFormat(v: unknown): v is DownloadFormat {
   );
 }
 
-// AAC is the pack that drags straight into iTunes, so its button says so.
-// Every other format is named by its extension.
+// Every format is named by its extension.
 export function downloadFormatLabel(format: string): string {
-  return format === "aac" ? "AAC for iTunes" : format.toUpperCase();
+  return format.toUpperCase();
 }
 
-// Tight version for chip-sized buttons in the account dashboard and the
-// recovery list, where the full label does not fit.
-export function downloadFormatChip(format: string): string {
-  return format === "aac" ? "AAC (iTunes)" : format.toUpperCase();
+// The qualifier that rides under a format on any surface where the buyer picks
+// one. AAC is the pack that imports into iTunes cleanly, artwork and track
+// order intact, and nothing else about the file name says so.
+export function downloadFormatNote(format: string): string | null {
+  return format === "aac" ? "best for iTunes" : null;
 }
