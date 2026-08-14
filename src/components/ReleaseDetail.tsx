@@ -382,7 +382,10 @@ export function ReleaseDetail({
                             transform="rotate(-90 13 13)"
                           />
                         </svg>
-                        <span className="tracklist-row__play-icon" aria-hidden="true">
+                        <span
+                          className={`tracklist-row__play-icon${isPlaying ? " tracklist-row__play-icon--pause" : ""}`}
+                          aria-hidden="true"
+                        >
                           {isPlaying ? (
                             <svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor">
                               <rect x="0" y="0" width="3" height="10" />

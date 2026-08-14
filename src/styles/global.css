@@ -15865,6 +15865,12 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   transform: translateX(1px);
 }
 
+/* The pause bars are symmetrical, so the triangle's nudge just pushes them
+   off centre. They sit where geometry puts them. */
+.tracklist-row__play-icon--pause {
+  transform: none;
+}
+
 /* Title + duration -- one click region that toggles the expand panel. */
 .tracklist-row__expand-btn {
   display: flex;
