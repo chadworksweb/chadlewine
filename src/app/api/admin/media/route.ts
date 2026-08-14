@@ -82,6 +82,9 @@ type ListedFile = {
   url: string;
   tokenAuth: boolean;
   dateCreated: string;
+  /** Bunny's LastChanged. A replaced file keeps its original DateCreated, so
+   *  sorting on that buried a re-upload wherever the first version landed. */
+  lastChanged: string;
   pullHost: string;
 };
 
@@ -101,6 +104,7 @@ async function listZone(zone: MediaType): Promise<ListedFile[]> {
       url: config.tokenAuth ? signBunnyUrl(config, f.name, 900) : f.url,
       tokenAuth: config.tokenAuth,
       dateCreated: f.dateCreated,
+      lastChanged: f.lastChanged,
       pullHost,
     }));
 }
@@ -141,7 +145,7 @@ export async function GET() {
   metaResult.data?.forEach((m) => metaMap.set(m.filename, m));
 
   const images = allFiles
-    .sort((a, b) => (a.dateCreated < b.dateCreated ? 1 : -1))
+    .sort((a, b) => (a.lastChanged < b.lastChanged ? 1 : -1))
     .map((f) => {
       const meta = metaMap.get(f.name);
       return {
