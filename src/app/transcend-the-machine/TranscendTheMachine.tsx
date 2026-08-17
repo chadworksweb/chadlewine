@@ -16,7 +16,8 @@
  * pending the final keyboard/typing verb-input design; the mechanic is built.
  *
  * Controls (keyboard only): W/S or up/down move, A/D strafe, left/right turn
- * (zero momentum), Q/E fly, Space strike (L1), 1-5 load levels, Enter continue.
+ * (zero momentum), Space strike (L1), 1-5 load levels, Enter continue. Flight is
+ * planar - there is no climb or dive, and the whole game plays on one level.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -28,15 +29,17 @@ import {
   buildComfortCollider,
   buildEscapeColliders,
   buildEscapeWalls,
+  clipPillarsToEscape,
   buildGateColliders,
   buildLegGateColliders,
   buildPillars,
   buildSignal,
   buildSirens,
   COMFORT_HALF_W,
+  COMFORT_WALL_ID,
   COMFORT_TOP,
   CORRIDOR_HW,
-  EYE_HEIGHT,
+  FLIGHT_Y,
   FLOOR_Y,
   GATE_AISLE,
   GATE_HWZ,
@@ -93,6 +96,13 @@ const FREE_LEVELS = 5; // TEMP-UNLOCK: restore to 2 before commit/push
 // TEMP-UNLOCK: always start on L1 for the walkthrough instead of resuming into
 // the furthest saved level. Restore to false with the rest of TEMP-UNLOCK.
 const TEMP_START_L1 = true;
+// TEMP-UNLOCK: authoring jumps, so a late beat can be looked at without playing
+// the whole level up to it. 8 toggles the key + rune (what the seeded inventory
+// used to do, without lying to the HUD about what you are holding, and it can
+// take them back); 9 breaks the wall where you stand (skips the word and drops
+// you into the escape run); 0 jumps straight to the completion card. Restore to
+// false before commit/push.
+const DEBUG_JUMPS = true;
 
 // L5 climax: ask the server for Opus's reflection on a typed truth. The route
 // already returns its own static line on a model error, so this fetch resolves
@@ -182,7 +192,6 @@ async function fetchClimaxReflection(args: {
 }
 
 const CYAN = "#00e0ff";
-const MIN_Y = FLOOR_Y + EYE_HEIGHT;
 
 // Controller feel
 const ACCEL = 100; // thrust per second
@@ -227,6 +236,13 @@ function fieldBounds(colliders: Collider[]): FieldBounds | null {
 // post-cooldown) so the ripple restarts.
 type FieldFace = "left" | "right" | "front" | "back";
 type BoundaryHit = { seq: number; x: number; y: number; z: number; face: FieldFace };
+
+// The same contact, for the escape corridor's real walls (L1's open phase, where
+// the Field is dropped). Keyed by WallSeg id instead of face, and it carries the
+// inward normal: the escape box is a closed L, so which side the player is on is
+// a property of the contact, not something that can be baked per wall the way the
+// Field's four outward-facing planes are.
+type WallHit = { seq: number; id: string; x: number; y: number; z: number; nx: number; nz: number };
 
 // beat_data dispatch thresholds (mirrors the visualizer's stem profile)
 const KICK_THRESH = 0.32;
@@ -931,25 +947,40 @@ function FloorGrid({ pulseRef }: { pulseRef: React.MutableRefObject<Pulse> }) {
 // text so the slalom reads as the 9-5 grind you weave through. Canvas-texture on
 // a plane (no font deps); tinted to the gate hue, faces the approach (+z).
 const LABEL_WORLD_Y = FLOOR_Y + 4; // eye-level on the gate (the player flies at ~y0)
+// The label is a canvas texture magnified across ~6 world units, so its texel
+// density is the whole story: at 320x64 a gate that filled the screen was drawing
+// several pixels per texel and the glyph edges turned to mush. LABEL_RES scales
+// the canvas and the font together, holding the 5:1 aspect the world scale below
+// depends on. Cost is one 1280x256 texture per distinct word.
+const LABEL_RES = 4;
+const LABEL_W = 320 * LABEL_RES;
+const LABEL_H = 64 * LABEL_RES;
 function GateLabel({ text, localPos, mirror = false, hue }: { text: string; localPos: [number, number, number]; mirror?: boolean; hue: string }) {
   const tex = useMemo(() => {
     if (typeof document === "undefined") return null;
     const c = document.createElement("canvas");
-    c.width = 320;
-    c.height = 64;
+    c.width = LABEL_W;
+    c.height = LABEL_H;
     const ctx = c.getContext("2d");
     if (!ctx) return null;
-    ctx.font = "bold 40px ui-monospace, monospace";
+    ctx.font = `bold ${40 * LABEL_RES}px ui-monospace, monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(text, 160, 34);
+    ctx.fillText(text, LABEL_W / 2, 34 * LABEL_RES);
     const t = new THREE.CanvasTexture(c);
-    t.anisotropy = 4;
+    // Gates are read at a slant as often as head-on (you weave past them), and
+    // anisotropy is what keeps the glyphs from smearing on that approach. Three
+    // clamps this to the device maximum, so asking for 16 is safe everywhere.
+    t.anisotropy = 16;
     return t;
   }, [text]);
+  // Lifted toward white rather than sitting at the raw hue. The label is additive
+  // light on a panel made of that same hue, so at the denser fill alpha a
+  // hue-coloured word closes on its own background and goes muddy; whiter light
+  // separates from a violet panel on luminance instead of competing on colour.
   const mat = useMemo(
-    () => new THREE.MeshBasicMaterial({ map: tex ?? undefined, transparent: true, color: new THREE.Color(hue), blending: THREE.AdditiveBlending, depthWrite: false, fog: true, side: THREE.DoubleSide, opacity: 0.95 }),
+    () => new THREE.MeshBasicMaterial({ map: tex ?? undefined, transparent: true, color: new THREE.Color(hue).lerp(new THREE.Color("#ffffff"), 0.5), blending: THREE.AdditiveBlending, depthWrite: false, fog: true, side: THREE.DoubleSide, opacity: 1 }),
     [tex, hue],
   );
   useEffect(() => () => { tex?.dispose(); mat.dispose(); }, [tex, mat]);
@@ -969,7 +1000,10 @@ function GateLabel({ text, localPos, mirror = false, hue }: { text: string; loca
 // the look. Placed relative to the shattered wall, shown only during the escape run.
 function JourneyGates({ wallZ, hue, gates, pulseRef }: { wallZ: number; hue: string; gates: JourneyGate[]; pulseRef: React.MutableRefObject<Pulse> }) {
   const boxGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), []);
-  const fillGeo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  // A solid slab, not a sheet. The fill was a plane sitting at the centre of the
+  // edge box, so from anywhere off head-on you saw the box outlined in wireframe
+  // with a flat panel hanging inside it. The box fills the volume the edges draw.
+  const fillGeo = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
   const gridGeo = useMemo(() => {
     const pts: number[] = [];
     const nx = 4;
@@ -990,8 +1024,10 @@ function JourneyGates({ wallZ, hue, gates, pulseRef }: { wallZ: number; hue: str
   );
   // A normal-blended dark-hue panel that actually dims what's behind it, so the
   // gate reads as a solid obstacle instead of a wireframe you see straight through.
+  // FrontSide, not DoubleSide: with depthWrite off, a double-sided box blends its
+  // far faces through the near ones and reads twice as heavy as the sheet did.
   const fillMat = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: new THREE.Color(hue).multiplyScalar(0.42), transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, fog: true }),
+    () => new THREE.MeshBasicMaterial({ color: new THREE.Color(hue).multiplyScalar(0.42), transparent: true, opacity: 0.5, depthWrite: false, side: THREE.FrontSide, fog: true }),
     [hue]
   );
   useEffect(() => () => { boxGeo.dispose(); fillGeo.dispose(); gridGeo.dispose(); edgeMat.dispose(); gridMat.dispose(); fillMat.dispose(); }, [boxGeo, fillGeo, gridGeo, edgeMat, gridMat, fillMat]);
@@ -1002,7 +1038,7 @@ function JourneyGates({ wallZ, hue, gates, pulseRef }: { wallZ: number; hue: str
     const p = pulseRef.current;
     edgeMat.opacity = Math.min(1, 0.72 + p.snare * 0.55);
     gridMat.opacity = 0.42 + p.snare * 0.4 + p.bass * 0.16;
-    fillMat.opacity = 0.46 + p.snare * 0.22 + p.bass * 0.12;
+    fillMat.opacity = 0.552 + p.snare * 0.264 + p.bass * 0.144; // 20% up on 0.46/0.22/0.12; peaks at 0.96
   });
 
   const h = GATE_TOP - FLOOR_Y;
@@ -1013,7 +1049,7 @@ function JourneyGates({ wallZ, hue, gates, pulseRef }: { wallZ: number; hue: str
         const cx = g.block === "right" ? GATE_AISLE / 2 : -GATE_AISLE / 2;
         return (
           <group key={i} position={[cx, cy, wallZ + g.dz]}>
-            <mesh geometry={fillGeo} material={fillMat} scale={[GATE_AISLE, h, 1]} renderOrder={-1} frustumCulled={false} />
+            <mesh geometry={fillGeo} material={fillMat} scale={[GATE_AISLE, h, GATE_HWZ * 2]} renderOrder={-1} frustumCulled={false} />
             <lineSegments geometry={boxGeo} scale={[GATE_AISLE, h, GATE_HWZ * 2]} material={edgeMat} frustumCulled={false} />
             <lineSegments geometry={gridGeo} scale={[GATE_AISLE, h, 1]} material={gridMat} frustumCulled={false} />
             <GateLabel text={g.label} localPos={[0, LABEL_WORLD_Y - cy, GATE_HWZ + 0.06]} hue={hue} />
@@ -1026,11 +1062,13 @@ function JourneyGates({ wallZ, hue, gates, pulseRef }: { wallZ: number; hue: str
 
 // The leg slalom (stretch 2): the same gate look as JourneyGates but rotated to
 // face the +x ending run, each gate blocking the near or far half of the leg's
-// depth. Tied to the same snare/bass stems. Labels are mirrored so they still read
-// left-to-right from the +x approach. Only mounted once the comfort wall breaks.
+// depth. Tied to the same snare/bass stems. The rotation already sends the label's
+// texture-u to world +z, which is the player's right on the +x run, so the labels
+// read left-to-right unmirrored. Only mounted once the comfort wall breaks.
 function LegGates({ wallZ, hue, pulseRef }: { wallZ: number; hue: string; pulseRef: React.MutableRefObject<Pulse> }) {
   const boxGeo = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), []);
-  const fillGeo = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  // Solid slab rather than a centred sheet - see JourneyGates.
+  const fillGeo = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
   const gridGeo = useMemo(() => {
     const pts: number[] = [];
     const nx = 4;
@@ -1043,13 +1081,13 @@ function LegGates({ wallZ, hue, pulseRef }: { wallZ: number; hue: string; pulseR
   }, []);
   const edgeMat = useMemo(() => new THREE.LineBasicMaterial({ color: new THREE.Color(hue), transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }), [hue]);
   const gridMat = useMemo(() => new THREE.LineBasicMaterial({ color: new THREE.Color(hue), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }), [hue]);
-  const fillMat = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(hue).multiplyScalar(0.42), transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, fog: true }), [hue]);
+  const fillMat = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(hue).multiplyScalar(0.42), transparent: true, opacity: 0.5, depthWrite: false, side: THREE.FrontSide, fog: true }), [hue]);
   useEffect(() => () => { boxGeo.dispose(); fillGeo.dispose(); gridGeo.dispose(); edgeMat.dispose(); gridMat.dispose(); fillMat.dispose(); }, [boxGeo, fillGeo, gridGeo, edgeMat, gridMat, fillMat]);
   useFrame(() => {
     const p = pulseRef.current;
     edgeMat.opacity = Math.min(1, 0.72 + p.snare * 0.55);
     gridMat.opacity = 0.42 + p.snare * 0.4 + p.bass * 0.16;
-    fillMat.opacity = 0.46 + p.snare * 0.22 + p.bass * 0.12;
+    fillMat.opacity = 0.552 + p.snare * 0.264 + p.bass * 0.144; // 20% up on 0.46/0.22/0.12; peaks at 0.96
   });
 
   const h = GATE_TOP - FLOOR_Y;
@@ -1066,10 +1104,10 @@ function LegGates({ wallZ, hue, pulseRef }: { wallZ: number; hue: string; pulseR
         // local z -> world -x (thin, facing the approach).
         return (
           <group key={i} position={[x, cy, z]} rotation={[0, -Math.PI / 2, 0]}>
-            <mesh geometry={fillGeo} material={fillMat} scale={[LEG_GATE_BLOCK_Z, h, 1]} renderOrder={-1} frustumCulled={false} />
+            <mesh geometry={fillGeo} material={fillMat} scale={[LEG_GATE_BLOCK_Z, h, GATE_HWZ * 2]} renderOrder={-1} frustumCulled={false} />
             <lineSegments geometry={boxGeo} scale={[LEG_GATE_BLOCK_Z, h, GATE_HWZ * 2]} material={edgeMat} frustumCulled={false} />
             <lineSegments geometry={gridGeo} scale={[LEG_GATE_BLOCK_Z, h, 1]} material={gridMat} frustumCulled={false} />
-            <GateLabel text={g.label} localPos={[0, LABEL_WORLD_Y - cy, GATE_HWZ + 0.06]} mirror hue={hue} />
+            <GateLabel text={g.label} localPos={[0, LABEL_WORLD_Y - cy, GATE_HWZ + 0.06]} hue={hue} />
           </group>
         );
       })}
@@ -1082,13 +1120,15 @@ function LegGates({ wallZ, hue, pulseRef }: { wallZ: number; hue: string; pulseR
 // soft amber glow; the only way past is to speak the verb, which dissolves it
 // into warm shards. Real collider is built separately (buildComfortCollider).
 const COMFORT_HUE = "#ffb060"; // warm amber - comfort, not the cold machine
-function ComfortWall({ z }: { z: number }) {
+function ComfortWall({ z, wallHitRef }: { z: number; wallHitRef: React.MutableRefObject<WallHit> }) {
   const w = COMFORT_HALF_W * 2;
   const h = COMFORT_TOP - FLOOR_Y;
   const cy = FLOOR_Y + h / 2;
-  const fillGeo = useMemo(() => new THREE.PlaneGeometry(w, h), [w, h]);
+  // Solid slab rather than a centred sheet - see JourneyGates. Depth matches the
+  // edge box below so the fill and the outline describe the same object.
+  const fillGeo = useMemo(() => new THREE.BoxGeometry(w, h, 0.6), [w, h]);
   const fillMat = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: new THREE.Color(COMFORT_HUE), transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false, fog: true }),
+    () => new THREE.MeshBasicMaterial({ color: new THREE.Color(COMFORT_HUE), transparent: true, opacity: 0.14, side: THREE.FrontSide, depthWrite: false, fog: true }),
     [],
   );
   const edges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, 0.6)), [w, h]);
@@ -1110,15 +1150,60 @@ function ComfortWall({ z }: { z: number }) {
     () => new THREE.LineBasicMaterial({ color: new THREE.Color(COMFORT_HUE), transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }),
     [],
   );
-  useEffect(() => () => { fillGeo.dispose(); fillMat.dispose(); edges.dispose(); edgeMat.dispose(); gridGeo.dispose(); gridMat.dispose(); }, [fillGeo, fillMat, edges, edgeMat, gridGeo, gridMat]);
-  useFrame((state) => {
-    fillMat.opacity = 0.13 + 0.06 * Math.sin(state.clock.elapsedTime * 1.4); // a slow warm breath - stay, it's easier here
+  // Contact shock, same shader the Field and the escape walls use, but in the
+  // wall's own amber rather than the level hue - it is comfort pushing back, not
+  // the machine. Subdivided so the vertex bulge has somewhere to go.
+  const shockGeo = useMemo(
+    () => new THREE.PlaneGeometry(w, h, Math.max(8, Math.round(w / 3)), Math.max(8, Math.round(h / 3))),
+    [w, h],
+  );
+  const shockMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: FIELD_VERT,
+        fragmentShader: FIELD_FRAG,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uHit: { value: new THREE.Vector3() },
+          uTangent: { value: new THREE.Vector3(1, 0, 0) }, // the wall spans x
+          uNormalDir: { value: new THREE.Vector3() }, // set per hit, from the side you struck
+          uColor: { value: new THREE.Color(COMFORT_HUE) },
+          uTime: { value: 999 },
+        },
+      }),
+    [],
+  );
+  useEffect(() => () => { fillGeo.dispose(); fillMat.dispose(); edges.dispose(); edgeMat.dispose(); gridGeo.dispose(); gridMat.dispose(); shockGeo.dispose(); shockMat.dispose(); }, [fillGeo, fillMat, edges, edgeMat, gridGeo, gridMat, shockGeo, shockMat]);
+  const seen = useRef(0);
+  const hitClock = useRef(999); // large -> quiescent until the first contact
+  useFrame((state, delta) => {
+    fillMat.opacity = 0.156 + 0.072 * Math.sin(state.clock.elapsedTime * 1.4); // a slow warm breath - stay, it's easier here (20% up on 0.13/0.06)
+    const dt = Math.min(delta, 0.05);
+    const b = wallHitRef.current;
+    if (b.seq !== seen.current) {
+      seen.current = b.seq;
+      if (b.id === COMFORT_WALL_ID) {
+        (shockMat.uniforms.uHit.value as THREE.Vector3).set(b.x, b.y, b.z);
+        (shockMat.uniforms.uNormalDir.value as THREE.Vector3).set(b.nx, 0, b.nz);
+        hitClock.current = 0;
+      }
+    }
+    if (hitClock.current < 0.65) {
+      hitClock.current += dt;
+      shockMat.uniforms.uTime.value = hitClock.current;
+    } else if (shockMat.uniforms.uTime.value !== 999) {
+      shockMat.uniforms.uTime.value = 999;
+    }
   });
   return (
     <group position={[0, cy, z]}>
       <mesh geometry={fillGeo} material={fillMat} frustumCulled={false} />
       <lineSegments geometry={edges} material={edgeMat} frustumCulled={false} />
       <lineSegments geometry={gridGeo} material={gridMat} frustumCulled={false} />
+      <mesh geometry={shockGeo} material={shockMat} frustumCulled={false} />
     </group>
   );
 }
@@ -1127,38 +1212,127 @@ function ComfortWall({ z }: { z: number }) {
 // (start cap, side walls, the turn, the side leg, the finish cap) so neither end
 // is an infinite hallway. One dim phosphor grid per wall slab, world-spaced lines.
 // The matching colliders come from buildEscapeColliders, off the same WallSeg list.
-function EscapeWalls({ walls, hue }: { walls: WallSeg[]; hue: string }) {
-  const built = useMemo(() => {
-    return walls.map((w) => {
-      const h = w.top - FLOOR_Y;
-      const cy = (FLOOR_Y + w.top) / 2;
-      const len = Math.abs(w.to - w.from);
-      const mid = (w.from + w.to) / 2;
-      const nx = Math.max(2, Math.round(len / 8));
-      const ny = Math.max(2, Math.round(h / 6));
-      const pts: number[] = [];
-      for (let i = 0; i <= nx; i++) { const u = (-0.5 + i / nx) * len; pts.push(u, -h / 2, 0, u, h / 2, 0); }
-      for (let j = 0; j <= ny; j++) { const vv = (-0.5 + j / ny) * h; pts.push(-len / 2, vv, 0, len / 2, vv, 0); }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-      const pos: [number, number, number] = w.axis === "z" ? [mid, cy, w.c] : [w.c, cy, mid];
-      const rotY = w.axis === "z" ? 0 : Math.PI / 2;
-      return { geo, pos, rotY };
-    });
-  }, [walls]);
+function EscapeWalls({ walls, hue, wallHitRef }: { walls: WallSeg[]; hue: string; wallHitRef: React.MutableRefObject<WallHit> }) {
   // Dim, structural cyan-steel (not the hot hue) so the walls read as architecture.
   const color = useMemo(() => new THREE.Color(hue).lerp(new THREE.Color("#0b2733"), 0.62), [hue]);
   const mat = useMemo(
     () => new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }),
     [color],
   );
-  useEffect(() => () => { built.forEach((b) => b.geo.dispose()); mat.dispose(); }, [built, mat]);
+  // A slight frost on the panel between the grid lines. The wall was fully
+  // transparent everywhere the phosphor was not, so it read as an open edge with
+  // lines floating in it rather than a surface. Normal-blended (the grid and the
+  // shock are both additive - adding a third additive layer would brighten the
+  // wall rather than fill it) and low enough that it tints without hiding the
+  // corridor behind it. Shared across slabs; only the shock material is per-wall.
+  const frostMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false }),
+    [color],
+  );
+  useEffect(() => () => { mat.dispose(); frostMat.dispose(); }, [mat, frostMat]);
   return (
     <>
-      {built.map((b, i) => (
-        <lineSegments key={i} geometry={b.geo} material={mat} position={b.pos} rotation={[0, b.rotY, 0]} frustumCulled={false} />
+      {walls.map((w) => (
+        <EscapeWall key={w.id} wall={w} hue={hue} gridMat={mat} frostMat={frostMat} wallHitRef={wallHitRef} />
       ))}
     </>
+  );
+}
+
+// One wall slab: the dim structural grid, plus a shock plane on the same footprint
+// running the Field's contact shader. The shock plane discards everywhere below a
+// threshold alpha, so a wall you never touch draws nothing - it costs a quiescent
+// fragment pass and no pixels. Running into it fires the same ripple the Field
+// walls fire, which is the whole point: the boundary reacts, not the player.
+function EscapeWall({
+  wall,
+  hue,
+  gridMat,
+  frostMat,
+  wallHitRef,
+}: {
+  wall: WallSeg;
+  hue: string;
+  gridMat: THREE.LineBasicMaterial;
+  frostMat: THREE.MeshBasicMaterial;
+  wallHitRef: React.MutableRefObject<WallHit>;
+}) {
+  const h = wall.top - FLOOR_Y;
+  const cy = (FLOOR_Y + wall.top) / 2;
+  const len = Math.abs(wall.to - wall.from);
+  const mid = (wall.from + wall.to) / 2;
+  const pos: [number, number, number] = wall.axis === "z" ? [mid, cy, wall.c] : [wall.c, cy, mid];
+  const rotY = wall.axis === "z" ? 0 : Math.PI / 2;
+  // A "z" wall spans x, so its in-plane horizontal is world x; an "x" wall spans z.
+  const tangent = useMemo<[number, number, number]>(() => (wall.axis === "z" ? [1, 0, 0] : [0, 0, 1]), [wall.axis]);
+
+  const gridGeo = useMemo(() => {
+    const nx = Math.max(2, Math.round(len / 8));
+    const ny = Math.max(2, Math.round(h / 6));
+    const pts: number[] = [];
+    for (let i = 0; i <= nx; i++) { const u = (-0.5 + i / nx) * len; pts.push(u, -h / 2, 0, u, h / 2, 0); }
+    for (let j = 0; j <= ny; j++) { const vv = (-0.5 + j / ny) * h; pts.push(-len / 2, vv, 0, len / 2, vv, 0); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }, [len, h]);
+  // Flat pane for the frost - no displacement, so no subdivision needed.
+  const frostGeo = useMemo(() => new THREE.PlaneGeometry(len, h), [len, h]);
+  // Subdivided so the vertex shader's inward bulge has vertices to displace.
+  const shockGeo = useMemo(
+    () => new THREE.PlaneGeometry(len, h, Math.max(8, Math.round(len / 3)), Math.max(8, Math.round(h / 3))),
+    [len, h],
+  );
+  const shockMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: FIELD_VERT,
+        fragmentShader: FIELD_FRAG,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uHit: { value: new THREE.Vector3() },
+          uTangent: { value: new THREE.Vector3(...tangent) },
+          uNormalDir: { value: new THREE.Vector3() }, // set per hit, from the side you struck
+          uColor: { value: new THREE.Color(hue) },
+          uTime: { value: 999 },
+        },
+      }),
+    [tangent, hue],
+  );
+  useEffect(() => () => { gridGeo.dispose(); frostGeo.dispose(); shockGeo.dispose(); shockMat.dispose(); }, [gridGeo, frostGeo, shockGeo, shockMat]);
+  useEffect(() => { (shockMat.uniforms.uColor.value as THREE.Color).set(hue); }, [hue, shockMat]);
+
+  const seen = useRef(0);
+  const hitClock = useRef(999); // large -> quiescent until the first contact
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.05);
+    const b = wallHitRef.current;
+    if (b.seq !== seen.current) {
+      seen.current = b.seq;
+      if (b.id === wall.id) {
+        (shockMat.uniforms.uHit.value as THREE.Vector3).set(b.x, b.y, b.z);
+        (shockMat.uniforms.uNormalDir.value as THREE.Vector3).set(b.nx, 0, b.nz);
+        hitClock.current = 0;
+      }
+    }
+    if (hitClock.current < 0.65) {
+      hitClock.current += dt;
+      shockMat.uniforms.uTime.value = hitClock.current;
+    } else if (shockMat.uniforms.uTime.value !== 999) {
+      shockMat.uniforms.uTime.value = 999;
+    }
+  });
+
+  return (
+    <group position={pos} rotation={[0, rotY, 0]}>
+      {/* Frost first, so the phosphor grid and the shock read on top of it. */}
+      <mesh geometry={frostGeo} material={frostMat} renderOrder={-1} frustumCulled={false} />
+      <lineSegments geometry={gridGeo} material={gridMat} frustumCulled={false} />
+      <mesh geometry={shockGeo} material={shockMat} frustumCulled={false} />
+    </group>
   );
 }
 
@@ -1475,6 +1649,7 @@ function FlyCam({
   onRuneReached,
   onDoorLocked,
   boundaryRef,
+  wallHitRef,
   field,
   comfortWallZ,
   onComfortNear,
@@ -1495,6 +1670,7 @@ function FlyCam({
   onRuneReached: () => void;
   onDoorLocked: () => void;
   boundaryRef: React.MutableRefObject<BoundaryHit>;
+  wallHitRef: React.MutableRefObject<WallHit>;
   field: FieldBounds | null;
   comfortWallZ: number | null; // L1 comfort wall world z (null when N/A)
   onComfortNear: () => void; // fired once when you reach the comfort wall
@@ -1503,17 +1679,20 @@ function FlyCam({
   const keys = useRef<Record<string, boolean>>({});
   const yaw = useRef(0);
   const vel = useRef(new THREE.Vector3());
-  const shockCool = useRef(0); // counts down between Field discovery shocks
+  // Counts down between boundary shocks, shared by the Field and the escape
+  // walls: they are mutually exclusive (the escape run is exactly when the Field
+  // is dropped), and one cooldown is what keeps a held push from strobing.
+  const shockCool = useRef(0);
   const comfortFiredRef = useRef(false); // one-shot: have we announced the comfort wall yet
   // Reset the comfort-wall announce guard whenever the wall (re)appears for a run.
   useEffect(() => { comfortFiredRef.current = false; }, [comfortWallZ]);
 
   useEffect(() => {
-    camera.position.set(0, 0, 16);
+    camera.position.set(0, FLIGHT_Y, 16);
     const setKey = (down: boolean) => (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       keys.current[k] = down;
-      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d", "q", "e"].includes(k)) {
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " ", "w", "a", "s", "d"].includes(k)) {
         e.preventDefault();
       }
     };
@@ -1579,31 +1758,60 @@ function FlyCam({
     if (k["s"] || k["arrowdown"]) v.addScaledVector(fwd, -ACCEL * dt);
     if (k["a"]) v.addScaledVector(right, -ACCEL * dt);
     if (k["d"]) v.addScaledVector(right, ACCEL * dt);
-    if (k["q"]) v.y -= ACCEL * dt;
-    if (k["e"]) v.y += ACCEL * dt;
 
     v.multiplyScalar(Math.pow(DAMP_PER_SEC, dt));
     if (v.lengthSq() > MAX_SPEED * MAX_SPEED) v.setLength(MAX_SPEED);
     camera.position.addScaledVector(v, dt);
 
-    if (camera.position.y < MIN_Y) {
-      camera.position.setY(MIN_Y);
-      if (v.y < 0) v.y = 0;
-    }
+    // Flight is planar. The horizon is already level (yaw-only euler, so neither
+    // fwd nor right carries a y), which leaves this as the one place height could
+    // drift; pinning it here means no mechanic can shove the player off the plane.
+    camera.position.setY(FLIGHT_Y);
+    v.y = 0;
 
-    // AABB collision (per-axis, slide along walls, fly over short tops).
+    shockCool.current = Math.max(0, shockCool.current - dt);
+
+    // A fresh push into a boundary wall fires a contact shock at the point you
+    // struck. Only colliders carrying an id are walls (see Collider); pillars and
+    // gates stop you silently. The hit lands on the wall's own plane (c.x / c.z,
+    // not the pushed-out camera), so the ripple starts where you actually touched.
+    const fireWallShock = (id: string, hx: number, hy: number, hz: number, nx: number, nz: number) => {
+      if (shockCool.current > 0) return;
+      shockCool.current = BOUND_SHOCK_COOLDOWN;
+      const b = wallHitRef.current;
+      b.seq += 1;
+      b.id = id;
+      b.x = hx;
+      b.y = hy;
+      b.z = hz;
+      b.nx = nx;
+      b.nz = nz;
+    };
+
+    // AABB collision (per-axis, slide along walls). Every collider is solid now:
+    // the height test that let you clear a short top was the other half of
+    // vertical flight, and with the player pinned to the plane all it did was
+    // open a hole you walked through - the low aisle blocks (top -1.4, under the
+    // plane at y 0) were skipped on every frame.
     for (const c of colliders) {
-      if (camera.position.y >= c.top) continue;
       const dx = camera.position.x - c.x;
       const dz = camera.position.z - c.z;
       const ox = c.hwx + PLAYER_RADIUS - Math.abs(dx);
       const oz = c.hwz + PLAYER_RADIUS - Math.abs(dz);
       if (ox > 0 && oz > 0) {
         if (ox < oz) {
-          camera.position.setX(c.x + (dx < 0 ? -1 : 1) * (c.hwx + PLAYER_RADIUS));
+          // The side you are on is also the wall's inward normal, and moving
+          // toward the wall from that side is what counts as a fresh push.
+          const side = dx < 0 ? -1 : 1;
+          const into = dx < 0 ? v.x > 0 : v.x < 0;
+          camera.position.setX(c.x + side * (c.hwx + PLAYER_RADIUS));
+          if (c.id && into) fireWallShock(c.id, c.x, camera.position.y, camera.position.z, side, 0);
           v.x = 0;
         } else {
-          camera.position.setZ(c.z + (dz < 0 ? -1 : 1) * (c.hwz + PLAYER_RADIUS));
+          const side = dz < 0 ? -1 : 1;
+          const into = dz < 0 ? v.z > 0 : v.z < 0;
+          camera.position.setZ(c.z + side * (c.hwz + PLAYER_RADIUS));
+          if (c.id && into) fireWallShock(c.id, camera.position.x, camera.position.y, c.z, 0, side);
           v.z = 0;
         }
       }
@@ -1615,7 +1823,6 @@ function FlyCam({
     // A fresh push into a face fires a discovery shock at the contact point.
     if (field) {
       const p = camera.position;
-      shockCool.current = Math.max(0, shockCool.current - dt);
       // The eye is clamped a standoff short of each face, but the pulse fires on
       // the face plane itself (beside the eye), so the wall reacts where you
       // pressed against it while you never pass into it.
@@ -1648,13 +1855,9 @@ function FlyCam({
       }
     }
 
-    // Ceiling: always contain vertically. The Field does the x/z clamp on column
-    // levels; the escape run drops the Field for the wall-boxed L-turn, but the
-    // roof still has to hold either way (walls cannot be flown over).
-    if (camera.position.y > BOUND_Y_TOP) {
-      camera.position.setY(BOUND_Y_TOP);
-      if (v.y > 0) v.y = 0;
-    }
+    // The ceiling clamp that used to live here is gone with vertical flight: the
+    // plane pin above contains height on its own. BOUND_Y_TOP still sets how tall
+    // the Field walls are drawn.
 
     // Treadmill (L1): wrap the player by one corridor period so forward flight
     // never advances. The layout repeats every WRAP_LEN, so the wrap is seamless.
@@ -1773,7 +1976,7 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
   const [accountGate, setAccountGate] = useState<number | null>(null);
   // L3 collect + the Journey-Key inventory (persists across levels = the chain).
   const [collected, setCollected] = useState<boolean[]>([]);
-  const [inventory, setInventory] = useState<Inventory>({ key: true, rune: true }); // TEMP-UNLOCK: restore to { key: false, rune: false } before commit/push
+  const [inventory, setInventory] = useState<Inventory>({ key: false, rune: false });
   const [doorLocked, setDoorLocked] = useState(false); // door/match reached without the needed key
   const [paused, setPaused] = useState(false); // Esc pauses the game + music and reveals the cursor
   const rootRef = useRef<HTMLDivElement>(null); // for the cursor-scrim reveal
@@ -1837,17 +2040,29 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
     () => (level.id === 1 && breakInfo ? buildLegGateColliders(breakInfo.wallZ) : []),
     [level.id, breakInfo],
   );
-  const escapeActive = phase === "open" && level.id === 1 && !!breakInfo;
+  // The boxed route replaces the Field the moment the glass gives, not when the
+  // shard animation finishes. "breaking" is the frame the wall is struck and
+  // "open" only arrives at onShatterDone, so gating on "open" alone left the
+  // loop's walls and obstacles absent for the whole length of the shatter.
+  const escapeActive = (phase === "breaking" || phase === "open") && level.id === 1 && !!breakInfo;
+  // The pillar field clipped to the route (see clipPillarsToEscape): what dresses
+  // the corridor, and what collides in it.
+  const escapePillars = useMemo(
+    () => (level.id === 1 && breakInfo ? clipPillarsToEscape(pillars, breakInfo.wallZ) : []),
+    [level.id, breakInfo, pillars],
+  );
+  const escapePillarColliders = useMemo(() => buildColliders(escapePillars), [escapePillars]);
   const activeColliders = useMemo(() => {
-    // The boxed walls bound the player in the escape run (pillars are decoration).
     // The leg + its slalom only collide once the comfort wall is broken - before
     // that you cannot reach them anyway, and they stay hidden behind the wall.
+    // Pillars collide here too: they used to be treated as decoration during the
+    // escape, which is what let you walk straight through the low aisle blocks.
     if (escapeActive) {
-      const base = gateColliders.concat(escapeMainColliders);
+      const base = gateColliders.concat(escapeMainColliders, escapePillarColliders);
       return comfortBroken ? base.concat(escapeLegColliders, legGateColliders) : base;
     }
     return phase === "open" && gateColliders.length ? colliders.concat(gateColliders) : colliders;
-  }, [escapeActive, comfortBroken, phase, colliders, gateColliders, escapeMainColliders, escapeLegColliders, legGateColliders]);
+  }, [escapeActive, comfortBroken, phase, colliders, gateColliders, escapeMainColliders, escapeLegColliders, legGateColliders, escapePillarColliders]);
   // The invisible rectangular Field clamps the player to the straight corridor, so
   // it cannot coexist with the L-turn - drop it (and its forcefield walls) during
   // the escape run; the visible walls + the always-on ceiling do the containing.
@@ -1863,7 +2078,8 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
   const pulseRef = useRef<Pulse>({ kick: 0, snare: 0, tom: 0, clap: 0, bass: 0, bassPulse: 0, charge: level.charge / 100, chord: 0, warp: 0 });
   const gameRef = useRef<GameState>({ struck: false, reached: false, tension: 0, strikeRequested: false, collected: [], collectedCount: 0, keyDone: false, drift: 0, lockedHit: false, egoDissolved: 0 });
   const boundaryRef = useRef<BoundaryHit>({ seq: 0, x: 0, y: 0, z: 0, face: "front" });
-  const flashRef = useRef<HTMLDivElement>(null); // screen-edge glitch on a Field hit
+  const wallHitRef = useRef<WallHit>({ seq: 0, id: "", x: 0, y: 0, z: 0, nx: 0, nz: 0 });
+  const flashRef = useRef<HTMLDivElement>(null); // screen-edge glitch on a boundary hit
 
   // L1 "The Word" typing state. typedRef/triesRef are the source of truth for
   // the key handler (no stale closures); the state mirrors drive the HUD.
@@ -2049,10 +2265,32 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
     return () => window.removeEventListener("keydown", onKey);
   }, [started, wake]);
 
-  // Level loader: number keys 1-5 swap levels once woken.
+  // Level loader: number keys 1-5 swap levels once woken. 9 and 0 are the
+  // DEBUG_JUMPS authoring shortcuts (see the const). 9 routes through the normal
+  // strike path rather than setting the phase directly, so breakInfo, the wall z
+  // and the escape geometry are all built exactly as a real break builds them.
   useEffect(() => {
     if (!started) return;
     const onKey = (e: KeyboardEvent) => {
+      if (DEBUG_JUMPS && e.key === "8") {
+        // Toggle, not a grant. The saved progress row restores the inventory on
+        // load, so a row written while the old seeded inventory was active keeps
+        // handing both back no matter what the seed says. Clearing here persists
+        // the cleared state through the same effect and repairs the row.
+        setInventory((inv) => {
+          const held = inv.key || inv.rune;
+          return { key: !held, rune: !held };
+        });
+        return;
+      }
+      if (DEBUG_JUMPS && e.key === "9") {
+        gameRef.current.strikeRequested = true;
+        return;
+      }
+      if (DEBUG_JUMPS && e.key === "0") {
+        setPhase("complete");
+        return;
+      }
       const n = parseInt(e.key, 10);
       if (n >= 1 && n <= LEVELS.length) requestLevel(n);
     };
@@ -2112,18 +2350,22 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
     return () => cancelAnimationFrame(raf);
   }, [started, phase]);
 
-  // Field hit -> a screen-edge glitch flash, so you register the boundary even
-  // if you strafed into a side face you are not looking at. Watches the shared
-  // boundary seq and pulses the overlay's opacity (CSS eases it back out); pure
-  // DOM mutation, no React state per frame.
+  // Boundary hit -> a screen-edge glitch flash, so you register the boundary even
+  // if you strafed into a side face you are not looking at. Watches both boundary
+  // seqs (the Field on column levels, the escape walls during L1's open phase -
+  // never both at once) and pulses the overlay's opacity (CSS eases it back out);
+  // pure DOM mutation, no React state per frame.
   useEffect(() => {
     if (!started) return;
     let raf = 0;
     let seenSeq = boundaryRef.current.seq;
+    let seenWallSeq = wallHitRef.current.seq;
     const tick = () => {
       const seq = boundaryRef.current.seq;
-      if (seq !== seenSeq) {
+      const wallSeq = wallHitRef.current.seq;
+      if (seq !== seenSeq || wallSeq !== seenWallSeq) {
         seenSeq = seq;
+        seenWallSeq = wallSeq;
         const el = flashRef.current;
         if (el) {
           el.style.transition = "none";
@@ -2398,6 +2640,7 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
           onRuneReached={onRuneReached}
           onDoorLocked={onDoorLocked}
           boundaryRef={boundaryRef}
+          wallHitRef={wallHitRef}
           field={activeField}
           comfortWallZ={comfortWallZ}
           onComfortNear={() => {
@@ -2416,7 +2659,7 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
         <Scene
           key={level.id}
           level={level}
-          pillars={pillars}
+          pillars={escapeActive ? escapePillars : pillars}
           reactive={activeReactive}
           skinTextureUrl={activeReactive?.skinTextureUrl ?? null}
           audioRef={audioRef}
@@ -2432,18 +2675,18 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
           onShatterDone={() => setPhase("open")}
         />
         <FieldWalls field={activeField} hue={level.hue} boundaryRef={boundaryRef} />
-        {escapeActive && <EscapeWalls walls={escapeWalls.main} hue={level.hue} />}
-        {escapeActive && comfortBroken && <EscapeWalls walls={escapeWalls.leg} hue={level.hue} />}
+        {escapeActive && <EscapeWalls walls={escapeWalls.main} hue={level.hue} wallHitRef={wallHitRef} />}
+        {escapeActive && comfortBroken && <EscapeWalls walls={escapeWalls.leg} hue={level.hue} wallHitRef={wallHitRef} />}
         {escapeActive && breakInfo && (
           <JourneyGates wallZ={breakInfo.wallZ} hue={level.hue} gates={L1_GAUNTLET} pulseRef={pulseRef} />
         )}
         {escapeActive && comfortBroken && breakInfo && (
           <LegGates wallZ={breakInfo.wallZ} hue={level.hue} pulseRef={pulseRef} />
         )}
-        {phase === "open" && comfortWallZ !== null && !comfortBroken && (
-          <ComfortWall z={comfortWallZ} />
+        {escapeActive && comfortWallZ !== null && !comfortBroken && (
+          <ComfortWall z={comfortWallZ} wallHitRef={wallHitRef} />
         )}
-        {phase === "open" && comfortBreaking && comfortWallZ !== null && (
+        {escapeActive && comfortBreaking && comfortWallZ !== null && (
           <Shatter color={COMFORT_HUE} wallZ={comfortWallZ} onDone={() => setComfortBreaking(false)} />
         )}
         <BloomComposer pulseRef={pulseRef} />
@@ -2453,27 +2696,22 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
 
       <div className="tm-level">
         <div className="tm-level__stage">
-          L{level.id} &middot; {level.stage}
+          Level {level.id} &middot; {level.stage}
         </div>
-        <div className="tm-level__song">{level.song}</div>
-        <div className="tm-charge" style={{ color: level.hue }}>
-          <span>CHARGE {level.charge}</span>
-          <span className="tm-charge__track">
-            <span className="tm-charge__fill" style={{ width: `${level.charge}%`, background: level.hue }} />
-          </span>
+        <div className="tm-level__song">Song: {level.song}</div>
+        {/* Both chips are always present: an unlit one is the chain telling you
+            what is still out there, which a chip that only appears on pickup
+            cannot do. --held is the captured state. */}
+        <div className="tm-inv">
+          <span className={`tm-inv__item${inventory.key ? " tm-inv__item--held" : ""}`}>&#9670; KEY</span>
+          <span className={`tm-inv__item${inventory.rune ? " tm-inv__item--held" : ""}`}>&#9670; RUNE</span>
         </div>
-        {(inventory.key || inventory.rune) && (
-          <div className="tm-inv">
-            {inventory.key && <span className="tm-inv__item">&#9670; KEY</span>}
-            {inventory.rune && <span className="tm-inv__item">&#9670; RUNE</span>}
-          </div>
-        )}
       </div>
 
       <div className="tm-hud">
         <b>TRANSCEND THE MACHINE</b>
         <span>
-          W/S move &middot; A/D strafe &middot; arrows turn &middot; Q/E up-down &middot; Enter speak &middot; 1-5 level &middot; Esc pause
+          W/S move &middot; A/D strafe &middot; arrows turn &middot; Enter speak &middot; 1-5 level &middot; Esc pause
         </span>
       </div>
 
@@ -2570,8 +2808,14 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
           </div>
         </div>
       )}
-      {started && phase === "open" && openLine && !comfortActive && (
-        <div className="tm-prompt">
+      {/* The first wall's notice. Gated on comfortNear, not comfortActive:
+          comfortActive goes false again the moment the comfort wall breaks, which
+          remounted this and replayed the first wall's line over the second wall's
+          aftermath. comfortNear latches, so once you have met the comfort wall
+          this is done for the level. Levels with no comfort wall never set it, and
+          the notice clears itself on the timer either way. */}
+      {started && phase === "open" && openLine && !comfortNear && (
+        <div className="tm-prompt tm-prompt--timed">
           <div className="tm-prompt__cta">{openLine}</div>
         </div>
       )}
@@ -2583,8 +2827,8 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
           <div className="tm-flood" aria-hidden="true" />
           <div className="tm-complete">
             <div className="tm-complete__inner">
-              <div className="tm-complete__eyebrow">TRANSCENDED</div>
-              <h2 className="tm-complete__title">{level.song.toUpperCase()}</h2>
+              <h2 className="tm-complete__title">LEVEL {level.id}</h2>
+              <div className="tm-complete__verdict">TRANSCENDED</div>
               <div className="tm-complete__sub">{completeSubline}</div>
               {rewardNote && <div className="tm-complete__reward">{rewardNote}</div>}
               <div className="tm-complete__cta">PRESS ENTER TO CONTINUE</div>
@@ -2635,9 +2879,8 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
       {!started && (
         <div className="tm-gate" onClick={wake}>
           <div className="tm-gate__inner">
-            <div className="tm-gate__eyebrow">You don&apos;t escape the machine. You outgrow it.</div>
             <h1 className="tm-gate__title">TRANSCEND THE MACHINE</h1>
-            <div className="tm-gate__sub">a new experience developed by The Deprogrammer</div>
+            <div className="tm-gate__sub">an immersive music mini-game developed by The Deprogrammer</div>
             <div className="tm-gate__cta">PRESS ANY KEY TO WAKE</div>
           </div>
         </div>
