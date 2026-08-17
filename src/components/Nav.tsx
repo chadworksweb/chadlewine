@@ -6,6 +6,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { DEFAULT_NAV_ITEMS, type NavItem } from "@/lib/nav-items";
 
+// How far the page has to travel in one direction before the header changes
+// state. Deliberately larger than the settling slop of a smooth scroll and
+// larger than the sub-pixel noise iOS emits while a momentum scroll winds
+// down, and small enough that a deliberate upward flick brings the bar back
+// on the first frame the finger moves.
+const NAV_DIR_DELTA = 12;
+
 // Reads the `?booking` flag reactively. Isolated behind Suspense so the rest of
 // the app can still be statically prerendered (useSearchParams otherwise opts
 // the whole tree into client rendering).
@@ -42,7 +49,9 @@ export function Nav({
   // initial HTML — otherwise the /api/auth/me fetch below adds it ~1s after
   // first paint and pushes the rest of the menu around.
   const [signedIn, setSignedIn] = useState<boolean | null>(initialSignedIn);
-  const lastScroll = useRef(0);
+  // The scroll position the current direction is measured FROM, not the last
+  // position seen. See NAV_DIR_DELTA in the scroll effect.
+  const scrollAnchor = useRef(0);
   // Whether a [data-nav-below] hero was covering the header's band on the last
   // scroll event, so the moment it stops can be treated as an arrival rather
   // than as one more scroll down. See the handler.
@@ -107,7 +116,7 @@ export function Nav({
         heroCovering.current = covering;
         document.documentElement.classList.toggle("ha-hero-top", covering);
         if (covering) {
-          lastScroll.current = y;
+          scrollAnchor.current = y;
           return;
         }
         if (wasCovering) {
@@ -118,7 +127,7 @@ export function Nav({
           // data-nav-keep-until below 768px) looked exactly like the header
           // never returning at all.
           setHidden(false);
-          lastScroll.current = y;
+          scrollAnchor.current = y;
           return;
         }
       }
@@ -134,13 +143,33 @@ export function Nav({
         : keepUntil
           ? y + keepUntil.getBoundingClientRect().bottom
           : 200;
-      // A couple of pixels of slack on "scrolled down", because a smooth scroll
-      // settles rather than stops: the last frames of the intro's own journey
-      // land sub-pixel apart, and read literally each of those is a downward
-      // scroll that hides the bar again immediately after it arrived. No real
-      // gesture moves the page two pixels and stops.
-      setHidden(y > threshold && y > lastScroll.current + 2);
-      lastScroll.current = y;
+      // Above the threshold the bar is simply present, and the anchor rides
+      // along so crossing the threshold does not immediately read as a gesture.
+      if (y <= threshold) {
+        setHidden(false);
+        scrollAnchor.current = y;
+        return;
+      }
+      // Direction is measured against the anchor -- the position the current
+      // gesture started from -- and NOT against the previous scroll event.
+      // That distinction is the whole fix. A flick DECELERATES: iOS delivers
+      // scroll at 60Hz and the tail of every swipe arrives as 4px, 2px, 1px,
+      // 0px frames. Compared per event those read as "no longer scrolling
+      // down", so the bar slid back in at the end of every single downward
+      // swipe and shot out again on the next one -- a 250ms slide each way,
+      // twice per swipe, which is the flicker on the phone.
+      // Against an anchor the tail is still 300px below where the gesture
+      // began, so nothing moves until the page actually travels back up.
+      const delta = y - scrollAnchor.current;
+      if (delta > NAV_DIR_DELTA) {
+        setHidden(true);
+        scrollAnchor.current = y;
+      } else if (delta < -NAV_DIR_DELTA) {
+        setHidden(false);
+        scrollAnchor.current = y;
+      }
+      // Inside the band: leave both the state and the anchor alone, so small
+      // moves keep accumulating toward a real reversal instead of resetting.
     }
     // Run it once rather than waiting for the first scroll. A page restored
     // mid-scroll (back/forward) never fires one, and the hero stamps
