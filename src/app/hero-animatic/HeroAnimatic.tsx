@@ -117,25 +117,36 @@ const bootScript = (home: boolean) =>
   '!d.classList.contains("cl-force-motion");' +
   (home
     ? 'd.classList.add("ha-hero-top");' +
-      // A RELOAD STARTS THE INTRO OVER, so it has to start from the top. The
-      // guard below reads scrollY at parse time, when it is still 0 because
-      // browsers restore scroll AFTER this script; the lock therefore went on,
-      // the page was then restored down the feed, and the animatic played out of
-      // sight while holding the scroll. The `load` handler at the end was meant
-      // to catch that, but restoration frequently lands after `load` fires, so
-      // it read 0 too and the lock stayed until the wordmark settled.
-      // Only a reload: back/forward must still restore the reader where they
-      // left, which is the whole point of the scrollY guard. Only without a
-      // hash, since /#home-enter means "put me at the feed". Restoration goes
-      // back to auto once loaded so later history moves are unaffected.
-      // Runs BEFORE the guard, so scrollY is genuinely 0 by the time it is read
-      // and the lock applies with the animatic actually on screen.
-      // try/catch because this runs pre-paint and before hydration: a throw here
-      // would take every line after it, including the lock's own timeout.
-      'try{var n=performance.getEntriesByType("navigation")[0];' +
-      'if(n&&n.type==="reload"&&!location.hash&&!m){' +
-      'history.scrollRestoration="manual";scrollTo(0,0);' +
-      'addEventListener("load",function(){history.scrollRestoration="auto"})}}' +
+      // A RELOAD STARTS THE INTRO OVER, so it starts from the top -- and the way
+      // to put it there is to stop the browser from restoring at all, not to
+      // undo a restore after it lands. scrollRestoration is read by the UA at
+      // the moment it would restore, which is after this script and before
+      // anything else we can hook, so setting it HERE is the one point where the
+      // answer is both knowable and in time. Nothing to race, nothing to correct
+      // afterwards: scrollY is then genuinely 0 for the whole load, which is
+      // what the lock guard below has always assumed and never actually had.
+      //
+      // This used to hand it back to "auto" on `load`, three lines later, which
+      // re-armed the very restore it had just cancelled -- the note above says
+      // restoration frequently lands after `load`, and that is exactly when it
+      // then landed. The page came back down the feed, the lock (overflow-y:
+      // hidden) froze it there, and the `load` guard at the end of this script
+      // read 0 because the restore had not happened yet, so nothing released it
+      // until the 20s ceiling. Twenty seconds parked halfway down the page.
+      //
+      // Back/forward still restores, and gets it from the same assignment: a
+      // back_forward navigation re-creates this document, runs this line, and
+      // sets "auto" before its own restore. A hash is left alone either way,
+      // since /#home-enter means "put me at the feed".
+      // `nv`, not `n`: `n` is navigator, four lines up. The legacy
+      // performance.navigation fallback covers WebKit versions that do not carry
+      // a navigation entry. try/catch because this runs pre-paint and before
+      // hydration: a throw here would take every line after it, including the
+      // lock's own timeout.
+      'try{var nv=performance.getEntriesByType("navigation")[0];' +
+      'var rl=nv?nv.type==="reload":' +
+      '!!(performance.navigation&&performance.navigation.type===1);' +
+      'history.scrollRestoration=rl&&!location.hash?"manual":"auto"}' +
       'catch(e){}' +
       // `!lite` joins the same list for the same reason `!m` is on it: there is
       // no animatic to hold the page for, so holding it would be a freeze with
@@ -150,6 +161,9 @@ const bootScript = (home: boolean) =>
   // whatever scrollY read at parse time. Browsers restore AFTER this script
   // runs, so the guard above cannot see it, and being held on a screen you did
   // not ask to sit on is the one failure the lock must never produce.
+  // This now only has the back/forward case to catch, where restoration is
+  // deliberately left on. The reload case cannot reach it: restoration is off
+  // above, so there is no late restore for this to be too early for.
   'addEventListener("load",function(){if(window.scrollY)' +
   'd.classList.remove("ha-lock")})})()';
 
