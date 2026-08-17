@@ -8,6 +8,7 @@ import {
   buildAdminOrderNotificationHtml,
   type OrderEmailLine,
 } from "@/lib/email";
+import { DOWNLOAD_FORMATS, type DownloadFormat } from "@/lib/audio-formats";
 
 const SITE_URL = process.env.SITE_URL || "https://chadlewine.com";
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || "portal@chadlewine.com";
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
         i?: string | null;
         sk?: string;
         v?: string;
-        f?: "mp3" | "flac" | "wav" | null;
+        f?: DownloadFormat | null;
         c?: number;
         // pf = 1 marks a physical music SKU (vinyl/cd/cassette). Its line type
         // is still "release"/"song", so it needs an explicit physical flag.
@@ -294,7 +295,8 @@ export async function POST(request: Request) {
       } catch (e) {
         console.warn("[stripe-webhook] listLineItems failed:", (e as Error).message);
       }
-      type FormatKey = "mp3" | "flac" | "wav";
+      type FormatKey = DownloadFormat;
+      const DL_FORMATS: readonly FormatKey[] = DOWNLOAD_FORMATS;
       type RingtoneFormat = "m4r" | "mp3";
       type EmailItemType = "song" | "release" | "ringtone" | "merch" | "art_original" | "art_limited_print";
       const emailItems: OrderEmailLine[] = [];
@@ -317,7 +319,7 @@ export async function POST(request: Request) {
                     ? "art_original"
                     : "merch";
         const format: FormatKey | null =
-          line.f === "mp3" || line.f === "flac" || line.f === "wav" ? line.f : null;
+          line.f && DL_FORMATS.includes(line.f) ? line.f : null;
 
         let itemTitle = "";
         let variantNote: string | undefined;
@@ -357,9 +359,7 @@ export async function POST(request: Request) {
               // physical (vinyl/cd/cassette) so the included digital copy ships.
               const { bySongSku } = await resolveSkuDownloadPaths(supabase, [], [sku.id]);
               const paths = bySongSku.get(sku.id);
-              availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-                (f) => paths?.[f],
-              );
+              availableFormats = DL_FORMATS.filter((f) => paths?.[f]);
               const { data: songRow } = await supabase
                 .from("songs")
                 .select("title, art_image_path")
@@ -440,9 +440,7 @@ export async function POST(request: Request) {
               // physical (vinyl/cd/cassette) so the included digital copy ships.
               const { byReleaseSku } = await resolveSkuDownloadPaths(supabase, [sku.id], []);
               const paths = byReleaseSku.get(sku.id);
-              availableFormats = (["mp3", "flac", "wav"] as FormatKey[]).filter(
-                (f) => paths?.[f],
-              );
+              availableFormats = DL_FORMATS.filter((f) => paths?.[f]);
               const { data: album } = await supabase
                 .from("releases")
                 .select("title, cover_art_path")

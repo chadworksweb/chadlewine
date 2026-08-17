@@ -4,6 +4,7 @@ import { SiteJsonLd } from "@/components/SiteJsonLd";
 import { CartProvider, CartUI } from "@/components/Cart";
 import { PlayerProvider } from "@/components/PlayerContext";
 import { StickyPlayer } from "@/components/StickyPlayer";
+import { RouteProgress } from "@/components/RouteProgress";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { ConsentProvider } from "@/components/ConsentProvider";
 import { FORCE_MOTION_BOOTSTRAP } from "@/lib/motion";
@@ -88,6 +89,7 @@ export default function RootLayout({
         <SiteJsonLd />
         <ConsentProvider>
           <CartProvider>
+            <RouteProgress />
             <PlayerProvider>
               {children}
               <StickyPlayer />

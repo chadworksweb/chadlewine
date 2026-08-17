@@ -68,6 +68,9 @@ export type BunnyListItem = {
   size: number;
   isDirectory: boolean;
   dateCreated: string;
+  /** When the bytes last changed. Re-uploading a name keeps DateCreated at the
+   *  original upload, so this is the only field that moves on a replace. */
+  lastChanged: string;
   url: string;
 };
 
@@ -76,6 +79,7 @@ type BunnyStorageObject = {
   IsDirectory: boolean;
   Length: number;
   DateCreated: string;
+  LastChanged?: string;
 };
 
 export async function listBunny(
@@ -106,6 +110,7 @@ export async function listBunny(
       size: item.Length,
       isDirectory: item.IsDirectory,
       dateCreated: item.DateCreated,
+      lastChanged: item.LastChanged || item.DateCreated,
       url: pullZoneUrl(config, name),
     };
   });

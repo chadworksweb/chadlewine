@@ -11,6 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { CrossSellStrip } from "@/components/CrossSellStrip";
+import type { DownloadFormat } from "@/lib/audio-formats";
 
 const CART_KEY = "chadlewine_cart";
 const AUTO_CLOSE_MS = 5000;
@@ -25,7 +26,7 @@ export type CartItem = {
   price: number;
   // Format applies only to song/album (selected at delivery for albums).
   // Ringtones are their own SKU and always deliver M4R + MP3 — format is null.
-  format: "mp3" | "flac" | "wav" | null;
+  format: DownloadFormat | null;
   cover_art_path: string | null;
   // Merch-only fields. variant_label shows under the title in the cart drawer
   // ("Print", etc.). product_config carries the chosen curated variant

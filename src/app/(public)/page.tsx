@@ -300,7 +300,7 @@ async function getHomepageMerch() {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from("merch")
-    .select("id, slug, title, image_url, image_alt")
+    .select("id, slug, title, image_url, image_alt, is_new")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(6);
@@ -492,6 +492,7 @@ export default async function HomePage() {
                   title={p.title}
                   image_url={p.image_url}
                   image_alt={p.image_alt}
+                  isNew={p.is_new}
                 />
               ))}
             </div>

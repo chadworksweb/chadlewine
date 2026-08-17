@@ -246,7 +246,10 @@ export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroI
           )}
           {clStreamSongs.length > 0 && (
             <div className="home-split__sidebar-block">
-              <h2 className="home-split__section-heading">CL Stream</h2>
+              <h2 className="home-split__section-heading">
+                {"CL Stream"}
+                <span className="home-split__section-sub">what I&rsquo;m listening to</span>
+              </h2>
               <div className="home-split__sidebar-feed">
                 {clStreamSongs.map((s) => {
                   const label = `${s.title} — ${s.artist}`;

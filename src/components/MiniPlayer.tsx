@@ -1,7 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePlayer, type PlaybackMode } from "@/components/PlayerContext";
+import { usePlayer, usePlayerTime, type PlaybackMode } from "@/components/PlayerContext";
 
 interface MiniPlayerProps {
   songId: string;
@@ -128,6 +129,48 @@ export function MiniPlayerTransport({
   );
 }
 
+// The same control, subscribed to the playback clock. This is the ONLY thing
+// that re-renders on a tick, instead of whatever page happens to hold it.
+// Render it for the active track and the plain MiniPlayerTransport (progress
+// 0) for every other row.
+export function LiveMiniPlayerTransport(props: {
+  playing: boolean;
+  playbackMode?: PlaybackMode;
+  onToggle: () => void;
+}) {
+  const { progress } = usePlayerTime();
+  return <MiniPlayerTransport {...props} progress={progress} />;
+}
+
+// The waveform's filled half. The clip path is the only thing that moves with
+// the clock, so it subscribes and the bars around it don't.
+function WaveformFill({ active, children }: { active: boolean; children: ReactNode }) {
+  return active ? (
+    <LiveWaveformFill>{children}</LiveWaveformFill>
+  ) : (
+    <div
+      className="mini-player__wf-layer mini-player__wf-fg"
+      style={{ clipPath: "inset(0 100% 0 0)" }}
+      aria-hidden="true"
+    >
+      {children}
+    </div>
+  );
+}
+
+function LiveWaveformFill({ children }: { children: ReactNode }) {
+  const { progress } = usePlayerTime();
+  return (
+    <div
+      className="mini-player__wf-layer mini-player__wf-fg"
+      style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
+      aria-hidden="true"
+    >
+      {children}
+    </div>
+  );
+}
+
 export function MiniPlayer({
   songId,
   songSlug,
@@ -144,7 +187,6 @@ export function MiniPlayer({
   const player = usePlayer();
   const isThis = player.isCurrent(songId);
   const playing = isThis && player.playing;
-  const progress = isThis ? player.progress : 0;
   const bars = generateBars(trackTitle, BAR_COUNT);
 
   function handleToggle() {
@@ -165,11 +207,18 @@ export function MiniPlayer({
     });
   }
 
-  // The play button + progress ring, reused by both variants.
-  const playButton = (
+  // The play button + progress ring, reused by both variants. Only the active
+  // row's button watches the clock.
+  const playButton = isThis ? (
+    <LiveMiniPlayerTransport
+      playing={playing}
+      playbackMode={playbackMode}
+      onToggle={handleToggle}
+    />
+  ) : (
     <MiniPlayerTransport
       playing={playing}
-      progress={progress}
+      progress={0}
       playbackMode={playbackMode}
       onToggle={handleToggle}
     />
@@ -214,11 +263,7 @@ export function MiniPlayer({
           </div>
         </div>
 
-        <div
-          className="mini-player__wf-layer mini-player__wf-fg"
-          style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
-          aria-hidden="true"
-        >
+        <WaveformFill active={isThis}>
           <div className="mini-player__wf-main">
             {bars.map((h, i) => (
               <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
@@ -229,7 +274,7 @@ export function MiniPlayer({
               <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
             ))}
           </div>
-        </div>
+        </WaveformFill>
       </div>
 
       <span className="mini-player__duration">

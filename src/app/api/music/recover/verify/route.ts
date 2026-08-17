@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { resolveSkuDownloadPaths } from "@/lib/release-skus";
+import { DOWNLOAD_FORMATS, type DownloadFormat } from "@/lib/audio-formats";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -48,8 +49,8 @@ export async function GET(request: Request) {
     .map((p) => p.song_sku_id)
     .filter((v): v is string => !!v);
 
-  type FormatKey = "mp3" | "flac" | "wav";
-  const FORMATS: FormatKey[] = ["mp3", "flac", "wav"];
+  type FormatKey = DownloadFormat;
+  const FORMATS: readonly FormatKey[] = DOWNLOAD_FORMATS;
 
   const [{ data: songs }, { data: albums }, skuPaths] = await Promise.all([
     songIds.length
@@ -83,7 +84,7 @@ export async function GET(request: Request) {
         ? p.item_id ? songMap.get(p.item_id) : undefined
         : p.item_id ? albumMap.get(p.item_id) : undefined;
 
-    let pathSource: { mp3: string | null; flac: string | null; wav: string | null } | undefined;
+    let pathSource: Record<FormatKey, string | null> | undefined;
     if (p.release_sku_id) {
       pathSource = byReleaseSku.get(p.release_sku_id);
     } else if (p.song_sku_id) {

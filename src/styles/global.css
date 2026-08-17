@@ -412,14 +412,14 @@ h2, h3, h4, h5, h6 {
    Bottom only, by construction: the header is full-bleed, so its left and right
    edges are off-screen and a symmetric shadow would be paint nobody sees. The
    negative spread on the second layer keeps the glow from creeping sideways.
-   640px is where the nav becomes the hamburger, so this is exactly the state
+   900px is where the nav becomes the hamburger, so this is exactly the state
    that is actually "the mobile header".
    Hiding travels FURTHER rather than fading the shadow out. translateY(-100%)
    only carries the bar's own box, so its bottom edge lands at y=0 and the fall
    below it stays on screen as a blue strip. Fading the shadow to clear it reads
    as two movements: the bar leaves, then the glow does. Going the extra distance
    keeps it one gesture, on the transform transition the header already had. */
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .site-header {
     /* How far the fall reaches past the bar's own bottom edge: 6px offset, minus
        the 4px of negative spread, plus half of the 18px blur, so 11px exactly.
@@ -436,7 +436,7 @@ h2, h3, h4, h5, h6 {
        the bar (coming down only covers it, which is why only one direction read
        as rough).
        Safe here specifically: promotion makes an element a containing block for
-       positioned descendants, and under 640px the header's only children are the
+       positioned descendants, and under 900px the header's only children are the
        logo, the hamburger and .nav-mobile-menu, which is normal-flow max-height,
        not fixed. The desktop dropdown is display:none at this width. */
     will-change: transform;
@@ -451,7 +451,11 @@ h2, h3, h4, h5, h6 {
 body.art-immersive {
   overflow: hidden;
 }
-body.art-immersive main ~ * {
+/* The player is the exception. It is a sibling of <main> in the root layout,
+   so the blanket rule above was switching it off the moment the portfolio
+   went immersive — a song would keep playing with no transport anywhere on
+   screen. Music outlives the view it was started from. */
+body.art-immersive main ~ *:not(.cl-sticky-player) {
   display: none;
 }
 
@@ -894,7 +898,15 @@ body.art-immersive main ~ * {
   transition-delay: calc(var(--nav-index, 0) * 90ms);
 }
 
-@media (max-width: 640px) {
+/* THE NAV BREAKPOINT. The row needs 774px of content (218 logo + 556 links)
+   plus the header's own edge padding, so the seven pills start crowding the
+   logo around 800px and are touching it by 720. Switching at 900 leaves the
+   desktop row a real margin at every width it survives, and hands the
+   641-900 band (iPad portrait, iPad Air, small laptops in a half-screen
+   window) the touch menu, which is the better target there anyway.
+   The .site-header mobile-shadow block above is keyed to this same width --
+   move one, move both. */
+@media (max-width: 900px) {
   .nav-links {
     display: none !important;
   }
@@ -2641,6 +2653,20 @@ body.art-immersive main ~ * {
   margin-bottom: 0;
   padding-bottom: var(--space-sm);
   border-bottom: 2px solid var(--text-accent);
+}
+
+/* Inline subtitle on a sidebar heading. Stays inline rather than turning the
+   heading into a flex row, so the observations heading keeps its ::before and
+   ::after decorations untouched. */
+.home-split__section-sub {
+  margin-left: var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .home-split__observations .home-split__section-heading {
@@ -7198,6 +7224,19 @@ html {
 }
 .account-dashboard__download-btn:hover { opacity: 0.85; }
 
+/* Qualifier under a download format chip. AAC is the pack that imports into
+   iTunes cleanly and nothing about the file name says so. */
+.download-format-note {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  text-align: center;
+  opacity: 0.72;
+}
+
 /* Unsubscribe public page */
 .unsubscribe-page {
   /* Full site width via the page-static content rail -- never a centered
@@ -10654,6 +10693,197 @@ html {
   margin-bottom: var(--space-sm);
 }
 
+/* --- Admin: merch gallery panel ------------------------------------------
+   Layout lives here rather than inline so it can reflow on a phone. The
+   state-driven colours (drag-over border, hidden/removed dimming) stay inline
+   in the component. */
+.merch-gallery__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.merch-gallery__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.merch-gallery__row {
+  display: grid;
+  grid-template-columns: auto 80px minmax(0, 1fr) auto;
+  grid-template-areas: "handle thumb meta actions";
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.merch-gallery__handle {
+  grid-area: handle;
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
+
+.merch-gallery__thumb {
+  grid-area: thumb;
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #222;
+}
+
+.merch-gallery__meta {
+  grid-area: meta;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.merch-gallery__actions {
+  grid-area: actions;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* Phone: the alt-text field gets crushed to nothing at four columns, and
+   HTML5 drag reorder doesn't fire on touch anyway, so the handle goes and the
+   controls take their own row. */
+@media (max-width: 640px) {
+  .merch-gallery__row {
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-areas:
+      "thumb meta"
+      "actions actions";
+    gap: 10px;
+  }
+  .merch-gallery__handle {
+    display: none;
+  }
+  .merch-gallery__thumb {
+    width: 64px;
+    height: 64px;
+  }
+  .merch-gallery__head-actions {
+    width: 100%;
+  }
+}
+
+/* NEW badge — the icosahedron field on the image, top left, above the water
+   canvas (z-index 2), with a short chromatic split every few seconds.
+   Toggled per product (merch.is_new). */
+.merch-badge {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  z-index: 3;
+  display: block;
+  /* Sized off the card, not the viewport. The grid holds 3 columns down to
+     720px, so a viewport-keyed size grows in relative terms exactly where the
+     cards are narrowest: 104px on a 404px desktop card is 26%, and the same
+     104px on a 232px tablet card would be 45%. */
+  width: clamp(48px, 26%, 104px);
+  aspect-ratio: 1;
+  container-type: inline-size; /* lets the word track the badge */
+  pointer-events: none;
+}
+
+/* The badge rides every grid that shows a merch item, so it has to sit on
+   several card shells. Each one needs a positioning context; the merch card's
+   image link already has one. */
+.ymal__thumb-wrap,
+.si-merch-carousel__image-link {
+  position: relative;
+}
+
+/* Two of these stack: inner shells under the word, outer shells over it.
+   Nothing behind them — the badge is transparent, so the product photo shows
+   straight through the cage. */
+.merch-badge__field {
+  position: absolute;
+  inset: 0;
+}
+
+/* PsycheAura's own host is a tall sticky column on the song page. Inside the
+   badge it fills the square instead. */
+.merch-badge .psyche-aura__host {
+  position: absolute;
+  inset: 0;
+  top: auto;
+  width: 100%;
+  height: 100%;
+}
+
+.merch-badge__word {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 13cqw, 13px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em; /* balances the trailing letter-space */
+  text-transform: uppercase;
+  color: #eaeeff;
+  text-shadow:
+    0 0 3px rgba(7, 7, 13, 0.95),
+    0 0 8px rgba(7, 7, 13, 0.8),
+    0 0 16px rgba(77, 124, 255, 0.5);
+  animation: merch-badge-jolt 7s steps(1, end) infinite;
+}
+
+/* One burst per cycle, on the word alone -- the solid keeps turning cleanly
+   through it. steps(1) keeps the movement snapped rather than eased, which is
+   what reads as a glitch rather than a wobble. Every frame carries the
+   centring translate, since transform is one property. */
+@keyframes merch-badge-jolt {
+  0%, 90% {
+    transform: translate(-50%, -50%);
+    clip-path: none;
+    filter: none;
+  }
+  91% {
+    transform: translate(-50%, -50%) translate(-2px, 0) skewX(-9deg);
+    filter: drop-shadow(3px 0 0 rgba(77, 143, 255, 0.8)) drop-shadow(-3px 0 0 rgba(7, 7, 13, 0.85));
+  }
+  92% {
+    transform: translate(-50%, -50%) translate(2px, -1px) skewX(4deg);
+    clip-path: inset(34% 0 28% 0);
+    filter: drop-shadow(-4px 0 0 rgba(77, 143, 255, 0.7));
+  }
+  93% {
+    transform: translate(-50%, -50%);
+    clip-path: none;
+    filter: none;
+  }
+  94% {
+    transform: translate(-50%, -50%) translate(2px, 0);
+    clip-path: inset(0 0 56% 0);
+    filter: drop-shadow(2px 0 0 rgba(139, 156, 247, 0.75));
+  }
+  95%, 100% {
+    transform: translate(-50%, -50%);
+    clip-path: none;
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .merch-badge__word {
+    animation: none !important;
+  }
+}
+
 .merch-shop__card-kind {
   justify-self: end;
   align-self: start;
@@ -12958,6 +13188,13 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 .product-detail__info-bar[data-cols="2"] { grid-template-columns: 1fr 2fr; }
 .track-detail__info-bar[data-cols="3"],
 .product-detail__info-bar[data-cols="3"] { grid-template-columns: 1fr 1fr 1fr; }
+
+/* Release pages only. The track count is one or two digits and never needs a
+   third of the bar, so it gives half its width back to the two cells that
+   carry a full date and a format name (or the RC badge). Scoped to the
+   modifier so the song and product info bars, whose first cell is not a
+   number, keep their even thirds. */
+.track-detail__info-bar--release[data-cols="3"] { grid-template-columns: 2fr 5fr 5fr; }
 
 .track-detail__info-cell,
 .product-detail__info-cell {
@@ -15666,6 +15903,12 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   transform: translateX(1px);
 }
 
+/* The pause bars are symmetrical, so the triangle's nudge just pushes them
+   off centre. They sit where geometry puts them. */
+.tracklist-row__play-icon--pause {
+  transform: none;
+}
+
 /* Title + duration -- one click region that toggles the expand panel. */
 .tracklist-row__expand-btn {
   display: flex;
@@ -15867,6 +16110,15 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 /* --- Responsive --- */
 
 @media (max-width: 900px) {
+  /* Once the grid stacks, the cover art is the first thing in main, and
+     main's padding-top only clears the fixed nav -- it leaves no gap, so the
+     art sits flush against the header. Desktop never shows this because the
+     art column is height-capped and the content column sets the top edge. */
+  .track-detail,
+  .product-detail {
+    padding-top: var(--space-lg);
+  }
+
   .track-detail__grid,
   .product-detail__grid {
     grid-template-columns: 1fr;
@@ -15942,6 +16194,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 
   .track-detail__info-bar[data-cols="2"],
   .track-detail__info-bar[data-cols="3"],
+  /* Listed explicitly: the release modifier outweighs the plain selector
+     above, so without this the 2fr 5fr 5fr split would survive the collapse. */
+  .track-detail__info-bar--release[data-cols="3"],
   .product-detail__info-bar[data-cols="2"],
   .product-detail__info-bar[data-cols="3"] {
     grid-template-columns: 1fr;

@@ -4,17 +4,18 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { type DownloadFormat, downloadFormatNote } from "@/lib/audio-formats";
 
 interface RecoveryItem {
   purchase_id: string;
   item_type: "song" | "release";
-  format: "mp3" | "flac" | "wav" | null;
+  format: DownloadFormat | null;
   title: string;
   slug: string | null;
   cover_art_path: string | null;
   amount: number;
   created_at: string;
-  formatLinks: Array<{ format: "mp3" | "flac" | "wav"; url: string }>;
+  formatLinks: Array<{ format: DownloadFormat; url: string }>;
 }
 
 function RecoverViewContent() {
@@ -116,6 +117,11 @@ function RecoverViewContent() {
                       style={{ textDecoration: "none" }}
                     >
                       {it.formatLinks.length > 1 ? link.format.toUpperCase() : "Download"}
+                      {downloadFormatNote(link.format) && (
+                        <span className="download-format-note">
+                          {downloadFormatNote(link.format)}
+                        </span>
+                      )}
                     </a>
                   ))
                 ) : (

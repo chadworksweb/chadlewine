@@ -9,6 +9,7 @@ import {
   NOTIFICATION_CATEGORIES,
   OPTIONAL_CATEGORIES,
 } from "@/lib/notification-categories";
+import { type DownloadFormat, downloadFormatNote } from "@/lib/audio-formats";
 
 interface DownloadItem {
   purchase_id: string;
@@ -19,7 +20,7 @@ interface DownloadItem {
   cover_art_path: string | null;
   amount: number | null;
   created_at: string;
-  formatLinks: Array<{ format: "mp3" | "flac" | "wav" | "m4r"; url: string }>;
+  formatLinks: Array<{ format: DownloadFormat | "m4r"; url: string }>;
 }
 
 interface FanTrackItem {
@@ -734,6 +735,11 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
                                 className="account-dashboard__download-btn"
                               >
                                 {f.format.toUpperCase()}
+                                {downloadFormatNote(f.format) && (
+                                  <span className="download-format-note">
+                                    {downloadFormatNote(f.format)}
+                                  </span>
+                                )}
                               </a>
                             ))
                           )}

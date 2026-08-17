@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -26,16 +27,23 @@ export type PlayerSong = {
   playbackMode: PlaybackMode;
 };
 
-type PlayerContextValue = {
-  current: PlayerSong | null;
-  playing: boolean;
-  loading: boolean;
+// The clock lives in its own context. It changes 10x a second during
+// playback, and everything else here changes only when a track starts, stops
+// or pauses -- one object for both meant every consumer of play/pause paid
+// for the ticking, including two thousand-line trees that never read it.
+type PlayerTimeValue = {
   /** Display position in seconds, normalized to the active playback window */
   displayTime: number;
   /** Display duration in seconds (preview window or full track) */
   displayDuration: number;
   /** 0..1 fraction through the active window */
   progress: number;
+};
+
+type PlayerContextValue = {
+  current: PlayerSong | null;
+  playing: boolean;
+  loading: boolean;
   play: (song: PlayerSong) => void;
   pause: () => void;
   resume: () => void;
@@ -56,10 +64,23 @@ type PlayerContextValue = {
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
+const PlayerTimeContext = createContext<PlayerTimeValue | null>(null);
 
 export function usePlayer(): PlayerContextValue {
   const ctx = useContext(PlayerContext);
   if (!ctx) throw new Error("usePlayer must be used within PlayerProvider");
+  return ctx;
+}
+
+/**
+ * The playback clock, on its own subscription. Anything that reads this
+ * re-renders ~10x a second while a song plays, so keep it to the smallest
+ * component that draws the position: a progress ring, a scrubber bar.
+ * Everything else wants usePlayer().
+ */
+export function usePlayerTime(): PlayerTimeValue {
+  const ctx = useContext(PlayerTimeContext);
+  if (!ctx) throw new Error("usePlayerTime must be used within PlayerProvider");
   return ctx;
 }
 
@@ -781,25 +802,34 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     ? Math.max(0, Math.min(1, displayTime / displayDuration))
     : 0;
 
+  // Memoized so a clock tick can't hand consumers a new object. Every
+  // callback below is already useCallback-stable, so this value only changes
+  // when the track, the play state or the loading state does.
+  const playerValue = useMemo(
+    () => ({
+      current,
+      playing,
+      loading,
+      play,
+      pause,
+      resume,
+      stop,
+      seek,
+      isCurrent,
+      getAnalyser,
+      getCurrentTime,
+    }),
+    [current, playing, loading, play, pause, resume, stop, seek, isCurrent, getAnalyser, getCurrentTime],
+  );
+
+  const timeValue = useMemo(
+    () => ({ displayTime, displayDuration, progress }),
+    [displayTime, displayDuration, progress],
+  );
+
   return (
-    <PlayerContext.Provider
-      value={{
-        current,
-        playing,
-        loading,
-        displayTime,
-        displayDuration,
-        progress,
-        play,
-        pause,
-        resume,
-        stop,
-        seek,
-        isCurrent,
-        getAnalyser,
-        getCurrentTime,
-      }}
-    >
+    <PlayerContext.Provider value={playerValue}>
+      <PlayerTimeContext.Provider value={timeValue}>
       {children}
       {blockedSong && (
         <PlayLimitModal
@@ -807,6 +837,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           onClose={() => setBlockedSong(null)}
         />
       )}
+      </PlayerTimeContext.Provider>
     </PlayerContext.Provider>
   );
 }

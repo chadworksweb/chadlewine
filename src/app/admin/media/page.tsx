@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { uploadMedia } from "@/lib/upload-media";
 
 type Pillar =
   | "observations"
@@ -231,16 +232,17 @@ export default function AdminMediaPage() {
   async function uploadFile(file: File) {
     setUploading(true);
     setError("");
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("type", uploadZone);
-    if (uploadFolder.trim()) formData.append("folder", uploadFolder.trim());
-    const res = await fetch("/api/admin/media/upload", { method: "POST", body: formData });
-    if (res.ok) {
+    try {
+      const result = await uploadMedia(file, {
+        type: uploadZone,
+        folder: uploadFolder.trim() || undefined,
+      });
       await fetchImages();
-    } else {
-      const data = await res.json();
-      setError(data.error || "Upload failed");
+      if (result.renamedTo) {
+        setError(`That name was taken, so it uploaded as "${result.renamedTo}".`);
+      }
+    } catch (err) {
+      setError((err as Error).message);
     }
     setUploading(false);
   }

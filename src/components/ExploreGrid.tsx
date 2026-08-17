@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MerchRippleCanvas, type MerchRippleCanvasHandle } from "./MerchRippleCanvas";
+import { MerchNewBadge } from "./MerchNewBadge";
 
 export type ExploreKind = "song" | "release" | "merch" | "art" | "observation";
 
@@ -18,6 +19,8 @@ export interface ExploreGridItem {
   /** Override for the badge text. Lets a release surface as "Album" / "EP" /
    *  "Single" while keeping kind="release" for styling. Falls back to kind. */
   kind_label?: string | null;
+  /** Merch only: draws the NEW badge over the image. */
+  is_new?: boolean | null;
 }
 
 interface Props {
@@ -206,6 +209,7 @@ export function ExploreGrid({ items }: Props) {
                     className="merch-shop__card-water"
                   />
                 )}
+                {item.is_new && <MerchNewBadge seed={item.slug || item.id} />}
               </Link>
             )}
             <h3 className="merch-shop__card-title">
