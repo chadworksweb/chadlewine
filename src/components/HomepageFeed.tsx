@@ -7,9 +7,9 @@ import { FeedEntry } from "@/components/FeedEntry";
 import { FeaturedTrack } from "@/components/FeaturedTrack";
 
 const FEED_LIMIT = 15;
-// Default hero slide count when the site setting is unset. Curated pins lead;
-// latest songs backfill the rest up to this many slides.
-const HERO_SLIDE_DEFAULT = 10;
+// Stable identity for "nothing pinned", so an absent prop does not hand
+// HeroLens a fresh array on every render.
+const EMPTY_HERO_ITEMS: HeroLensItem[] = [];
 
 // Pinned to a FIXED timezone so the string is identical whether it is
 // computed on the server (Vercel = UTC) or in the visitor's browser. Using
@@ -115,55 +115,23 @@ interface HomepageFeedProps {
   songs: Song[];
   featuredTrack: FeaturedTrackData | null;
   clStreamSongs: CLStreamSong[];
+  /** THE hero. Every slide, in admin order. Nothing is added to this. */
   curatedHeroItems?: HeroLensItem[];
-  /** Total hero slides to show. Curated pins lead; latest songs backfill the
-   *  rest up to this number. Defaults to 10. */
-  heroSlideCount?: number;
 }
 
-// A latest-songs feed entry rendered as a hero slide. When the song has no
-// per-track art we fall back to its album cover AND the album's focal data
-// (the song's focal was calibrated for a different image).
-function songToHeroItem(s: Song): HeroLensItem {
-  const useAlbumImage = !s.art_image_path && !!s.album_cover_path;
-  const fx = useAlbumImage ? s.album_hero_focal_x : s.hero_focal_x;
-  const fy = useAlbumImage ? s.album_hero_focal_y : s.hero_focal_y;
-  const fz = useAlbumImage ? s.album_hero_zoom : s.hero_zoom;
-  return {
-    slug: s.slug,
-    title: s.title,
-    date: s.release_date,
-    artImagePath: s.art_image_path || s.album_cover_path || "",
-    artAlt: s.art_alt || s.album_cover_alt || s.title,
-    href: `/music/songs/${s.slug}`,
-    ctaLabel: "Listen →",
-    focalX: fx != null ? fx / 100 : 0.5,
-    focalY: fy != null ? fy / 100 : 0.5,
-    zoom: fz != null && fz >= 1 ? fz : 1,
-    kind: "song" as const,
-  };
-}
-
-export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroItems, heroSlideCount }: HomepageFeedProps) {
+export function HomepageFeed({ songs, featuredTrack, clStreamSongs, curatedHeroItems }: HomepageFeedProps) {
   const feedSongs = useMemo(() => songs.slice(0, FEED_LIMIT), [songs]);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [stuck, setStuck] = useState(false);
 
-  const heroItems: HeroLensItem[] = useMemo(() => {
-    const target = heroSlideCount && heroSlideCount > 0 ? heroSlideCount : HERO_SLIDE_DEFAULT;
-    const curated = curatedHeroItems ?? [];
-    // Curated pins lead. Backfill with the latest songs (skipping any song
-    // already pinned, so it never doubles) until we hit the target count, then
-    // clamp. With no pins this is just the latest-songs auto feed.
-    const pinnedSongSlugs = new Set(curated.filter((i) => i.kind === "song").map((i) => i.slug));
-    const backfill: HeroLensItem[] = [];
-    for (const s of songs) {
-      if (curated.length + backfill.length >= target) break;
-      if (pinnedSongSlugs.has(s.slug)) continue;
-      backfill.push(songToHeroItem(s));
-    }
-    return [...curated, ...backfill].slice(0, target);
-  }, [curatedHeroItems, songs, heroSlideCount]);
+  // THE HERO IS EXACTLY WHAT THE ADMIN PINS, in `display_order`. It used to be
+  // "pins lead, then backfill from the latest songs up to a target count", which
+  // meant most of the carousel was chosen by a database sort rather than by
+  // anyone: pinning four slides still produced ten, and the six nobody picked
+  // moved on their own whenever the song feed changed. The pin list is now the
+  // whole answer, so the count is however many are pinned and there is no
+  // target to reach. The `songs` prop is still needed below, for Latest Songs.
+  const heroItems = curatedHeroItems ?? EMPTY_HERO_ITEMS;
 
   // Toggle `is-stuck` directly via DOM in a rAF-throttled scroll listener
   // so the mask flips on/off in the SAME frame the scroll is painted.

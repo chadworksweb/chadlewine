@@ -430,27 +430,13 @@ async function getGalleryArt(): Promise<GalleryPiece[]> {
   return all.slice(0, GALLERY_WALL_POOL);
 }
 
-// How many slides the hero shows. Curated pins lead; latest songs backfill the
-// rest up to this number (see HomepageFeed). Stored in site_settings; defaults
-// to 10 and is capped to what the song feed can backfill.
-async function getHeroSlideCount(): Promise<number> {
-  const supabase = createPublicClient();
-  const { data } = await supabase
-    .from("site_settings")
-    .select("value")
-    .eq("key", "hero_slide_count")
-    .maybeSingle();
-  const n = data?.value ? parseInt(data.value, 10) : NaN;
-  return Number.isFinite(n) && n > 0 ? Math.min(n, 15) : 10;
-}
-
 export default async function HomePage() {
   // Compute the browse-excluded song ids ONCE and share the promise across both
   // consumers (getExploreSongs + getSongBriefs). Previously each recomputed it --
   // two redundant Supabase round trips on every render (and these pages render
   // live on every request, so it was paid every time, not just on regen).
   const excludedIdsPromise = getBrowseExcludedSongIds(createPublicClient());
-  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, preorderHeroSlide, heroSlideCount, galleryArt, latestPosts] = await Promise.all([
+  const [songs, featuredTrack, clStreamSongs, exploreSongs, songBriefs, homepageMerch, curatedHeroItems, preorderHeroSlide, galleryArt, latestPosts] = await Promise.all([
     getHomepageSongs(),
     getFeaturedTrack(),
     getCLStreamSongs(),
@@ -459,13 +445,15 @@ export default async function HomePage() {
     getHomepageMerch(),
     getCuratedHeroItems(),
     getPreorderHeroSlide(),
-    getHeroSlideCount(),
     getGalleryArt(),
     getLatestPosts(),
   ]);
 
-  // The Don't Blame Me pre-order leads the hero when it's live. It sits ahead
-  // of the curated pins; the latest-songs backfill still fills the rest.
+  // The Don't Blame Me pre-order leads the hero when it's live, ahead of the
+  // curated pins. This is the ONLY slide the hero shows that admin did not pin,
+  // and it is self-gating: `getPreorderHeroSlide` returns null unless the
+  // release still has a SKU at status "preorder", which it no longer does now
+  // that the album is out. Everything after it is the pin list verbatim.
   const heroItems = preorderHeroSlide
     ? [preorderHeroSlide, ...curatedHeroItems]
     : curatedHeroItems;
@@ -496,7 +484,6 @@ export default async function HomePage() {
         featuredTrack={featuredTrack ? { ...featuredTrack, playbackMode: featuredPlaybackMode } : null}
         clStreamSongs={clStreamSongs}
         curatedHeroItems={heroItems}
-        heroSlideCount={heroSlideCount}
       />
 
       {homepageMerch.length > 0 && (
