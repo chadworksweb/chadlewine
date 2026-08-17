@@ -8,7 +8,10 @@
 
 // ----- Corridor geometry constants (shared by builder + camera) -----
 export const FLOOR_Y = -3;
-export const EYE_HEIGHT = 1.4; // camera sits this far above the floor
+// The single plane everything is played on. Flight is planar: there is no climb
+// or dive, so the camera sits here for the whole run and anything the player has
+// to reach has to live in this plane too (see buildSignal).
+export const FLIGHT_Y = 0;
 export const ROWS = 30;
 export const GAP = 8.5;
 export const AISLE = 8;
@@ -134,22 +137,22 @@ export const LEVELS: LevelConfig[] = [
   {
     id: 1, stage: "WAKE", song: "Machine", slug: "machine", charge: 76, tierLabel: "violet", hue: "#b46bff",
     mechanic: "treadmill", shatterColor: "#b46bff",
-    completeSub: "The loop was the lie.",
+    completeSub: "The loop is a lie.",
     word: {
       accept: ["shatter", "break", "smash"],
-      prompt: "THE WALL IS GLASS. TYPE WHAT YOU DO TO IT.",
+      prompt: "THE WALL IS GLASS.\nTYPE WHAT YOU DO TO IT.",
       hint: "HINT: it is glass - say what you do to glass",
       idleLine: "YOU ARE NOT ADVANCING",
-      openLine: "THE EXIT WAS ALWAYS THERE - FLY INTO THE LIGHT",
+      openLine: "TIME TO LEAVE THE LOOP",
     },
     // Gauntlet stage B: the comfort wall past the slalom. You do not smash
     // comfort - you leave it. A correct verb dissolves it (warm shards).
     comfortWord: {
       accept: ["leave", "walk", "quit", "go", "rise"],
-      prompt: "COMFORT SAYS STAY. TYPE WHAT YOU DO.",
+      prompt: "COMFORT WALL SAYS STAY CONFINED AND COMFY.\nTYPE WHAT YOU DO.",
       hint: "you don't break comfort - you leave it",
-      idleLine: "COMFORT SAYS STAY",
-      openLine: "YOU DIDN'T FIGHT IT - YOU WALKED",
+      idleLine: "ENCOUNTERING COMFORT WALL",
+      openLine: "YOU'RE ABOUT TO BREAK THE LOOP! GO!",
     },
   },
   {
@@ -158,7 +161,7 @@ export const LEVELS: LevelConfig[] = [
     completeSub: "Nothing was solid. You just stopped pretending it was.",
     word: {
       accept: ["see", "seethrough", "scrape", "reveal", "strip", "expose"],
-      prompt: "THE FRONT SAYS I'M FINE. TYPE HOW YOU GET PAST IT.",
+      prompt: "THE FRONT SAYS I'M FINE.\nTYPE HOW YOU GET PAST IT.",
       hint: "HINT: stop looking AT it - you SEE through it",
       idleLine: "THE FRONT SAYS YOU'RE FINE",
       openLine: "THE PATH WAS BEHIND THE FRONT - FLY THROUGH",
@@ -236,7 +239,11 @@ export function buildSignal(levelId: number, count: number): Signal[] {
   for (let i = 0; i < count; i++) {
     out.push({
       x: (rnd() - 0.5) * (AISLE * 1.6),
-      y: FLOOR_Y + 1.6 + rnd() * 6,
+      // In the flight plane, jittered only enough to not read as a ruled line.
+      // The spread used to be FLOOR_Y + 1.6 + rnd() * 6, which reached well above
+      // COLLECT_REACH once flight went planar - about a quarter of the fragments
+      // became uncollectable, and L3 needs all of them to hand over the key.
+      y: FLIGHT_Y + (rnd() - 0.5) * 2,
       z: -10 - i * 14 - rnd() * 6,
     });
   }
@@ -314,7 +321,13 @@ export function buildPillars(levelId: number, periodic = false): Pillar[] {
 // cannot pass through (unless you fly over the top). Footprints are rectangular
 // (hwx in x, hwz in z) so the same model serves square pillars and the wide
 // barrier gates of the post-shatter gauntlet.
-export type Collider = { x: number; z: number; hwx: number; hwz: number; top: number };
+// `id` marks a collider as a boundary wall slab, and names which one. Only the
+// escape walls carry it: the controller uses it to fire a contact shock at the
+// wall that was hit, the way the Field does on the column levels. Pillars and
+// gates leave it undefined - they stop you, they do not react.
+// `top` is descriptive only. Collision stopped consulting it when flight went
+// planar; every collider is solid at any height, because there is no over.
+export type Collider = { x: number; z: number; hwx: number; hwz: number; top: number; id?: string };
 
 export function buildColliders(pillars: Pillar[]): Collider[] {
   return pillars.map((p) => ({ x: p.x, z: p.z, hwx: p.w * 0.5, hwz: p.w * 0.5, top: FLOOR_Y + p.h }));
@@ -372,6 +385,7 @@ export const LEG_GATE_BLOCK_Z = L1_LEG_W / 2; // a leg gate blocks this much of 
 
 // Comfort-wall footprint: full aisle width, taller than the Field ceiling
 // (FLOOR_Y + 34) so you cannot fly over it - you must dissolve it by speaking.
+export const COMFORT_WALL_ID = "comfort-wall"; // collider id -> the wall that ripples
 export const COMFORT_HALF_W = WALL_WIDTH / 2; // spans the aisle, like the glass wall
 export const COMFORT_HWZ = 1.0;
 export const COMFORT_TOP = FLOOR_Y + 36;
@@ -389,7 +403,10 @@ export function buildGateColliders(gates: JourneyGate[], wallZ: number): Collide
 // The comfort wall's collider: a full-aisle, near-ceiling barrier at L1_COMFORT_DZ.
 // Joins the collider set during the escape run until the verb dissolves it.
 export function buildComfortCollider(wallZ: number): Collider {
-  return { x: 0, z: wallZ + L1_COMFORT_DZ, hwx: COMFORT_HALF_W, hwz: COMFORT_HWZ, top: COMFORT_TOP };
+  // Carries an id like the escape walls do, so running into it fires a contact
+  // shock. It is the one obstacle you are meant to press against rather than
+  // weave around, which is exactly when a wall should push back.
+  return { id: COMFORT_WALL_ID, x: 0, z: wallZ + L1_COMFORT_DZ, hwx: COMFORT_HALF_W, hwz: COMFORT_HWZ, top: COMFORT_TOP };
 }
 
 // ----- Escape-corridor walls (L1 open phase) ----------------------------
@@ -397,7 +414,9 @@ export function buildComfortCollider(wallZ: number): Collider {
 // and spanning [from, to] along its tangent. axis "z" => a cross wall (spans x);
 // axis "x" => a side wall (spans z). The same list drives both the colliders and
 // the visible vector meshes, so they can never drift apart.
-export type WallSeg = { axis: "x" | "z"; c: number; from: number; to: number; top: number };
+// `id` is stable across the main/leg split so a contact on either group resolves
+// to exactly one slab (a bare array index would collide between the two groups).
+export type WallSeg = { axis: "x" | "z"; c: number; from: number; to: number; top: number; id: string };
 
 // Build the boxed route relative to the shattered wall, split into the MAIN
 // corridor (always visible during the escape) and the LEG (the ending run, hidden
@@ -410,15 +429,15 @@ export function buildEscapeWalls(wallZ: number): { main: WallSeg[]; leg: WallSeg
   const legEndX = CORRIDOR_HW + L1_LEG_LEN; // far end (finish cap) of the leg
   const top = ESCAPE_TOP;
   const main: WallSeg[] = [
-    { axis: "z", c: L1_START_Z, from: -CORRIDOR_HW, to: CORRIDOR_HW, top }, // start cap (behind spawn)
-    { axis: "x", c: -CORRIDOR_HW, from: turnZ, to: L1_START_Z, top }, // main left wall
-    { axis: "x", c: CORRIDOR_HW, from: legNearZ, to: L1_START_Z, top }, // main right wall (stops at the doorway)
-    { axis: "z", c: turnZ, from: -CORRIDOR_HW, to: CORRIDOR_HW, top }, // main corridor dead-end cap
+    { id: "start-cap", axis: "z", c: L1_START_Z, from: -CORRIDOR_HW, to: CORRIDOR_HW, top }, // start cap (behind spawn)
+    { id: "main-left", axis: "x", c: -CORRIDOR_HW, from: turnZ, to: L1_START_Z, top }, // main left wall
+    { id: "main-right", axis: "x", c: CORRIDOR_HW, from: legNearZ, to: L1_START_Z, top }, // main right wall (stops at the doorway)
+    { id: "turn-cap", axis: "z", c: turnZ, from: -CORRIDOR_HW, to: CORRIDOR_HW, top }, // main corridor dead-end cap
   ];
   const leg: WallSeg[] = [
-    { axis: "z", c: turnZ, from: CORRIDOR_HW, to: legEndX, top }, // leg far wall (continues the cap)
-    { axis: "z", c: legNearZ, from: CORRIDOR_HW, to: legEndX, top }, // leg near wall
-    { axis: "x", c: legEndX, from: turnZ, to: legNearZ, top }, // finish cap (behind the exit)
+    { id: "leg-far", axis: "z", c: turnZ, from: CORRIDOR_HW, to: legEndX, top }, // leg far wall (continues the cap)
+    { id: "leg-near", axis: "z", c: legNearZ, from: CORRIDOR_HW, to: legEndX, top }, // leg near wall
+    { id: "finish-cap", axis: "x", c: legEndX, from: turnZ, to: legNearZ, top }, // finish cap (behind the exit)
   ];
   return { main, leg };
 }
@@ -428,8 +447,23 @@ export function buildEscapeColliders(walls: WallSeg[]): Collider[] {
     const mid = (w.from + w.to) / 2;
     const halfLen = Math.abs(w.to - w.from) / 2;
     return w.axis === "z"
-      ? { x: mid, z: w.c, hwx: halfLen, hwz: ESCAPE_WALL_HW, top: w.top }
-      : { x: w.c, z: mid, hwx: ESCAPE_WALL_HW, hwz: halfLen, top: w.top };
+      ? { x: mid, z: w.c, hwx: halfLen, hwz: ESCAPE_WALL_HW, top: w.top, id: w.id }
+      : { x: w.c, z: mid, hwx: ESCAPE_WALL_HW, hwz: halfLen, top: w.top, id: w.id };
+  });
+}
+
+// The escape route spans z from the dead-end cap to the start cap, and the side
+// leg lives inside that span. The pillar field does not: it is built out to
+// ROWS * GAP regardless, so columns kept marching past the cap to the horizon and
+// the corridor read as endless even though the cap stops you a few units in.
+// Clip the field to the route so the world ends where the player does. The
+// clipped set is also what collides during the escape, so nothing left on screen
+// is something you can walk through.
+export function clipPillarsToEscape(pillars: Pillar[], wallZ: number): Pillar[] {
+  const turnZ = wallZ + L1_TURN_DZ;
+  return pillars.filter((p) => {
+    const hw = p.w / 2;
+    return p.z + hw >= turnZ && p.z - hw <= L1_START_Z;
   });
 }
 
