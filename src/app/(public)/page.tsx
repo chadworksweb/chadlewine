@@ -45,66 +45,90 @@ export async function generateMetadata(): Promise<Metadata> {
   return mergeMetadata("/", DEFAULT_METADATA);
 }
 
+// The album whose tracklist IS the homepage "Latest Songs" feed. Scoping the
+// feed to one release is what lets the three pre-release singles sit in it
+// alongside their album-mates: they kept their own true, earlier release
+// dates (Turn The Mill really did come out in 2025), and a pure
+// "newest 15 by date" query therefore pushed the title track below unrelated
+// singles. Curation by album, ordering by date -- see the sort below.
+const FEED_ALBUM_SLUG = "dont-blame-me";
+
+interface FeedSong {
+  id: string;
+  title: string;
+  slug: string;
+  release_date: string | null;
+  art_image_path: string | null;
+  art_alt: string | null;
+  hero_focal_x: number | null;
+  hero_focal_y: number | null;
+  hero_zoom: number | null;
+  card_focal_x: number | null;
+  card_focal_y: number | null;
+  card_zoom: number | null;
+  song_summary: string | null;
+}
+
+const SONG_FEED_COLUMNS =
+  "id, title, slug, release_date, art_image_path, art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, song_summary";
+
 async function getHomepageSongs() {
   const supabase = createPublicClient();
 
-  // Latest 15 songs that have a manually-set release_date. This feeds the
-  // homepage "Latest Songs" archive (15 entries); the hero-lens fallback is
-  // capped separately in HomepageFeed so the slide count is unchanged. Songs
-  // with no song-level date are intentionally excluded even if their album
-  // has one — manual dates are the curation signal.
-  const { data } = await supabase
-    .from("songs")
-    .select("id, title, slug, release_date, art_image_path, art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom, song_summary")
-    .in("status", ["unreleased", "published"])
-    .not("release_date", "is", null)
-    .order("release_date", { ascending: false })
-    .limit(15);
+  // The album is fetched for its cover art and focal points, which stand in for
+  // every track that has none of its own — only two of the eleven do. Because
+  // the feed IS this album, its sleeve is the right fallback for all of them.
+  // (The previous version collected junction rows across every release a song
+  // appeared on and kept whichever came back first, so a track that shipped as
+  // a single could fall back to the single's sleeve instead of the album's.)
+  const { data: album } = await supabase
+    .from("releases")
+    .select("id, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom")
+    .eq("slug", FEED_ALBUM_SLUG)
+    .maybeSingle();
 
-  const songs = data || [];
-  if (songs.length === 0) return [];
+  if (!album) return [];
 
-  // Fetch each song's album cover + focal data so the homepage can fall back
-  // to them when the song has no per-track art of its own. The album's own
-  // hero/card focal columns are used when its cover is the chosen image —
-  // the song's focal points would be wrong for a different image.
-  const { data: junctions } = await supabase
+  // !inner so the status filter on the embedded song can drop the junction row
+  // outright rather than leaving it with a null song attached.
+  const { data: rows } = await supabase
     .from("release_songs")
-    .select("song_id, release:releases(cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom)")
-    .in("song_id", songs.map((s) => s.id));
+    .select(`track_number, song:songs!inner(${SONG_FEED_COLUMNS})`)
+    .eq("release_id", album.id)
+    .in("song.status", ["unreleased", "published"]);
 
-  type AlbumFallback = {
-    cover_art_path: string | null;
-    cover_art_alt: string | null;
-    hero_focal_x: number | null;
-    hero_focal_y: number | null;
-    hero_zoom: number | null;
-    card_focal_x: number | null;
-    card_focal_y: number | null;
-    card_zoom: number | null;
-  };
-  const albumBySong: Record<string, AlbumFallback> = {};
-  for (const j of (junctions || []) as Array<{ song_id: string; release: unknown }>) {
-    const alb = Array.isArray(j.release) ? j.release[0] : j.release;
-    if (alb && !albumBySong[j.song_id]) {
-      albumBySong[j.song_id] = alb as AlbumFallback;
-    }
-  }
+  const tracks = ((rows || []) as Array<{ track_number: number | null; song: unknown }>)
+    .map((r) => ({
+      // Sorted descending, so a missing track number belongs at the BOTTOM.
+      // MIN_SAFE_INTEGER puts it there; 0 or a null would have led the feed.
+      trackNumber: r.track_number ?? Number.MIN_SAFE_INTEGER,
+      song: (Array.isArray(r.song) ? r.song[0] : r.song) as FeedSong | undefined,
+    }))
+    .filter((r): r is { trackNumber: number; song: FeedSong } => !!r.song)
+    // REVERSE TRACKLIST: track 11 leads, track 1 closes. The eight tracks nobody
+    // has heard yet come first and the three that already shipped as singles sit
+    // at the bottom, which is the "newest first" the section heading promises
+    // without letting dates decide anything.
+    //
+    // Ordering on track number ALONE also puts a real hazard permanently out of
+    // reach. release_date is a DATE column with no time part and eight of the
+    // eleven share the album's date, so any date-led sort leaves an eight-way
+    // tie — and Postgres returns ties in whatever order it likes, which means
+    // the feed reshuffles itself on every 60s revalidation. Track numbers are
+    // unique, so there is nothing left to break.
+    .sort((a, b) => b.trackNumber - a.trackNumber);
 
-  return songs.map((s) => {
-    const alb = albumBySong[s.id] ?? null;
-    return {
-      ...s,
-      album_cover_path: alb?.cover_art_path ?? null,
-      album_cover_alt: alb?.cover_art_alt ?? null,
-      album_hero_focal_x: alb?.hero_focal_x ?? null,
-      album_hero_focal_y: alb?.hero_focal_y ?? null,
-      album_hero_zoom: alb?.hero_zoom ?? null,
-      album_card_focal_x: alb?.card_focal_x ?? null,
-      album_card_focal_y: alb?.card_focal_y ?? null,
-      album_card_zoom: alb?.card_zoom ?? null,
-    };
-  });
+  return tracks.map(({ song }) => ({
+    ...song,
+    album_cover_path: album.cover_art_path ?? null,
+    album_cover_alt: album.cover_art_alt ?? null,
+    album_hero_focal_x: album.hero_focal_x ?? null,
+    album_hero_focal_y: album.hero_focal_y ?? null,
+    album_hero_zoom: album.hero_zoom ?? null,
+    album_card_focal_x: album.card_focal_x ?? null,
+    album_card_focal_y: album.card_focal_y ?? null,
+    album_card_zoom: album.card_zoom ?? null,
+  }));
 }
 
 async function getFeaturedTrack() {
