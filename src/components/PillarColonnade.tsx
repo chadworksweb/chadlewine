@@ -520,7 +520,6 @@ export function PillarColonnade({ songs }: { songs: PillarSongView[] }) {
           <span className="pillar-col__plate">
             <span className="pillar-col__title">{s.title}</span>
             {s.line && <span className="pillar-col__note">{s.line}</span>}
-            <span className="pillar-col__cta">Enter &rarr;</span>
           </span>
         </Link>
       ))}

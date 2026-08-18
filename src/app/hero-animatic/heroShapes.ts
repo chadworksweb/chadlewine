@@ -23,7 +23,7 @@ export interface Door {
 export const DOORS: Door[] = [
   { key: "music",   label: "Music",   route: "/music",        song: "Everything I Need", level: "L4 / DOOR", hue: "#4d7cff", shape: "icosa", line: "The sirens were never the current. You were." },
   { key: "art",     label: "Art",     route: "/art",          song: "I Got The Key",     level: "L3 / KEY",  hue: "#3dff9e", shape: "star",  line: "You were holding it the whole walk." },
-  { key: "videos",  label: "Videos",  route: "/music-videos", song: "Finding Freedom",   level: "L5 / EGO",  hue: "#00e0ff", shape: "ring",  line: "No one handed you this. You wrote it." },
+  { key: "videos",  label: "Videos",  route: "/videos", song: "Finding Freedom",   level: "L5 / EGO",  hue: "#00e0ff", shape: "ring",  line: "No one handed you this. You wrote it." },
   { key: "merch",   label: "Merch",   route: "/merch",        song: "Machine",           level: "L1 / WAKE", hue: "#b46bff", shape: "cube",  line: "The loop was the lie." },
   { key: "writing", label: "Writing", route: "/read",         song: "See Through Me",    level: "L2 / SEE",  hue: "#ffc48a", shape: "octa",  line: "You just stopped pretending it was solid." },
 ];

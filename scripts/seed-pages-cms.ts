@@ -453,7 +453,7 @@ const MANAGED_PAGES: Array<{ route: string; label: string }> = [
   { route: "/radiant-arc", label: "Radiant Arc" },
   { route: "/foundations", label: "Foundations (index)" },
   { route: "/art", label: "Art" },
-  { route: "/music-videos", label: "Music Videos" },
+  { route: "/videos", label: "Videos" },
   // chad-rising / chad-d / honeychrome moved to STANDALONE_PAGES (CMS 'standard').
   { route: "/discography", label: "Discography" },
   { route: "/music", label: "Music" },

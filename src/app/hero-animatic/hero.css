@@ -246,7 +246,7 @@ html.ha-lock {
    a label-sized target would have thrown that away. Cells are exactly one slot
    spacing wide and tile without overlapping, so a pointer anywhere in the menu
    belongs to one door and only one.
-   nowrap matters here: the cell can be narrower than "/music-videos" on a small
+   nowrap matters here: the cell can be narrower than "/videos" on a small
    frame, and the route used to break onto two lines below a 506px viewport. */
 .ha-door {
   position: absolute;

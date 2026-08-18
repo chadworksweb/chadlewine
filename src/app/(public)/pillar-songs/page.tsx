@@ -8,11 +8,11 @@ export const revalidate = 60;
 const DEFAULT_METADATA: Metadata = {
   title: "Pillar Songs",
   description:
-    "The songs of mine I resonate with most strongly -- the pillars. A hand-ordered shrine to the work that holds up everything else.",
+    "A group of songs that carry my foundational messages through time and release eras.",
   alternates: { canonical: "https://chadlewine.com/pillar-songs" },
   openGraph: {
     title: "Pillar Songs - Chad Lewine",
-    description: "The songs of mine I resonate with most strongly.",
+    description: "A group of songs that carry my foundational messages through time and release eras.",
     url: "https://chadlewine.com/pillar-songs",
   },
 };
@@ -87,7 +87,7 @@ export default async function PillarSongsPage() {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "Pillar Songs - Chad Lewine",
-    description: "The songs of mine I resonate with most strongly.",
+    description: "A group of songs that carry my foundational messages through time and release eras.",
     url: "https://chadlewine.com/pillar-songs",
     itemListOrder: "https://schema.org/ItemListOrderAscending",
     numberOfItems: songs.length,
@@ -108,11 +108,9 @@ export default async function PillarSongsPage() {
 
       <header className="pillar-hero" aria-labelledby="pillar-hero-heading">
         <div className="pillar-hero__inner">
-          <p className="pillar-hero__eyebrow">The ones that hold me up</p>
           <h1 id="pillar-hero-heading" className="pillar-hero__title">Pillar Songs</h1>
           <p className="pillar-hero__sub">
-            Of everything I&rsquo;ve made, these are the songs I resonate with most strongly.
-            Not the singles, not the hits &mdash; the pillars. The ones the rest leans on.
+            Of all the songs I&rsquo;ve released, these are the pillars that endure through each new era of releases.
           </p>
         </div>
       </header>

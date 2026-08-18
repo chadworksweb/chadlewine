@@ -22,7 +22,7 @@ Independent musician and songwriter. An original catalog of songs, with art, mer
 
 - [Music](https://chadlewine.com/music): the song catalog and the releases
 - [Art](https://chadlewine.com/art): original pieces, catalogued at their true measured size
-- [Videos](https://chadlewine.com/music-videos): video for the catalog
+- [Videos](https://chadlewine.com/videos): video for the catalog
 - [Merch](https://chadlewine.com/merch): shirts and goods
 - [Writing](https://chadlewine.com/read): observations, journal entries and longer pieces
 

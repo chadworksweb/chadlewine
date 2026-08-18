@@ -34,9 +34,17 @@ export function streamThumbnailUrl(streamId: string | null | undefined): string 
   return `${STREAM_HOST}/${streamId}/thumbnail.jpg`;
 }
 
+// Numeric Stream library that owns every videos.stream_id GUID. Bunny's embed
+// path is /embed/{libraryId}/{videoId} -- this URL omitted the library ID until
+// 2026-08-18 and therefore 404'd, which is why the June outage (a missing
+// NEXT_PUBLIC_BUNNY_STREAM_PULL_ZONE on the host) blacked out every video
+// instead of degrading to the iframe. Hardcoded rather than env-configured so
+// the fallback can never be knocked out by the same class of missing-env bug.
+const STREAM_LIBRARY_ID = "569029";
+
 // Bunny Stream iframe embed -- the degrade path for stream videos when no CDN
 // host is set, and the source for non-Bunny embeds is handled by the caller.
 export function streamIframeUrl(streamId: string | null | undefined): string | null {
   if (!streamId) return null;
-  return `https://iframe.mediadelivery.net/embed/${streamId}`;
+  return `https://iframe.mediadelivery.net/embed/${STREAM_LIBRARY_ID}/${streamId}`;
 }
