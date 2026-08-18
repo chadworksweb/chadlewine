@@ -327,7 +327,11 @@ export function buildPillars(levelId: number, periodic = false): Pillar[] {
 // gates leave it undefined - they stop you, they do not react.
 // `top` is descriptive only. Collision stopped consulting it when flight went
 // planar; every collider is solid at any height, because there is no over.
-export type Collider = { x: number; z: number; hwx: number; hwz: number; top: number; id?: string };
+// `rot` is a yaw in radians, and only L2's raked hall sets it: hwx/hwz are read
+// in the collider's OWN frame when it is present, which is what lets a wall run
+// at 45 degrees. Leaving it undefined keeps the plain world-axis test, so the
+// four levels that never turn off the grid pay nothing for it.
+export type Collider = { x: number; z: number; hwx: number; hwz: number; top: number; id?: string; rot?: number };
 
 export function buildColliders(pillars: Pillar[]): Collider[] {
   return pillars.map((p) => ({ x: p.x, z: p.z, hwx: p.w * 0.5, hwz: p.w * 0.5, top: FLOOR_Y + p.h }));
@@ -387,7 +391,13 @@ export const LEG_GATE_BLOCK_Z = L1_LEG_W / 2; // a leg gate blocks this much of 
 // (FLOOR_Y + 34) so you cannot fly over it - you must dissolve it by speaking.
 export const COMFORT_WALL_ID = "comfort-wall"; // collider id -> the wall that ripples
 export const COMFORT_HALF_W = WALL_WIDTH / 2; // spans the aisle, like the glass wall
-export const COMFORT_HWZ = 1.0;
+// Slab thickness, shared by the collider AND the mesh (ComfortWall draws itself
+// COMFORT_HWZ * 2 deep) so the face you stop against is the face you can see.
+// It was 1.0 against a mesh hardcoded to 0.6 deep, which parked you 1.8 units
+// off a wall you were pressed against. Matched to the escape walls because the
+// leg's near wall is coplanar with this one at x >= CORRIDOR_HW: same plane,
+// same thickness, one continuous barrier across the corridor and the leg.
+export const COMFORT_HWZ = ESCAPE_WALL_HW;
 export const COMFORT_TOP = FLOOR_Y + 36;
 
 // Rectangular colliders for the gauntlet gates, placed relative to the shattered
@@ -423,7 +433,27 @@ export type WallSeg = { axis: "x" | "z"; c: number; from: number; to: number; to
 // behind the comfort wall until you break through). The main corridor dead-ends at
 // the turn cap just past the comfort wall; the right wall stops short to open the
 // doorway into the leg; the leg is capped at its far end (behind the exit).
-export function buildEscapeWalls(wallZ: number): { main: WallSeg[]; leg: WallSeg[] } {
+// What actually gets rendered and collided: a wall slab placed by its centre and
+// a yaw, rather than by a world axis. WallSeg stays the authoring form for a
+// rectangular box (naming the axis and the span reads far better than centres and
+// angles), but everything downstream takes Slabs, because L2's hall runs at 45
+// degrees and cannot be written as an axis and a constant.
+// `rot` maps the slab's local +x onto the world direction it runs along:
+// local (1,0,0) -> (cos rot, 0, -sin rot), which is three's own Y rotation, so the
+// same number drives the mesh's rotation-y and the collider's frame.
+export type Slab = { id: string; x: number; z: number; len: number; rot: number; top: number };
+
+export function slabsFromSegs(segs: WallSeg[]): Slab[] {
+  return segs.map((w) => {
+    const mid = (w.from + w.to) / 2;
+    const len = Math.abs(w.to - w.from);
+    return w.axis === "z"
+      ? { id: w.id, x: mid, z: w.c, len, rot: 0, top: w.top } // spans x
+      : { id: w.id, x: w.c, z: mid, len, rot: Math.PI / 2, top: w.top }; // spans z
+  });
+}
+
+export function buildEscapeWalls(wallZ: number): { main: Slab[]; leg: Slab[] } {
   const turnZ = wallZ + L1_TURN_DZ; // dead-end of the main corridor
   const legNearZ = turnZ + L1_LEG_W; // near side of the leg (the doorway's near edge)
   const legEndX = CORRIDOR_HW + L1_LEG_LEN; // far end (finish cap) of the leg
@@ -439,17 +469,26 @@ export function buildEscapeWalls(wallZ: number): { main: WallSeg[]; leg: WallSeg
     { id: "leg-near", axis: "z", c: legNearZ, from: CORRIDOR_HW, to: legEndX, top }, // leg near wall
     { id: "finish-cap", axis: "x", c: legEndX, from: turnZ, to: legNearZ, top }, // finish cap (behind the exit)
   ];
-  return { main, leg };
+  return { main: slabsFromSegs(main), leg: slabsFromSegs(leg) };
 }
 
-export function buildEscapeColliders(walls: WallSeg[]): Collider[] {
-  return walls.map((w) => {
-    const mid = (w.from + w.to) / 2;
-    const halfLen = Math.abs(w.to - w.from) / 2;
-    return w.axis === "z"
-      ? { x: mid, z: w.c, hwx: halfLen, hwz: ESCAPE_WALL_HW, top: w.top, id: w.id }
-      : { x: w.c, z: mid, hwx: ESCAPE_WALL_HW, hwz: halfLen, top: w.top, id: w.id };
-  });
+// A slab's collider. The two square cases are emitted WITHOUT a rot so they keep
+// the plain world-axis test they have always had - only a genuinely raked slab
+// pays for the rotated frame.
+export function slabCollider(s: Slab, hw: number): Collider {
+  const half = s.len / 2;
+  const square = Math.abs(s.rot % (Math.PI / 2)) < 1e-6;
+  if (square) {
+    const alongX = Math.abs(Math.cos(s.rot)) > 0.5;
+    return alongX
+      ? { x: s.x, z: s.z, hwx: half, hwz: hw, top: s.top, id: s.id }
+      : { x: s.x, z: s.z, hwx: hw, hwz: half, top: s.top, id: s.id };
+  }
+  return { x: s.x, z: s.z, hwx: half, hwz: hw, top: s.top, id: s.id, rot: s.rot };
+}
+
+export function buildEscapeColliders(walls: Slab[]): Collider[] {
+  return walls.map((w) => slabCollider(w, ESCAPE_WALL_HW));
 }
 
 // The escape route spans z from the dead-end cap to the start cap, and the side
@@ -485,4 +524,200 @@ export function buildLegGateColliders(wallZ: number): Collider[] {
 export function l1ExitPos(wallZ: number): { x: number; z: number } {
   const turnZ = wallZ + L1_TURN_DZ;
   return { x: CORRIDOR_HW + L1_LEG_LEN - L1_EXIT_INSET, z: turnZ + L1_LEG_W / 2 };
+}
+
+// ----- L2 raked run (post-shatter) --------------------------------------
+// The path was behind the front, and it does not run straight. A lead-in off the
+// facade, 45 degrees left through three obstacles, 45 degrees right back onto the
+// original heading, two more, then the exit. It hands over nothing: L1 and L2 are
+// the free levels that teach the moves, and the Journey Key chain starts at L3,
+// where the account gate is.
+//
+// The obstacles are discs rolling back and forth across the hall. L1's gates are
+// done TO you - alarm, commute, inbox, bills, the grind's demands arriving on
+// their own schedule - and they sit still, because an imposed thing does not need
+// you. L2's are done BY you, the parts an "I'm fine" front is assembled from, and
+// they keep moving, because a facade only holds while you maintain it.
+export type Pt = { x: number; z: number };
+
+export const L2_HALL_HW = 8; // half-width of the hall (matches the L1 corridor)
+export const L2_RAKE = Math.PI / 4; // 45 degrees, and the reason Collider grew a rot
+export const L2_LEAD = 64; // straight off the facade into the first turn
+export const L2_DIAG = 64; // the raked middle (three discs)
+export const L2_HOME = 56; // back on the original heading (two discs)
+export const L2_START_DZ = 24; // start cap this far BEHIND the facade
+export const L2_EXIT_INSET = 10; // exit sits this far in from the end cap
+export const L2_TOP = FLOOR_Y + 36; // same as the escape walls: no flying over
+// Disc radius sets the difficulty, and the worst case is the disc dead-centre:
+// it leaves two gaps of (HALL_HW - R) each, so R 4 against a hall half-width of 8
+// is a 4-unit gap at its tightest and 7.5 at the ends of the travel. The player
+// needs 2.2. L1's static gates leave 8, so this is a real step up without being a
+// coin flip. R 4.5 was tried first and pinched that worst case to 3.5.
+export const L2_DISC_R = 4;
+// Half thickness. It is a coin, not a cylinder - but not so thin that a low frame
+// rate can step the player straight through it (0.5 + PLAYER_RADIUS is the depth
+// a single frame would have to cover).
+export const L2_DISC_HT = 0.5;
+
+// The route's centreline: facade -> turn -> turn -> exit wall.
+export function l2Nodes(wallZ: number): [Pt, Pt, Pt, Pt] {
+  const p0 = { x: 0, z: wallZ + L2_START_DZ };
+  const p1 = { x: 0, z: p0.z - L2_LEAD };
+  // Heading is -z and up is +y, so the player's left is -x.
+  const p2 = { x: p1.x - L2_DIAG * Math.sin(L2_RAKE), z: p1.z - L2_DIAG * Math.cos(L2_RAKE) };
+  const p3 = { x: p2.x, z: p2.z - L2_HOME };
+  return [p0, p1, p2, p3];
+}
+
+function dirOf(a: Pt, b: Pt): Pt {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const len = Math.hypot(dx, dz) || 1;
+  return { x: dx / len, z: dz / len };
+}
+// The left-hand normal of a direction, which is also the hall's cross-axis.
+function leftOf(d: Pt): Pt {
+  return { x: d.z, z: -d.x };
+}
+function yawOf(d: Pt): number {
+  return Math.atan2(-d.z, d.x); // inverse of local (1,0,0) -> (cos, -sin)
+}
+
+// One side of the hall as a constant-offset polyline of the centreline. The
+// corner vertex is MITRED, not just offset: square-cut slabs butted at a 45
+// degree bend leave a wedge open on the outside of the turn, and a wedge in a
+// boundary wall is a hole you fly out of. `off` is signed along the left normal.
+function offsetPolyline(pts: Pt[], off: number): Pt[] {
+  const dirs: Pt[] = [];
+  for (let i = 0; i < pts.length - 1; i++) dirs.push(dirOf(pts[i], pts[i + 1]));
+  const out: Pt[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const d0 = dirs[Math.max(0, i - 1)];
+    const d1 = dirs[Math.min(dirs.length - 1, i)];
+    const n0 = leftOf(d0);
+    const n1 = leftOf(d1);
+    // The mitre: (n0 + n1) / (1 + n0.n1) is the unit normal stretched by exactly
+    // 1 / cos(half the turn), which is what keeps the offset constant round a bend.
+    const k = 1 + (n0.x * n1.x + n0.z * n1.z);
+    out.push({ x: pts[i].x + (off * (n0.x + n1.x)) / k, z: pts[i].z + (off * (n0.z + n1.z)) / k });
+  }
+  return out;
+}
+
+// A slab running between two points, grown a little at both ends so the mitre
+// joints overlap instead of meeting on a hairline.
+function slabBetween(id: string, a: Pt, b: Pt, top: number, grow: number): Slab {
+  const d = dirOf(a, b);
+  return {
+    id,
+    x: (a.x + b.x) / 2,
+    z: (a.z + b.z) / 2,
+    len: Math.hypot(b.x - a.x, b.z - a.z) + grow * 2,
+    rot: yawOf(d),
+    top,
+  };
+}
+
+// A cap across the hall at `p`, facing back down `d`.
+function crossSlab(id: string, p: Pt, d: Pt, top: number): Slab {
+  return {
+    id,
+    x: p.x,
+    z: p.z,
+    len: (L2_HALL_HW + ESCAPE_WALL_HW) * 2,
+    rot: yawOf(leftOf(d)),
+    top,
+  };
+}
+
+export function buildL2Walls(wallZ: number): Slab[] {
+  const p = l2Nodes(wallZ);
+  const out: Slab[] = [];
+  for (const side of [1, -1] as const) {
+    const name = side === 1 ? "left" : "right";
+    const v = offsetPolyline(p, side * L2_HALL_HW);
+    for (let i = 0; i < v.length - 1; i++) {
+      out.push(slabBetween(`l2-${name}-${i}`, v[i], v[i + 1], L2_TOP, ESCAPE_WALL_HW));
+    }
+  }
+  out.push(crossSlab("l2-start-cap", p[0], dirOf(p[0], p[1]), L2_TOP));
+  out.push(crossSlab("l2-end-cap", p[3], dirOf(p[2], p[3]), L2_TOP));
+  return out;
+}
+
+// A disc rolls along the hall's cross-axis. Its face points down the hall, so
+// you meet it head-on; `rot` puts its local +x on the rolling axis, which makes
+// local +z the hall's heading for both the mesh and the collider.
+export type Disc = {
+  id: string;
+  label: string;
+  bx: number; // centre of travel, on the hall centreline
+  bz: number;
+  rot: number;
+  amp: number; // travel each way from the centre
+  period: number; // seconds for one full back-and-forth
+  phase: number; // 0..1, so they never move in lockstep
+};
+
+// Named in the order you meet them. The first three are on the rake, the last two
+// on the run home.
+const L2_DISC_SPEC: { seg: 1 | 2; along: number; label: string; period: number; phase: number }[] = [
+  { seg: 1, along: 16, label: "NERVOUS SMILE", period: 3.4, phase: 0 },
+  { seg: 1, along: 32, label: "NERVOUS LAUGH", period: 4.1, phase: 0.35 },
+  { seg: 1, along: 48, label: "FANCY CLOTHES", period: 2.9, phase: 0.7 },
+  { seg: 2, along: 16, label: "MAKEUP", period: 3.7, phase: 0.15 },
+  { seg: 2, along: 32, label: "PEOPLE PLEASING", period: 4.6, phase: 0.55 },
+];
+
+export function buildL2Discs(wallZ: number): Disc[] {
+  const p = l2Nodes(wallZ);
+  return L2_DISC_SPEC.map((s, i) => {
+    const a = s.seg === 1 ? p[1] : p[2];
+    const b = s.seg === 1 ? p[2] : p[3];
+    const d = dirOf(a, b);
+    return {
+      id: `l2-disc-${i}`,
+      label: s.label,
+      bx: a.x + d.x * s.along,
+      bz: a.z + d.z * s.along,
+      rot: yawOf(leftOf(d)),
+      // The rim just reaches each wall at the ends of the travel, so there is
+      // always a gap and it is always on the move.
+      amp: L2_HALL_HW - L2_DISC_R,
+      period: s.period,
+      phase: s.phase,
+    };
+  });
+}
+
+// Where a disc is at time t. Pure f(t), and the ONLY definition of it: the mesh
+// and the collider both call this inside the same frame, so what you see is what
+// stops you.
+export function discOffset(d: Disc, t: number): number {
+  return d.amp * Math.sin(2 * Math.PI * (t / d.period + d.phase));
+}
+// The travel, laid onto the world. Its local +x is the rolling axis, and local
+// (1,0) maps to (cos rot, -sin rot) - the same mapping the mesh's rotation-y does.
+export function discX(d: Disc, off: number): number {
+  return d.bx + off * Math.cos(d.rot);
+}
+export function discZ(d: Disc, off: number): number {
+  return d.bz - off * Math.sin(d.rot);
+}
+
+export function l2ExitPos(wallZ: number): { x: number; z: number } {
+  const p = l2Nodes(wallZ);
+  return { x: p[3].x, z: p[3].z + L2_EXIT_INSET }; // inset back up the hall from the end cap
+}
+
+// The pillar field only dresses the lead-in, which is the stretch still inside
+// the machine's own grid. Past the first turn the hall is its own architecture,
+// and a field built out to ROWS * GAP would otherwise march straight through the
+// raked walls. Same reason as clipPillarsToEscape, different route.
+export function clipPillarsToL2(pillars: Pillar[], wallZ: number): Pillar[] {
+  const p = l2Nodes(wallZ);
+  return pillars.filter((q) => {
+    const hw = q.w / 2;
+    return q.z + hw >= p[1].z && q.z - hw <= p[0].z;
+  });
 }

@@ -99,6 +99,38 @@
   100% { opacity: 0; }
 }
 
+/* --- the break shout (comfort wall dissolves) ---
+   Was going through .tm-toast, which is a 13px status line held for 1100ms in
+   the dead centre of the screen: too quiet for a six-word shout, and it read as
+   the same kind of event as the level card. So it gets its own presentation,
+   one step louder than the 18px first-wall notice. It sits above the sightline
+   rather than over it, because the corridor has to stay readable while you fly
+   through the shards. Arrives split and snaps together instead of scaling in -
+   the completion card already established that scale distorts these letterforms,
+   and chromatic split is the game's own vocabulary. Keep the length in step with
+   SHOUT_MS in TranscendTheMachine.tsx. */
+.tm-shout {
+  position: absolute;
+  top: 26%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  padding-left: 0.3em; /* cancels the trailing letter-space, so it centres true */
+  color: #ffffff;
+  pointer-events: none;
+  user-select: none;
+  animation: tm-shout 2600ms ease-out forwards;
+}
+@keyframes tm-shout {
+  0% { opacity: 0; text-shadow: -9px 0 #ff2e63, 9px 0 #00e0ff; }
+  7% { opacity: 1; text-shadow: -9px 0 #ff2e63, 9px 0 #00e0ff; }
+  16% { text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff; }
+  80% { opacity: 1; text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff; }
+  100% { opacity: 0; text-shadow: -2px 0 #ff2e63, 2px 0 #00e0ff; }
+}
+
 /* --- Field hit: screen-edge glitch flash (paired with the 3D discovery shock) --- */
 .tm-boundary-flash {
   position: absolute;

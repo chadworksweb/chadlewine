@@ -29,13 +29,20 @@ import {
   buildComfortCollider,
   buildEscapeColliders,
   buildEscapeWalls,
+  buildL2Discs,
+  buildL2Walls,
   clipPillarsToEscape,
+  clipPillarsToL2,
+  discOffset,
+  discX,
+  discZ,
   buildGateColliders,
   buildLegGateColliders,
   buildPillars,
   buildSignal,
   buildSirens,
   COMFORT_HALF_W,
+  COMFORT_HWZ,
   COMFORT_WALL_ID,
   COMFORT_TOP,
   CORRIDOR_HW,
@@ -49,8 +56,12 @@ import {
   L1_LEG_GATES,
   L1_LEG_W,
   L1_TURN_DZ,
+  L2_DISC_HT,
+  L2_DISC_R,
+  L2_TOP,
   LEG_GATE_BLOCK_Z,
   l1ExitPos,
+  l2ExitPos,
   FOG_DENSITY,
   levelById,
   LEVELS,
@@ -64,10 +75,11 @@ import {
   WALL_WIDTH,
   WRAP_LEN,
   type Collider,
+  type Disc,
   type JourneyGate,
   type LevelConfig,
   type Phase,
-  type WallSeg,
+  type Slab,
   type Pillar,
   type Pulse,
   type ReactiveData,
@@ -262,6 +274,9 @@ const SHATTER_DUR = 0.9; // shatter animation length
 const PORTAL_BEYOND = 35; // exit portal sits this far beyond the broken wall
 const PORTAL_REACH = 6; // distance to the portal that completes the level
 const COMFORT_PROMPT_RANGE = 14; // the comfort wall speaks up once you're this close
+// The break shout (comfort wall dissolves). Its own beat, not the level-change
+// toast: keep this in step with the tm-shout animation length in transcend.css.
+const SHOUT_MS = 2600;
 // Cursor scrim: the cursor is hidden inside this central ellipse and reveals
 // itself once the pointer crosses out toward the viewport edges (a cursor hidden
 // everywhere is disorienting). Radii as fractions of the viewport half-extents.
@@ -273,6 +288,9 @@ const HINT_AFTER_TRIES = 3;
 // L3 collect tuning
 const COLLECT_REACH = 3.2; // fly this close to gather a signal fragment
 const COLLECT_EXIT_Z = 110; // the exit opens here once the key is assembled
+// Every level but L2 has no rolling obstacles, and a fresh [] each render would
+// hand FlyCam a new prop on every pass for nothing.
+const NO_DISCS: Disc[] = [];
 // L4 ride tuning
 const RIDE_DRIFT_ACCEL = 2.2; // sideways pull off the ribbon (the sirens' hold)
 const RIDE_DRIFT_MAX = 14; // |offset| at which you are fully "pulled" (HUD)
@@ -1124,14 +1142,15 @@ function ComfortWall({ z, wallHitRef }: { z: number; wallHitRef: React.MutableRe
   const w = COMFORT_HALF_W * 2;
   const h = COMFORT_TOP - FLOOR_Y;
   const cy = FLOOR_Y + h / 2;
+  const d = COMFORT_HWZ * 2; // depth comes from the collider, like the gates take theirs from GATE_HWZ
   // Solid slab rather than a centred sheet - see JourneyGates. Depth matches the
   // edge box below so the fill and the outline describe the same object.
-  const fillGeo = useMemo(() => new THREE.BoxGeometry(w, h, 0.6), [w, h]);
+  const fillGeo = useMemo(() => new THREE.BoxGeometry(w, h, d), [w, h, d]);
   const fillMat = useMemo(
     () => new THREE.MeshBasicMaterial({ color: new THREE.Color(COMFORT_HUE), transparent: true, opacity: 0.14, side: THREE.FrontSide, depthWrite: false, fog: true }),
     [],
   );
-  const edges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, 0.6)), [w, h]);
+  const edges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d)), [w, h, d]);
   const edgeMat = useMemo(
     () => new THREE.LineBasicMaterial({ color: new THREE.Color(COMFORT_HUE), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
     [],
@@ -1212,7 +1231,7 @@ function ComfortWall({ z, wallHitRef }: { z: number; wallHitRef: React.MutableRe
 // (start cap, side walls, the turn, the side leg, the finish cap) so neither end
 // is an infinite hallway. One dim phosphor grid per wall slab, world-spaced lines.
 // The matching colliders come from buildEscapeColliders, off the same WallSeg list.
-function EscapeWalls({ walls, hue, wallHitRef }: { walls: WallSeg[]; hue: string; wallHitRef: React.MutableRefObject<WallHit> }) {
+function EscapeWalls({ walls, hue, wallHitRef }: { walls: Slab[]; hue: string; wallHitRef: React.MutableRefObject<WallHit> }) {
   // Dim, structural cyan-steel (not the hot hue) so the walls read as architecture.
   const color = useMemo(() => new THREE.Color(hue).lerp(new THREE.Color("#0b2733"), 0.62), [hue]);
   const mat = useMemo(
@@ -1251,7 +1270,7 @@ function EscapeWall({
   frostMat,
   wallHitRef,
 }: {
-  wall: WallSeg;
+  wall: Slab;
   hue: string;
   gridMat: THREE.LineBasicMaterial;
   frostMat: THREE.MeshBasicMaterial;
@@ -1259,12 +1278,16 @@ function EscapeWall({
 }) {
   const h = wall.top - FLOOR_Y;
   const cy = (FLOOR_Y + wall.top) / 2;
-  const len = Math.abs(wall.to - wall.from);
-  const mid = (wall.from + wall.to) / 2;
-  const pos: [number, number, number] = wall.axis === "z" ? [mid, cy, wall.c] : [wall.c, cy, mid];
-  const rotY = wall.axis === "z" ? 0 : Math.PI / 2;
-  // A "z" wall spans x, so its in-plane horizontal is world x; an "x" wall spans z.
-  const tangent = useMemo<[number, number, number]>(() => (wall.axis === "z" ? [1, 0, 0] : [0, 0, 1]), [wall.axis]);
+  const len = wall.len;
+  const pos: [number, number, number] = [wall.x, cy, wall.z];
+  const rotY = wall.rot;
+  // The slab's in-plane horizontal in WORLD space, which is its local +x turned
+  // by the yaw. Square walls land back on world x / world z; a raked one gets the
+  // diagonal it actually runs along, so the phosphor grid stays square to the wall.
+  const tangent = useMemo<[number, number, number]>(
+    () => [Math.cos(wall.rot), 0, -Math.sin(wall.rot)],
+    [wall.rot],
+  );
 
   const gridGeo = useMemo(() => {
     const nx = Math.max(2, Math.round(len / 8));
@@ -1332,6 +1355,99 @@ function EscapeWall({
       <mesh geometry={frostGeo} material={frostMat} renderOrder={-1} frustumCulled={false} />
       <lineSegments geometry={gridGeo} material={gridMat} frustumCulled={false} />
       <mesh geometry={shockGeo} material={shockMat} frustumCulled={false} />
+    </group>
+  );
+}
+
+// L2's obstacles: discs rolling back and forth across the raked hall. Position is
+// pure f(t) out of discOffset, and the collider calls the same function in the
+// same frame, so the thing you dodge is exactly the thing that stops you. They
+// spin as they travel (arc length over radius) - a disc that slid across the hall
+// would read as a plate floating past, and the point is that it is rolling.
+const DISC_SPOKES = 6;
+function RollingDiscs({ discs, hue }: { discs: Disc[]; hue: string }) {
+  // One set of geometry and materials for all five: same object, five schedules.
+  const faceGeo = useMemo(() => new THREE.CircleGeometry(L2_DISC_R, 64), []);
+  const faceMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: new THREE.Color(hue), transparent: true, opacity: 0.17, side: THREE.DoubleSide, depthWrite: false, fog: true }),
+    [hue],
+  );
+  const lineMat = useMemo(
+    () => new THREE.LineBasicMaterial({ color: new THREE.Color(hue), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+    [hue],
+  );
+  const rimGeo = useMemo(() => {
+    const pts: number[] = [];
+    const n = 64;
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      pts.push(Math.cos(a) * L2_DISC_R, Math.sin(a) * L2_DISC_R, 0);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }, []);
+  // Spokes are what make the spin legible. A bare rim is rotationally symmetric,
+  // so a rolling disc and a still one look identical.
+  const spokeGeo = useMemo(() => {
+    const pts: number[] = [];
+    for (let i = 0; i < DISC_SPOKES; i++) {
+      const a = (i / DISC_SPOKES) * Math.PI * 2;
+      pts.push(0, 0, 0, Math.cos(a) * L2_DISC_R, Math.sin(a) * L2_DISC_R, 0);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }, []);
+  useEffect(
+    () => () => { faceGeo.dispose(); faceMat.dispose(); lineMat.dispose(); rimGeo.dispose(); spokeGeo.dispose(); },
+    [faceGeo, faceMat, lineMat, rimGeo, spokeGeo],
+  );
+  return (
+    <>
+      {discs.map((d) => (
+        <RollingDisc key={d.id} disc={d} hue={hue} faceGeo={faceGeo} faceMat={faceMat} lineMat={lineMat} rimGeo={rimGeo} spokeGeo={spokeGeo} />
+      ))}
+    </>
+  );
+}
+
+function RollingDisc({
+  disc,
+  hue,
+  faceGeo,
+  faceMat,
+  lineMat,
+  rimGeo,
+  spokeGeo,
+}: {
+  disc: Disc;
+  hue: string;
+  faceGeo: THREE.CircleGeometry;
+  faceMat: THREE.MeshBasicMaterial;
+  lineMat: THREE.LineBasicMaterial;
+  rimGeo: THREE.BufferGeometry;
+  spokeGeo: THREE.BufferGeometry;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const spinRef = useRef<THREE.Group>(null);
+  useFrame((state) => {
+    const g = groupRef.current;
+    const s = spinRef.current;
+    if (!g || !s) return;
+    const off = discOffset(disc, state.clock.elapsedTime);
+    g.position.set(discX(disc, off), FLIGHT_Y, discZ(disc, off));
+    s.rotation.z = -off / L2_DISC_R; // rolling without slipping
+  });
+  return (
+    <group ref={groupRef} rotation={[0, disc.rot, 0]}>
+      <group ref={spinRef}>
+        <mesh geometry={faceGeo} material={faceMat} renderOrder={-1} frustumCulled={false} />
+        <lineLoop geometry={rimGeo} material={lineMat} frustumCulled={false} />
+        <lineSegments geometry={spokeGeo} material={lineMat} frustumCulled={false} />
+      </group>
+      {/* Outside the spin: the disc turns, the word it is named for stays upright. */}
+      <GateLabel text={disc.label} localPos={[0, 0, L2_DISC_HT + 0.06]} hue={hue} />
     </group>
   );
 }
@@ -1634,6 +1750,7 @@ function Scene({
 // ---------------------------------------------------------------------------
 function FlyCam({
   colliders,
+  discs,
   phase,
   started,
   typing,
@@ -1655,6 +1772,7 @@ function FlyCam({
   onComfortNear,
 }: {
   colliders: Collider[];
+  discs: Disc[]; // L2's rolling obstacles; they move, so they resolve per frame
   phase: Phase;
   started: boolean;
   typing: boolean;
@@ -1686,6 +1804,9 @@ function FlyCam({
   const comfortFiredRef = useRef(false); // one-shot: have we announced the comfort wall yet
   // Reset the comfort-wall announce guard whenever the wall (re)appears for a run.
   useEffect(() => { comfortFiredRef.current = false; }, [comfortWallZ]);
+  // One reusable collider for the discs. Their footprint never changes, only the
+  // centre they sit at, so rebuilding five objects every frame would be litter.
+  const discScratch = useRef<Collider>({ x: 0, z: 0, hwx: L2_DISC_R, hwz: L2_DISC_HT, top: L2_TOP, rot: 0 });
 
   useEffect(() => {
     camera.position.set(0, FLIGHT_Y, 16);
@@ -1729,7 +1850,7 @@ function FlyCam({
     }
   }, [started]);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
     const k = keys.current;
     const v = vel.current;
@@ -1793,27 +1914,64 @@ function FlyCam({
     // vertical flight, and with the player pinned to the plane all it did was
     // open a hole you walked through - the low aisle blocks (top -1.4, under the
     // plane at y 0) were skipped on every frame.
-    for (const c of colliders) {
-      const dx = camera.position.x - c.x;
-      const dz = camera.position.z - c.z;
+    //
+    // The test runs in the collider's OWN frame. With no rot the sine is 0 and
+    // the cosine is 1, and every line below collapses back to the plain world-axis
+    // arithmetic this has always done - so the four levels that never leave the
+    // grid are untouched, and only L2's raked walls and rolling discs (seven
+    // colliders) ever reach for the trig.
+    const resolve = (c: Collider) => {
+      const wx = camera.position.x - c.x;
+      const wz = camera.position.z - c.z;
+      const co = c.rot === undefined ? 1 : Math.cos(c.rot);
+      const si = c.rot === undefined ? 0 : Math.sin(c.rot);
+      const dx = wx * co - wz * si;
+      const dz = wx * si + wz * co;
       const ox = c.hwx + PLAYER_RADIUS - Math.abs(dx);
       const oz = c.hwz + PLAYER_RADIUS - Math.abs(dz);
-      if (ox > 0 && oz > 0) {
-        if (ox < oz) {
-          // The side you are on is also the wall's inward normal, and moving
-          // toward the wall from that side is what counts as a fresh push.
-          const side = dx < 0 ? -1 : 1;
-          const into = dx < 0 ? v.x > 0 : v.x < 0;
-          camera.position.setX(c.x + side * (c.hwx + PLAYER_RADIUS));
-          if (c.id && into) fireWallShock(c.id, c.x, camera.position.y, camera.position.z, side, 0);
-          v.x = 0;
-        } else {
-          const side = dz < 0 ? -1 : 1;
-          const into = dz < 0 ? v.z > 0 : v.z < 0;
-          camera.position.setZ(c.z + side * (c.hwz + PLAYER_RADIUS));
-          if (c.id && into) fireWallShock(c.id, camera.position.x, camera.position.y, c.z, 0, side);
-          v.z = 0;
-        }
+      if (ox <= 0 || oz <= 0) return;
+      // Velocity in the same frame, so "moving into the wall" is measured against
+      // the face rather than against world x/z.
+      const vx = v.x * co - v.z * si;
+      const vz = v.x * si + v.z * co;
+      if (ox < oz) {
+        // The side you are on is also the wall's inward normal, and moving
+        // toward the wall from that side is what counts as a fresh push.
+        const side = dx < 0 ? -1 : 1;
+        const into = dx < 0 ? vx > 0 : vx < 0;
+        const lx = side * (c.hwx + PLAYER_RADIUS);
+        camera.position.setX(c.x + lx * co + dz * si);
+        camera.position.setZ(c.z - lx * si + dz * co);
+        v.x = vz * si; // keep the along-face component, drop the one into it
+        v.z = vz * co;
+        // The hit lands on the wall's own plane (beside the pushed-out eye), so
+        // the ripple starts where you actually touched.
+        if (c.id && into) fireWallShock(c.id, c.x + dz * si, camera.position.y, c.z + dz * co, side * co, -side * si);
+      } else {
+        const side = dz < 0 ? -1 : 1;
+        const into = dz < 0 ? vz > 0 : vz < 0;
+        const lz = side * (c.hwz + PLAYER_RADIUS);
+        camera.position.setX(c.x + dx * co + lz * si);
+        camera.position.setZ(c.z - dx * si + lz * co);
+        v.x = vx * co;
+        v.z = -vx * si;
+        if (c.id && into) fireWallShock(c.id, c.x + dx * co, camera.position.y, c.z - dx * si, side * si, side * co);
+      }
+    };
+    for (const c of colliders) resolve(c);
+
+    // L2's discs move, so their colliders cannot be memoised with the rest. Same
+    // f(t) the meshes are drawing this frame, resolved through one scratch object
+    // rather than five fresh ones every frame.
+    if (discs.length) {
+      const t = state.clock.elapsedTime;
+      const sc = discScratch.current;
+      for (const d of discs) {
+        const off = discOffset(d, t);
+        sc.x = discX(d, off);
+        sc.z = discZ(d, off);
+        sc.rot = d.rot;
+        resolve(sc);
       }
     }
 
@@ -1961,6 +2119,10 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
   const [started, setStarted] = useState(false);
   const [levelId, setLevelId] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
+  // The break shout is deliberately not the toast. The toast is a status line
+  // (level, stage, song) and reads as one; the shout is the game raising its
+  // voice at the one moment it does, so it gets its own element and timing.
+  const [shout, setShout] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>(() => startPhaseFor(levelById(1)));
   const [breakInfo, setBreakInfo] = useState<BreakInfo | null>(null);
   // Gauntlet stage B (L1 comfort wall): comfortNear = you reached it and it has
@@ -2052,6 +2214,25 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
     [level.id, breakInfo, pillars],
   );
   const escapePillarColliders = useMemo(() => buildColliders(escapePillars), [escapePillars]);
+  // L2's raked run: the same boxed-route idea as L1's escape, but the hall turns
+  // 45 degrees and back, so its walls carry a yaw and its obstacles keep moving.
+  // The pillar field is clipped to the lead-in only; past the first turn the hall
+  // is its own architecture.
+  const l2RunActive = (phase === "breaking" || phase === "open") && level.id === 2 && !!breakInfo;
+  const l2Walls = useMemo(
+    () => (level.id === 2 && breakInfo ? buildL2Walls(breakInfo.wallZ) : []),
+    [level.id, breakInfo],
+  );
+  const l2WallColliders = useMemo(() => buildEscapeColliders(l2Walls), [l2Walls]);
+  const l2Discs = useMemo(
+    () => (level.id === 2 && breakInfo ? buildL2Discs(breakInfo.wallZ) : NO_DISCS),
+    [level.id, breakInfo],
+  );
+  const l2Pillars = useMemo(
+    () => (level.id === 2 && breakInfo ? clipPillarsToL2(pillars, breakInfo.wallZ) : []),
+    [level.id, breakInfo, pillars],
+  );
+  const l2PillarColliders = useMemo(() => buildColliders(l2Pillars), [l2Pillars]);
   const activeColliders = useMemo(() => {
     // The leg + its slalom only collide once the comfort wall is broken - before
     // that you cannot reach them anyway, and they stay hidden behind the wall.
@@ -2061,12 +2242,14 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
       const base = gateColliders.concat(escapeMainColliders, escapePillarColliders);
       return comfortBroken ? base.concat(escapeLegColliders, legGateColliders) : base;
     }
+    // The discs are not in here: they move, so FlyCam resolves them per frame.
+    if (l2RunActive) return l2WallColliders.concat(l2PillarColliders);
     return phase === "open" && gateColliders.length ? colliders.concat(gateColliders) : colliders;
-  }, [escapeActive, comfortBroken, phase, colliders, gateColliders, escapeMainColliders, escapeLegColliders, legGateColliders, escapePillarColliders]);
+  }, [escapeActive, l2RunActive, comfortBroken, phase, colliders, gateColliders, escapeMainColliders, escapeLegColliders, legGateColliders, escapePillarColliders, l2WallColliders, l2PillarColliders]);
   // The invisible rectangular Field clamps the player to the straight corridor, so
-  // it cannot coexist with the L-turn - drop it (and its forcefield walls) during
-  // the escape run; the visible walls + the always-on ceiling do the containing.
-  const activeField = escapeActive ? null : field;
+  // it cannot coexist with a turn - drop it (and its forcefield walls) during
+  // either post-shatter run; the visible walls + the always-on ceiling contain you.
+  const activeField = escapeActive || l2RunActive ? null : field;
   const signal = useMemo(() => (level.collect ? buildSignal(levelId, level.collect.count) : []), [levelId, level.collect]);
   const sirens = useMemo(() => (level.mechanic === "ride" ? buildSirens() : []), [level.mechanic]);
 
@@ -2126,6 +2309,7 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
     setComfortNear(false);
     setComfortBroken(false);
     setComfortBreaking(false);
+    setShout(null);
     setAccountGate(null);
     setPhase(startPhaseFor(lv));
     setLevelId(n);
@@ -2388,6 +2572,13 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
     return () => window.clearTimeout(id);
   }, [toast]);
 
+  // Same for the shout, on its own longer hold.
+  useEffect(() => {
+    if (!shout) return;
+    const id = window.setTimeout(() => setShout(null), SHOUT_MS);
+    return () => window.clearTimeout(id);
+  }, [shout]);
+
   // Cursor scrim: hide the cursor while it sits in the central ellipse, reveal it
   // once the pointer reaches the outer edges (a cursor hidden everywhere reads as
   // disorienting). Paused always shows it. Driven off raw mousemove + the root
@@ -2541,7 +2732,7 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
             // the collider, play the warm shatter, and flash the confirming line.
             setComfortBroken(true);
             setComfortBreaking(true);
-            setToast(challenge?.openLine ?? null);
+            setShout(challenge?.openLine ?? null);
             track("tm_comfort_broken", { level: levelId, tries: triesRef.current });
           } else {
             gameRef.current.strikeRequested = true;
@@ -2612,6 +2803,7 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
         <fogExp2 attach="fog" args={["#000000", FOG_DENSITY]} />
         <FlyCam
           colliders={activeColliders}
+          discs={l2RunActive ? l2Discs : NO_DISCS}
           phase={phase}
           started={started}
           typing={typingMode}
@@ -2625,6 +2817,11 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
             // corner in the side leg. Other levels keep the short straight exit.
             if (level.id === 1) {
               const ex = l1ExitPos(info.wallZ);
+              setBreakInfo({ wallZ: info.wallZ, portalZ: ex.z, portalX: ex.x });
+            } else if (level.id === 2) {
+              // L2's exit is at the end of the raked run: off the centreline in x
+              // as well, because the hall rakes left and never comes back.
+              const ex = l2ExitPos(info.wallZ);
               setBreakInfo({ wallZ: info.wallZ, portalZ: ex.z, portalX: ex.x });
             } else {
               setBreakInfo({ wallZ: info.wallZ, portalZ: info.portalZ });
@@ -2659,7 +2856,7 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
         <Scene
           key={level.id}
           level={level}
-          pillars={escapeActive ? escapePillars : pillars}
+          pillars={escapeActive ? escapePillars : l2RunActive ? l2Pillars : pillars}
           reactive={activeReactive}
           skinTextureUrl={activeReactive?.skinTextureUrl ?? null}
           audioRef={audioRef}
@@ -2689,6 +2886,8 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
         {escapeActive && comfortBreaking && comfortWallZ !== null && (
           <Shatter color={COMFORT_HUE} wallZ={comfortWallZ} onDone={() => setComfortBreaking(false)} />
         )}
+        {l2RunActive && <EscapeWalls walls={l2Walls} hue={level.hue} wallHitRef={wallHitRef} />}
+        {l2RunActive && <RollingDiscs discs={l2Discs} hue={level.hue} />}
         <BloomComposer pulseRef={pulseRef} />
       </Canvas>
 
@@ -2821,6 +3020,8 @@ export function TranscendTheMachine({ levelReactive }: { levelReactive: Record<n
       )}
 
       {toast && <div className="tm-toast">{toast}</div>}
+
+      {shout && <div className="tm-shout">{shout}</div>}
 
       {phase === "complete" && (
         <>
