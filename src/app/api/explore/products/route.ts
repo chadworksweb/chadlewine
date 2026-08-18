@@ -28,7 +28,6 @@ interface ExploreItem {
   href: string;
   kind: Kind;
   kind_label: string | null;
-  is_new?: boolean | null;
   sort_at: string;
 }
 
@@ -127,7 +126,7 @@ export async function GET(request: Request) {
   {
     const q = supabase
       .from("merch")
-      .select("id, title, slug, price, image_url, image_alt, variant_type, status, created_at, is_new")
+      .select("id, title, slug, price, image_url, image_alt, variant_type, status, created_at")
       .eq("status", "active")
       .not("image_url", "is", null)
       .gt("price", 0)
@@ -137,7 +136,7 @@ export async function GET(request: Request) {
     for (const p of (data || []) as Array<{
       id: string; title: string; slug: string | null; price: number;
       image_url: string | null; image_alt: string | null;
-      variant_type: string | null; created_at: string; is_new: boolean | null;
+      variant_type: string | null; created_at: string;
     }>) {
       const isOriginal = p.variant_type === "original";
       items.push({
@@ -150,8 +149,6 @@ export async function GET(request: Request) {
         href: p.slug ? `/merch/${p.slug}` : `/merch`,
         kind: isOriginal ? "art" : "merch",
         kind_label: null,
-        // Originals render as art; only the merch lane wears the badge.
-        is_new: isOriginal ? null : p.is_new,
         sort_at: p.created_at,
       });
     }

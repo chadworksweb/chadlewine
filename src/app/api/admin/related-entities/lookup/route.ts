@@ -19,13 +19,9 @@ async function lookupType(
   const meta = META[type];
   if (!meta) return [];
   // observations + journal share one table; carry `kind` so links route correctly.
-  // releases carry release_type: an album and its lead single share a title, so
-  // the picker needs it to tell the two candidates apart before you click.
   const selectCols = type === "observation"
     ? `id, title, slug, kind, ${meta.image}`
-    : type === "release"
-      ? `id, title, slug, release_type, ${meta.image}`
-      : `id, title, slug, ${meta.image}`;
+    : `id, title, slug, ${meta.image}`;
   let query = supabase
     .from(meta.table)
     .select(selectCols)
@@ -41,7 +37,6 @@ async function lookupType(
     image: (r[meta.image] as string) ?? null,
     type,
     kind: (r.kind as string) ?? null,
-    subtype: (r.release_type as string) ?? null,
   }));
 }
 

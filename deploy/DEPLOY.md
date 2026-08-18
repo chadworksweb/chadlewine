@@ -113,7 +113,7 @@ Certs: `staging.chadlewine.com` (single), `chadlewine.com` (SAN: apex + www).
 
 ## Crons (PROD ONLY)
 
-- `/etc/cron.d/chadlewine` (root:root 644) -- 7 jobs, UTC, from `deploy/cron/chadlewine.cron`.
+- `/etc/cron.d/chadlewine` (root:root 644) -- 6 jobs, UTC, from `deploy/cron/chadlewine.cron`.
 - `/usr/local/bin/cl-cron-hit.sh` (755) -- from `deploy/cron/cl-cron-hit.sh`; reads
   `CRON_SECRET` from the prod `.env` and curls the endpoint with the Bearer.
 - NEVER install these on staging. `vercel.json` keeps an empty `crons` array (a relic of
@@ -127,21 +127,6 @@ Certs: `staging.chadlewine.com` (single), `chadlewine.com` (SAN: apex + www).
 | cart-recovery | `0 * * * *` |
 | campaign-queue | `* * * * *` |
 | inbound-digest | `0 14 * * 1` |
-| tripwire | `*/15 * * * *` |
-
-**`deploy.sh` does NOT install crons.** Editing `deploy/cron/chadlewine.cron`
-in the repo changes nothing on the box until it is copied by hand. After
-adding or changing a job:
-
-```
-scp deploy/cron/chadlewine.cron root@138.197.111.66:/etc/cron.d/chadlewine
-ssh root@138.197.111.66 'chown root:root /etc/cron.d/chadlewine && \
-  chmod 644 /etc/cron.d/chadlewine && systemctl restart cron'
-```
-
-cron silently ignores a file that is group- or world-writable, so the
-`chmod 644` is not optional. Verify a job is actually firing with
-`grep CRON /var/log/syslog | grep cl-cron-hit | tail`.
 
 ## DNS + CDN (Cloudflare)
 

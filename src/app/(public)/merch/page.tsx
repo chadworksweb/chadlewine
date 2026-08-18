@@ -42,7 +42,6 @@ interface ProductRow {
   price: number | null;
   created_at: string;
   display_order: number;
-  is_new: boolean | null;
   release_sku_id: string | null;
   release_sku: {
     format: string | null;
@@ -57,7 +56,7 @@ export default async function MerchPage() {
     supabase
       .from("merch")
       .select(
-        "id, slug, title, image_url, image_alt, merch_type_id, price, created_at, display_order, is_new, release_sku_id, release_sku:release_skus(format, release:releases(slug, release_date))",
+        "id, slug, title, image_url, image_alt, merch_type_id, price, created_at, display_order, release_sku_id, release_sku:release_skus(format, release:releases(slug, release_date))",
       )
       .in("fulfillment", ["manual", "printify_curated"])
       .eq("status", "active")
@@ -109,7 +108,6 @@ export default async function MerchPage() {
       created_at: created,
       price: p.price === null ? null : Number(p.price),
       display_order: p.display_order ?? 0,
-      is_new: !!p.is_new,
     };
   });
 

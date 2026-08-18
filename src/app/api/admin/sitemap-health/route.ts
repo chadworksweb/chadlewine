@@ -1,5 +1,4 @@
 import { SUB_SITEMAPS } from "@/lib/sitemap-config";
-import { publicOrigin } from "@/lib/request-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +31,7 @@ async function fetchXml(url: string): Promise<{ status: "ok" | "error"; xml: str
 }
 
 export async function GET(req: Request) {
-  const origin = publicOrigin(req);
+  const origin = new URL(req.url).origin;
   const now = new Date().toISOString();
 
   const subs: SubSitemapHealth[] = await Promise.all(

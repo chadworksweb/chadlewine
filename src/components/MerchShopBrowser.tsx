@@ -17,7 +17,6 @@ export interface BrowserItem {
   created_at: string;
   price: number | null;
   display_order: number;
-  is_new?: boolean;
 }
 
 export interface BrowserType {
@@ -190,7 +189,6 @@ export function MerchShopBrowser({ items, types, backdropCovers = [] }: Props) {
               image_url={it.image_url}
               image_alt={it.image_alt}
               href={it.href}
-              isNew={it.is_new}
             />
           ))}
         </div>

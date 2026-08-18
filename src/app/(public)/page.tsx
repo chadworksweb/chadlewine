@@ -4,7 +4,6 @@ import { mergeMetadata } from "@/lib/page-meta";
 import { createPublicClient, getPlaybackMode } from "@/lib/supabase-server";
 import HeroAnimatic from "@/app/hero-animatic/HeroAnimatic";
 import { HomepageFeed } from "@/components/HomepageFeed";
-import { MotionInvite } from "@/components/MotionInvite";
 import { ExploreSongs } from "@/components/ExploreSongs";
 import { GalleryWall, type GalleryPiece } from "@/components/GalleryWall";
 import { SongBriefCard, type SongBriefData } from "@/components/SongBriefCard";
@@ -300,7 +299,7 @@ async function getHomepageMerch() {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from("merch")
-    .select("id, slug, title, image_url, image_alt, is_new")
+    .select("id, slug, title, image_url, image_alt")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(6);
@@ -456,13 +455,6 @@ export default async function HomePage() {
           the first view. It carries the page's h1 and the five doors as real
           links, and the existing feed follows directly below it, unchanged. */}
       <HeroAnimatic />
-      {/* THE MOTION INVITE, and only here. A visitor whose OS asks for reduced
-          motion gets the settled hero, which is correct, and on this page alone
-          that means missing the thing the page opens with. Everywhere else the
-          preference costs them nothing worth interrupting them about, so the
-          invite does not follow them around the site. Renders nothing unless it
-          applies. */}
-      <MotionInvite />
       {/* Zero-height scroll target for the hero's "enter homepage" anchor. The
           page-shell grid has no row-gap, so an empty child costs no space. */}
       <div id="home-enter" aria-hidden="true" />
@@ -492,7 +484,6 @@ export default async function HomePage() {
                   title={p.title}
                   image_url={p.image_url}
                   image_alt={p.image_alt}
-                  isNew={p.is_new}
                 />
               ))}
             </div>

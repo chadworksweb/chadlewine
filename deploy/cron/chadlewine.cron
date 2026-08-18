@@ -15,7 +15,3 @@ PATH=/usr/bin:/bin:/usr/local/bin
 # chain died (e.g. container restart mid-send). Do NOT lower below a few minutes.
 */10 * * * * deploy /usr/local/bin/cl-cron-hit.sh campaign-queue >/dev/null 2>&1
 0 14 * * 1 deploy /usr/local/bin/cl-cron-hit.sh inbound-digest >/dev/null 2>&1
-# Tripwire contract probes. Every 15 min: fast enough to catch a break the same
-# hour, slow enough that the alert-on-transition logic never spams. Alerts only
-# after 2 consecutive failures, so one blip stays quiet.
-*/15 * * * * deploy /usr/local/bin/cl-cron-hit.sh tripwire >/dev/null 2>&1

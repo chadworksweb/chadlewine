@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -27,23 +26,16 @@ export type PlayerSong = {
   playbackMode: PlaybackMode;
 };
 
-// The clock lives in its own context. It changes 10x a second during
-// playback, and everything else here changes only when a track starts, stops
-// or pauses -- one object for both meant every consumer of play/pause paid
-// for the ticking, including two thousand-line trees that never read it.
-type PlayerTimeValue = {
+type PlayerContextValue = {
+  current: PlayerSong | null;
+  playing: boolean;
+  loading: boolean;
   /** Display position in seconds, normalized to the active playback window */
   displayTime: number;
   /** Display duration in seconds (preview window or full track) */
   displayDuration: number;
   /** 0..1 fraction through the active window */
   progress: number;
-};
-
-type PlayerContextValue = {
-  current: PlayerSong | null;
-  playing: boolean;
-  loading: boolean;
   play: (song: PlayerSong) => void;
   pause: () => void;
   resume: () => void;
@@ -64,23 +56,10 @@ type PlayerContextValue = {
 };
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
-const PlayerTimeContext = createContext<PlayerTimeValue | null>(null);
 
 export function usePlayer(): PlayerContextValue {
   const ctx = useContext(PlayerContext);
   if (!ctx) throw new Error("usePlayer must be used within PlayerProvider");
-  return ctx;
-}
-
-/**
- * The playback clock, on its own subscription. Anything that reads this
- * re-renders ~10x a second while a song plays, so keep it to the smallest
- * component that draws the position: a progress ring, a scrubber bar.
- * Everything else wants usePlayer().
- */
-export function usePlayerTime(): PlayerTimeValue {
-  const ctx = useContext(PlayerTimeContext);
-  if (!ctx) throw new Error("usePlayerTime must be used within PlayerProvider");
   return ctx;
 }
 
@@ -94,52 +73,21 @@ const PLAY_MIN_SECONDS = 5;
 const GATE_PLAY_THRESHOLD = 30;
 
 // --- Visualizer playback-clock tuning levers (visual sync only) ---
-// The cube fires stored beat events against getCurrentTime(), so any CONSTANT
-// error in that clock reads as the cube hitting consistently early or late for
-// a whole song (as opposed to drifting, which would be a tempo problem).
+// Residual constant lookahead, in ms, added on top of the interpolated clock.
+// The interpolated clock removes iOS's stale-currentTime stepping; if a small
+// constant lag REMAINS on a device (output latency, Bluetooth route), bump
+// this so the cube reads slightly ahead and lands on the beat. 0 = off.
 // Affects ONLY getCurrentTime() (the visualizer); never the progress bar.
-//
-// Two platforms need opposite things, so we MEASURE which one we are on rather
-// than inferring it from the user agent:
-//
-//   Continuous clock (desktop): audio.currentTime advances every frame, the
-//   interpolated clock below is already accurate, and any compensation at all
-//   makes the cube lead the audio. Wants 0.
-//
-//   Stepped clock (iOS WebKit, Safari AND Chrome): currentTime only advances
-//   at the ~250ms timeupdate cadence, and the value reported at each step is
-//   itself behind the audible position, so the interpolated clock inherits a
-//   constant lag however cleanly it extrapolates between anchors. Wants ~200.
-//
-// This shipped as a flat 200 for every device (calibrated on an iPhone 15 Pro,
-// 2026-06-03), which put desktop about 200ms early. The ratio below is an
-// empirical fit through the only two points we have actually calibrated: a
-// continuous clock at 0, and the ~250ms stepped clock at 200. Devices in
-// between land proportionally; nothing is extrapolated past the cap.
-const CLOCK_COMP_RATIO = 200 / 250;
-const MAX_AUTO_COMP_MS = 300;
-// How many update intervals to keep. Read as a median, so one long frame or a
-// single stall cannot drag the estimate.
-const CADENCE_SAMPLE_COUNT = 9;
-// Longer than this is a stall or a tab wake, not a genuine cadence sample.
-const MAX_CADENCE_SAMPLE_MS = 1000;
-// How far the extrapolated position may diverge from the last reported one
-// before we call it a seek or a stall and re-anchor. This MUST stay above the
-// update cadence: on a stepped clock the prediction legitimately runs a whole
-// step ahead of the last reported value just before the next step lands, so a
-// flat 0.25s tripped this guard once per step on a ~250ms device, discarding
-// the extrapolation and re-anchoring to a stale sample every single time.
-// Scaled off the measured cadence, with a floor that still catches any real
-// seek (those move by seconds).
-const CLOCK_JUMP_FLOOR_S = 0.5;
-const CLOCK_JUMP_CADENCE_MULT = 2;
-// Manual override of the measured value, in ms. Set on the client from a
-// `?lat=NN` URL param or the cv_lat_ms localStorage key so a device can still
-// be dialed in by hand WITHOUT a rebuild. null means "use the measurement".
-// NOTE: this persists, so a value swept during calibration keeps overriding
-// the measurement on that browser until cv_lat_ms is cleared or ?lat= is
-// passed again.
-let manualLatencyCompMs: number | null = null;
+// 200ms dialed in on iPhone 15 Pro (Chrome/Safari, iOS) -- compensates the
+// device output latency on top of the interpolated clock; timing locked dead
+// on the kick at this value. Other devices can override live via ?lat=NN.
+const VISUAL_LATENCY_COMP_MS = 200;
+// Live-tunable override of the above. Set on the client from a `?lat=NN` URL
+// param (ms) or the cv_lat_ms localStorage key, so the compensation can be
+// dialed in on a real device WITHOUT a rebuild -- change the number, reload.
+// Whatever value locks the cube to the audio becomes the new
+// VISUAL_LATENCY_COMP_MS default before shipping.
+let runtimeLatencyCompMs = VISUAL_LATENCY_COMP_MS;
 // Hard cap on how far the interpolated clock may run past the last real
 // currentTime sample (seconds). Protects against a buffering stall where the
 // underlying currentTime freezes -- without this the visual clock would keep
@@ -186,14 +134,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // every platform. `media` is the last real currentTime we saw; `perf` is
   // the performance.now() at which we saw it.
   const clockRef = useRef<{ media: number; perf: number }>({ media: 0, perf: 0 });
-  // Measured cadence of genuine currentTime updates. This is what separates a
-  // continuous clock from a stepped one without sniffing the user agent, and
-  // it is a property of the device, not the song, so it survives track changes
-  // and keeps converging. See CLOCK_COMP_RATIO.
-  const cadenceRef = useRef<{ samples: number[]; lastPerf: number }>({
-    samples: [],
-    lastPerf: 0,
-  });
 
   const [current, setCurrent] = useState<PlayerSong | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -204,30 +144,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // sign-in/buy modal. Playback does not start while this is set.
   const [blockedSong, setBlockedSong] = useState<PlayerSong | null>(null);
 
-  // Pick up a manual latency-compensation override on the client so the
-  // visualizer sync can still be forced on a real device without a rebuild.
+  // Pick up a live latency-compensation override on the client so the
+  // visualizer sync can be dialed in on a real device without a rebuild.
   // Priority: ?lat=NN URL param (also persisted) > cv_lat_ms localStorage >
-  // the measured value. Pass ?lat= with an empty value to drop the override
-  // and hand the device back to the measurement.
+  // the VISUAL_LATENCY_COMP_MS default. Sweep values by changing the number
+  // and reloading; whatever locks the cube becomes the shipped default.
   useEffect(() => {
     try {
       const param = new URLSearchParams(window.location.search).get("lat");
-      if (param !== null && !Number.isNaN(Number(param))) {
-        if (param === "") {
-          manualLatencyCompMs = null;
-          window.localStorage.removeItem("cv_lat_ms");
-        } else {
-          manualLatencyCompMs = Number(param);
-          window.localStorage.setItem("cv_lat_ms", String(manualLatencyCompMs));
-        }
+      if (param !== null && param !== "" && !Number.isNaN(Number(param))) {
+        runtimeLatencyCompMs = Number(param);
+        window.localStorage.setItem("cv_lat_ms", String(runtimeLatencyCompMs));
         return;
       }
       const stored = window.localStorage.getItem("cv_lat_ms");
-      if (stored !== null && stored !== "" && !Number.isNaN(Number(stored))) {
-        manualLatencyCompMs = Number(stored);
+      if (stored !== null && !Number.isNaN(Number(stored))) {
+        runtimeLatencyCompMs = Number(stored);
       }
     } catch {
-      /* SSR / no storage: fall back to the measured value */
+      /* SSR / no storage -- keep the compiled default */
     }
   }, []);
 
@@ -726,69 +661,33 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const isCurrent = useCallback((id: string) => currentRef.current?.id === id, []);
 
-  // Median update interval, in ms. Median rather than mean so one long frame
-  // cannot skew it. Below three samples we have no opinion yet and report 0,
-  // which costs a stepped-clock device an uncompensated first second of the
-  // first song it plays, then self-corrects.
-  const cadenceMs = useCallback(() => {
-    const s = cadenceRef.current.samples;
-    if (s.length < 3) return 0;
-    const sorted = [...s].sort((a, b) => a - b);
-    return sorted[sorted.length >> 1];
-  }, []);
-
-  const latencyCompMs = useCallback(() => {
-    if (manualLatencyCompMs !== null) return manualLatencyCompMs;
-    return Math.min(MAX_AUTO_COMP_MS, cadenceMs() * CLOCK_COMP_RATIO);
-  }, [cadenceMs]);
-
   const getCurrentTime = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return 0;
     const raw = audio.currentTime;
     // Paused: no interpolation, report the true position and re-anchor so the
-    // next play resumes cleanly. Drop the cadence anchor as well, or the
-    // length of the pause gets recorded as one enormous update interval.
+    // next play resumes cleanly.
     if (audio.paused) {
       clockRef.current.media = raw;
       clockRef.current.perf = performance.now();
-      cadenceRef.current.lastPerf = 0;
       return raw;
     }
     const now = performance.now();
     const c = clockRef.current;
-    // `updated` catches every real tick. `jumped` catches seeks and stalls,
-    // where extrapolation has already run away from reality: those re-anchor
-    // too, but they are NOT cadence samples.
-    const updated = raw !== c.media;
-    const jumpThresholdS = Math.max(
-      CLOCK_JUMP_FLOOR_S,
-      (cadenceMs() * CLOCK_JUMP_CADENCE_MULT) / 1000
-    );
-    const jumped =
-      Math.abs(raw - (c.media + (now - c.perf) / 1000)) > jumpThresholdS;
-    if (updated && !jumped) {
-      const cad = cadenceRef.current;
-      const interval = cad.lastPerf > 0 ? now - cad.lastPerf : 0;
-      if (interval > 0 && interval < MAX_CADENCE_SAMPLE_MS) {
-        cad.samples.push(interval);
-        if (cad.samples.length > CADENCE_SAMPLE_COUNT) cad.samples.shift();
-      }
-      cad.lastPerf = now;
-    } else if (jumped) {
-      cadenceRef.current.lastPerf = 0;
-    }
-    if (updated || jumped) {
+    // A genuine currentTime update arrived (or the stream seeked): re-anchor.
+    // `raw !== c.media` catches every real tick; the 0.25s guard re-anchors on
+    // seeks/drift so extrapolation can't run away from reality.
+    if (raw !== c.media || Math.abs(raw - (c.media + (now - c.perf) / 1000)) > 0.25) {
       c.media = raw;
       c.perf = now;
-      return raw + latencyCompMs() / 1000;
+      return raw + runtimeLatencyCompMs / 1000;
     }
     // Between updates: extrapolate from the last anchor using the high-res
     // clock. Clamp the extrapolation so a stalled/buffering stream (currentTime
     // frozen) doesn't let the visual clock sprint ahead.
     const extrapolated = Math.min((now - c.perf) / 1000, MAX_CLOCK_EXTRAPOLATION_S);
-    return c.media + extrapolated + latencyCompMs() / 1000;
-  }, [cadenceMs, latencyCompMs]);
+    return c.media + extrapolated + runtimeLatencyCompMs / 1000;
+  }, []);
 
   // Derive display values
   const isPreview = current?.playbackMode === "preview";
@@ -802,34 +701,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     ? Math.max(0, Math.min(1, displayTime / displayDuration))
     : 0;
 
-  // Memoized so a clock tick can't hand consumers a new object. Every
-  // callback below is already useCallback-stable, so this value only changes
-  // when the track, the play state or the loading state does.
-  const playerValue = useMemo(
-    () => ({
-      current,
-      playing,
-      loading,
-      play,
-      pause,
-      resume,
-      stop,
-      seek,
-      isCurrent,
-      getAnalyser,
-      getCurrentTime,
-    }),
-    [current, playing, loading, play, pause, resume, stop, seek, isCurrent, getAnalyser, getCurrentTime],
-  );
-
-  const timeValue = useMemo(
-    () => ({ displayTime, displayDuration, progress }),
-    [displayTime, displayDuration, progress],
-  );
-
   return (
-    <PlayerContext.Provider value={playerValue}>
-      <PlayerTimeContext.Provider value={timeValue}>
+    <PlayerContext.Provider
+      value={{
+        current,
+        playing,
+        loading,
+        displayTime,
+        displayDuration,
+        progress,
+        play,
+        pause,
+        resume,
+        stop,
+        seek,
+        isCurrent,
+        getAnalyser,
+        getCurrentTime,
+      }}
+    >
       {children}
       {blockedSong && (
         <PlayLimitModal
@@ -837,7 +727,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           onClose={() => setBlockedSong(null)}
         />
       )}
-      </PlayerTimeContext.Provider>
     </PlayerContext.Provider>
   );
 }

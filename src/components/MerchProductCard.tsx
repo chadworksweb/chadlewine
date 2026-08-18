@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { MerchNewBadge } from "@/components/MerchNewBadge";
 
 export interface ProductVariant {
   id: number;
@@ -16,11 +15,9 @@ interface Props {
   image_url: string | null;
   image_alt: string | null;
   href?: string;
-  /** Draws the NEW badge over the top-left of the image. Toggled per product in the admin. */
-  isNew?: boolean;
 }
 
-export function MerchProductCard({ id, slug, title, image_url, image_alt, href: hrefProp, isNew }: Props) {
+export function MerchProductCard({ id, slug, title, image_url, image_alt, href: hrefProp }: Props) {
   const href = hrefProp || `/merch/${slug || id}`;
 
   return (
@@ -33,7 +30,6 @@ export function MerchProductCard({ id, slug, title, image_url, image_alt, href: 
             alt={image_alt || title}
             className="merch-shop__card-img"
           />
-          {isNew && <MerchNewBadge seed={slug || id} />}
         </Link>
       )}
       <h2 className="merch-shop__card-title">

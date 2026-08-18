@@ -14,35 +14,28 @@ interface ProductImageRow {
   needs_review: boolean;
   alt: string | null;
   printify_position: string | null;
-  deleted_at: string | null;
 }
 
 interface Props {
   productId: string;
   fulfillment: string;
   slug?: string | null;
-  /** Needed for the per-product Printify re-pull. */
-  printifyProductId?: string | null;
 }
 
-export function MerchGalleryPanel({ productId, fulfillment, slug, printifyProductId }: Props) {
+export function MerchGalleryPanel({ productId, fulfillment, slug }: Props) {
   const uploadFolder = slug ? `merch/${slug}` : undefined;
   const [images, setImages] = useState<ProductImageRow[] | null>(null);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [showRemoved, setShowRemoved] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncNote, setSyncNote] = useState("");
   const dragIdRef = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const isManual = fulfillment === "manual";
 
-  async function load(withRemoved = showRemoved) {
+  async function load() {
     try {
-      const qs = withRemoved ? `&include_deleted=1` : "";
-      const r = await fetch(`/api/admin/merch/images?product_id=${productId}${qs}`);
+      const r = await fetch(`/api/admin/merch/images?product_id=${productId}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Load failed");
       setImages(d.images);
@@ -51,33 +44,7 @@ export function MerchGalleryPanel({ productId, fulfillment, slug, printifyProduc
     }
   }
 
-  useEffect(() => { load(); }, [productId, showRemoved]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function repullFromPrintify() {
-    setSyncing(true);
-    setSyncNote("");
-    setError("");
-    try {
-      const r = await fetch(`/api/admin/printify/sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ printify_product_id: printifyProductId, fields: { images: true } }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || d.errors?.[0]?.error || "Sync failed");
-      const g = d.gallery;
-      setSyncNote(
-        g
-          ? `Printify: ${g.inserted} added, ${g.updated} refreshed, ${g.hidden} no longer upstream.`
-          : "Nothing changed.",
-      );
-      await load();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSyncing(false);
-    }
-  }
+  useEffect(() => { load(); }, [productId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function patch(id: string, body: Record<string, unknown>) {
     const r = await fetch(`/api/admin/merch/images/${id}`, {
@@ -174,7 +141,7 @@ export function MerchGalleryPanel({ productId, fulfillment, slug, printifyProduc
 
   return (
     <div className="obsv-editor__field">
-      <div className="merch-gallery__head">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <label className="obsv-editor__label" style={{ margin: 0 }}>
           Gallery {images.length > 0 && <span style={{ color: "var(--text-tertiary)" }}>({images.length})</span>}
           {!isManual && reviewCount > 0 && (
@@ -190,26 +157,7 @@ export function MerchGalleryPanel({ productId, fulfillment, slug, printifyProduc
             </span>
           )}
         </label>
-        <div className="merch-gallery__head-actions">
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: "var(--font-ui)", color: "var(--text-tertiary)" }}>
-            <input
-              type="checkbox"
-              checked={showRemoved}
-              onChange={(e) => setShowRemoved(e.target.checked)}
-            />
-            <span>Show removed</span>
-          </label>
-          {!isManual && printifyProductId && (
-            <button
-              type="button"
-              className="admin-btn admin-btn--secondary"
-              onClick={repullFromPrintify}
-              disabled={syncing}
-              title="Re-fetch this product's mockups from Printify. Hidden images stay hidden and custom uploads are left alone."
-            >
-              {syncing ? "Pulling..." : "Re-pull from Printify"}
-            </button>
-          )}
+        <div style={{ display: "flex", gap: 8 }}>
           <button
             type="button"
             className="admin-btn admin-btn--secondary"
@@ -220,12 +168,6 @@ export function MerchGalleryPanel({ productId, fulfillment, slug, printifyProduc
           </button>
         </div>
       </div>
-
-      {syncNote && (
-        <p style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: 13, margin: "0 0 8px" }}>
-          {syncNote}
-        </p>
-      )}
 
       <MediaLibrary
         open={pickerOpen}
@@ -246,29 +188,37 @@ export function MerchGalleryPanel({ productId, fulfillment, slug, printifyProduc
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {images.map((img) => {
           const isOver = dragOverId === img.id;
-          const removed = !!img.deleted_at;
           return (
             <div
               key={img.id}
-              draggable={!removed}
+              draggable
               onDragStart={() => handleDragStart(img.id)}
               onDragOver={(e) => handleDragOver(e, img.id)}
               onDrop={(e) => handleDrop(e, img.id)}
               onDragEnd={() => { dragIdRef.current = null; setDragOverId(null); }}
-              className="merch-gallery__row"
               style={{
+                display: "grid",
+                gridTemplateColumns: "auto 80px 1fr auto",
+                alignItems: "center",
+                gap: 12,
+                padding: 8,
                 border: `1px solid ${isOver ? "var(--accent, #ffb627)" : "var(--border, #333)"}`,
-                background: img.is_hidden || removed ? "rgba(0,0,0,0.04)" : "transparent",
-                opacity: removed ? 0.4 : img.is_hidden ? 0.55 : 1,
-                cursor: removed ? "default" : "grab",
+                borderRadius: 6,
+                background: img.is_hidden ? "rgba(0,0,0,0.04)" : "transparent",
+                opacity: img.is_hidden ? 0.55 : 1,
+                cursor: "grab",
               }}
             >
-              <span className="merch-gallery__handle" aria-hidden="true">⋮⋮</span>
+              <span style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-ui)", fontSize: 14 }}>⋮⋮</span>
 
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className="merch-gallery__thumb" src={img.url} alt={img.alt || ""} />
+              <img
+                src={img.url}
+                alt={img.alt || ""}
+                style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 4, background: "#222" }}
+              />
 
-              <div className="merch-gallery__meta">
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                   {!isManual && (
                     <span style={{
@@ -285,16 +235,6 @@ export function MerchGalleryPanel({ productId, fulfillment, slug, printifyProduc
                   {img.is_primary && (
                     <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#a37800", color: "#fff", fontFamily: "var(--font-ui)" }}>
                       Primary
-                    </span>
-                  )}
-                  {removed && (
-                    <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#7a2a2a", color: "#fff", fontFamily: "var(--font-ui)" }}>
-                      Removed
-                    </span>
-                  )}
-                  {img.is_hidden && !removed && (
-                    <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 3, background: "#4a4a4a", color: "#fff", fontFamily: "var(--font-ui)" }}>
-                      Hidden
                     </span>
                   )}
                   {img.printify_position && (
@@ -336,55 +276,49 @@ export function MerchGalleryPanel({ productId, fulfillment, slug, printifyProduc
                 />
               </div>
 
-              <div className="merch-gallery__actions">
-                {!removed && (
+              <div style={{ display: "flex", gap: 4 }}>
+                <button
+                  type="button"
+                  title={img.is_primary ? "Primary image" : "Set as primary"}
+                  onClick={() => !img.is_primary && patch(img.id, { is_primary: true })}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: img.is_primary ? "default" : "pointer",
+                    fontSize: 18,
+                    color: img.is_primary ? "#ffb627" : "var(--text-tertiary)",
+                  }}
+                >
+                  {img.is_primary ? "★" : "☆"}
+                </button>
+                <button
+                  type="button"
+                  title={img.is_hidden ? "Show in gallery" : "Hide from gallery"}
+                  onClick={() => patch(img.id, { is_hidden: !img.is_hidden })}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 16,
+                    color: "var(--text-tertiary)",
+                  }}
+                >
+                  {img.is_hidden ? "🚫" : "👁"}
+                </button>
+                {img.source === "custom" && (
                   <button
                     type="button"
-                    title={img.is_primary ? "Primary image" : "Set as primary"}
-                    onClick={() => !img.is_primary && patch(img.id, { is_primary: true })}
+                    title="Remove (recoverable for 30 days)"
+                    onClick={() => softDelete(img.id)}
                     style={{
                       background: "none",
                       border: "none",
-                      cursor: img.is_primary ? "default" : "pointer",
-                      fontSize: 18,
-                      color: img.is_primary ? "#ffb627" : "var(--text-tertiary)",
+                      cursor: "pointer",
+                      fontSize: 16,
+                      color: "var(--text-tertiary)",
                     }}
                   >
-                    {img.is_primary ? "★" : "☆"}
-                  </button>
-                )}
-                {!removed && (
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--small admin-btn--secondary"
-                    title={
-                      img.source === "printify"
-                        ? "Printify images are hidden rather than deleted. A hidden image stays hidden through every sync."
-                        : "Hide from the gallery without removing it"
-                    }
-                    onClick={() => patch(img.id, { is_hidden: !img.is_hidden })}
-                  >
-                    {img.is_hidden ? "Unhide" : "Hide"}
-                  </button>
-                )}
-                {img.source === "custom" && !removed && (
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--small admin-btn--danger"
-                    title="Remove (recoverable for 30 days)"
-                    onClick={() => softDelete(img.id)}
-                  >
-                    Remove
-                  </button>
-                )}
-                {removed && (
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn--small"
-                    title="Put this image back in the gallery"
-                    onClick={() => patch(img.id, { restore: true })}
-                  >
-                    Restore
+                    🗑
                   </button>
                 )}
               </div>

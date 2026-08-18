@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { uploadMedia } from "@/lib/upload-media";
 
 interface MediaImage {
   name: string;
@@ -89,22 +88,19 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
   const visibleImages = matchingImages.slice(0, visibleCount);
   const hasMore = matchingImages.length > visibleImages.length;
 
-  const fetchImages = useCallback(async (): Promise<MediaImage[]> => {
+  const fetchImages = useCallback(async () => {
     setLoading(true);
     setError("");
     const res = await fetch("/api/admin/media");
-    let list: MediaImage[] = [];
     if (res.ok) {
       const data = (await res.json()) as MediaImage[];
       // Picker mode: exclude token-auth files — their signed URLs expire and
       // can't be embedded as a permanent reference.
-      list = data.filter((img) => !img.tokenAuth);
-      setImages(list);
+      setImages(data.filter((img) => !img.tokenAuth));
     } else {
       setError("Failed to load images");
     }
     setLoading(false);
-    return list;
   }, []);
 
   useEffect(() => {
@@ -197,24 +193,22 @@ export function MediaLibrary({ open, onClose, onSelect, uploadZone = "site-image
   async function uploadFile(file: File) {
     setUploading(true);
     setError("");
-    try {
-      const result = await uploadMedia(file, { type: uploadZone, folder: uploadFolder });
-      const fresh = await fetchImages();
-      // Land on the file that was just written, wherever it sorted, so the
-      // upload is never something you have to go hunting for.
-      const idx = fresh.findIndex((img) => img.name === result.path);
-      if (idx >= 0) {
-        setSearchInput("");
-        setVisibleCount((n) => Math.max(n, idx + PAGE_SIZE));
-        setSelected(fresh[idx]);
-        setEditAlt(fresh[idx].alt_text);
-        setEditTitle(fresh[idx].title);
-      }
-      if (result.renamedTo) {
-        setError(`That name was taken, so it uploaded as "${result.renamedTo}".`);
-      }
-    } catch (err) {
-      setError((err as Error).message);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", uploadZone);
+    if (uploadFolder) formData.append("folder", uploadFolder);
+
+    const res = await fetch("/api/admin/media/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      await fetchImages();
+    } else {
+      const data = await res.json();
+      setError(data.error || "Upload failed");
     }
     setUploading(false);
   }

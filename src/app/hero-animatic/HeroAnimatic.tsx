@@ -11,7 +11,6 @@ import {
   type HeroCtl, type HeroHud, type HeroLayout,
 } from "./heroShapes";
 import { HeroNavJsonLd } from "./HeroNavJsonLd";
-import { prefersReducedMotion } from "@/lib/motion";
 import "./hero.css";
 
 // WebGL/Canvas is client-only: no SSR attempt (avoids window/WebGL-on-server).
@@ -78,43 +77,8 @@ const FRAME = 1 / 30; // frame-step size (seconds)
 //     a throttled tab must not be able to strand the page.
 // The scene failsafe below covers the other half: a scene that never starts.
 const bootScript = (home: boolean) =>
-  '(function(){var d=document.documentElement;' +
-  // A WEAK DEVICE IS NEVER ASKED TO RUN THE SCENE, and the question is settled
-  // HERE so that it is settled before the first paint. Measured 2026-07-30
-  // against production: the gap from first paint to the scene's first frame is
-  // 2.48s on a desktop CPU and 8.82s at 4x throttle. It scales with the
-  // PROCESSOR while the network figure holds still, so the cost is parse,
-  // compile and construction rather than download. On a mid-range phone that is
-  // nine seconds of black before a 13.3s animatic even begins, and none of those
-  // seconds are the art.
-  //
-  // Deciding here rather than in React buys two things: the chunk is never
-  // requested at all, and the hero paints SETTLED on the very first frame
-  // instead of painting hidden and being revealed a moment later.
-  //
-  // These are the only honest signals. hardwareConcurrency is not one of them:
-  // it reports core COUNT, and a budget Android and an iPhone both answer 8
-  // while performing nothing alike. iOS Safari exposes none of these three,
-  // which sounds fatal and is not: the devices worth catching are overwhelmingly
-  // Android, which is exactly where the APIs exist. An old iPhone that still
-  // struggles needs frame sampling once the scene runs, which is separate work.
-  // saveData is an explicit ask to be sent less, and a WebGL bundle for a
-  // decorative intro is precisely what it is asking us not to send.
-  'var n=navigator,c=n.connection||{};' +
-  'var lite=(typeof n.deviceMemory==="number"&&n.deviceMemory<=4)||!!c.saveData||' +
-  '/^(slow-2g|2g|3g)$/.test(c.effectiveType||"");' +
-  // No ha-anim means the settled hero the markup already ships is what paints,
-  // and stays. ha-lite is the flag the component reads to keep the canvas
-  // unmounted; the class is the single source of that decision.
-  'if(lite){d.classList.add("ha-lite")}else{d.classList.add("ha-anim")}' +
-  // Reduced motion, UNLESS the visitor has already said otherwise. The root
-  // layout re-stamps `cl-force-motion` from sessionStorage before this runs, so
-  // reading the class here is reading a decision that has already been made.
-  // Without this the opt-in would be undone before it could take effect: the
-  // reload it triggers would come straight back through this script, see the OS
-  // preference, and decline to run the very animatic it was asked for.
-  'var m=matchMedia("(prefers-reduced-motion:reduce)").matches&&' +
-  '!d.classList.contains("cl-force-motion");' +
+  '(function(){var d=document.documentElement;d.classList.add("ha-anim");' +
+  'var m=matchMedia("(prefers-reduced-motion:reduce)").matches;' +
   (home
     ? 'd.classList.add("ha-hero-top");' +
       // A RELOAD STARTS THE INTRO OVER, so it has to start from the top. The
@@ -137,10 +101,7 @@ const bootScript = (home: boolean) =>
       'history.scrollRestoration="manual";scrollTo(0,0);' +
       'addEventListener("load",function(){history.scrollRestoration="auto"})}}' +
       'catch(e){}' +
-      // `!lite` joins the same list for the same reason `!m` is on it: there is
-      // no animatic to hold the page for, so holding it would be a freeze with
-      // nothing behind it.
-      'if(!window.scrollY&&!location.hash&&!m&&!lite){' +
+      'if(!window.scrollY&&!location.hash&&!m){' +
       'd.classList.add("ha-lock");' +
       'setTimeout(function(){d.classList.remove("ha-lock")},20000)}'
     : "") +
@@ -161,34 +122,8 @@ const subscribeReduced = (onChange: () => void) => {
   mq.addEventListener("change", onChange);
   return () => mq.removeEventListener("change", onChange);
 };
-// Through prefersReducedMotion rather than matchMedia directly, so a visitor who
-// accepted the invite is not still treated as having asked for stillness. That
-// helper returns false whenever `cl-force-motion` is on <html>; see src/lib/motion.ts.
-const getReduced = () => prefersReducedMotion();
+const getReduced = () => window.matchMedia(REDUCE_MOTION).matches;
 const getReducedOnServer = () => false;
-
-// `ha-lite` on <html> is the boot script's verdict that this device should not be
-// asked to run the scene. It is decided there, before the first paint, and read
-// here. See the low-power block in bootScript for what it tests and why.
-//
-// Read as an external store, for the same reason reduced motion is: the server
-// cannot know the answer, so the server and the client MUST disagree, and
-// useSyncExternalStore is the one way to let them disagree without it counting as
-// a hydration mismatch. React hydrates with the server snapshot and only then
-// re-reads the client one.
-//
-// This was first written as a useState initialiser reading the class directly,
-// on the reasoning that HeroCanvas is dynamic(ssr:false) and renders no DOM on
-// either side, so a differing value could not mismatch. That was WRONG and it
-// cost an hour: ssr:false wraps the component in a Suspense boundary, so
-// rendering it on the client but not on the server is a structural difference
-// even with identical DOM output. React threw, re-rendered from the root, and
-// reverted <html> to bare `ha-hero-top` (Nav re-adds that one on mount, which is
-// what makes the wipe look selective). Exactly the 2026-07-29 failure. AGENTS.md
-// says a hydration failure is never local; believe it.
-const subscribeSceneAllowed = () => () => {};
-const getSceneAllowed = () => !document.documentElement.classList.contains("ha-lite");
-const getSceneAllowedOnServer = () => false;
 
 // One component, two homes. `dev` adds the lab chrome (page header, transport,
 // scrubber) and the framed 16:9 box; without it the hero is a full-bleed,
@@ -250,64 +185,15 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
     // setting being turned on while the page is open, which the store above
     // reacts to but the render loop may not, since it is on demand by then.
     document.documentElement.classList.remove("ha-lock");
-    // And for the same reason, nothing is waiting on: whatever holds itself back
-    // until the animatic has settled may go now. HudDriver announces this on the
-    // frame the wordmark lands, but an on-demand loop may never reach that
-    // frame, so the case where there was never anything to watch is answered
-    // here instead. Both paths are idempotent.
-    document.documentElement.classList.add("ha-done");
-    window.dispatchEvent(new Event("hero:done"));
   }, [reduced]);
 
-  // Whether the WebGL scene is allowed to mount at all, which is what decides
-  // whether the three.js chunk is ever REQUESTED. That is the whole win: a weak
-  // device does not download it, so it never pays the parse, compile and scene
-  // construction that measured 8.8s at 4x CPU throttle on 2026-07-30.
-  //
-  // The store hydrates false and corrects on the very next render, so a capable
-  // device starts the import a render later than it used to (immaterial) and a
-  // weak one never starts it at all (the entire point).
-  const capable = useSyncExternalStore(subscribeSceneAllowed, getSceneAllowed, getSceneAllowedOnServer);
-  // The lab is the one place the scene is the subject rather than the backdrop.
-  const sceneAllowed = dev || capable;
 
-
-
-  // OFF SCREEN IS OFF. The loop stops dead once the stage leaves the viewport
-  // and picks up exactly where it left off when it comes back.
-  //
-  // It could not do this until now, and the reason is worth keeping. The sky
-  // used to be a separate canvas pinned to the viewport, backing the whole
-  // homepage, so something had to keep drawing all the way down the feed; the
-  // most that could be done was to fade the doors out and skip the bloom pass
-  // while the composer kept running. Now that the sky ends where the hero ends,
-  // there is nothing left on screen to draw for, and "cheaper" can be "nothing".
-  //
-  // `never` rather than `demand`: demand still renders when something asks, and
-  // the point here is that nothing should. r3f stops ticking the root entirely,
-  // so the story clock does not advance either, which is what makes this a
-  // freeze rather than a scene that plays on in the dark and is rejoined
-  // half-finished. ClockDriver already clamps delta at 0.05, so the first frame
-  // back cannot jump.
-  //
-  // STATE, not a ref, unlike the scroll fade below. That one deliberately avoids
-  // re-rendering a WebGL canvas to carry a boolean; this one has to, because
-  // frameloop is a prop and a ref would never reach the Canvas.
-  const [onScreen, setOnScreen] = useState(true);
-  useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
-    // A generous margin on purpose: resuming slightly before the stage is
-    // actually visible means the first frame back is already drawn, rather than
-    // the visitor scrolling up into a canvas that is still deciding.
-    const io = new IntersectionObserver(
-      ([entry]) => setOnScreen(entry.isIntersecting),
-      { rootMargin: "200px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  const frameloop = reduced ? "demand" : onScreen ? "always" : "never";
+  // The cosmos is the page's background, so the loop keeps running rather than
+  // stopping when the hero scrolls off. What stops is the expensive half: past
+  // the hero the doors fade out and the bloom composer is bypassed for a plain
+  // render, leaving only the starfield and the nebula, which are sprites and
+  // points and cost very little.
+  const frameloop = reduced ? "demand" : "always";
 
   // The rest layout is a pure function of the STAGE's aspect, not the window's:
   // on this dev route the stage is a 16:9 box inside a wider page, and on the
@@ -576,15 +462,19 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
           which would pin the canvas to the stage instead of the viewport. In
           the lab it stays inside the framed box, where being clipped is the
           point. */}
-      {/* THE BACKDROP USED TO BE A CANVAS OF ITS OWN, pinned to the viewport so
-          the feed scrolled through the starfield. It is gone, and the sky is
-          drawn by the hero's own canvas again (mode "full"), so it ends where
-          the hero ends.
-          Two reasons, and the second is the one that decided it. A second
-          full-viewport WebGL context cost about 13.6ms a frame purely by
-          existing, measured before it drew anything. And a live starfield behind
-          the feed was working against the legibility of the page it was backing.
-          See the note at the top of HeroCanvas. */}
+      {/* THE BACKDROP, in a canvas of its own. It is fixed, so the feed scrolls
+          through the starfield, and it is SEPARATE so the hero never has to be.
+          A pinned canvas can only move what it draws by drawing it again, which
+          made the shapes lag the page by a frame or more; the hero's canvas is
+          in the stage below, in flow, moved by the browser for free.
+          This is the ONLY sky on the homepage. The hero canvas is transparent
+          and stands in front of it, so the backdrop is fixed from the first
+          frame of the animatic to the bottom of the feed and never moves. */}
+      {!dev && (
+        <div className="ha-cosmos" aria-hidden="true">
+          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="cosmos" />
+        </div>
+      )}
 
       {/* THE VEIL. Black over the cosmos, coming on with the scroll, so the
           feed reads against a settled sky rather than a live starfield. A
@@ -614,9 +504,7 @@ export default function HeroAnimatic({ dev = false }: { dev?: boolean }) {
             were before the cosmos was extracted: it belongs to the stage, it
             scrolls with the stage, and its shapes stay welded to their labels
             because the browser is moving both of them, not a render loop. */}
-        {sceneAllowed && (
-          <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode="full" />
-        )}
+        <HeroCanvas ctl={ctl} hud={hud} frameloop={frameloop} mode={dev ? "full" : "hero"} />
 
         <div className="ha-flood" ref={floodRef} aria-hidden="true" />
 

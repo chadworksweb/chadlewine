@@ -230,14 +230,9 @@ export interface SkuDownloadPaths {
   mp3: string | null;
   flac: string | null;
   wav: string | null;
-  aac: string | null;
 }
 
-const DL_FORMATS = ["mp3", "flac", "wav", "aac"] as const;
-// Spelled out because supabase-js parses the select string at the type level;
-// a computed column list degrades every row to a ParserError.
-const DL_COLUMNS =
-  "download_path_mp3, download_path_flac, download_path_wav, download_path_aac";
+const DL_FORMATS = ["mp3", "flac", "wav"] as const;
 
 async function resolveDownloadPathsForTable(
   supabase: SupabaseClient,
@@ -251,7 +246,9 @@ async function resolveDownloadPathsForTable(
 
   const { data: purchased } = await supabase
     .from(table)
-    .select(`id, ${parentCol}, ${DL_COLUMNS}`)
+    .select(
+      `id, ${parentCol}, download_path_mp3, download_path_flac, download_path_wav`,
+    )
     .in("id", ids);
 
   const rows = (purchased || []) as Array<Record<string, string | null>>;
@@ -273,7 +270,9 @@ async function resolveDownloadPathsForTable(
   if (parentIds.length > 0) {
     const { data: siblings } = await supabase
       .from(table)
-      .select(`${parentCol}, ${DL_COLUMNS}`)
+      .select(
+        `${parentCol}, download_path_mp3, download_path_flac, download_path_wav`,
+      )
       .in(parentCol, parentIds)
       .eq("format", "digital");
     for (const s of (siblings || []) as Array<Record<string, string | null>>) {
@@ -283,7 +282,6 @@ async function resolveDownloadPathsForTable(
         mp3: s.download_path_mp3 ?? null,
         flac: s.download_path_flac ?? null,
         wav: s.download_path_wav ?? null,
-        aac: s.download_path_aac ?? null,
       });
     }
   }
@@ -295,7 +293,6 @@ async function resolveDownloadPathsForTable(
       mp3: r.download_path_mp3 ?? sib?.mp3 ?? null,
       flac: r.download_path_flac ?? sib?.flac ?? null,
       wav: r.download_path_wav ?? sib?.wav ?? null,
-      aac: r.download_path_aac ?? sib?.aac ?? null,
     });
   }
 }

@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
-import { ENTITY_TYPES, entityExists, resolveEntities, type EntityType } from "@/lib/related-entities";
+import { ENTITY_TYPES, resolveEntities, type EntityType } from "@/lib/related-entities";
 
 function valid(t: unknown): t is EntityType {
   return typeof t === "string" && (ENTITY_TYPES as readonly string[]).includes(t);
@@ -38,7 +38,6 @@ export async function GET(request: Request) {
       entity_id: r.entity_id,
       title: d?.title ?? "(missing)",
       image: d?.image ?? null,
-      subtype: d?.subtype ?? null,
     };
   });
   return Response.json(out);
@@ -52,32 +51,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "valid source_type, source_id, entity_type, entity_id required" }, { status: 400 });
   }
   const supabase = createAdminClient();
-
-  // The id has to exist in the table entity_type points at. A mismatched pair
-  // (a release id filed under 'song', say) would otherwise save fine and then
-  // render as "(missing)" on every load.
-  if (!(await entityExists(supabase, entity_type, entity_id))) {
-    return Response.json(
-      { error: `No ${entity_type} found with that id` },
-      { status: 400 },
-    );
-  }
-
-  // Append after the current last row. Counting rows gave two fast adds the
-  // same display_order.
-  const { data: lastRow } = await supabase
+  const { count } = await supabase
     .from("related_entities")
-    .select("display_order")
+    .select("id", { count: "exact", head: true })
     .eq("source_type", source_type)
-    .eq("source_id", source_id)
-    .order("display_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const nextOrder = ((lastRow?.display_order as number | undefined) ?? -1) + 1;
-
+    .eq("source_id", source_id);
   const { data, error } = await supabase
     .from("related_entities")
-    .insert({ source_type, source_id, entity_type, entity_id, display_order: nextOrder })
+    .insert({ source_type, source_id, entity_type, entity_id, display_order: count ?? 0 })
     .select("id, entity_type, entity_id, display_order")
     .single();
   if (error) return Response.json({ error: error.message }, { status: 500 });

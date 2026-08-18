@@ -24,24 +24,8 @@ export async function verifyTurnstile(
         body: body.toString(),
       }
     );
-    if (!res.ok) {
-      console.error("[turnstile] siteverify HTTP error", res.status);
-      return false;
-    }
-    const data = (await res.json()) as {
-      success?: boolean;
-      "error-codes"?: string[];
-    };
-    if (!data.success) {
-      // Cloudflare's error-codes are the only way to tell a rotated secret
-      // (invalid-input-secret) from a replayed token (timeout-or-duplicate)
-      // from a widget that never issued one (missing-input-response). Losing
-      // them turned a one-minute fix into an hour of guessing on 2026-08-11.
-      console.error(
-        "[turnstile] verify rejected",
-        JSON.stringify(data["error-codes"] ?? []),
-      );
-    }
+    if (!res.ok) return false;
+    const data = (await res.json()) as { success?: boolean };
     return !!data.success;
   } catch (e) {
     console.error("[turnstile] verify failed", e);

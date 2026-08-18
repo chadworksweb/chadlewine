@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase-server";
-import { InboxArchiveButton } from "@/components/InboxArchiveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +47,6 @@ export default async function AdminInboxPage({
 }) {
   const sp = await searchParams;
   const showAll = sp.show === "all";
-  const archivedView = sp.view === "archived";
 
   const supabase = createAdminClient();
   let query = supabase
@@ -58,10 +56,6 @@ export default async function AdminInboxPage({
     )
     .order("created_at", { ascending: false })
     .limit(500);
-
-  // Archive is a plain status flip: the active desk excludes it, the archived
-  // view shows only it.
-  query = archivedView ? query.eq("status", "archived") : query.neq("status", "archived");
 
   // Default view hides hostile + spam, but KEEPS untriaged rows (category null
   // = "needs review"), which a bare `not.in` would drop because NULL NOT IN (..)
@@ -73,73 +67,38 @@ export default async function AdminInboxPage({
   const { data } = await query;
   const rows = (data || []) as Row[];
 
-  // Count what's hidden so the toggles are honest about what they suppress.
+  // Count what's hidden so the toggle is honest about what it's suppressing.
   let hiddenCount = 0;
   if (!showAll) {
-    let hidden = supabase
-      .from("inbound_messages")
-      .select("id", { count: "exact", head: true })
-      .in("category", NOISE);
-    hidden = archivedView ? hidden.eq("status", "archived") : hidden.neq("status", "archived");
-    const { count } = await hidden;
-    hiddenCount = count || 0;
-  }
-
-  let archivedCount = 0;
-  if (!archivedView) {
     const { count } = await supabase
       .from("inbound_messages")
       .select("id", { count: "exact", head: true })
-      .eq("status", "archived");
-    archivedCount = count || 0;
+      .in("category", NOISE);
+    hiddenCount = count || 0;
   }
-
-  const qs = (next: Record<string, string | null>) => {
-    const params = new URLSearchParams();
-    if (showAll) params.set("show", "all");
-    if (archivedView) params.set("view", "archived");
-    for (const [k, v] of Object.entries(next)) {
-      if (v === null) params.delete(k);
-      else params.set(k, v);
-    }
-    const s = params.toString();
-    return s ? `/admin/inbox?${s}` : "/admin/inbox";
-  };
 
   return (
     <div className="admin-page">
       <div className="admin-page__header">
-        <h1 className="admin-page__title">
-          {archivedView ? "Archived" : "Front desk inbox"} ({rows.length})
-        </h1>
+        <h1 className="admin-page__title">Front desk inbox ({rows.length})</h1>
       </div>
 
       <p style={{ marginBottom: "var(--space-lg)", fontSize: "0.9rem", color: "var(--text-tertiary)" }}>
         Campaign replies and website contact, triaged. Positive notes and opportunities also ping
         your email. {" "}
         {showAll ? (
-          <Link href={qs({ show: null })} className="admin-table__link">
+          <Link href="/admin/inbox" className="admin-table__link">
             Hide hostile &amp; spam
           </Link>
         ) : (
-          <Link href={qs({ show: "all" })} className="admin-table__link">
+          <Link href="/admin/inbox?show=all" className="admin-table__link">
             Show all ({hiddenCount} hidden)
-          </Link>
-        )}
-        {" · "}
-        {archivedView ? (
-          <Link href={qs({ view: null })} className="admin-table__link">
-            Back to the desk
-          </Link>
-        ) : (
-          <Link href={qs({ view: "archived" })} className="admin-table__link">
-            Archived ({archivedCount})
           </Link>
         )}
       </p>
 
       {rows.length === 0 ? (
-        <p>{archivedView ? "Nothing archived." : "Nothing here yet."}</p>
+        <p>Nothing here yet.</p>
       ) : (
         <table className="admin-table">
           <thead>
@@ -150,7 +109,6 @@ export default async function AdminInboxPage({
               <th className="admin-table__th">Category</th>
               <th className="admin-table__th">Summary</th>
               <th className="admin-table__th">Status</th>
-              <th className="admin-table__th"></th>
             </tr>
           </thead>
           <tbody>
@@ -176,9 +134,6 @@ export default async function AdminInboxPage({
                   {r.summary || r.subject || "-"}
                 </td>
                 <td className="admin-table__td">{r.status}</td>
-                <td className="admin-table__td" style={{ whiteSpace: "nowrap" }}>
-                  <InboxArchiveButton id={r.id} archived={r.status === "archived"} />
-                </td>
               </tr>
             ))}
           </tbody>

@@ -146,9 +146,7 @@
 .entity-picker__candidate {
   width: 100%;
   display: grid;
-  /* thumb, title, then the release-type badge that separates an album from its
-     same-titled single. The third column collapses when there is no badge. */
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   gap: var(--space-sm);
   align-items: center;
   padding: var(--space-xs) var(--space-sm);

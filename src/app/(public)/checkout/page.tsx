@@ -3,14 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import CartEmbeddedCheckout from "@/components/CartEmbeddedCheckout";
-import type { DownloadFormat } from "@/lib/audio-formats";
 
 const CART_KEY = "chadlewine_cart";
 
 type CartItem = {
   type: "song" | "release" | "ringtone" | "merch" | "art_original";
   id: string;
-  format?: DownloadFormat | null;
+  format?: "mp3" | "flac" | "wav" | null;
   product_config?: Record<string, unknown> | null;
   sku_id?: string | null;
   sku_variant_id?: string | null;

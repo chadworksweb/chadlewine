@@ -10,7 +10,6 @@ interface ExploreItem {
   image_alt: string | null;
   href: string;
   kind: ExploreKind;
-  is_new?: boolean | null;
 }
 
 interface ProductRow {
@@ -19,7 +18,6 @@ interface ProductRow {
   title: string;
   image_url: string | null;
   image_alt: string | null;
-  is_new: boolean | null;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -49,7 +47,7 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
   const [productsRes, songsRes, albumsRes, artRes] = await Promise.all([
     supabase
       .from("merch")
-      .select("id, slug, title, image_url, image_alt, is_new")
+      .select("id, slug, title, image_url, image_alt")
       .in("fulfillment", ["manual", "printify_curated"])
       .eq("status", "active")
       .order("created_at", { ascending: false }),
@@ -90,7 +88,6 @@ export async function ExploreStrip({ excludeMerchIds = [], wrap = false }: Props
       image_alt: p.image_alt,
       href: `/merch/${p.slug || p.id}`,
       kind: "merch",
-      is_new: p.is_new,
     }));
   // Prefer merch not already shown on the page. If after exclusion we have
   // fewer than 2 left (e.g. the merch index already shows every product in

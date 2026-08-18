@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { uploadMedia } from "@/lib/upload-media";
 
 interface BunnyMusicUploaderProps {
   // Stored value — relative path inside the music-downloads zone, e.g.
@@ -52,17 +51,23 @@ export function BunnyMusicUploader({
 
     setUploading(true);
     try {
-      const result = await uploadMedia(file, {
-        type: "music-download",
-        folder,
-        filename: file.name,
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("type", "music-download");
+      fd.append("folder", folder);
+      fd.append("filename", file.name);
+      const res = await fetch("/api/admin/media/upload", {
+        method: "POST",
+        body: fd,
       });
-      onChange(result.path);
-      if (result.renamedTo) {
-        setError(`That name was taken, so it uploaded as "${result.renamedTo}".`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Upload failed.");
+        return;
       }
-    } catch (e) {
-      setError((e as Error).message || "Upload failed.");
+      onChange(data.path);
+    } catch {
+      setError("Upload failed.");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";

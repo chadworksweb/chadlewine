@@ -13,33 +13,6 @@ export const ENTITY_LABEL: Record<EntityType, string> = {
   observation: "Observation",
 };
 
-// Where each entity type actually lives. Kept next to ENTITY_TYPES so a new
-// type can't be added without deciding its table.
-export const ENTITY_TABLE: Record<EntityType, string> = {
-  song: "songs",
-  release: "releases",
-  merch: "merch",
-  art: "art_pieces",
-  observation: "posts",
-};
-
-// Guard for the link endpoints: an id is only linkable if a row with that id
-// exists in the table its type points at. Without this, a picker that sends a
-// mismatched (type, id) pair writes a row that resolves to "(missing)" forever.
-export async function entityExists(
-  supabase: SupabaseClient,
-  type: EntityType,
-  id: string,
-): Promise<boolean> {
-  const { data, error } = await supabase
-    .from(ENTITY_TABLE[type])
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) return false;
-  return !!data;
-}
-
 export interface EntityRef {
   entity_type: EntityType;
   entity_id: string;
@@ -53,11 +26,6 @@ export interface ResolvedEntity {
   image: string | null;
   alt: string | null;
   href: string;
-  /** Merch only: the NEW badge flag, so cross-linked cards can wear it too. */
-  isNew?: boolean;
-  /** Releases only: album / single / ep / compilation. An album and its lead
-   *  single share a title, so "Release" alone cannot tell them apart. */
-  subtype?: string | null;
 }
 
 interface Row { id: string; slug: string | null; title: string }
@@ -82,10 +50,10 @@ export async function resolveEntities(
       ? (() => { const q = supabase.from("songs").select("id, slug, title, art_image_path, art_alt").in("id", idsByType.song); return all ? q : q.in("status", ["published", "unreleased"]); })()
       : Promise.resolve({ data: [] }),
     idsByType.release.length
-      ? (() => { const q = supabase.from("releases").select("id, slug, title, cover_art_path, cover_art_alt, release_type").in("id", idsByType.release); return all ? q : q.in("status", ["published", "unreleased"]); })()
+      ? (() => { const q = supabase.from("releases").select("id, slug, title, cover_art_path, cover_art_alt").in("id", idsByType.release); return all ? q : q.in("status", ["published", "unreleased"]); })()
       : Promise.resolve({ data: [] }),
     idsByType.merch.length
-      ? (() => { const q = supabase.from("merch").select("id, slug, title, image_url, image_alt, is_new").in("id", idsByType.merch); return all ? q : q.eq("status", "active"); })()
+      ? (() => { const q = supabase.from("merch").select("id, slug, title, image_url, image_alt").in("id", idsByType.merch); return all ? q : q.eq("status", "active"); })()
       : Promise.resolve({ data: [] }),
     idsByType.art.length
       ? (() => { const q = supabase.from("art_pieces").select("id, slug, title, image_path, image_alt").in("id", idsByType.art); return all ? q : q.in("status", ["published", "unreleased"]); })()
@@ -96,12 +64,8 @@ export async function resolveEntities(
   ]);
 
   type SongRow = Row & { art_image_path: string | null; art_alt: string | null };
-  type ReleaseRow = Row & {
-    cover_art_path: string | null;
-    cover_art_alt: string | null;
-    release_type: string | null;
-  };
-  type ProductRow = Row & { image_url: string | null; image_alt: string | null; is_new: boolean | null };
+  type ReleaseRow = Row & { cover_art_path: string | null; cover_art_alt: string | null };
+  type ProductRow = Row & { image_url: string | null; image_alt: string | null };
   type ArtRow = Row & { image_path: string | null; image_alt: string | null };
   type ObsRow = Row & { art_image_path: string | null; art_alt: string | null; kind: string | null };
 
@@ -140,12 +104,12 @@ export async function resolveEntities(
       }
       case "release": {
         const r = maps.release.get(id); if (!r || !r.slug) break;
-        out.push({ entity_type: "release", id, slug: r.slug, title: r.title, image: r.cover_art_path, alt: r.cover_art_alt || r.title, href: `/music/releases/${r.slug}`, subtype: r.release_type });
+        out.push({ entity_type: "release", id, slug: r.slug, title: r.title, image: r.cover_art_path, alt: r.cover_art_alt || r.title, href: `/music/releases/${r.slug}` });
         break;
       }
       case "merch": {
         const p = maps.merch.get(id); if (!p || !p.slug) break;
-        out.push({ entity_type: "merch", id, slug: p.slug, title: p.title, image: p.image_url, alt: p.image_alt || p.title, href: `/merch/${p.slug}`, isNew: !!p.is_new });
+        out.push({ entity_type: "merch", id, slug: p.slug, title: p.title, image: p.image_url, alt: p.image_alt || p.title, href: `/merch/${p.slug}` });
         break;
       }
       case "art": {

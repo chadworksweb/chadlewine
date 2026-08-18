@@ -4,35 +4,10 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/components/Cart";
-import { usePlayer, usePlayerTime } from "@/components/PlayerContext";
+import { usePlayer } from "@/components/PlayerContext";
 import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
 import { CompassIcon } from "@/components/RisingCompassMark";
 import type { SkuGalleryImage } from "@/lib/release-skus";
-
-// release_date is a bare YYYY-MM-DD, so the formatter is pinned to UTC -- left
-// on the runtime zone, new Date("2026-01-01") is UTC midnight and every viewer
-// west of Greenwich reads Dec 31 of the prior year.
-//
-// The string is assembled from formatToParts rather than taken from
-// toLocaleDateString because this renders during SSR: ICU picks the literals
-// between the fields and CLDR has changed its mind about them between versions,
-// so Node and a visitor's browser can disagree on bytes that are invisible on
-// screen and hand React a #418 that discards the whole server tree. See the
-// hydration section in AGENTS.md and formatStreamDate in HomepageFeed.tsx.
-const RELEASE_DATE_FMT = new Intl.DateTimeFormat("en-US", {
-  timeZone: "UTC",
-  month: "long",
-  day: "numeric",
-  year: "numeric",
-});
-
-function formatReleaseDate(date: string): string {
-  const f: Record<string, string> = {};
-  for (const part of RELEASE_DATE_FMT.formatToParts(new Date(date))) {
-    if (part.type !== "literal") f[part.type] = part.value;
-  }
-  return `${f.month} ${f.day}, ${f.year}`;
-}
 
 interface AlbumProps {
   id: string;
@@ -86,44 +61,6 @@ function formatDuration(seconds: number): string {
 const PLAY_RING_RADIUS = 12;
 const PLAY_RING_CIRCUMFERENCE = 2 * Math.PI * PLAY_RING_RADIUS;
 
-// The ring, drawn from a number. No hooks, so a row that isn't playing costs
-// nothing per tick.
-function TrackPlayRing({ progress }: { progress: number }) {
-  return (
-    <svg className="tracklist-row__play-ring" viewBox="0 0 26 26" aria-hidden="true">
-      <circle
-        className="tracklist-row__play-ring-track"
-        cx="13"
-        cy="13"
-        r={PLAY_RING_RADIUS}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <circle
-        className="tracklist-row__play-ring-progress"
-        cx="13"
-        cy="13"
-        r={PLAY_RING_RADIUS}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray={PLAY_RING_CIRCUMFERENCE}
-        strokeDashoffset={PLAY_RING_CIRCUMFERENCE * (1 - progress)}
-        transform="rotate(-90 13 13)"
-      />
-    </svg>
-  );
-}
-
-// The one subscriber on this page: the active row's ring. Everything else in
-// the tracklist re-renders only when the track or the play state changes.
-function LiveTrackPlayRing() {
-  const { progress } = usePlayerTime();
-  return <TrackPlayRing progress={progress} />;
-}
-
 export function ReleaseDetail({
   album,
   songs,
@@ -171,8 +108,8 @@ export function ReleaseDetail({
   }, []);
   const cart = useCart();
 
-  const releasedLabel = album.release_date
-    ? formatReleaseDate(album.release_date)
+  const year = album.release_date
+    ? new Date(album.release_date).getFullYear()
     : null;
 
   // Playback is delegated to the shared PlayerContext (same engine as the
@@ -315,15 +252,15 @@ export function ReleaseDetail({
              (FormatShowcase already shows them all), so we hide it and pull
              the Rising Compass badge up into the info bar in its place. */}
           {/* Info bar */}
-          <div className="track-detail__info-bar track-detail__info-bar--release" data-cols={3}>
+          <div className="track-detail__info-bar" data-cols={3}>
             <div className="track-detail__info-cell">
               <span className="track-detail__info-label">Tracks</span>
               <span className="track-detail__info-value">{songs.length}</span>
             </div>
-            {releasedLabel ? (
+            {year ? (
               <div className="track-detail__info-cell">
                 <span className="track-detail__info-label">Released</span>
-                <span className="track-detail__info-value">{releasedLabel}</span>
+                <span className="track-detail__info-value">{year}</span>
               </div>
             ) : album.release_window ? (
               <div className="track-detail__info-cell">
@@ -373,6 +310,7 @@ export function ReleaseDetail({
               {songs.map((song) => {
                 const isActive = player.isCurrent(song.id);
                 const isPlaying = isActive && player.playing;
+                const rowProgress = isActive ? player.progress : 0;
                 const hasAudio = !!song.streaming_path;
                 const canDownload = !!song.sku_id && song.price !== null;
                 const inCart = canDownload
@@ -414,11 +352,37 @@ export function ReleaseDetail({
                         disabled={!hasAudio}
                         aria-label={isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
                       >
-                        {isActive ? <LiveTrackPlayRing /> : <TrackPlayRing progress={0} />}
-                        <span
-                          className={`tracklist-row__play-icon${isPlaying ? " tracklist-row__play-icon--pause" : ""}`}
+                        <svg
+                          className="tracklist-row__play-ring"
+                          viewBox="0 0 26 26"
                           aria-hidden="true"
                         >
+                          <circle
+                            className="tracklist-row__play-ring-track"
+                            cx="13"
+                            cy="13"
+                            r={PLAY_RING_RADIUS}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                          <circle
+                            className="tracklist-row__play-ring-progress"
+                            cx="13"
+                            cy="13"
+                            r={PLAY_RING_RADIUS}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeDasharray={PLAY_RING_CIRCUMFERENCE}
+                            strokeDashoffset={
+                              PLAY_RING_CIRCUMFERENCE * (1 - rowProgress)
+                            }
+                            transform="rotate(-90 13 13)"
+                          />
+                        </svg>
+                        <span className="tracklist-row__play-icon" aria-hidden="true">
                           {isPlaying ? (
                             <svg width="7" height="7" viewBox="0 0 10 10" fill="currentColor">
                               <rect x="0" y="0" width="3" height="10" />

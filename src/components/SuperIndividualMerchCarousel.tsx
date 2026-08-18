@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
-import { MerchNewBadge } from "@/components/MerchNewBadge";
 
 export interface CarouselProduct {
   id: string;
@@ -11,7 +10,6 @@ export interface CarouselProduct {
   image_url: string | null;
   image_alt: string | null;
   price: number | null;
-  is_new?: boolean | null;
 }
 
 interface Props {
@@ -113,7 +111,6 @@ export function SuperIndividualMerchCarousel({ products }: Props) {
                 ) : (
                   <div className="si-merch-carousel__image si-merch-carousel__image--empty" />
                 )}
-                {p.is_new && <MerchNewBadge seed={p.slug || p.id} />}
               </Link>
             </div>
           );

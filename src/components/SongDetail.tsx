@@ -8,7 +8,6 @@ import { FrutigerMiniPlayer } from "@/components/FrutigerMiniPlayer";
 import { CubeVisualizer } from "@/components/CubeVisualizer";
 import { CompassIcon } from "@/components/RisingCompassMark";
 import { useCart } from "@/components/Cart";
-import { usePlayer } from "@/components/PlayerContext";
 import { FormatShowcase, type FormatShowcaseSku } from "@/components/FormatShowcase";
 import "./ArtDetail.css";
 import { focalCropStyle } from "@/lib/focal-crop";
@@ -303,30 +302,6 @@ export function SongDetail({
   //  - in the action row to the right of the CTA (unreleased songs with no
   //    player), mirroring the release template. Never both.
   const showPlayer = !!song.streaming_path;
-
-  // Same transport the MiniPlayer below exposes, handed to the cube so the art
-  // overlay can start/stop the track on touch layouts. The payload has to be
-  // built here rather than in the cube: CubeVisualizer is given the song id and
-  // the art, never the streaming URL.
-  const player = usePlayer();
-  const togglePlay = () => {
-    if (!song.streaming_path) return;
-    if (player.isCurrent(song.id)) {
-      if (player.playing) player.pause();
-      else player.resume();
-      return;
-    }
-    player.play({
-      id: song.id,
-      slug: song.slug,
-      title: song.title,
-      streamingUrl: song.streaming_path,
-      durationSeconds: song.duration_seconds ?? 0,
-      artImagePath: coverArtPath,
-      artAlt: coverArtAlt,
-      playbackMode,
-    });
-  };
   const badgeBlock = badge ? (
     <div className="track-detail__rc-badge">
       {badge.pending && (
@@ -403,8 +378,6 @@ export function SongDetail({
             bassSynthEnvelope={song.bass_synth_envelope ?? null}
             bassSynthEnvelopeHz={song.bass_synth_envelope_hz ?? null}
             bassSynthPitch={song.bass_synth_pitch ?? null}
-            onTogglePlay={showPlayer ? togglePlay : undefined}
-            playbackMode={playbackMode}
             renderConfig={renderConfig}
           />
         </div>

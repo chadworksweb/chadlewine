@@ -18,10 +18,9 @@ export async function GET(request: Request) {
   if (!productId || !UUID_RE.test(productId)) {
     return Response.json({ error: "product_id required (uuid)" }, { status: 400 });
   }
-  const includeDeleted = url.searchParams.get("include_deleted") === "1";
   const supabase = createAdminClient();
   try {
-    const images = await getAdminGalleryForProduct(supabase, productId, { includeDeleted });
+    const images = await getAdminGalleryForProduct(supabase, productId);
     return Response.json({ images });
   } catch (err) {
     return Response.json({ error: (err as Error).message }, { status: 500 });

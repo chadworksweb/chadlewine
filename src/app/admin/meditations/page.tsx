@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { uploadMedia } from "@/lib/upload-media";
 import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { formatDate } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -97,19 +96,15 @@ function MeditationsContent() {
       return;
     }
     setHeroUploading(true);
-    // The one deliberate replace in the admin: this page owns
-    // page-heroes/meditations.webp outright and nothing else points at it.
-    try {
-      const result = await uploadMedia(file, {
-        type: "site-image",
-        folder: "page-heroes",
-        filename: "meditations.webp",
-        replace: true,
-      });
-      setHeroUrl(result.url + "?t=" + Date.now());
-    } catch {
-      // The page has no error slot; leaving the old hero on screen is the
-      // honest outcome, since that is what is still published.
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("type", "site-image");
+    fd.append("folder", "page-heroes");
+    fd.append("filename", "meditations.webp");
+    const res = await fetch("/api/admin/media/upload", { method: "POST", body: fd });
+    if (res.ok) {
+      const data = await res.json();
+      setHeroUrl(data.url + "?t=" + Date.now());
     }
     setHeroUploading(false);
   }

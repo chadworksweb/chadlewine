@@ -2,12 +2,6 @@
   margin: var(--space-2xl, 3rem) 0;
 }
 
-/* The merch product template already ends on the detail block's own bottom
-   spacing, so the section's top margin stacked into a gap. */
-.ymal--flush {
-  margin-top: 0;
-}
-
 .ymal__heading {
   font-family: var(--font-ui);
   font-size: var(--text-sm, 0.85rem);

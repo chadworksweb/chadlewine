@@ -52,24 +52,6 @@ export const SHELL_FALLOFF: Record<Kind, number> = {
   ring: 0.175,
 };
 
-// HOW BRIGHT THE WIREFRAMES ARE DRAWN. The outermost shell's line alpha, which
-// the shells below step down from by SHELL_FALLOFF. Under NormalBlending over
-// the void this is not a hint, it is the answer: a line lands at exactly
-// alpha * hue, so these numbers ARE the fraction of the hue that reaches the
-// frame.
-//
-// TWO VALUES, because the doors are asked for two different things. Out of the
-// core they are debris going past at speed, read against a frame that is
-// filling with streaks. In the menu they are the navigation: still, looked AT
-// rather than glimpsed, and carrying a label. Only the menu is lifted.
-//
-// The handover costs nothing. The eject path ends at 2.2 and the menu path
-// fades in on smooth(2.5, 3.2, t), so the doors sit at zero alpha across the
-// switch and there is no frame in which a value change could show. The break
-// flood whites the frame out over that same window in any case.
-export const SHELL_ALPHA_EJECT = 0.62;
-export const SHELL_ALPHA_MENU = 0.82;
-
 // Resting slot x-positions (world units). Spacing 4 across the 16:9 frame.
 export const SLOT_X = [-8, -4, 0, 4, 8];
 
@@ -248,28 +230,6 @@ export const LAYOUT_16_9 = heroLayout(16 / 9);
 
 // Timeline (seconds). Names double as the HUD beat labels.
 export const DUR = 11.6;
-
-// THE SKY ARRIVES LATE.
-//
-// Measured 2026-07-31 on an Intel Iris Xe, through the break spiral, full bleed:
-//   sky composing normally               p95 62.3ms
-//   sky canvas present, composer skipped p95 55.3ms
-//   sky canvas NOT MOUNTED               p95 41.8ms
-// Drawing the sky costs about 7ms. The canvas merely EXISTING costs about 13.6,
-// nearly twice as much, because the browser allocates that full-viewport layer
-// and composites it every frame whether or not one pixel of it changed. An idle
-// canvas is not a free canvas, and skipping its render only ever removed the
-// smaller half of the bill. It has to come out of the tree.
-//
-// Nothing is lost by starting late. Both sky layers used to sit at EXACTLY zero
-// opacity until 2.5 (Starfield 2.6), so the whole machine tunnel, warp core and
-// streak section was paying for a completely transparent image. SKY_IN is now
-// after BreakShards ends at 3.7, so the break spiral -- the beat that asks the
-// most of the GPU -- has it to itself. The flood whites the frame out from 2.2
-// to 3.0 anyway, so a sky fading up under it was never what was being watched.
-export const SKY_IN = 4.25;
-export const SKY_FULL = 6.0;
-
 export const BEATS: { t0: number; t1: number; name: string }[] = [
   { t0: 0.0, t1: 1.0, name: "THE PULL" },
   { t0: 1.0, t1: 2.2, name: "THE TUNNEL" },

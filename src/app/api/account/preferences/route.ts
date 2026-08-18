@@ -6,7 +6,7 @@ const OPTIONAL_KEYS = new Set<string>(OPTIONAL_CATEGORIES.map((c) => c.key));
 
 // PATCH /api/account/preferences — logged-in fan updates marketing prefs.
 // Accepts subscriber_status (master on/off) and/or a categories map (partial
-// map of the optional category keys -> bool). The required "general"
+// map of the 6 optional category keys -> bool). The required "general"
 // category has no toggle; only the master unsubscribe turns it off.
 export async function PATCH(request: Request) {
   const session = await getCurrentSession();

@@ -9,8 +9,6 @@ interface PatchBody {
   is_hidden?: boolean;
   needs_review?: boolean;
   position?: number;
-  /** Undo a soft delete. Only meaningful while the row is still in the 30-day window. */
-  restore?: boolean;
 }
 
 export async function PATCH(
@@ -24,18 +22,14 @@ export async function PATCH(
   const body = (await request.json()) as PatchBody;
   const supabase = createAdminClient();
 
-  // Soft-deleted rows are addressable here so a restore can reach them.
-  // Everything else refuses to touch one.
   const { data: row } = await supabase
     .from("product_images")
-    .select("id, product_id, deleted_at")
+    .select("id, product_id")
     .eq("id", id)
+    .is("deleted_at", null)
     .maybeSingle();
   if (!row) {
     return Response.json({ error: "Image not found" }, { status: 404 });
-  }
-  if (row.deleted_at && body.restore !== true) {
-    return Response.json({ error: "Image was removed. Restore it first." }, { status: 409 });
   }
   const productId = row.product_id as string;
 
@@ -58,21 +52,10 @@ export async function PATCH(
     updated_at: new Date().toISOString(),
   };
   if ("alt" in body) updates.alt = body.alt;
-  if (typeof body.is_primary === "boolean") {
-    updates.is_primary = body.is_primary;
-    // Promoting a hidden image brings it back into the gallery.
-    if (body.is_primary === true && body.is_hidden !== true) updates.is_hidden = false;
-  }
-  if (typeof body.is_hidden === "boolean") {
-    updates.is_hidden = body.is_hidden;
-    // A hidden image can't be the hero. Hiding the primary drops the flag so
-    // the next visible image takes over instead of the product losing its
-    // image_url to a row nobody can see.
-    if (body.is_hidden === true) updates.is_primary = false;
-  }
+  if (typeof body.is_primary === "boolean") updates.is_primary = body.is_primary;
+  if (typeof body.is_hidden === "boolean") updates.is_hidden = body.is_hidden;
   if (typeof body.needs_review === "boolean") updates.needs_review = body.needs_review;
   if (typeof body.position === "number") updates.position = body.position;
-  if (body.restore === true) updates.deleted_at = null;
 
   const { data, error } = await supabase
     .from("product_images")

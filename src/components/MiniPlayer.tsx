@@ -1,8 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePlayer, usePlayerTime, type PlaybackMode } from "@/components/PlayerContext";
+import { usePlayer, type PlaybackMode } from "@/components/PlayerContext";
 
 interface MiniPlayerProps {
   songId: string;
@@ -90,87 +89,6 @@ function PauseGlyph() {
   );
 }
 
-// The play/pause button + progress ring on its own. Exported because the cube
-// visualizer on the song page overlays this exact control on the album art:
-// one implementation, so the two can never drift apart. Every class here is
-// styled in global.css; the `--art` sizing (72px circle, 42px glyph) comes
-// from an ancestor carrying .mini-player--art.
-export function MiniPlayerTransport({
-  playing,
-  progress,
-  playbackMode = "preview",
-  onToggle,
-}: {
-  playing: boolean;
-  progress: number;
-  playbackMode?: PlaybackMode;
-  onToggle: () => void;
-}) {
-  const ringOffset = CIRCUMFERENCE - progress * CIRCUMFERENCE;
-  return (
-    <button
-      type="button"
-      className="mini-player__play-btn"
-      onClick={onToggle}
-      aria-label={playing ? "Pause" : `Play ${playbackMode === "preview" ? "preview" : ""}`}
-    >
-      <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
-        <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
-        <circle
-          className="mini-player__ring-progress"
-          cx="20"
-          cy="20"
-          r="18"
-          style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
-        />
-      </svg>
-      <span className="mini-player__icon">{playing ? <PauseGlyph /> : <PlayGlyph />}</span>
-    </button>
-  );
-}
-
-// The same control, subscribed to the playback clock. This is the ONLY thing
-// that re-renders on a tick, instead of whatever page happens to hold it.
-// Render it for the active track and the plain MiniPlayerTransport (progress
-// 0) for every other row.
-export function LiveMiniPlayerTransport(props: {
-  playing: boolean;
-  playbackMode?: PlaybackMode;
-  onToggle: () => void;
-}) {
-  const { progress } = usePlayerTime();
-  return <MiniPlayerTransport {...props} progress={progress} />;
-}
-
-// The waveform's filled half. The clip path is the only thing that moves with
-// the clock, so it subscribes and the bars around it don't.
-function WaveformFill({ active, children }: { active: boolean; children: ReactNode }) {
-  return active ? (
-    <LiveWaveformFill>{children}</LiveWaveformFill>
-  ) : (
-    <div
-      className="mini-player__wf-layer mini-player__wf-fg"
-      style={{ clipPath: "inset(0 100% 0 0)" }}
-      aria-hidden="true"
-    >
-      {children}
-    </div>
-  );
-}
-
-function LiveWaveformFill({ children }: { children: ReactNode }) {
-  const { progress } = usePlayerTime();
-  return (
-    <div
-      className="mini-player__wf-layer mini-player__wf-fg"
-      style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
-      aria-hidden="true"
-    >
-      {children}
-    </div>
-  );
-}
-
 export function MiniPlayer({
   songId,
   songSlug,
@@ -187,6 +105,7 @@ export function MiniPlayer({
   const player = usePlayer();
   const isThis = player.isCurrent(songId);
   const playing = isThis && player.playing;
+  const progress = isThis ? player.progress : 0;
   const bars = generateBars(trackTitle, BAR_COUNT);
 
   function handleToggle() {
@@ -207,21 +126,28 @@ export function MiniPlayer({
     });
   }
 
-  // The play button + progress ring, reused by both variants. Only the active
-  // row's button watches the clock.
-  const playButton = isThis ? (
-    <LiveMiniPlayerTransport
-      playing={playing}
-      playbackMode={playbackMode}
-      onToggle={handleToggle}
-    />
-  ) : (
-    <MiniPlayerTransport
-      playing={playing}
-      progress={0}
-      playbackMode={playbackMode}
-      onToggle={handleToggle}
-    />
+  const ringOffset = CIRCUMFERENCE - progress * CIRCUMFERENCE;
+
+  // The play button + progress ring, reused by both variants.
+  const playButton = (
+    <button
+      type="button"
+      className="mini-player__play-btn"
+      onClick={handleToggle}
+      aria-label={playing ? "Pause" : `Play ${playbackMode === "preview" ? "preview" : ""}`}
+    >
+      <svg className="mini-player__ring" viewBox="0 0 40 40" aria-hidden="true">
+        <circle className="mini-player__ring-bg" cx="20" cy="20" r="18" />
+        <circle
+          className="mini-player__ring-progress"
+          cx="20"
+          cy="20"
+          r="18"
+          style={{ strokeDasharray: CIRCUMFERENCE, strokeDashoffset: ringOffset }}
+        />
+      </svg>
+      <span className="mini-player__icon">{playing ? <PauseGlyph /> : <PlayGlyph />}</span>
+    </button>
   );
 
   if (variant === "art") {
@@ -263,7 +189,11 @@ export function MiniPlayer({
           </div>
         </div>
 
-        <WaveformFill active={isThis}>
+        <div
+          className="mini-player__wf-layer mini-player__wf-fg"
+          style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
+          aria-hidden="true"
+        >
           <div className="mini-player__wf-main">
             {bars.map((h, i) => (
               <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
@@ -274,7 +204,7 @@ export function MiniPlayer({
               <span key={i} className="mini-player__wf-bar" style={{ height: `${h * 100}%` }} />
             ))}
           </div>
-        </WaveformFill>
+        </div>
       </div>
 
       <span className="mini-player__duration">

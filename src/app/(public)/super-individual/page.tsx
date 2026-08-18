@@ -61,7 +61,6 @@ interface ProductRow {
   image_alt: string | null;
   price: number | null;
   status: string;
-  is_new: boolean | null;
 }
 
 interface AlbumRow {
@@ -144,7 +143,7 @@ async function fetchSuperIndividualMerch(): Promise<CarouselProduct[]> {
 
   const { data: products } = await supabase
     .from("merch")
-    .select("id, slug, title, image_url, image_alt, price, status, is_new")
+    .select("id, slug, title, image_url, image_alt, price, status")
     .in("id", ids)
     .eq("status", "active");
 
@@ -160,7 +159,6 @@ async function fetchSuperIndividualMerch(): Promise<CarouselProduct[]> {
       image_url: p.image_url,
       image_alt: p.image_alt,
       price: p.price,
-      is_new: p.is_new,
     });
   }
   return ordered;
@@ -582,7 +580,6 @@ export default async function SuperIndividualPage() {
                   title={p.title}
                   image_url={p.image_url}
                   image_alt={p.image_alt}
-                  isNew={!!p.is_new}
                 />
               ))}
             </div>

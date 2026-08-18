@@ -1,17 +1,5 @@
 import { createAdminClient } from "./supabase-server";
 
-// The redirect lookup runs in proxy.ts on EVERY public path, so its worst case
-// is the whole site's worst case. Without a deadline a stalled Supabase takes
-// the entire site down: on 2026-07-31 the database stopped answering table
-// queries, Cloudflare held each request until it gave up at 90s, and every page
-// inherited that 90s because this fetch had no timeout while /api/* (which skips
-// the lookup) still served in 12ms.
-//
-// A missed lookup is cheap: the caller treats null as "no redirect" and the
-// request proceeds to normal route resolution. A slow lookup is not cheap. Fail
-// fast and let the page render.
-const REDIRECT_LOOKUP_TIMEOUT_MS = 1500;
-
 export type RedirectContentType =
   | "observation"
   | "art"
@@ -88,7 +76,6 @@ export async function lookupRedirectEdge(
     const res = await fetch(query, {
       headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
       cache: "no-store",
-      signal: AbortSignal.timeout(REDIRECT_LOOKUP_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const rows = (await res.json()) as Array<{ to_path: string; status_code: number }>;
@@ -116,7 +103,6 @@ export async function recordRedirectHit(path: string): Promise<void> {
       },
       body: JSON.stringify({ p_from: path }),
       cache: "no-store",
-      signal: AbortSignal.timeout(REDIRECT_LOOKUP_TIMEOUT_MS),
     });
   } catch {
     // best-effort; don't block request

@@ -1,7 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { resolveSkuDownloadPaths } from "@/lib/release-skus";
 import { sendEmail, buildPreorderReadyHtml } from "@/lib/email";
-import { DOWNLOAD_FORMATS, type DownloadFormat } from "@/lib/audio-formats";
 
 // Manual "Deliver Preorder" push. Decoupled from album publish/release status:
 // this ONLY notifies the people who preordered + opens the SKU for sale. It
@@ -18,12 +17,8 @@ import { DOWNLOAD_FORMATS, type DownloadFormat } from "@/lib/audio-formats";
 
 const SITE_URL = process.env.SITE_URL || "https://chadlewine.com";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FORMATS = DOWNLOAD_FORMATS;
-type FormatKey = DownloadFormat;
-// Spelled out: supabase-js parses the select string at the type level, so a
-// computed column list degrades every row to a ParserError.
-const DL_COLUMNS =
-  "download_path_mp3, download_path_flac, download_path_wav, download_path_aac";
+const FORMATS = ["mp3", "flac", "wav"] as const;
+type FormatKey = (typeof FORMATS)[number];
 
 export async function POST(
   _request: Request,
@@ -58,7 +53,7 @@ export async function POST(
   // All SKUs for this release, plus the digital one for the files guard.
   const { data: skuRows } = await supabase
     .from("release_skus")
-    .select(`id, format, status, ${DL_COLUMNS}`)
+    .select("id, format, status, download_path_mp3, download_path_flac, download_path_wav")
     .eq("release_id", releaseId);
   const skus = skuRows || [];
   if (skus.length === 0) {
@@ -66,14 +61,16 @@ export async function POST(
   }
 
   const digital = skus.find((s) => s.format === "digital");
-  const digitalRow = digital as Record<string, unknown> | undefined;
   const digitalHasFiles =
-    !!digitalRow && FORMATS.some((f) => !!digitalRow[`download_path_${f}`]);
+    !!digital &&
+    (!!digital.download_path_mp3 ||
+      !!digital.download_path_flac ||
+      !!digital.download_path_wav);
   if (!digitalHasFiles) {
     return Response.json(
       {
         error:
-          "Upload the album's digital download files first. The digital SKU has no download path on any format, so preorder emails would have nothing to download.",
+          "Upload the album's digital download files first. The digital SKU has no MP3/FLAC/WAV path, so preorder emails would have nothing to download.",
       },
       { status: 400 },
     );
