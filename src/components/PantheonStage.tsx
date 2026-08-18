@@ -376,9 +376,15 @@ export function PantheonStage({ video, onShare, showDate = true }: Props) {
                 className="pantheon__placeholder"
                 style={poster ? { backgroundImage: `url(${poster})` } : undefined}
               >
-                <span className="pantheon__placeholder-veil" aria-hidden="true" />
                 {loadState === "error" ? (
-                  <span className="pantheon__signal">NO SIGNAL</span>
+                  <>
+                    {/* The veil only backs the NO SIGNAL readout. On the normal
+                        pre-play state the poster shows at full brightness -- the
+                        play circle carries its own dark fill and stone ring, so
+                        it stays legible without dimming the whole frame. */}
+                    <span className="pantheon__placeholder-veil" aria-hidden="true" />
+                    <span className="pantheon__signal">NO SIGNAL</span>
+                  </>
                 ) : (
                   <button
                     type="button"

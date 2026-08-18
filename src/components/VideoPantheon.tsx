@@ -125,9 +125,13 @@ function formatDuration(seconds: number | null): string | null {
 export function VideoPantheon({
   categories,
   videos,
+  activeSlug = null,
 }: {
   categories: Category[];
   videos: PantheonVideo[];
+  // Set on /videos/[slug]: that video starts on the stage. Null on the library
+  // index, where the featured video leads.
+  activeSlug?: string | null;
 }) {
   const catTitle = useMemo(() => {
     const m = new Map(categories.map((c) => [c.id, c.title]));
@@ -140,27 +144,23 @@ export function VideoPantheon({
     [videos, catTitle],
   );
 
-  // Default enshrined video: first featured, else first published.
+  // The route decides which video is enshrined; the library index falls back to
+  // the featured one, then the first published. Resolved during render (not in
+  // an effect) so the server and the first client render agree and the page
+  // stays prerenderable.
   const initial = useMemo(
-    () => decorated.find((v) => v.is_featured) ?? decorated[0] ?? null,
-    [decorated],
+    () =>
+      (activeSlug ? decorated.find((v) => v.slug === activeSlug) : null) ??
+      decorated.find((v) => v.is_featured) ??
+      decorated[0] ??
+      null,
+    [decorated, activeSlug],
   );
 
   const [activeId, setActiveId] = useState<string | null>(initial?.id ?? null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("newest");
   const stageRef = useRef<HTMLDivElement | null>(null);
-
-  // Deep link: ?v=slug on mount selects that video. One-time sync from the URL
-  // (an external system) after mount -- SSR and first client render both use
-  // `initial`, so there's no hydration mismatch, and the default page stays ISR.
-  useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get("v");
-    if (!slug) return;
-    const match = decorated.find((v) => v.slug === slug);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time URL sync on mount
-    if (match) setActiveId(match.id);
-  }, [decorated]);
 
   const active = decorated.find((v) => v.id === activeId) ?? initial;
 
@@ -186,15 +186,16 @@ export function VideoPantheon({
 
   function enshrine(v: PantheonVideo) {
     setActiveId(v.id);
-    const url = new URL(window.location.href);
-    url.searchParams.set("v", v.slug);
-    window.history.replaceState(null, "", url.toString());
+    // Swap in place rather than navigate -- the stage is meant to change under
+    // you, not reload. The URL still becomes the video's real page, so a reload,
+    // a copy, or a share all land on the prerendered /videos/[slug] route.
+    window.history.replaceState(null, "", `/videos/${v.slug}`);
     // Bring the stage into view -- the relic returns to the altar.
     stageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function share(v: PantheonVideo) {
-    const url = `${window.location.origin}/videos?v=${v.slug}`;
+    const url = `${window.location.origin}/videos/${v.slug}`;
     if (navigator.share) {
       navigator.share({ title: v.title, url }).catch(() => {});
     } else {
