@@ -5,6 +5,8 @@ import { createPublicClient } from "@/lib/supabase-server";
 import { ReleaseHero, type ReleaseHeroItem } from "@/components/ReleaseHero";
 import { ExploreSongs } from "@/components/ExploreSongs";
 import { CurationGrid } from "@/components/CurationGrid";
+import { SongBriefCard } from "@/components/SongBriefCard";
+import { getSongBriefs } from "@/lib/song-briefs";
 
 export const revalidate = 60;
 
@@ -73,7 +75,7 @@ const CURATION_LIMIT = 6;
 export default async function MusicHubPage() {
   const supabase = createPublicClient();
 
-  const [heroAlbumsRes, songsRes, curatedRes] = await Promise.all([
+  const [heroAlbumsRes, songsRes, curatedRes, songBriefs] = await Promise.all([
     supabase
       .from("releases")
       .select(
@@ -98,54 +100,12 @@ export default async function MusicHubPage() {
       .eq("status", "published")
       .order("display_order")
       .limit(CURATION_LIMIT),
+    getSongBriefs(),
   ]);
 
   const heroAlbums = (heroAlbumsRes.data || []) as AlbumRow[];
   const songs = (songsRes.data || []) as SongRow[];
   const curated = (curatedRes.data || []) as CuratedRow[];
-
-  // Latest = newest published. Select = manual pick from site_settings, fall back to next-newest.
-  const latest = heroAlbums[0] || null;
-
-  const { data: selectSetting } = await supabase
-    .from("site_settings")
-    .select("value")
-    .eq("key", "music_hub_select_album_id")
-    .maybeSingle();
-  const selectedId = selectSetting?.value || null;
-
-  let select: AlbumRow | null = null;
-  if (selectedId) {
-    const { data: pickedRows } = await supabase
-      .from("releases")
-      .select(
-        "id, title, slug, release_date, cover_art_path, cover_art_alt, hero_focal_x, hero_focal_y, hero_zoom, card_focal_x, card_focal_y, card_zoom",
-      )
-      .eq("status", "published")
-      .neq("release_type", "single")
-      .eq("id", selectedId)
-      .limit(1);
-    select = ((pickedRows || [])[0] || null) as AlbumRow | null;
-  }
-  if (!select) {
-    select = heroAlbums.find((a) => !latest || a.id !== latest.id) || null;
-  }
-
-  // Discography mosaic — 4 covers, excluding the two cards above
-  const excludeIds = [latest?.id, select?.id].filter(Boolean) as string[];
-  let mosaicQuery = supabase
-    .from("releases")
-    .select("id, cover_art_path")
-    .eq("status", "published")
-    .neq("release_type", "single")
-    .not("cover_art_path", "is", null)
-    .order("release_date", { ascending: false })
-    .limit(4);
-  if (excludeIds.length > 0) {
-    mosaicQuery = mosaicQuery.not("id", "in", `(${excludeIds.join(",")})`);
-  }
-  const { data: mosaicRows } = await mosaicQuery;
-  const mosaic = (mosaicRows || []).map((r) => r.cover_art_path).filter(Boolean) as string[];
 
   // ExploreSongs needs each song joined with its album for cover/title fallback
   const songIds = songs.map((s) => s.id);
@@ -205,38 +165,6 @@ export default async function MusicHubPage() {
       <div id="page-music-hub" className="page-static">
         {heroItems.length > 0 && <ReleaseHero items={heroItems} />}
 
-      <div className="music-hub">
-        <section className="music-hub__col">
-          <h2 className="music-hub__heading">Latest</h2>
-          {latest ? <AlbumCard album={latest} /> : <EmptyCard />}
-        </section>
-
-        <section className="music-hub__col">
-          <h2 className="music-hub__heading">Select</h2>
-          {select ? <AlbumCard album={select} /> : <EmptyCard />}
-        </section>
-
-        <section className="music-hub__col">
-          <h2 className="music-hub__heading">Discography</h2>
-          <Link href="/discography" className="music-hub__card-link">
-            <div className="music-hub__mosaic" aria-hidden="true">
-              {mosaic.length === 4 ? (
-                mosaic.map((src, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={src} alt="" className="music-hub__mosaic-tile" loading="lazy" />
-                ))
-              ) : (
-                <div className="music-hub__mosaic-empty" />
-              )}
-            </div>
-            <div className="music-hub__card-info">
-              <span className="music-hub__card-title">Browse All</span>
-              <span className="music-hub__card-year">Full catalog →</span>
-            </div>
-          </Link>
-        </section>
-      </div>
-
       {exploreSongs.length > 0 && <ExploreSongs songs={exploreSongs} />}
 
       {curated.length > 0 && (
@@ -251,36 +179,25 @@ export default async function MusicHubPage() {
         </section>
       )}
 
+      {songBriefs.length > 0 && (
+        <section className="song-brief-feed">
+          <div className="glyph-title-bar glyph-title-bar--top">
+            <span className="glyph-title-bar__label" aria-hidden="true">░▒▓█</span>
+            <h2 className="glyph-title-bar__heading">Read About Chad Lewine Songs</h2>
+            <span className="glyph-title-bar__label" aria-hidden="true">█▓▒░</span>
+          </div>
+          <div className="song-brief-feed__inner">
+            <div className="song-brief-feed__grid">
+              {songBriefs.map((s) => (
+                <SongBriefCard key={s.id} song={s} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       </div>
     </>
   );
 }
 
-function AlbumCard({ album }: { album: AlbumRow }) {
-  const year = album.release_date ? new Date(album.release_date).getFullYear() : null;
-  return (
-    <Link href={`/music/releases/${album.slug}`} className="music-hub__card-link">
-      {album.cover_art_path ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={album.cover_art_path} alt={album.title} className="music-hub__cover" loading="lazy" />
-      ) : (
-        <div className="music-hub__cover music-hub__cover--empty" />
-      )}
-      <div className="music-hub__card-info">
-        <span className="music-hub__card-title">{album.title}</span>
-        {year && <span className="music-hub__card-year">{year}</span>}
-      </div>
-    </Link>
-  );
-}
-
-function EmptyCard() {
-  return (
-    <div className="music-hub__card-link">
-      <div className="music-hub__cover music-hub__cover--empty" />
-      <div className="music-hub__card-info">
-        <span className="music-hub__card-title">—</span>
-      </div>
-    </div>
-  );
-}

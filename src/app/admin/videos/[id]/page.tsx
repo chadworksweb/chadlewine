@@ -64,7 +64,7 @@ export default function EditVideoPage() {
           seoDescription={(form.seo_description as string) || ""}
           defaultTitle={`${(form.title as string) || "Untitled"} — Music Video — Chad Lewine`}
           descriptionFallbackHint="the video description"
-          urlBreadcrumb="music-videos"
+          urlBreadcrumb="videos"
           onChange={(field, value) => setForm({ ...form, [field]: value })}
         />
       </div>

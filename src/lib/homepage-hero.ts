@@ -244,7 +244,7 @@ export async function getCuratedHeroItems(): Promise<HeroLensItem[]> {
         date: null,
         artImagePath: v.thumbnail_path || "",
         artAlt: v.title,
-        href: `/music-videos?v=${v.slug}`,
+        href: `/videos?v=${v.slug}`,
         ctaLabel: "Watch →",
         ...heroFocal(v.hero_focal_x, v.hero_focal_y, v.hero_zoom),
         kind: "video",

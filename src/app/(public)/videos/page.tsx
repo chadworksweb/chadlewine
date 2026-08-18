@@ -5,7 +5,7 @@ import { VideoPantheon } from "@/components/VideoPantheon";
 import { ARTIST_ID, absoluteImage, isoDuration, recordingId } from "@/lib/artist-schema";
 import { streamIframeUrl } from "@/lib/bunny-stream";
 
-const VIDEOS_URL = "https://chadlewine.com/music-videos";
+const VIDEOS_URL = "https://chadlewine.com/videos";
 
 function uploadIso(published_at: string | null): string | undefined {
   if (!published_at) return undefined;
@@ -16,19 +16,19 @@ function uploadIso(published_at: string | null): string | undefined {
 export const revalidate = 60;
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Music Videos",
+  title: "Videos",
   description:
-    "Chad Lewine's music videos -- enshrined one at a time on a single stage.",
-  alternates: { canonical: "https://chadlewine.com/music-videos" },
+    "Chad Lewine's video library. Music videos, live performances and more.",
+  alternates: { canonical: "https://chadlewine.com/videos" },
   openGraph: {
-    title: "Music Videos - Chad Lewine",
-    description: "Music videos enshrined one at a time on a single stage.",
-    url: "https://chadlewine.com/music-videos",
+    title: "Videos - Chad Lewine",
+    description: "Chad Lewine's video library. Music videos, live performances and more.",
+    url: "https://chadlewine.com/videos",
   },
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  return mergeMetadata("/music-videos", DEFAULT_METADATA);
+  return mergeMetadata("/videos", DEFAULT_METADATA);
 }
 
 export default async function VideoPage() {
@@ -91,7 +91,7 @@ export default async function VideoPage() {
   const itemListJsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "Music Videos - Chad Lewine",
+    name: "Videos - Chad Lewine",
     url: VIDEOS_URL,
     numberOfItems: rows.length,
     itemListElement: rows.map((v, i) => ({
@@ -118,7 +118,7 @@ export default async function VideoPage() {
 
       <header className="pantheon-hero" aria-labelledby="pantheon-hero-heading">
         <div className="pantheon-hero__inner">
-          <h1 id="pantheon-hero-heading" className="pantheon-hero__title">Chad Lewine Music Videos</h1>
+          <h1 id="pantheon-hero-heading" className="pantheon-hero__title">Chad Lewine Videos</h1>
         </div>
       </header>
 

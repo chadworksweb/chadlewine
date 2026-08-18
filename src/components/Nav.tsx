@@ -174,7 +174,10 @@ export function Nav({
         <BookingProbe onChange={setBooking} />
       </Suspense>
       <nav className="site-nav">
-        <Link href="/" className="site-nav__logo">
+        {/* /#home-enter, not bare "/" -- the hero boot script skips its scroll
+            lock whenever a hash is present, so the logo lands on the feed instead
+            of replaying the animatic. See hero-animatic/HeroAnimatic.tsx. */}
+        <Link href="/#home-enter" className="site-nav__logo">
           <span className="site-nav__logo-frame site-nav__logo-frame--left" aria-hidden="true">
             <span className="logo-shape">░</span><span className="logo-shape">▒</span><span className="logo-shape">▓</span><span className="logo-shape">█</span>
           </span>

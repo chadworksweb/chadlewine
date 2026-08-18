@@ -239,7 +239,7 @@ async function fetchVideo(): Promise<SitemapEntry[]> {
   if (!data || data.length === 0) {
     return [
       {
-        url: `${BASE_URL}/music-videos`,
+        url: `${BASE_URL}/videos`,
         changeFrequency: "monthly",
         priority: 0.6,
       },
@@ -266,7 +266,7 @@ async function fetchVideo(): Promise<SitemapEntry[]> {
 
   return [
     {
-      url: `${BASE_URL}/music-videos`,
+      url: `${BASE_URL}/videos`,
       lastModified: lastMod,
       changeFrequency: "weekly",
       priority: 0.6,
