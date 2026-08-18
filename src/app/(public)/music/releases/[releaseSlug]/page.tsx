@@ -131,13 +131,12 @@ export async function generateMetadata({
     album.concept_statement ||
     `${album.title} by Chad Lewine.`
   ).slice(0, 280);
-  // A set seo_title is rendered exactly (absolute -> bypasses the root
-  // "%s - Chad Lewine" template); otherwise the bare title flows through the
-  // template so it gets a single brand suffix.
+  // Both branches are absolute and carry the brand themselves, so the root
+  // "%s - Chad Lewine" template never doubles it up.
   const seoTitle = album.seo_title?.trim();
-  const ogTitle = seoTitle || `${album.title} — Chad Lewine`;
+  const ogTitle = seoTitle || `${album.title} by Chad Lewine`;
   return {
-    title: seoTitle ? { absolute: seoTitle } : album.title,
+    title: { absolute: ogTitle },
     description: meta,
     alternates: {
       canonical: `https://chadlewine.com/music/releases/${releaseSlug}`,

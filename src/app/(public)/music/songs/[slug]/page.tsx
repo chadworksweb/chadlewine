@@ -244,12 +244,12 @@ export async function generateMetadata({
 
   const demo = await getSponsorDemo(slug);
   if (demo) {
-    const title = `${demo.song.title} (demo) - Chad Lewine`;
+    const title = `${demo.song.title} (demo) by Chad Lewine`;
     const description =
       demo.song.song_summary ||
       `Sponsor "${demo.song.title}" from demo into a finished production.`;
     return {
-      title,
+      title: { absolute: title },
       description,
       alternates: { canonical: `https://chadlewine.com/music/songs/${slug}` },
       openGraph: {
@@ -268,7 +268,6 @@ export async function generateMetadata({
   if (!result) return {};
 
   const { song, album } = result;
-  const releaseLabel = album ? album.title : "Single";
   const description =
     song.seo_description ||
     song.citation_summary ||
@@ -276,13 +275,13 @@ export async function generateMetadata({
     (album ? `${song.title} from ${album.title} by Chad Lewine.` : `${song.title} by Chad Lewine.`);
   const ogImage = song.art_image_path || album?.cover_art_path || null;
   const ogImageAlt = song.art_alt || album?.cover_art_alt || album?.title || song.title;
-  // A set seo_title renders exactly (absolute bypasses the root brand template);
-  // otherwise "<song> -- <release>" flows through the template's brand suffix.
+  // Both branches are absolute and carry the brand themselves, so the root
+  // "%s - Chad Lewine" template never doubles it up.
   const seoTitle = song.seo_title?.trim();
-  const ogTitle = seoTitle || `${song.title} — ${releaseLabel}`;
+  const ogTitle = seoTitle || `${song.title} by Chad Lewine`;
 
   return {
-    title: seoTitle ? { absolute: seoTitle } : `${song.title} — ${releaseLabel}`,
+    title: { absolute: ogTitle },
     description,
     alternates: {
       canonical: `https://chadlewine.com/music/songs/${slug}`,

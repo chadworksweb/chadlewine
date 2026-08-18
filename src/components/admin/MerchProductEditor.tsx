@@ -387,7 +387,7 @@ export function MerchProductEditor({ idOrSlug }: Props) {
         <SeoFieldsPanel
           seoTitle={form.seo_title}
           seoDescription={form.seo_description}
-          defaultTitle={`${form.title || "Untitled"} — Chad Lewine`}
+          defaultTitle={`${form.title || "Untitled"} - Chad Lewine`}
           descriptionFallbackHint="the product description"
           urlBreadcrumb="merch"
           onChange={(field, value) => set(field, value)}

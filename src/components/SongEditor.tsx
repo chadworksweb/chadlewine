@@ -644,7 +644,7 @@ export function SongEditor({ initial, presetAlbumId }: { initial?: SongData; pre
             <SeoFieldsPanel
               seoTitle={form.seo_title}
               seoDescription={form.seo_description}
-              defaultTitle={`${form.title || "Untitled"} — Chad Lewine`}
+              defaultTitle={`${form.title || "Untitled"} by Chad Lewine`}
               descriptionFallbackHint="the song summary, then a generated line"
               urlBreadcrumb="music › songs"
               onChange={(field, value) => set(field, value)}

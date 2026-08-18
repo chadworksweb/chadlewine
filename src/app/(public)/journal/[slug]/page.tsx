@@ -22,14 +22,14 @@ export async function generateMetadata({
   const description = entry.seo_description || entry.hook_line || "";
 
   return {
-    title: entry.seo_title || entry.title,
+    title: { absolute: entry.seo_title || `${entry.title} by Chad Lewine` },
     description,
     alternates: {
       canonical: `https://chadlewine.com/journal/${slug}`,
     },
     openGraph: {
       type: "article",
-      title: entry.seo_title || entry.title,
+      title: entry.seo_title || `${entry.title} by Chad Lewine`,
       description,
       images: entry.art_image_path ? [entry.art_image_path] : undefined,
       publishedTime: entry.published_at || entry.date_captured,

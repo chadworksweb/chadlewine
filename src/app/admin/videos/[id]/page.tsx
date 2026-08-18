@@ -62,7 +62,7 @@ export default function EditVideoPage() {
         <SeoFieldsPanel
           seoTitle={(form.seo_title as string) || ""}
           seoDescription={(form.seo_description as string) || ""}
-          defaultTitle={`${(form.title as string) || "Untitled"} — Music Video — Chad Lewine`}
+          defaultTitle={`${(form.title as string) || "Untitled"} by Chad Lewine`}
           descriptionFallbackHint="the video description"
           urlBreadcrumb="videos"
           onChange={(field, value) => setForm({ ...form, [field]: value })}

@@ -184,14 +184,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const data = await getArtData(slug);
   if (!data) return {};
   const { art } = data;
-  const title = art.seo_title || `${art.title} — Art — Chad Lewine`;
+  // absolute, not a bare string: this already carries the brand, so letting the
+  // root "%s - Chad Lewine" template append would name Chad twice (it did).
+  const title = art.seo_title || `${art.title} by Chad Lewine`;
   const description =
     art.seo_description ||
     art.citation_summary ||
     art.art_summary ||
     `${art.title} by Chad Lewine.`;
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: `https://chadlewine.com/art/${slug}` },
     openGraph: {

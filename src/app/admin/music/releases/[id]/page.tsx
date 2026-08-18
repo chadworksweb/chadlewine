@@ -204,7 +204,7 @@ export default function EditAlbumPage() {
             <SeoFieldsPanel
               seoTitle={form.seo_title || ""}
               seoDescription={form.seo_description || ""}
-              defaultTitle={`${form.title || "Untitled"} — Chad Lewine`}
+              defaultTitle={`${form.title || "Untitled"} by Chad Lewine`}
               descriptionFallbackHint="the citation summary, then the concept"
               urlBreadcrumb="music › releases"
               onChange={(field, value) => set(field, value || null)}

@@ -22,14 +22,14 @@ export async function generateMetadata({
   const description = obsv.seo_description || obsv.hook_line || "";
 
   return {
-    title: obsv.seo_title || obsv.title,
+    title: { absolute: obsv.seo_title || `${obsv.title} by Chad Lewine` },
     description,
     alternates: {
       canonical: `https://chadlewine.com/observations/${slug}`,
     },
     openGraph: {
       type: "article",
-      title: obsv.seo_title || obsv.title,
+      title: obsv.seo_title || `${obsv.title} by Chad Lewine`,
       description,
       images: obsv.art_image_path ? [obsv.art_image_path] : undefined,
       publishedTime: obsv.published_at || obsv.date_captured,
