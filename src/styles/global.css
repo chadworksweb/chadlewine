@@ -3958,24 +3958,245 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   margin-bottom: var(--space-md);
 }
 
-.cl-stream-curation-link {
-  display: inline-block;
-  font-family: var(--font-ui);
-  font-size: 0.95rem;
-  color: var(--text-accent, #8b9cf7);
-  text-decoration: none;
-  margin-bottom: var(--space-xl);
-  padding: 10px 18px;
-  border: 1px solid rgba(139, 156, 247, 0.35);
-  border-radius: 4px;
-  background: rgba(139, 156, 247, 0.06);
-  letter-spacing: 0.02em;
-  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+/* The curation hub keeps the plain site h1 (.page-static__title) rather than
+   a Glyph Title Bar. The h1 already carries a bottom margin, so the intro
+   drops its top one and the two centre together as one block. */
+.curation-hub__header {
+  text-align: center;
 }
-.cl-stream-curation-link:hover {
-  background: rgba(139, 156, 247, 0.14);
-  border-color: rgba(139, 156, 247, 0.6);
-  color: #fff;
+.curation-hub__header .page-static__title {
+  margin-bottom: var(--space-sm);
+}
+.curation-hub__header .irl-page__intro {
+  margin-top: 0;
+}
+
+/* --- Curation doors (/curation hub modules) ---------------------------
+   Built from the site's own element vocabulary rather than generic cards:
+   the tick-mark bar and accent corner brackets from the Lens Viewfinder
+   Frame (CHADLEWINE-STYLE-GUIDE), the shade-glyph ramp from the Glyph
+   Title Bar, and the Coverflow module's button (.explore-songs__cta).
+   The card body is inert: its accent glow line and blue halo are resting
+   state, and nothing in the module responds to hover except the button. */
+
+.curation-doors {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-lg);
+  align-items: stretch;
+}
+@media (max-width: 640px) {
+  .curation-doors { grid-template-columns: 1fr; }
+}
+
+.curation-door {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 var(--space-lg) var(--space-xl);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+  color: var(--text-primary);
+}
+
+/* Accent glow line along the top edge. Resting state, not a hover reveal --
+   the module itself never reacts to the cursor; only its button does. */
+.curation-door::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--text-accent) 50%, transparent);
+  box-shadow: 0 0 24px rgba(64, 96, 255, 0.5);
+  z-index: 2;
+}
+
+/* Blue halo rising from the top edge, also always on. */
+.curation-door::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(64, 96, 255, 0.08), transparent 60%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Tick-mark bar: the film-perforation texture, with accent corner
+   brackets pinned to the card edges. */
+.curation-door__bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  margin-inline: calc(var(--space-lg) * -1);
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 0px,
+    rgba(255, 255, 255, 0.1) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+}
+.curation-door__bar::before,
+.curation-door__bar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40px;
+  height: 12px;
+  /* Drop 2px with the glyph chip. The tick-mark texture is the bar's own
+     background-image, so it stays put and only the overlay shifts. */
+  transform: translateY(calc(-50% + 2px));
+  /* The glyph chip is transformed, which gives it a stacking context and
+     floats it over these. Keep the brackets on top, as they were. */
+  z-index: 1;
+  pointer-events: none;
+}
+.curation-door__bar::before {
+  left: 0;
+  border-left: 1px solid var(--text-accent);
+  border-top: 1px solid var(--text-accent);
+  border-bottom: 1px solid var(--text-accent);
+}
+.curation-door__bar::after {
+  right: 0;
+  border-right: 1px solid var(--text-accent);
+  border-top: 1px solid var(--text-accent);
+  border-bottom: 1px solid var(--text-accent);
+}
+
+/* Shade ramp built from the header logo's glyphs, mirrored around a single
+   solid block so the middle of the string is the middle of the card. The
+   chip background breaks the tick bar behind it. */
+.curation-door__glyph {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-md);
+  background: var(--bg-elevated);
+  transform: translateY(2px);
+}
+
+/* Matches .site-nav__logo-frame exactly (font, size, weight, letter-spacing,
+   colour) so these block glyphs pick the same fallback font and rasterize
+   identically to the ones in the header. Keep the two in sync. */
+.curation-door__glyph-frame {
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  color: var(--text-accent);
+}
+
+/* letter-spacing appends 0.15em after the FINAL glyph too, so the pair
+   measures wider on the right than it looks and centers off to the left.
+   Pulling that phantom space back re-centers it on the card's x axis. */
+.curation-door__glyph-frame:last-child {
+  margin-right: -0.15em;
+}
+
+.curation-door__title {
+  margin: var(--space-xl) 0 0;
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+.curation-door__desc {
+  max-width: 34ch;
+  margin: var(--space-sm) auto var(--space-xl);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: var(--leading-snug);
+  color: var(--text-secondary);
+}
+
+/* Button in the Coverflow module's language (.explore-songs__cta): solid
+   accent fill, uppercase 700 at 0.08em, springy 600ms cubic-bezier, and the
+   sliding fill bar that grows from a 4px edge to full width on hover. This
+   is the only link in the module and the only thing that reacts to the
+   cursor; the card around it is inert. margin-top: auto pins it to the
+   bottom so both doors read the same height with their buttons on one line. */
+.curation-door__cta {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 10px var(--space-xl);
+  border: 1px solid var(--text-accent);
+  background: var(--text-accent);
+  color: var(--bg-primary, #000);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 12px rgba(64, 96, 255, 0.08);
+  transition: all 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.curation-door__cta::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  transition: width 600ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 600ms ease;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+/* Keep the label above the sweeping bar so it stays crisp, the same way the
+   Coverflow footer's View All button handles its own children. */
+.curation-door__cta > * {
+  position: relative;
+  z-index: 1;
+}
+
+.curation-door__cta:hover,
+.curation-door__cta:focus-visible {
+  border-color: rgba(64, 96, 255, 0.45);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), 0 0 24px rgba(64, 96, 255, 0.18);
+}
+
+.curation-door__cta:hover::before,
+.curation-door__cta:focus-visible::before {
+  width: 100%;
+  opacity: 0.12;
+}
+
+.curation-door__ext {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  margin-left: 0.5em;
+  transition: transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.curation-door__cta:hover .curation-door__ext,
+.curation-door__cta:focus-visible .curation-door__ext {
+  transform: translate(2px, -2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curation-door__cta,
+  .curation-door__cta::before,
+  .curation-door__ext { transition: none; }
+  .curation-door__cta:hover .curation-door__ext,
+  .curation-door__cta:focus-visible .curation-door__ext { transform: none; }
 }
 
 /* Filters */
@@ -24331,6 +24552,8 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
     grid-template-columns: 1fr;
   }
 }
+
+
 
 /* Event cards mirror the Super Individual Night "three acts" cards (.bk-act):
    elevated panel, 3px accent top edge, block-glyph ramp, uppercase kind
