@@ -1,0 +1,55 @@
+[
+  {
+    "file": "D:/CL Videos/one takes/with music/finding-freedom.mp4",
+    "title": "\"Finding Freedom\" - One Take",
+    "category": "one-takes",
+    "song": "finding-freedom",
+    "status": "draft"
+  },
+  {
+    "file": "D:/CL Videos/one takes/with music/let love happen.mp4",
+    "title": "\"Let Love Happen\" - One Take",
+    "category": "one-takes",
+    "song": "let-love-happen",
+    "status": "draft"
+  },
+  {
+    "file": "D:/CL Videos/one takes/with music/thank you.mp4",
+    "title": "\"Thank You\" - One Take",
+    "category": "one-takes",
+    "song": "thank-you",
+    "status": "draft"
+  },
+  {
+    "file": "D:/CL Videos/one takes/acapella/healing-road.mp4",
+    "title": "\"Healing Road\" - One Take (Acapella)",
+    "category": "one-takes",
+    "status": "draft"
+  },
+  {
+    "file": "D:/CL Videos/one takes/acapella/let me out.mp4",
+    "title": "\"Let Me Out\" - One Take (Acapella)",
+    "category": "one-takes",
+    "status": "draft"
+  },
+  {
+    "file": "D:/CL Videos/one takes/acapella/one-more-cowboy.mp4",
+    "title": "\"One More Cowboy\" - One Take (Acapella)",
+    "category": "one-takes",
+    "status": "draft"
+  },
+  {
+    "file": "D:/CL Videos/one takes/acapella/what-a-world.mp4",
+    "title": "\"What A World\" - One Take (Acapella)",
+    "category": "one-takes",
+    "status": "draft"
+  },
+  {
+    "file": "C:/Users/chad/AppData/Local/Temp/claude/C--Users-chad/4e13cc7f-533f-4595-92a2-272bed6a5af6/scratchpad/mezz/choose-lit-wilson-ct-1080.mp4",
+    "title": "\"Choose Lit\" - VMV (Wilson Ct Edition)",
+    "category": "vertical-music-videos",
+    "song": "choose-lit",
+    "status": "draft",
+    "poster": { "cropY": 35 }
+  }
+]

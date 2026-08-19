@@ -80,6 +80,15 @@ const nextConfig: NextConfig = {
         destination: "/admin/music/releases/:path*",
         permanent: true,
       },
+      // The video section outgrew the "music videos" name -- it also carries the
+      // documentary, open mics, video logs, and commentary -- so /music-videos
+      // became /videos. Next preserves the query string across a redirect, so
+      // the ?v=slug deep links (share URLs, homepage hero, SIN page) survive.
+      {
+        source: "/music-videos",
+        destination: "/videos",
+        permanent: true,
+      },
       // Admin posts list moved from /admin/observations to /admin/writings.
       {
         source: "/admin/observations/:path*",

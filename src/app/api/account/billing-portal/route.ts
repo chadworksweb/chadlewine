@@ -1,5 +1,6 @@
 import { getCurrentSession } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase-server";
+import { publicOrigin } from "@/lib/request-origin";
 import Stripe from "stripe";
 
 // Creates a one-time Stripe Customer Portal session for the signed-in
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   }
   const stripe = new Stripe(key);
 
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request);
   try {
     const portal = await stripe.billingPortal.sessions.create({
       customer: data.stripe_customer_id,

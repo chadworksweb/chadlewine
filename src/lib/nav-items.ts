@@ -10,12 +10,12 @@ export const DEFAULT_NAV_ITEMS: NavItem[] = [
     label: "Music",
     children: [
       { href: "/discography", label: "Discography" },
-      { href: "/music-videos", label: "Music Videos" },
       { href: "/music/songs", label: "Songs" },
       { href: "/lyrics", label: "Lyrics" },
       { href: "/curation", label: "Curation" },
     ],
   },
+  { href: "/videos", label: "Videos" },
   { href: "/merch", label: "Merch" },
   { href: "/art", label: "Art" },
   {

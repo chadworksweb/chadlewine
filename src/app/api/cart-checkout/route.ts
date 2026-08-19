@@ -3,8 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { createPublicClient, createAdminClient } from "@/lib/supabase-server";
 import { createCartCheckoutSession } from "@/lib/stripe";
+import type { DownloadFormat } from "@/lib/audio-formats";
 
-type Format = "mp3" | "flac" | "wav";
+type Format = DownloadFormat;
 
 type CartLineInput = {
   // "art" = art_skus-backed line (original or limited print). "art_original" is

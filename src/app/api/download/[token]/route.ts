@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { getMediaConfig } from "@/lib/media-config";
 import { signBunnyUrl } from "@/lib/bunny-token";
 import { resolveSkuDownloadPaths } from "@/lib/release-skus";
+import { type DownloadFormat, isDownloadFormat } from "@/lib/audio-formats";
 
 // GET /api/download/[token]
 // token = purchases.id. Re-resolves the current song/album download path by
@@ -9,7 +10,7 @@ import { resolveSkuDownloadPaths } from "@/lib/release-skus";
 // Raw paths (post-migration) get signed against chadlewine-music-downloads.
 // Legacy full URLs (pre-migration Chad Rising zones) are 302'd as-is.
 
-type Format = "mp3" | "flac" | "wav";
+type Format = DownloadFormat;
 type RingtoneFormat = "m4r" | "mp3";
 
 function isFullUrl(v: string | null | undefined): v is string {
@@ -165,15 +166,9 @@ export async function GET(
     return streamAsAttachment(finalUrl, filename, contentType);
   }
 
-  const requested: Format | null =
-    qs === "mp3" || qs === "flac" || qs === "wav" ? qs : null;
+  const requested: Format | null = isDownloadFormat(qs) ? qs : null;
   const format: Format =
-    requested ??
-    (purchase.format === "flac" || purchase.format === "wav"
-      ? (purchase.format as Format)
-      : purchase.format === "mp3"
-      ? "mp3"
-      : "mp3");
+    requested ?? (isDownloadFormat(purchase.format) ? purchase.format : "mp3");
 
   const pathOrUrl = await resolveDownloadPath(
     supabase,
@@ -190,7 +185,13 @@ export async function GET(
     ? pathOrUrl
     : signBunnyUrl(getMediaConfig("music-download"), pathOrUrl);
 
-  if (format === "mp3") {
+  // A raw MP3 plays inline in the browser, so it gets proxied with a
+  // Content-Disposition to force a save. A pack is a .zip and already saves on
+  // its own: sending it as audio/mpeg named "<title>.mp3" handed album buyers a
+  // zip wearing the wrong extension, which no player can open. Decide on what
+  // the resolved path actually is, not on the format the buyer asked for.
+  const isZip = /\.zip(\?|$)/i.test(pathOrUrl);
+  if (format === "mp3" && !isZip) {
     const title = await resolveTitle(supabase, purchase.item_type, purchase.item_id);
     const filename = `${sanitizeFilename(title ?? "download")}.mp3`;
     return streamAsAttachment(finalUrl, filename, "audio/mpeg");

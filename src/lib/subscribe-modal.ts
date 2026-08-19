@@ -18,8 +18,8 @@ export const MODAL_SETTING_KEYS = {
 // Defaults + sane bounds for the numeric thresholds. Bounds are enforced on
 // both read and write so a bad admin entry can never break the trigger logic.
 export const MODAL_THRESHOLDS = {
-  dwellSeconds: { default: 40, min: 5, max: 600 },
-  cartDwellSeconds: { default: 15, min: 3, max: 600 },
+  dwellSeconds: { default: 48, min: 5, max: 600 },
+  cartDwellSeconds: { default: 18, min: 3, max: 600 },
   scrollDepthPct: { default: 60, min: 10, max: 100 },
   reshowDays: { default: 14, min: 0, max: 365 },
 } as const;

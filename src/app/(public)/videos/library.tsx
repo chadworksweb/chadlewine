@@ -1,11 +1,17 @@
-import type { Metadata } from "next";
-import { mergeMetadata } from "@/lib/page-meta";
-import { createPublicClient } from "@/lib/supabase-server";
+// Shared body for both video routes: /videos (the whole library) and
+// /videos/[slug] (one video already on the stage). Not a route file -- only
+// page/layout/route are special in the app dir, so this sits here next to the
+// two pages that use it rather than in components/, because it is a server
+// component that owns their data fetch.
+//
+// Keeping one body is the point: the collection, the JSON-LD graph and the
+// temple are identical on both routes, and the only difference is which video
+// starts enshrined. Two copies would drift.
+
 import { VideoPantheon } from "@/components/VideoPantheon";
 import { ARTIST_ID, absoluteImage, isoDuration, recordingId } from "@/lib/artist-schema";
 import { streamIframeUrl } from "@/lib/bunny-stream";
-
-const VIDEOS_URL = "https://chadlewine.com/music-videos";
+import { VIDEOS_URL, videoUrl, fetchLibrary } from "./data";
 
 function uploadIso(published_at: string | null): string | undefined {
   if (!published_at) return undefined;
@@ -13,48 +19,14 @@ function uploadIso(published_at: string | null): string | undefined {
   return isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
-export const revalidate = 60;
-
-const DEFAULT_METADATA: Metadata = {
-  title: "Music Videos",
-  description:
-    "Chad Lewine's music videos -- enshrined one at a time on a single stage.",
-  alternates: { canonical: "https://chadlewine.com/music-videos" },
-  openGraph: {
-    title: "Music Videos - Chad Lewine",
-    description: "Music videos enshrined one at a time on a single stage.",
-    url: "https://chadlewine.com/music-videos",
-  },
-};
-
-export async function generateMetadata(): Promise<Metadata> {
-  return mergeMetadata("/music-videos", DEFAULT_METADATA);
-}
-
-export default async function VideoPage() {
-  const supabase = createPublicClient();
-
-  const { data: categories } = await supabase
-    .from("video_categories")
-    .select("id, title, slug")
-    .order("display_order");
-
-  const { data: videos } = await supabase
-    .from("videos")
-    .select(
-      "id, title, slug, category_id, stream_id, embed_url, thumbnail_path, description, seo_title, seo_description, is_featured, duration_seconds, published_at, song_id, song:songs(slug, status)",
-    )
-    .eq("status", "published")
-    .order("is_featured", { ascending: false })
-    .order("published_at", { ascending: false });
-
-  const rows = videos || [];
+export async function VideoLibrary({ activeSlug }: { activeSlug?: string | null }) {
+  const { categories, videos: rows } = await fetchLibrary();
 
   // One VideoObject per video -- thumbnail, upload date, and duration make these
   // eligible for Google video results; author ties each to the artist entity.
   const videoNodes = rows.map((v) => {
     const thumb = absoluteImage(v.thumbnail_path);
-    const uploaded = uploadIso(v.published_at);
+    const uploaded = uploadIso(v.published_at ?? null);
     const dur = isoDuration(v.duration_seconds);
     // Player URL, mirroring PantheonStage's playback fallback: a third-party
     // embed if we have one, else the Bunny Stream iframe built from stream_id.
@@ -73,10 +45,10 @@ export default async function VideoPage() {
     return {
       "@context": "https://schema.org",
       "@type": "VideoObject",
-      "@id": `${VIDEOS_URL}?v=${v.slug}#video`,
+      "@id": `${videoUrl(v.slug)}#video`,
       name: v.seo_title || v.title,
-      description: v.seo_description || v.description || `${v.title} -- a music video by Chad Lewine.`,
-      url: `${VIDEOS_URL}?v=${v.slug}`,
+      description: v.seo_description || v.description || `${v.title}, a video by Chad Lewine.`,
+      url: videoUrl(v.slug),
       ...(thumb ? { thumbnailUrl: thumb } : {}),
       ...(uploaded ? { uploadDate: uploaded } : {}),
       ...(dur ? { duration: dur } : {}),
@@ -91,13 +63,13 @@ export default async function VideoPage() {
   const itemListJsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "Music Videos - Chad Lewine",
+    name: "Videos - Chad Lewine",
     url: VIDEOS_URL,
     numberOfItems: rows.length,
     itemListElement: rows.map((v, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `${VIDEOS_URL}?v=${v.slug}`,
+      url: videoUrl(v.slug),
       name: v.title,
     })),
   };
@@ -118,14 +90,18 @@ export default async function VideoPage() {
 
       <header className="pantheon-hero" aria-labelledby="pantheon-hero-heading">
         <div className="pantheon-hero__inner">
-          <h1 id="pantheon-hero-heading" className="pantheon-hero__title">Chad Lewine Music Videos</h1>
+          <h1 id="pantheon-hero-heading" className="pantheon-hero__title">Chad Lewine Videos</h1>
         </div>
       </header>
 
       {rows.length === 0 ? (
         <p className="pantheon-empty">The stage is being prepared. Come back soon.</p>
       ) : (
-        <VideoPantheon categories={categories || []} videos={rows} />
+        <VideoPantheon
+          categories={categories}
+          videos={rows}
+          activeSlug={activeSlug ?? null}
+        />
       )}
     </div>
   );

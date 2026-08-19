@@ -312,6 +312,83 @@
   height: 16px;
 }
 
+/* Play button overlaid on the art, touch layouts only. Centered on both axes.
+   Size and fill mirror the homepage art-overlay button
+   (.mini-player--art .mini-player__play-btn in global.css) so the two read as
+   the same control. No progress ring here: the mini player owns scrubbing,
+   this is a bare transport control.
+   Only ever rendered while idle, so the glyph is always the play triangle and
+   nothing covers the cube once it unfolds. */
+/* Play button overlaid on the art, touch layouts only.
+   The BUTTON is not defined here. It is the homepage featured track's
+   art-overlay control, rendered from the shared <MiniPlayerTransport /> and
+   styled by the .mini-player__play-btn / __ring / __icon / __glyph rules in
+   global.css, with .mini-player--art on the wrapper supplying the 72px circle
+   and 42px glyph. Size, fill, ring and colors all live there.
+   The only thing this file has any business changing is placement: the --art
+   variant anchors bottom-right of a still cover, and on the cube it belongs in
+   the middle. Nothing else may be overridden here, or the two drift. */
+.cube-vis__transport {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  line-height: 0;
+}
+
+.cube-vis__transport .mini-player__play-btn {
+  position: relative;
+  bottom: auto;
+  right: auto;
+}
+
+/* Pause target while playing. Covers the art so a tap anywhere stops
+   playback and brings the play button back. Transparent: the cube IS the
+   affordance at this point, and any visible chrome would sit on top of the
+   thing the button exists to let you watch.
+   z-index stays below .cube-vis__fs-toggle (10) so fullscreen still works. */
+.cube-vis__tap-pause {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cube-vis__tap-pause:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: -4px;
+}
+
+/* 900px is where .track-detail__grid stacks to one column (global.css), which
+   is the moment the mini player drops below the art. Match it exactly so the
+   overlay takes over in the same breath. */
+@media (max-width: 900px) {
+  .cube-vis__transport {
+    display: block;
+  }
+
+  .cube-vis__tap-pause {
+    display: block;
+  }
+}
+
+/* Fullscreen is its own surface. Leave the art alone and keep the fullscreen
+   toggle as the only control. */
+.cube-vis:fullscreen .cube-vis__transport,
+.cube-vis:fullscreen .cube-vis__tap-pause {
+  display: none;
+}
+
 /* When the cube-vis element enters fullscreen, the browser sizes the
    element to fill the viewport. We override the cube to stay a centered
    square at min(100vw, 100vh) so the cube doesn't stretch on non-square

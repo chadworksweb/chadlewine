@@ -5,12 +5,13 @@
    public.audience (migration 20260531120000) -- a category's `column` is the
    audience column that gates it.
 
-   Model: the 6 optional categories default ON (opt-out). "general" is REQUIRED
+   Model: the 7 optional categories default ON (opt-out). "general" is REQUIRED
    and has no column -- it reaches every active subscriber and can only be turned
    off via the master unsubscribe (subscriber_status). */
 
 export type NotificationCategoryKey =
   | "new_releases"
+  | "youtube_video"
   | "archive_highlights"
   | "curated"
   | "observations"
@@ -36,6 +37,13 @@ export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
     column: "notify_new_releases",
     label: "New releases & premieres",
     description: "Be first to hear new songs, premieres, and fresh drops.",
+    required: false,
+  },
+  {
+    key: "youtube_video",
+    column: "notify_youtube_video",
+    label: "New YouTube Video",
+    description: "Any kind of video that isn't a formal music video.",
     required: false,
   },
   {
@@ -83,7 +91,7 @@ export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   },
 ];
 
-/** The 6 individually toggleable categories (everything except "general"). */
+/** The 7 individually toggleable categories (everything except "general"). */
 export const OPTIONAL_CATEGORIES: NotificationCategory[] =
   NOTIFICATION_CATEGORIES.filter((c) => !c.required);
 

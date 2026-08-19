@@ -38,7 +38,13 @@ services:
     healthcheck:
       # Liveness only: any HTTP response (even 404/500) means the server is up.
       # Fails only on connection refused. Avoids coupling health to Supabase.
-      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:'+process.env.PORT+'/').then(()=>process.exit(0)).catch(()=>process.exit(1))\""]
+      #
+      # Hits /api/health, NOT "/". Polling "/" defeated the line above: the
+      # homepage is ISR with revalidate 60, so a 30s poll triggered a background
+      # regeneration every ~60s forever, each one running 18 Supabase queries.
+      # That drained the project's disk IO budget and took the site down
+      # 2026-07-31. /api/health renders nothing and touches no database.
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:'+process.env.PORT+'/api/health').then(()=>process.exit(0)).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 5s
       retries: 3

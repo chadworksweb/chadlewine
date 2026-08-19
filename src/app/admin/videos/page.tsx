@@ -13,7 +13,7 @@ export default function AdminVideosPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Flip a video between published and hidden (draft). Hidden videos are
-  // filtered out of every public surface (the /music-videos list + deep-link,
+  // filtered out of every public surface (the /videos list + deep-link,
   // the sitemap, and JSON-LD all require status = 'published'), so this fully
   // hides the video and its attached metadata/page.
   const toggleStatus = useCallback(async (v: Video) => {

@@ -122,6 +122,21 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Legacy video deep links. Each video used to be a query on the library page
+  // (/videos?v=slug); every video is a real route now. This lives here rather
+  // than in next.config because a config redirect carries the query string over
+  // to the destination -- it would land on /videos/<slug>?v=<slug> -- and only
+  // here can the search string be dropped. next.config still handles the plain
+  // /music-videos -> /videos rename, so /music-videos?v=slug arrives here as
+  // /videos?v=slug and finishes the trip.
+  if (pathname === "/videos") {
+    const legacy = request.nextUrl.searchParams.get("v");
+    if (legacy) {
+      const target = new URL(`/videos/${encodeURIComponent(legacy)}`, request.url);
+      return NextResponse.redirect(target, 308);
+    }
+  }
+
   // Redirect table: check before any route resolution, so renamed content
   // preserves link equity. Runs on public paths only.
   if (!pathname.startsWith("/api")) {

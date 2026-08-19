@@ -55,7 +55,7 @@ export const STATIC_PAGES: StaticPage[] = [
   { label: "Merch", path: "/merch" },
   { label: "Observations", path: "/observations" },
   { label: "Journal", path: "/journal" },
-  { label: "Music Videos", path: "/music-videos" },
+  { label: "Videos", path: "/videos" },
   { label: "Meditations", path: "/meditations" },
   { label: "Curation", path: "/curation" },
   { label: "About (Chad Lewine)", path: "/chad-lewine" },

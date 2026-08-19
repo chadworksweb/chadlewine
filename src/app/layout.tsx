@@ -4,8 +4,10 @@ import { SiteJsonLd } from "@/components/SiteJsonLd";
 import { CartProvider, CartUI } from "@/components/Cart";
 import { PlayerProvider } from "@/components/PlayerContext";
 import { StickyPlayer } from "@/components/StickyPlayer";
+import { RouteProgress } from "@/components/RouteProgress";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { ConsentProvider } from "@/components/ConsentProvider";
+import { FORCE_MOTION_BOOTSTRAP } from "@/lib/motion";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chadlewine.com"),
@@ -77,10 +79,17 @@ export default function RootLayout({
     // its attributes, which is exactly the surface the script writes to.
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
+        {/* FIRST, and before the hero's own boot script, because that script
+            decides in one pass whether to run the animatic and whether to hold
+            the scroll, and it has to read a settled answer about motion. Puts
+            back the `cl-force-motion` class for a session that already opted in.
+            See src/lib/motion.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: FORCE_MOTION_BOOTSTRAP }} />
         <script dangerouslySetInnerHTML={{ __html: CONSENT_BOOTSTRAP }} />
         <SiteJsonLd />
         <ConsentProvider>
           <CartProvider>
+            <RouteProgress />
             <PlayerProvider>
               {children}
               <StickyPlayer />

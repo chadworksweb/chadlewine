@@ -646,7 +646,7 @@ function OverviewView({ exploreSongs, featuredVideo, featuredQuote, voiceSongs }
 
       {/* ============================================================
           SECTION: MUSIC VIDEO -- the featured Johnny Boy video, shown on
-          the same stage component as the /music-videos page.
+          the same stage component as the /videos page.
           ============================================================ */}
       {featuredVideo && (
         <section id="watch" className="si-door si-door--rc" aria-labelledby="bk-watch-heading">
@@ -661,7 +661,7 @@ function OverviewView({ exploreSongs, featuredVideo, featuredQuote, voiceSongs }
             </blockquote>
           )}
           <div className="si-door__footer">
-            <Link href="/music-videos" className="explore-songs__cta">See all music videos &rarr;</Link>
+            <Link href="/videos" className="explore-songs__cta">See all music videos &rarr;</Link>
           </div>
         </section>
       )}

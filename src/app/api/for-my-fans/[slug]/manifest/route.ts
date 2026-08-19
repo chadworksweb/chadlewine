@@ -36,8 +36,13 @@ export async function GET(
   if (!grant) return NOT_FOUND;
   if (grant.audience_id !== session.audienceId) return NOT_FOUND;
 
-  const origin = url.origin;
-  const keyUri = `${origin}/api/for-my-fans/${slug}/key?token=${encodeURIComponent(token)}`;
+  // Root-relative on purpose. Behind the le-nginx proxy, `url.origin` is the
+  // container's internal bind address (https://0.0.0.0:3006), which the
+  // browser cannot reach, so every playback failed after the move off
+  // Vercel. Players resolve a relative EXT-X-KEY URI against the playlist
+  // URL, so this always lands on the same origin as the page, which is also
+  // what the session cookie needs.
+  const keyUri = `/api/for-my-fans/${slug}/key?token=${encodeURIComponent(token)}`;
 
   let playlist: string;
   try {

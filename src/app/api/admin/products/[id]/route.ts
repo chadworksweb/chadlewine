@@ -39,7 +39,7 @@ export async function PUT(
   const body = await request.json();
 
   const updates: Record<string, unknown> = {};
-  const fields = ["fulfillment", "title", "slug", "description", "seo_title", "seo_description", "printify_product_id", "price", "status", "image_url", "image_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "linked_art_piece_id", "merch_type_id", "release_sku_id", "display_order", "shipping_first_cents", "shipping_addl_cents", "shipping_ca_first_cents", "shipping_ca_addl_cents", "shipping_uk_first_cents", "shipping_uk_addl_cents", "shipping_row_first_cents", "shipping_row_addl_cents", "free_shipping_exempt"];
+  const fields = ["fulfillment", "title", "slug", "description", "seo_title", "seo_description", "printify_product_id", "price", "status", "image_url", "image_alt", "hero_focal_x", "hero_focal_y", "hero_zoom", "linked_art_piece_id", "merch_type_id", "release_sku_id", "display_order", "shipping_first_cents", "shipping_addl_cents", "shipping_ca_first_cents", "shipping_ca_addl_cents", "shipping_uk_first_cents", "shipping_uk_addl_cents", "shipping_row_first_cents", "shipping_row_addl_cents", "free_shipping_exempt", "is_new"];
   for (const f of fields) {
     if (f in body) updates[f] = body[f];
   }

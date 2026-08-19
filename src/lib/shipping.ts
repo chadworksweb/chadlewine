@@ -19,6 +19,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOrderShippingCost, type PrintifyOrderLineItem } from "@/lib/printify";
+import type { DownloadFormat } from "@/lib/audio-formats";
 
 // Compact cart line shape, shared with the Stripe webhook. sk = sku_id (encodes
 // the parent release/song), v = sku_variant_id, i = item_id (merch/legacy),
@@ -28,7 +29,7 @@ export interface CartLine {
   i?: string | null;
   sk?: string;
   v?: string;
-  f?: "mp3" | "flac" | "wav" | null;
+  f?: DownloadFormat | null;
   c?: number;
 }
 

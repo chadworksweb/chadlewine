@@ -60,6 +60,7 @@ interface ProductData {
   shipping_row_first_cents: number | null;
   shipping_row_addl_cents: number | null;
   free_shipping_exempt: boolean;
+  is_new: boolean;
 }
 
 const emptyProduct: ProductData = {
@@ -89,6 +90,7 @@ const emptyProduct: ProductData = {
   shipping_row_first_cents: null,
   shipping_row_addl_cents: null,
   free_shipping_exempt: false,
+  is_new: false,
 };
 
 interface Props {
@@ -151,6 +153,7 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           shipping_row_first_cents: d.shipping_row_first_cents ?? null,
           shipping_row_addl_cents: d.shipping_row_addl_cents ?? null,
           free_shipping_exempt: !!d.free_shipping_exempt,
+          is_new: !!d.is_new,
         });
       })
       .catch(() => setError("Not found"));
@@ -185,6 +188,7 @@ export function MerchProductEditor({ idOrSlug }: Props) {
       shipping_row_first_cents: data.shipping_row_first_cents,
       shipping_row_addl_cents: data.shipping_row_addl_cents,
       free_shipping_exempt: data.free_shipping_exempt,
+      is_new: data.is_new,
     };
   }, []);
 
@@ -359,6 +363,17 @@ export function MerchProductEditor({ idOrSlug }: Props) {
       </div>
 
       <div className="obsv-editor__field">
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={form.is_new}
+            onChange={(e) => set("is_new", e.target.checked)}
+          />
+          <span>Show the NEW badge on this product&apos;s card</span>
+        </label>
+      </div>
+
+      <div className="obsv-editor__field">
         <label className="obsv-editor__label">Description</label>
         <textarea
           className="obsv-editor__input"
@@ -372,7 +387,7 @@ export function MerchProductEditor({ idOrSlug }: Props) {
         <SeoFieldsPanel
           seoTitle={form.seo_title}
           seoDescription={form.seo_description}
-          defaultTitle={`${form.title || "Untitled"} — Chad Lewine`}
+          defaultTitle={`${form.title || "Untitled"} - Chad Lewine`}
           descriptionFallbackHint="the product description"
           urlBreadcrumb="merch"
           onChange={(field, value) => set(field, value)}
@@ -478,6 +493,7 @@ export function MerchProductEditor({ idOrSlug }: Props) {
           productId={form.id}
           fulfillment={form.fulfillment}
           slug={form.slug || null}
+          printifyProductId={form.printify_product_id}
         />
       )}
 

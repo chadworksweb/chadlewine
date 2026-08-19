@@ -232,14 +232,14 @@ async function fetchVideo(): Promise<SitemapEntry[]> {
   const supabase = createPublicClient();
   const { data } = await supabase
     .from("videos")
-    .select("title, description, thumbnail_path, embed_url, duration_seconds, updated_at, published_at")
+    .select("title, slug, description, thumbnail_path, embed_url, duration_seconds, updated_at, published_at")
     .eq("status", "published")
     .order("published_at", { ascending: false });
 
   if (!data || data.length === 0) {
     return [
       {
-        url: `${BASE_URL}/music-videos`,
+        url: `${BASE_URL}/videos`,
         changeFrequency: "monthly",
         priority: 0.6,
       },
@@ -250,28 +250,40 @@ async function fetchVideo(): Promise<SitemapEntry[]> {
     data.flatMap((v) => [isoOrUndef(v.updated_at), isoOrUndef(v.published_at)]),
   );
 
-  const videos: SitemapVideo[] = data
-    .filter((v) => v.thumbnail_path && v.title)
-    .map((v) => {
-      const thumb = absoluteUrl(v.thumbnail_path)!;
-      const player = absoluteUrl(v.embed_url);
-      return {
-        thumbnailLoc: thumb,
-        title: v.title,
-        description: v.description || v.title,
-        playerLoc: player,
-        duration: v.duration_seconds || undefined,
-      };
-    });
+  // Each video is its own page now, so it gets its own <url> carrying its own
+  // <video:video> child, rather than 80 video children hanging off the library
+  // index. Google needs a thumbnail and a title per video, so a row missing
+  // either is listed as a plain page without the video extension.
+  const perVideo: SitemapEntry[] = data.map((v) => {
+    const thumb = absoluteUrl(v.thumbnail_path);
+    const entry: SitemapEntry = {
+      url: `${BASE_URL}/videos/${v.slug}`,
+      lastModified: maxIso([isoOrUndef(v.updated_at), isoOrUndef(v.published_at)]),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    };
+    if (thumb && v.title) {
+      entry.videos = [
+        {
+          thumbnailLoc: thumb,
+          title: v.title,
+          description: v.description || v.title,
+          playerLoc: absoluteUrl(v.embed_url) || `${BASE_URL}/videos/${v.slug}`,
+          duration: v.duration_seconds || undefined,
+        },
+      ];
+    }
+    return entry;
+  });
 
   return [
     {
-      url: `${BASE_URL}/music-videos`,
+      url: `${BASE_URL}/videos`,
       lastModified: lastMod,
       changeFrequency: "weekly",
       priority: 0.6,
-      videos: videos.length > 0 ? videos : undefined,
     },
+    ...perVideo,
   ];
 }
 

@@ -12,6 +12,7 @@ export const SKU_BASE_FIELDS = [
   "download_path_mp3",
   "download_path_flac",
   "download_path_wav",
+  "download_path_aac",
   "weight_grams",
   "ships_in_days",
   "shipping_first_cents",
@@ -50,6 +51,7 @@ const TEXT_NULLABLE_FIELDS = new Set<SkuBaseField>([
   "download_path_mp3",
   "download_path_flac",
   "download_path_wav",
+  "download_path_aac",
   "printify_product_id",
   "printify_variant_id",
 ]);

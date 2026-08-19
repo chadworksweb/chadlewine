@@ -10,7 +10,7 @@ const OPTIONAL_KEYS = new Set<string>(OPTIONAL_CATEGORIES.map((c) => c.key));
 // PATCH /api/preferences — token-gated prefs for email-only subscribers (no
 // account). The token is the audience.unsubscribe_token already embedded in
 // every email footer link. Accepts subscriber_status (master on/off, reusing
-// the existing token helpers) and/or a categories map of the 6 optional keys.
+// the existing token helpers) and/or a categories map of the optional keys.
 // Always returns ok (idempotent) so it never reveals whether a token existed.
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => ({}));

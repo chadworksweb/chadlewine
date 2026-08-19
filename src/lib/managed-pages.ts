@@ -9,7 +9,7 @@ export const MANAGED_PAGES: ManagedPage[] = [
   { route: "/radiant-arc", label: "Radiant Arc" },
   { route: "/foundations", label: "Foundations (index)" },
   { route: "/art", label: "Art" },
-  { route: "/music-videos", label: "Music Videos" },
+  { route: "/videos", label: "Videos" },
   // chad-rising / chad-d / honeychrome are CMS pages (Pages CMS 'standard');
   // their SEO comes from pages.seo_*, not the page_meta override path.
   { route: "/discography", label: "Discography" },

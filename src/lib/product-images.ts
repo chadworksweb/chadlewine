@@ -23,6 +23,12 @@ export type GalleryImage = Pick<
   "id" | "url" | "alt" | "is_primary" | "position" | "source"
 >;
 
+// True while the row still points at Printify's own CDN. Once the bg-removal
+// pipeline rehosts a mockup on our Bunny zone, the url is ours to keep.
+export function isPrintifyHosted(url: string): boolean {
+  return /(^|\/\/)([a-z0-9-]+\.)*printify\.com\//i.test(url);
+}
+
 // Sort variant_ids ascending — dedupe key is order-sensitive in the unique index.
 export function sortVariantIds(ids: number[] | null | undefined): number[] {
   if (!ids || ids.length === 0) return [];
@@ -47,16 +53,19 @@ export async function getGalleryForProduct(
 }
 
 // Admin-facing: includes hidden + needs_review state for management UI.
-// Excludes soft-deleted rows.
+// Soft-deleted rows are excluded unless asked for, which is how the panel's
+// "Show removed" view offers a restore inside the 30-day window.
 export async function getAdminGalleryForProduct(
   supabase: SupabaseClient,
   productId: string,
+  opts: { includeDeleted?: boolean } = {},
 ): Promise<ProductImage[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from("product_images")
     .select("*")
-    .eq("product_id", productId)
-    .is("deleted_at", null)
+    .eq("product_id", productId);
+  if (!opts.includeDeleted) query = query.is("deleted_at", null);
+  const { data, error } = await query
     .order("is_primary", { ascending: false })
     .order("position", { ascending: true });
   if (error) throw error;
@@ -92,14 +101,17 @@ export async function applyPrintifyImagesToGallery(
   productId: string,
   printifyImages: PrintifyShopProduct["images"],
 ): Promise<{ inserted: number; updated: number; hidden: number }> {
+  // Soft-deleted rows are read too. uniq_product_images_printify_key doesn't
+  // filter on deleted_at, so a removed row still owns its key: inserting the
+  // same mockup again would collide. Revive the row instead.
   const { data: existingRows, error: fetchErr } = await supabase
     .from("product_images")
     .select("*")
     .eq("product_id", productId)
-    .eq("source", "printify")
-    .is("deleted_at", null);
+    .eq("source", "printify");
   if (fetchErr) throw fetchErr;
-  const existing = (existingRows || []) as ProductImage[];
+  const allRows = (existingRows || []) as ProductImage[];
+  const existing = allRows.filter((r) => !r.deleted_at);
 
   // Index existing rows by dedupe key. Skip rows with null keys (Phase 1
   // backfill that hasn't been re-keyed yet) — they'll be matched by URL
@@ -110,9 +122,13 @@ export async function applyPrintifyImagesToGallery(
       : null;
 
   const byKey = new Map<string, ProductImage>();
-  for (const row of existing) {
+  for (const row of allRows) {
     const k = keyOf(row.printify_variant_ids, row.printify_position);
-    if (k) byKey.set(k, row);
+    if (!k) continue;
+    // A live row wins over a removed one holding the same key.
+    const prev = byKey.get(k);
+    if (prev && !prev.deleted_at) continue;
+    byKey.set(k, row);
   }
 
   // Printify can return several mockups that share the same (variant_ids,
@@ -151,8 +167,29 @@ export async function applyPrintifyImagesToGallery(
     const match = byKey.get(k);
     if (match) {
       seenIds.add(match.id);
+      if (match.deleted_at) {
+        // Upstream still has this mockup, so a re-pull brings the removed row
+        // back rather than tripping the unique key. It returns flagged for
+        // review and stays hidden if it was hidden.
+        const { error } = await supabase
+          .from("product_images")
+          .update({
+            deleted_at: null,
+            url: isPrintifyHosted(match.url) ? img.src : match.url,
+            needs_review: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", match.id);
+        if (error) throw error;
+        inserted++;
+        continue;
+      }
       // Don't disturb hidden rows — firewall rule.
       if (match.is_hidden) continue;
+      // A row whose url has been moved off Printify's CDN (the transparent
+      // webps on our own zone) keeps the local file. Only a still-Printify url
+      // gets refreshed, otherwise a re-pull would undo every bg removal.
+      if (!isPrintifyHosted(match.url)) continue;
       if (match.url !== img.src) {
         const { error } = await supabase
           .from("product_images")
