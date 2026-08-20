@@ -30759,8 +30759,28 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   --f-scrim:        rgba(7, 7, 13, 0.55);
 
   /* The veil over the post artwork when it is acting as the page ground.
-     Brand black at 25%, per Chad. */
-  --f-veil:         rgba(7, 7, 13, 0.25);
+     It was a flat 25% brand black. The trouble with a flat veil is that it
+     spends the same darkness everywhere, including the middle of the frame
+     where nothing is written and the picture is the whole point, while the
+     type that actually needs help sits at the edges: the wordmark top left,
+     the hints down the right of the bars, the button at the bottom.
+
+     So the veil is graded rather than flattened: it ADDS at the edges and takes
+     nothing away from the middle.
+
+     THE FIRST ATTEMPT DID TAKE IT AWAY, dropping the core to 0.10 to let more
+     picture through, and a phone screenshot killed it immediately: on a narrow
+     screen the six rows spread across the whole height, so four of the labels
+     sit in that middle band and all four got worse. The dim type is at the
+     edges, but the LOUD type is everywhere, and the flat 25 was carrying it.
+
+     So the core is the 25 that was already chosen, near enough, and the edges
+     are roughly double it. Nothing on the page is less legible than it was
+     yesterday and the corners, where the wordmark and the button sit, are
+     protected. Three numbers rather than one, so each can move alone. */
+  --f-veil-edge:    rgba(7, 7, 13, 0.50);
+  --f-veil-side:    rgba(7, 7, 13, 0.20);
+  --f-veil-core:    rgba(7, 7, 13, 0.26);
 
   /* The two grounds an OPEN cell puts between the artwork and its own content.
      Both are the site's main background at part opacity, so the photograph
@@ -30932,8 +30952,26 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* THREE LAYERS, painted top to bottom in this order: the vertical grade, the
+     side wash, then the picture. The two veils compound where they meet, so a
+     corner lands near 0.59 rather than either number alone -- which is correct,
+     because the corners are exactly where the masthead and the CTA put their
+     dimmest type. */
   background-image:
-    linear-gradient(var(--f-veil), var(--f-veil)),
+    linear-gradient(
+      180deg,
+      var(--f-veil-edge) 0%,
+      var(--f-veil-core) 30%,
+      var(--f-veil-core) 68%,
+      var(--f-veil-edge) 100%
+    ),
+    linear-gradient(
+      90deg,
+      var(--f-veil-side) 0%,
+      transparent 24%,
+      transparent 76%,
+      var(--f-veil-side) 100%
+    ),
     var(--f-post-bg);
   background-size: cover;
   background-position: center;

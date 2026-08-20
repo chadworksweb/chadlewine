@@ -2,7 +2,8 @@
 
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
-import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { analyticsAllowed, subscribeConsent } from "@/lib/consent";
 
 const SKIP_KEY = "cl_skip_analytics";
@@ -17,7 +18,22 @@ function applyUrlParamOverride() {
   } catch {}
 }
 
+// The front door at "/" runs Google Analytics and nothing else.
+//
+// It is one screen of six labels whose whole job is to be a first impression,
+// and session replay, autocapture and a person profile are a lot of apparatus
+// to point at a page with six links on it. GA still measures that anyone
+// arrived, which is the only question this page asks.
+//
+// It has to be decided HERE rather than by leaving a provider out of the
+// (front) layout, because PostHogProvider is mounted in the ROOT layout, which
+// the front group inherits: there is no provider in the front layout to drop.
+const FRONT_DOOR = "/";
+
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const onFrontDoor = pathname === FRONT_DOOR;
+  const inited = useRef(false);
   // Skip-analytics flag management — runs on every environment so it works on
   // local, staging, and prod. PostHog init itself is still prod-only below.
   useEffect(() => {
@@ -37,6 +53,15 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!process.env.NEXT_PUBLIC_POSTHOG_KEY) return;
+
+    // Not on the front door, and not merely opted out on it: nothing is loaded
+    // at all, so no third party is fetched by a page whose point is to be the
+    // first thing anyone sees. The guard is on the effect rather than the file
+    // so that a visitor who walks INTO the site initialises normally, which is
+    // why this effect is no longer a one-shot on [].
+    if (onFrontDoor) return;
+    if (inited.current) return;
+    inited.current = true;
 
     const host = window.location.hostname;
     const isProd = host === "chadlewine.com" || host === "www.chadlewine.com";
@@ -89,7 +114,21 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         })
         .catch(() => {});
     }
-  }, []);
+  }, [onFrontDoor]);
+
+  // A CLIENT-SIDE ARRIVAL at the front door has to be handled separately.
+  // Several pages link to "/" with next/link (unsubscribe, the patronage thank
+  // you, the account sign-out), and by then PostHog is loaded and capturing. The
+  // guard above only decides what happens at init, so without this the front
+  // door would be measured for anyone who reached it from inside the site.
+  // Leaving it restores whatever consent says, rather than assuming a yes.
+  useEffect(() => {
+    if (!(posthog as unknown as { __loaded?: boolean }).__loaded) return;
+    try {
+      if (onFrontDoor) posthog.opt_out_capturing();
+      else if (analyticsAllowed()) posthog.opt_in_capturing();
+    } catch {}
+  }, [onFrontDoor]);
 
   // Consent can change after init, and init only reads it once. PostHog is
   // already loaded by then and merely opted out, so both directions are a flag

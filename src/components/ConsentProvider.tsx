@@ -34,12 +34,21 @@ const Ctx = createContext<ConsentCtx | null>(null);
 // paint and cleared by the nav's scroll handler once the hero has left the
 // viewport entirely, which is the same moment the site header comes back.
 const HERO_LOCK = "ha-hero-top";
+// The same wait, asked for by a page that has no hero. The front door is one
+// screen with no scroll and the bar is fixed to the bottom of it, so an
+// undelayed bar is the first thing a first-time visitor meets. Whatever stamps
+// this owns releasing it (see FrontConsentHold): a hold nothing lifts would
+// mean a visitor in a deny-by-default region could never say yes.
+const PAGE_HOLD = "cl-consent-hold";
 const subscribeLock = (onChange: () => void) => {
   const mo = new MutationObserver(onChange);
   mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
   return () => mo.disconnect();
 };
-const getLock = () => document.documentElement.classList.contains(HERO_LOCK);
+const getLock = () => {
+  const cl = document.documentElement.classList;
+  return cl.contains(HERO_LOCK) || cl.contains(PAGE_HOLD);
+};
 const getLockOnServer = () => false;
 
 export function useConsent(): ConsentCtx {

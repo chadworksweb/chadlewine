@@ -12,10 +12,21 @@
 // cart and the player. A page with no navigation still describes the same
 // entity as every other page on the site.
 
+import { FrontConsentHold } from "@/components/front/FrontConsentHold";
+
 export default function FrontLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      {/* Keeps the cookie bar off the first paint and lifts the hold on the
+          first interaction or after a few seconds. The bar is not optional --
+          it is what lets a deny-by-default region say yes -- so the hold has
+          two releases and no way to stick. See the component. */}
+      <FrontConsentHold />
+      {children}
+    </>
+  );
 }
