@@ -30405,3 +30405,1470 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   .tripwire__check-head { flex-wrap: wrap; }
   .tripwire__check-status { align-items: flex-start; text-align: left; width: 100%; }
 }
+
+
+/* ############################################################
+   THE FRONT PAGE  (/front, and / after the cutover)
+   ############################################################
+
+   WHY THIS LIVES IN global.css AND NOT ITS OWN FILE.
+
+   It was its own file, src/styles/front.css, imported by the
+   (front) route group's layout. That is a perfectly ordinary
+   Next.js thing to do and on this project it silently did not
+   work: Turbopack emitted the stylesheet as
+   13cm..zwh2f82.css and wrote the <link> pointing at
+   15k3ihe35m6qp.css, so the page loaded five stylesheets, none
+   of them this one, and rendered as unstyled HTML with native
+   <details> triangles. Six JS chunks in the same build carry
+   the same doubled-dot naming, and the emitted CSS name never
+   appeared in any HTML.
+
+   Rather than fight the bundler for one route: this project has
+   no per-page stylesheets anywhere. global.css is the pattern,
+   it is already imported by the root layout, and every rule
+   below is scoped under .front, so nothing here can reach a
+   page that does not opt in.
+   ############################################################ */
+
+/* ============================================================
+   chadlewine.com | THE FRONT
+   The simple front page: one table, one screen, no scroll.
+
+   Everything here is scoped under .front or under the
+   [data-front-theme] stamp. global.css is 30,000 lines of a
+   dark-only site and this file must not reach into it, or out
+   of it: this is the ONLY route on chadlewine.com with a light
+   mode at all, and a token redefined loosely here would repaint
+   40 pages that never asked for it.
+
+   NAMING. This is "the front", not "the door", even though a
+   door is what it behaves like. door_pages is already taken:
+   it is a DB table, an admin section at /admin/door-pages, and
+   a family of landing pages published at /{slug}. Two unrelated
+   concepts sharing a word in one codebase is how someone edits
+   the wrong file at 1am.
+
+   THE VISUAL LANGUAGE IS THIS SITE'S, NOT OFFPLAT'S. The layout
+   idea is borrowed (one table, one screen, big blocks) and the
+   surface treatment is not. Offplat is flat brutalism: 2px
+   full-contrast rules, hard corners, whole rows inverting on
+   hover. chadlewine is frosted glass and steel, and it says so
+   in measurable ways that were read off global.css rather than
+   guessed at:
+
+     rules      1px rgba(255,255,255,0.06), never a hard edge
+     radii      3 / 4 / 6 / 8px, never 0
+     row hover  background lifts to --bg-glass-hover; nothing
+                inverts anywhere on this site
+     CTA        accent-tinted glass, 1px accent border at 0.45,
+                radius 4px, translateY(-2px) on hover
+                (.home-merch__view-all is the canonical one)
+     headings   --font-ui at weight 500
+     prose      --font-body, which is a SERIF, with secondary
+                lines in italic (.feed-entry__hook)
+     meta       --font-ui, uppercase, +0.05em, --text-tertiary
+     motion     --duration-base with --ease-out, not linear
+
+   Two signature details are quoted directly from
+   .glyph-title-bar, because they are the most chadlewine thing
+   on the site: the tick-mark band (a repeating-linear-gradient
+   of 1px marks every 12px) and the accent corner brackets that
+   cap a band left and right.
+   ============================================================ */
+
+/* --- Palette ------------------------------------------------
+
+   TWO states, and dark is not one of two equals: it is the
+   site. chadlewine.com is dark everywhere, so the front page
+   opens dark for everyone, including a reader whose OS asks for
+   light. Light here is an OPT-IN a reader has to reach for, not
+   a preference the page infers.
+
+   That is why there is no prefers-color-scheme block. Honouring
+   it would hand a light-OS visitor a cream page as their first
+   impression of a dark site, which is the one thing this page
+   must not do: it is the front door, and the brand should look
+   the same walking in as it does everywhere inside.
+
+   So: bare .front carries the full DARK palette, and the
+   [data-front-theme="light"] stamp is the only thing that
+   redefines it. NO TOKEN IS EVER DEFINED ONLY INSIDE THE STAMP
+   BLOCK; a colour that exists only under an attribute selector
+   is a colour that vanishes for everyone who never pressed the
+   switch.
+
+   The dark values are the site's own, written out as literals
+   rather than read through var(). The page has to be able to go
+   LIGHT, and inheriting a variable whose whole purpose is to be
+   dark would make that a fight. Where a literal came from a
+   token, the token is named beside it.
+
+   The light values are the site's existing reading surface
+   (--reading-bg, --reading-text, --reading-accent), which is
+   what every long-form page already switches to. Light mode
+   here is not a new palette; it is the one the site already
+   uses when it wants to be read.                             */
+
+/* --f-theme lives on :root, NOT on .front, and that distinction is the whole
+   reason the theme switch used to change the page in two stages.
+
+   html and body are ANCESTORS of .front. Custom properties inherit downward
+   only, so a token defined on .front is invisible to them. The ground rules
+   below say `transition: background-color var(--f-theme) ease`, that var()
+   could not resolve, and an unresolvable var() makes the whole declaration
+   invalid at computed-value time: `transition` fell back to its initial value,
+   which is no transition. So html and body cut instantly while .front and
+   everything inside it crossfaded over 300ms.
+
+   Nothing about it looked wrong in the stylesheet. The rule was there, the
+   duration was right, and it was dead. Scoped with :has() so the token only
+   exists on pages that carry this component. */
+:root:has(.front) {
+  --f-theme: 300ms;
+
+  /* Lets `block-size: 0 -> auto` actually interpolate, which is what makes the
+     fold below a fold rather than a cut. It is opt-in precisely because
+     animating to an intrinsic size used to be impossible and some layouts
+     would start moving unexpectedly if it were on by default; scoped with
+     :has() so it only applies on pages carrying this component. */
+  interpolate-size: allow-keywords;
+}
+
+.front {
+  --f-bg:           #07070d;                     /* --bg-deep */
+  --f-elevated:     #13131c;                     /* --bg-elevated */
+  --f-surface:      rgba(255, 255, 255, 0.03);   /* --bg-glass */
+  --f-surface-hi:   rgba(255, 255, 255, 0.06);   /* --bg-glass-hover */
+  --f-line:         rgba(255, 255, 255, 0.06);   /* --border-subtle */
+  --f-line-hi:      rgba(255, 255, 255, 0.1);    /* --border-medium */
+  --f-tick:         rgba(255, 255, 255, 0.1);    /* .glyph-title-bar ticks */
+
+  --f-ink:          #e4e4ec;                     /* --text-primary */
+  --f-dim:          rgba(228, 228, 236, 0.6);    /* --text-secondary */
+  --f-faint:        rgba(228, 228, 236, 0.35);   /* --text-tertiary */
+
+  --f-accent:       #8b9cf7;                     /* --text-accent */
+  --f-accent-line:  rgba(139, 156, 247, 0.45);
+  --f-accent-edge:  rgba(139, 156, 247, 0.75);
+  --f-accent-wash:  rgba(139, 156, 247, 0.08);
+  --f-accent-hi:    rgba(139, 156, 247, 0.18);
+  --f-accent-glow:  rgba(139, 156, 247, 0.22);
+  /* The scrim behind the play glyph: the page ground at part
+     opacity, so the poster still reads through it. */
+  --f-scrim:        rgba(7, 7, 13, 0.55);
+
+  /* The veil over the post artwork when it is acting as the page ground.
+     Brand black at 25%, per Chad. */
+  --f-veil:         rgba(7, 7, 13, 0.25);
+
+  /* The two grounds an OPEN cell puts between the artwork and its own content.
+     Both are the site's main background at part opacity, so the photograph
+     still reads through them and the type on top stays legible.
+
+     The content panel is the denser of the two on purpose: it carries prose and
+     a date at --f-dim and --f-faint, which are the first things a busy image
+     takes out. The title bar keeps the lighter one, so the row a reader is
+     looking at does not turn into a solid block. */
+  --f-cell-ground:  rgba(7, 7, 13, 0.75);
+  --f-panel-ground: rgba(7, 7, 13, 0.85);
+
+  /* THE SITE WIDTH LIMIT.
+
+     EVERYTHING is inside the box now, rules and masthead and
+     footer button included, so the frame itself carries the
+     width (see .front below) and this token is only the padding
+     inside it. Read in four places, so the whole column moves
+     together from one edit. */
+  /* Was 0 while the accent edge did not exist yet. The edge is a 2px bar at
+     the very left of a row, and at zero inset the label started exactly where
+     the bar ended and touched it on every hover. This is the bar's gutter, and
+     it is applied to the masthead, the standfirst, the rows and the panels
+     alike so the whole page stays one aligned column rather than the table
+     stepping in from its own header. */
+  --f-inset: clamp(16px, 1.8vw, 28px);
+
+  /* The summary bar's height, and the cells' flex-basis. ONE token because the
+     two must agree exactly: basis is what a closed row collapses to, and if it
+     disagreed with the bar's own min-height the row would either clip the
+     label or leave a sliver of panel showing under it. */
+  --f-bar: clamp(44px, 7.4vh, 88px);
+
+  /* The panel's vertical padding. */
+  --f-panel-pad: clamp(14px, 2.2vh, 24px);
+
+  /* The open/close glide. Slow on purpose. */
+  --f-glide: 560ms;
+
+  /* --f-theme is NOT here. It is on :root, and it has to be: see the block
+     immediately above .front for why putting it on this element broke the
+     ground crossfade silently. */
+}
+
+:root[data-front-theme="light"] .front {
+  --f-bg:           #f5f3ef;                     /* --reading-bg */
+  --f-elevated:     #eceae4;
+  --f-surface:      rgba(0, 0, 0, 0.025);
+  --f-surface-hi:   rgba(0, 0, 0, 0.055);
+  --f-line:         rgba(0, 0, 0, 0.08);         /* --reading-border */
+  --f-line-hi:      rgba(0, 0, 0, 0.14);
+  --f-tick:         rgba(0, 0, 0, 0.12);
+
+  --f-ink:          #1a1a1a;                     /* --reading-text */
+  --f-dim:          #4a4a4a;                     /* --reading-text-secondary */
+  --f-faint:        #7a7a7a;                     /* --reading-text-tertiary */
+
+  --f-accent:       #3a4ed0;                     /* --reading-accent */
+  --f-accent-line:  rgba(58, 78, 208, 0.4);
+  --f-accent-edge:  rgba(58, 78, 208, 0.7);
+  --f-accent-wash:  rgba(58, 78, 208, 0.06);
+  --f-accent-hi:    rgba(58, 78, 208, 0.14);
+  --f-accent-glow:  rgba(58, 78, 208, 0.2);
+  --f-scrim:        rgba(245, 243, 239, 0.62);
+  /* Light mode veils with the LIGHT ground rather than brand black. A black
+     wash under near-black type is the one combination that cannot be read, and
+     the point of the veil is to keep the page legible over a photograph. Same
+     25%. Same reasoning for the two grounds below, at the same alphas. */
+  --f-veil:         rgba(245, 243, 239, 0.25);
+  --f-cell-ground:  rgba(245, 243, 239, 0.75);
+  --f-panel-ground: rgba(245, 243, 239, 0.85);
+
+  /* THE LOGO'S OWN TOKENS, repointed for this page only.
+
+     The masthead runs Nav.tsx's logo markup verbatim, which means it is styled
+     by .site-nav__logo out of global.css, which reads --text-primary and
+     --text-accent. Those are :root values and :root is dark-only, so in light
+     mode the name would render near-white on cream and disappear, and the
+     hover shimmer would flash back to the same near-white because its
+     keyframes read the same two variables.
+
+     Redefining them HERE, on .front under the light stamp, fixes the logo and
+     the shimmer in one move and cannot escape this page: every other route
+     resolves them from :root exactly as before. */
+  --text-primary: #1a1a1a;
+  --text-accent:  #3a4ed0;
+}
+
+/* The page ground, not just the front page's.
+
+   body already carries the site's near-black from global.css,
+   which is now the same answer this page wants, so the default
+   needs no override at all. Only the light stamp does: without
+   it, light mode paints a cream page onto a black body and
+   every rounding gap between the two shows as a dark seam, most
+   visibly during overscroll on iOS, where the body colour is
+   what rubber-bands into view. */
+/* PAINTED ON <html> AS WELL AS <body>, and that is the fix for the stagger.
+
+   global.css sets a background on body and none on html. When html has no
+   background of its own the body's is PROPAGATED to the canvas, which is the
+   surface behind everything and the one filling the margins either side of the
+   1260px box. A propagated background is drawn by the canvas rather than by
+   the element, and the canvas does not run the element's transition with it:
+   the box crossfaded over 300ms while the page behind it changed on its own
+   schedule, which is the split Chad saw.
+
+   Painting html explicitly stops the propagation, because propagation only
+   happens when the root element has no background. Now html, body and .front
+   all carry the same colour, the same duration and the same easing, and there
+   is nothing left to fall out of step. */
+:root:has(.front),
+:root:has(.front) body {
+  background-color: #07070d;
+  transition: background-color var(--f-theme) ease;
+}
+:root[data-front-theme="light"]:has(.front),
+:root[data-front-theme="light"]:has(.front) body {
+  background-color: #f5f3ef;
+}
+
+/* EVERYTHING ELSE crossfades too, but ONLY during the switch.
+
+   Offplat puts the transition on the ground alone and says why: a colour
+   transition on every element collides with the row and UI transitions that
+   already run at their own durations. That reasoning holds here and the
+   problem is worse, because this page has far more elements carrying their own
+   background and border than Offplat's rows do, and a switch that eases the
+   ground while every border, button and panel cuts underneath it reads as
+   broken rather than as fast.
+
+   So the broad rule is not standing. FrontThemeToggle stamps .front-theming on
+   <html> for the length of the switch and takes it off again, which means the
+   sweeping selector below is live for 300ms during a deliberate press and at
+   no other moment. Hover, focus and the open/close animation keep their own
+   timings the whole rest of the time, and nothing has to be merged by hand
+   into a dozen existing transition lists.
+
+   Colour properties only. transform and opacity are left alone so the
+   chevron's rotate and the accent edge's scaleY are not dragged into it. */
+:root.front-theming,
+:root.front-theming .front,
+:root.front-theming .front *,
+:root.front-theming body {
+  transition: background-color var(--f-theme) ease,
+              border-color var(--f-theme) ease,
+              color var(--f-theme) ease,
+              box-shadow var(--f-theme) ease !important;
+}
+
+/* The tick band and the fading dividers are gradients, and background-image
+   is not an interpolable property, so those two cut rather than fade. Both are
+   drawn at 0.06 to 0.12 alpha against the ground they sit on, so the cut is
+   below the threshold anyone notices next to the ground moving underneath it.
+   Naming it here so nobody spends an afternoon on it later. */
+
+/* --- The frame ---------------------------------------------
+
+   100dvh, not 100vh. On mobile Safari and Chrome the visual
+   viewport shrinks as the URL bar collapses; vh is frozen at
+   the LARGEST of those, so a 100vh page is always a little
+   taller than the screen and the promise of "no scroll" breaks
+   by exactly the height of the browser chrome. dvh tracks the
+   live value.
+
+   overflow: hidden on the frame is the enforcement. Nothing
+   inside can push the page taller, because there is nowhere for
+   it to push to; a panel that overruns scrolls WITHIN itself
+   instead (see .front__panel).                              */
+
+/* THE GROUND CROSSFADES on a theme switch instead of cutting, which is what
+   stops the change reading as a page reload. Offplat's rule, verbatim in
+   intent: background-color and color, 300ms, ease, on the ground alone. */
+.front {
+  transition: background-color var(--f-theme) ease, color var(--f-theme) ease;
+  /* A stacking context, so ::before can sit at z-index -1: behind everything in
+     the page but still in front of the ground that html and body paint. */
+  position: relative;
+  z-index: 0;
+  height: 100dvh;
+  /* The site box, on the .site-contain pattern. A max-width on a
+     page wrapper is against this project's standing layout rule
+     and it is here because Chad asked for it directly: the
+     header band, the dividers and the footer button all stop at
+     --site-width so they line up with every other page. This is
+     the site's own container measure, not a narrow column. */
+  max-width: var(--site-width);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* NO GROUND OF ITS OWN. html and body are both painted (see the ground rules
+     above) and both carry the theme crossfade, so this element being
+     transparent costs nothing and is what lets the artwork layer below show
+     through the whole width of the page rather than only in the margins
+     outside the 1260px box. */
+  background: transparent;
+  color: var(--f-ink);
+  /* Serif, because the site is set in one. Labels and meta opt
+     back out to --font-ui individually; prose does not, and
+     that inheritance is the point. */
+  font-family: var(--font-body);
+  /* The site sets smooth scrolling globally, which would
+     animate a panel's internal scroll on open. Nothing here
+     travels far enough to need easing. */
+  scroll-behavior: auto;
+}
+
+/* THE POST ARTWORK AS THE PAGE GROUND.
+
+   A fixed, full-viewport layer carrying the latest post's featured image with a
+   25% brand-black veil over it. Two background layers in one declaration: the
+   gradient is a flat colour written as a gradient because that is the only way
+   to stack a solid fill above an image in a single background property.
+
+   FIXED, not absolute, so it covers the whole viewport including the margins
+   either side of the 1260px box. .front is the box; the artwork is the page.
+
+   z-index -1 puts it behind every child of .front while keeping it inside the
+   stacking context .front establishes, so it stays in front of the ground that
+   html and body paint and the theme colour still shows through the veil.
+
+   It renders nothing when --f-post-bg is unset: the `none` fallback leaves the
+   gradient painting a 25% veil over nothing at all, so the guard below drops
+   the layer entirely rather than dimming the page for no reason. */
+.front::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--f-veil), var(--f-veil)),
+    var(--f-post-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: background-image var(--f-theme) ease;
+}
+/* No artwork, no layer. --f-post-bg is only set when the post has one. */
+.front:not([style*="--f-post-bg"])::before {
+  display: none;
+}
+
+/* THE WARP CORE, HELD STILL.
+
+   The animatic's opening frame, sitting under the page. See FrontCore.tsx for
+   how the geometry is derived; this is only where it is put and how big.
+
+   SIZED IN vh, because that is what the hero's own camera is sized in, so it
+   tracks the destination at every window size instead of matching at one.
+
+   The number, worked rather than guessed. The camera is FOV 55 at a 47.4 eye
+   distance, so half the frame is tan(27.5deg) * 47.4 = 24.68 world units. The
+   outer shell has radius 2.0, so its DIAMETER is 4.0 / 24.68 = 16.2% of the
+   half-height, which is 8.1% of the viewport height. The shell fills 98.4% of
+   the generated viewBox (the rest is stroke padding), so the svg is
+   8.1 / 0.984 = 8.24vh.
+
+   This was 16.2vh first, which put it at exactly double: 16.2% is the fraction
+   of the HALF-height, and it got written as if it were the whole. Measured
+   against the real first frame the static ball came out 135px across where the
+   live one is 73px.
+
+   NO z-index. It is first in the DOM and everything else in .front comes after
+   it, so source order alone puts it underneath, and there is no stacking
+   context to unpick when the exit needs to lift it.
+
+   The strokes are the hero's colours at the hero's opacities: the shell is 0.4
+   and the core sits between 0.55 and 0.9 as it breathes, so 0.7 is where it
+   spends most of its time. Additive blending is what makes them glow against
+   black in WebGL; screen is the closest thing CSS has and it behaves the same
+   over a dark ground. */
+.front__core {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  transition: opacity var(--f-theme) ease;
+}
+.front__core-svg {
+  width: 8.24vh;
+  height: 8.24vh;
+  overflow: visible;
+}
+.front__core-shell,
+.front__core-inner {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1;
+}
+.front__core-shell { stroke: #3dff9e; opacity: 0.4; }
+.front__core-inner { stroke: #00e0ff; opacity: 0.7; }
+
+/* Light mode has no black for the glow to sit on, and a screen blend over cream
+   is invisible. The ball is a dark-scene object; on the light page it steps
+   down rather than pretending. */
+:root[data-front-theme="light"] .front__core {
+  mix-blend-mode: multiply;
+  opacity: 0.35;
+}
+
+/* --- Masthead ----------------------------------------------
+
+   The one band on the page that quotes .glyph-title-bar
+   outright: tick marks across the full width, accent brackets
+   capping both ends. It is the site's most recognisable piece
+   of furniture and it belongs at the top of its front door. */
+
+.front__head {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-inline: var(--f-inset);
+  height: clamp(52px, 7.5vh, 68px);
+  border-bottom: 1px solid var(--f-line);
+  background-repeat: no-repeat;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--f-tick) 0px,
+    var(--f-tick) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+}
+
+/* The corner brackets. Same 40x12 geometry and same three-sided
+   construction as .glyph-title-bar::before / ::after, anchored
+   to the SITE BOX rather than the viewport so they cap the
+   content measure and not the screen. */
+/* NO CORNER BRACKETS.
+
+   They were quoted from .glyph-title-bar and they cannot work here. On that
+   component the heading is CENTRED, so brackets capping the band never meet
+   it. This masthead puts the wordmark hard left and the switch hard right,
+   both against the box edge now that everything sits inside --site-width, and
+   both carry an opaque ground to punch through the tick marks. There is no
+   position left for a bracket that is not either under the type or outside the
+   box. The tick band alone carries the quote. */
+
+/* The wordmark and the switch sit ON the ticked ground, so both
+   carry the ground colour behind them the way
+   .glyph-title-bar__heading does. Without it the tick marks run
+   straight through the lettering. */
+/* The h1 is only a wrapper now. Everything visible about the logo comes from
+   .site-nav__logo and friends, which the markup opts into by class, so the
+   name is the same size, tracking and weight as the header on every other
+   page and keeps the hover shimmer for free.
+
+   What stays here is the opaque ground: without it the masthead's tick marks
+   run straight through the lettering. .glyph-title-bar__heading does the same
+   thing with #000. */
+.front__wordmark {
+  position: relative;
+  /* FLEX, and that is what closes the gap above the logo.
+
+     .site-nav__logo is display: inline-flex, so inside a block h1 it is an
+     inline-level box sitting on the text baseline: the line box reserves room
+     for ascenders and descenders of a font nobody is rendering, and all of it
+     lands as space above the mark. In the real nav this never shows, because
+     .site-nav is a flex row and the logo is a flex ITEM, where baseline
+     alignment does not apply.
+
+     Making the wrapper a flex row reproduces that exactly, and the opaque
+     ground then hugs the logo instead of a phantom line box. */
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding-right: var(--space-md);
+  background-color: var(--f-bg);
+  line-height: 1;
+  /* h1 carries -0.02em globally; the logo sets its own, but the wrapper must
+     not add tracking to the space between the frames and the name. */
+  letter-spacing: normal;
+  transition: background-color var(--f-theme) ease;
+}
+
+/* A square icon button on .nav-links__item's construction: glass, 3px radius,
+   a light 1px border, and a hover that brightens rather than inverts.
+
+   The SVGs draw on currentColor, so the accent below is the only place either
+   mark gets a colour and light mode inherits the swap for free. */
+.front__theme {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--f-line-hi);
+  border-radius: 3px;
+  background: var(--f-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--f-accent);
+  line-height: 0;
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out),
+              color var(--duration-base) var(--ease-out);
+}
+.front__theme:hover,
+.front__theme:focus-visible {
+  background: var(--f-accent-wash);
+  border-color: var(--f-accent-edge);
+  color: var(--f-ink);
+  outline: none;
+}
+.front__theme:focus-visible {
+  box-shadow: 0 0 0 2px var(--f-accent-glow);
+}
+
+/* Both marks ship in the HTML and CSS shows exactly one, keyed
+   off the same two states as the palette. Each mark names where
+   pressing it GOES, not where you are.
+
+   See the comment in FrontThemeToggle.tsx for why this is not
+   decided in JS. */
+.front__theme-mark { display: block; }
+.front__theme-mark--dark { display: none; }
+:root[data-front-theme="light"] .front__theme-mark--light { display: none; }
+:root[data-front-theme="light"] .front__theme-mark--dark  { display: block; }
+
+/* --- Standfirst --------------------------------------------- */
+
+.front__standfirst {
+  flex: 0 0 auto;
+  margin: 0;
+  padding-block: clamp(9px, 1.5vh, 15px);
+  padding-inline: var(--f-inset);
+  /* Same fading rule the cells use, so the head of the table is divided the
+     same way its rows are. */
+  border-bottom: 0;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--f-line-hi) 14%,
+    var(--f-line-hi) 86%,
+    transparent 100%
+  );
+  background-size: 100% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  /* Serif and italic, which is how this site sets a secondary
+     line under a title (.feed-entry__hook). */
+  font-style: italic;
+  font-size: clamp(0.8rem, 1.6vw, 0.95rem);
+  line-height: 1.5;
+  color: var(--f-dim);
+  /* No max-width. The site box is the measure now, and a second
+     cap inside it would end this line short of where every row
+     below it ends, which is the one alignment on the page a
+     reader actually sees. */
+}
+
+/* --- The table ---------------------------------------------
+
+   THE HEIGHT MODEL, which is the whole trick of this page.
+
+   Closed, every cell is `flex: 1 1 0`: equal grow, equal
+   shrink, zero basis. Six identical cells divide whatever the
+   masthead, the standfirst and the CTA left behind, exactly,
+   with no arithmetic anywhere and no dependence on how tall any
+   label happens to render.
+
+   Open, :has() lets the TABLE know one of its children is
+   expanded, and the rule flips: the open cell takes the space
+   and its siblings collapse to their summary bar. The sum is
+   unchanged, so the page still closes at one screen.
+
+   :has() is doing something no other selector can here, which
+   is a parent reacting to a descendant's state. It has been in
+   every shipping browser since late 2023. In anything older the
+   fallback is graceful rather than broken: all six cells stay
+   equal, the open panel scrolls inside its own sixth of the
+   screen, and the page still does not scroll.
+
+   The <details name> attribute keeps at most one open, so the
+   two-open case this model does not size for cannot arise.  */
+
+.front__table {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* THE CELL GROWS BY EXACTLY THE FOLD, and nothing else moves on its own.
+
+   This replaces a flex-GROW animation (1 -> 12 on the open cell, 1 -> 0 on the
+   rest). That version worked and was still wrong: grow 12 pulled the open cell
+   to 401px when the panel inside it only needed 185, and the surplus 216px had
+   nowhere to go but the title bar above it. So the bar ballooned from 129px to
+   216px on open, which is the "title panel expands when it should stay the
+   same".
+
+   The cell now keeps `flex-grow: 1` in both states, always, and the ONLY thing
+   that changes is flex-BASIS: 0 when shut, the measured panel height when open.
+   The cell therefore grows by precisely the height the content needs, and the
+   bar, being the remainder, is left almost exactly where it was.
+
+   The arithmetic, with T for the table height and F for the fold, at progress
+   p (basis and fold run on the same clock, so both are p*F):
+
+     open cell   = p*F + (T - p*F)/6      129 -> 283
+     its bar     = cell - fold            129 ->  98
+     other cells = (T - p*F)/6            129 ->  98
+
+   Every bar in the table is the same height as every other at every instant,
+   open or shut, and they drift by 31px across the whole move instead of one of
+   them doubling. The panel does all the expanding, which is the point.
+
+   Basis is a length in both states, so it interpolates in both directions
+   without the `auto` problem documented on ::details-content below.
+
+   WITHOUT JS --f-fold is unset and this falls back to 0px: the open cell takes
+   an equal share like the others and the panel scrolls inside it. Cramped, but
+   nothing is lost or unreachable. */
+.front__cell {
+  position: relative;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+  transition: flex-basis var(--f-glide) var(--ease-in-out),
+              background-color var(--duration-base) var(--ease-out);
+}
+
+.front__cell[open] {
+  flex-basis: var(--f-fold, 0px);
+  background-color: var(--f-cell-ground);
+}
+
+/* THE DIVIDER, and it is a gradient rather than a border.
+
+   A flat 1px rule across the full box was reading as a hard edge, which is the
+   Offplat vocabulary this page was pulled off. This fades to nothing at both
+   ends, so the line is at full strength only through the middle where the eye
+   is and dissolves before it reaches the box edge. The table still reads as a
+   table; it just stops looking welded.
+
+   Absolute rather than a border because .front__cell is a flex column and a
+   pseudo-element in flow would become a flex item and take height from the
+   panel. The cell is already position: relative for the accent edge. */
+.front__cell::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--f-line-hi) 14%,
+    var(--f-line-hi) 86%,
+    transparent 100%
+  );
+}
+/* The last cell sits directly above the footer button, which brings its own
+   top edge. Two lines that close together read as a mistake. */
+.front__cell:last-of-type::after { display: none; }
+
+/* The summary bar. The same object whether the cell expands or
+   navigates, because they are the same row of the same table.
+
+   list-style plus ::-webkit-details-marker kill the native
+   disclosure triangle; the + in .front__chev replaces it. */
+/* THE BAR IS DERIVED, and animates nothing of its own.
+
+   Two earlier versions animated it directly and both were wrong, in ways only
+   a frame-by-frame trace showed:
+
+     v1  it swapped `flex: 1 1 auto` for `flex: 0 0 auto` on :not([open]).
+         The instant the cell gained the attribute the selector stopped
+         matching and the bar SNAPPED, while the panel took 560ms. That was
+         the "title moves in a blink".
+
+     v2  it transitioned flex-grow 1 -> 0 on its own clock. Measured, the bar
+         did not travel from 129px to 74px at all: it dropped to 74, climbed
+         back to 104, and settled at 74 on open, and on CLOSE it overshot to
+         201px against a 129px target. Three boxes (bar, content, cell) all
+         negotiating flex at once, two of them animating on different curves
+         and the third contributing an auto basis, do not add up to a monotonic
+         height.
+
+   So the bar now animates nothing. It is `flex: 1 1 auto` and takes whatever
+   the cell has left after the content block, which means its height is a
+   SUBTRACTION rather than a second animation. One value moves (the fold, see
+   ::details-content below), the bar follows it exactly, and there is nothing
+   left that can drift out of step or overshoot.
+
+   min-height is the floor that keeps the label legible once the content has
+   taken the rest. */
+.front__summary {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: var(--f-bar);
+  padding-inline: var(--f-inset);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.front__summary::-webkit-details-marker { display: none; }
+
+/* An accent edge that grows in from the left on hover, in place
+   of Offplat's whole-row inversion. Nothing on chadlewine.com
+   inverts, and the vocabulary this site does have for "this one
+   is live" is an accent line (see .glyph-title-bar's brackets).
+
+   scaleY from a 0 origin rather than a width or a border, so it
+   animates on the compositor and costs no layout. */
+.front__summary::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--f-accent);
+  transform: scaleY(0);
+  transform-origin: 50% 0;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+/* GATED ON (hover: hover). On a touch screen :hover latches on
+   the last thing a finger passed, so an ungated rule leaves a
+   cell lit after every tap. */
+@media (hover: hover) {
+  .front__cell:hover > .front__summary {
+    background: var(--f-surface-hi);
+  }
+  .front__cell:hover > .front__summary::before {
+    transform: scaleY(1);
+  }
+  .front__cell:hover > .front__summary .front__chev {
+    color: var(--f-accent);
+  }
+  .front__cell:hover > .front__summary .front__hint {
+    color: var(--f-dim);
+  }
+}
+.front__cell[open] > .front__summary::before {
+  transform: scaleY(1);
+}
+
+.front__cell:focus-visible,
+.front__summary:focus-visible {
+  outline: 1px solid var(--f-accent-line);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 3px var(--f-accent-glow);
+}
+
+/* Uppercase and OPEN-tracked, the way .glyph-title-bar__heading
+   is set. The tight negative tracking this had first was
+   Offplat's setting, and it is the single thing that made the
+   page read as someone else's. */
+.front__label {
+  flex: 0 0 auto;
+  font-family: var(--font-ui);
+  font-size: clamp(1rem, 3vw, 1.82rem);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: var(--f-ink);
+}
+
+/* The current item's name, riding along in the summary bar so
+   the table says what is behind each cell before it opens.
+   Truncated rather than wrapped: a two-line hint would change
+   the bar's height, and the equal-division model with it. */
+.front__hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  font-family: var(--font-ui);
+  font-size: clamp(0.65rem, 1.4vw, 0.8rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--f-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--duration-base) var(--ease-out);
+}
+/* The hint is the first thing to go when width runs out. The
+   label and the affordance are load-bearing; this is a
+   courtesy. */
+@media (max-width: 520px) {
+  .front__hint { display: none; }
+}
+
+.front__chev {
+  flex: 0 0 auto;
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: clamp(0.9rem, 2.2vw, 1.3rem);
+  line-height: 1;
+  color: var(--f-faint);
+  /* Turns on the row's clock, not the UI clock. A mark that finished its
+     rotation a third of the way into the glide reads as a separate event from
+     the panel it is describing. */
+  transition: transform var(--f-glide) var(--ease-in-out),
+              color var(--duration-base) var(--ease-out);
+}
+.front__cell[open] > .front__summary .front__chev {
+  transform: rotate(45deg);
+  color: var(--f-accent);
+}
+
+/* --- Panels ------------------------------------------------- */
+
+/* THE FOLD, and it happens on ::details-content, NOT on .front__panel.
+
+   This is the thing that made "the content and the UI unfold separately" so
+   hard to see in the stylesheet: the panel element is not what the browser
+   hides. A <details> wraps everything after the <summary> in a
+   ::details-content pseudo-element and hides THAT. Measured on the closed
+   cell, .front__panel reports display: block, content-visibility: visible and
+   a full 185px box, while checkVisibility() says false. So every rule aimed at
+   .front__panel was styling a box that was already the right size and was
+   never the one being shown or hidden. The panel could not fold because
+   nothing was ever asking it to.
+
+   Animating the real wrapper takes three things, all of which this engine
+   reports support for:
+
+     ::details-content            addresses the wrapper at all
+     interpolate-size             lets block-size reach `auto`, i.e. the
+                                  content's own height, as an animatable value
+     transition-behavior: allow-discrete
+                                  keeps content-visibility on THROUGH the
+                                  closing fold. Without it the content is
+                                  hidden on frame one and the box folds shut
+                                  empty, which is the same complaint again in
+                                  the other direction.
+
+   WHERE IT DEGRADES: an engine without interpolate-size cuts open and shut
+   instead of folding. Everything still works, and no content is lost; it just
+   is not animated. That is the right failure for a visual nicety. */
+.front__cell::details-content {
+  block-size: 0;
+  overflow-y: clip;
+  overscroll-behavior: contain;
+  /* NO SCROLLBAR, EVER, and especially not in flight.
+
+     The open state below needs overflow-y: auto as a safety net for a panel
+     the table cannot give enough room to. But `auto` means a scrollbar appears
+     the moment the content is taller than the box, and DURING the fold that is
+     true by definition: the box starts at 0 and grows to meet the content. So
+     a scrollbar flashed on for the length of every open and every close and
+     vanished once settled.
+
+     Hiding the chrome rather than removing the overflow keeps the safety net:
+     an over-long panel can still be scrolled by wheel or touch, it just never
+     draws a bar. global.css styles ::-webkit-scrollbar at 12px site-wide,
+     which is what made this so loud. */
+  scrollbar-width: none;
+  /* transition-behavior as its OWN declaration rather than folded into the
+     shorthand. The shorthand form parses, but the closing direction needs the
+     discrete flip held back for the whole duration or the contents stop being
+     laid out on frame one, `auto` resolves to 0 immediately, and there is
+     nothing left to animate from. */
+  transition-property: block-size, content-visibility;
+  transition-duration: var(--f-glide);
+  transition-timing-function: var(--ease-in-out);
+  transition-behavior: allow-discrete;
+}
+.front__cell[open]::details-content {
+  /* The measured panel height, published by FrontFoldSizer. `auto` is the
+     fallback for the frame before that effect runs, and for a page where JS
+     never arrives: opening still folds, closing cuts, nothing is lost. See the
+     component for why auto alone cannot carry the closing direction. */
+  block-size: var(--f-fold, auto);
+  /* The cell has a definite height (flex gives it one), so this bounds a long
+     panel to the cell instead of letting it push past and be clipped by
+     .front's overflow, where it would be unreachable. */
+  max-block-size: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+/* The WebKit half of the same thing, on the panel only. It CANNOT be written
+   as ::details-content::-webkit-scrollbar: chaining pseudo-elements is a parse
+   error, and Turbopack rejects the whole stylesheet over it rather than
+   dropping the rule. scrollbar-width: none above is what covers the wrapper. */
+.front__panel::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.front__panel {
+  min-height: 0;
+  /* No overflow of its own any more. The scroll lives on ::details-content
+     above, which is the box with the bounded height; two nested scrollers
+     would fight over the same wheel event. */
+  border-top: 1px solid var(--f-line);
+  /* Denser than the cell's own ground, and only here: the title bar above
+     keeps the lighter one. This is the box carrying prose, a date and a kind
+     label, which are the parts a photograph behind them takes out first. */
+  background-color: var(--f-panel-ground);
+}
+
+.front__panel-inner {
+  padding-block: var(--f-panel-pad);
+  padding-inline: var(--f-inset);
+}
+
+.front__media {
+  display: flex;
+  gap: clamp(14px, 2.5vw, 28px);
+  align-items: flex-start;
+}
+@media (max-width: 640px) {
+  .front__media { gap: 14px; }
+}
+
+/* 6px radius and an elevated ground behind the image, matching
+   .feed-entry__art-wrap. */
+.front__art {
+  flex: 0 0 auto;
+  width: clamp(72px, 14vh, 150px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  border: 1px solid var(--f-line);
+  background: var(--f-elevated);
+}
+
+.front__stage {
+  flex: 0 0 auto;
+  width: clamp(140px, 27vh, 280px);
+  aspect-ratio: 16 / 9;
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--f-line);
+  background: var(--f-elevated);
+}
+
+.front__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.front__kind {
+  margin: 0 0 7px;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--f-accent);
+}
+
+/* Serif, like every title on the site. */
+.front__title {
+  margin: 0 0 6px;
+  font-size: clamp(1.05rem, 2.4vw, 1.5rem);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--f-ink);
+}
+
+.front__meta {
+  margin: 0 0 12px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--f-faint);
+}
+
+.front__text {
+  margin: 0 0 16px;
+  font-size: clamp(0.85rem, 1.7vw, 1rem);
+  line-height: 1.6;
+  color: var(--f-dim);
+  max-width: 68ch;
+}
+
+/* The site's canonical button, scaled down: see
+   .home-merch__view-all. Accent-tinted glass rather than a
+   solid fill, and it lifts on hover. */
+.front__go {
+  display: inline-block;
+  padding: 10px 22px;
+  border: 1px solid var(--f-accent-line);
+  border-radius: 4px;
+  background: var(--f-accent-wash);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--f-ink);
+  text-decoration: none;
+  transition: background var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+}
+.front__go:hover,
+.front__go:focus-visible {
+  background: var(--f-accent-hi);
+  border-color: var(--f-accent-edge);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+/* --- Video facade ------------------------------------------- */
+
+.front__video-facade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.front__video-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.front__video-play {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--f-accent-line);
+  background: var(--f-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--f-ink);
+  font-size: 0.95rem;
+  /* The glyph's side bearings are not symmetrical, so a centred
+     triangle reads as left of centre without this. */
+  padding-left: 3px;
+  box-shadow: 0 0 20px var(--f-accent-glow);
+  transition: transform var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out);
+}
+.front__video-facade:hover .front__video-play {
+  transform: scale(1.08);
+  border-color: var(--f-accent-edge);
+}
+.front__video-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* --- Subscribe ---------------------------------------------- */
+
+.front__sub { margin: 0; max-width: 520px; }
+
+.front__sub-label {
+  display: block;
+  margin-bottom: 9px;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--f-faint);
+}
+
+.front__sub-fields { display: flex; gap: 8px; }
+
+.front__sub-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--f-line-hi);
+  border-radius: 4px;
+  background: var(--f-surface);
+  color: var(--f-ink);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  transition: border-color var(--duration-base) var(--ease-out),
+              background var(--duration-base) var(--ease-out);
+}
+/* iOS zooms the viewport on focus for any input under 16px, and
+   a zoomed viewport is a scrolling page. This is the one place
+   on the front page where type size is a layout constraint
+   rather than a matter of taste. */
+@supports (-webkit-touch-callout: none) {
+  .front__sub-input { font-size: 16px; }
+}
+.front__sub-input::placeholder { color: var(--f-faint); }
+.front__sub-input:focus-visible {
+  outline: none;
+  border-color: var(--f-accent-line);
+  background: var(--f-surface-hi);
+  box-shadow: 0 0 0 3px var(--f-accent-glow);
+}
+
+.front__sub-button {
+  flex: 0 0 auto;
+  padding: 11px 24px;
+  border: 1px solid var(--f-accent-line);
+  border-radius: 4px;
+  background: var(--f-accent-wash);
+  color: var(--f-ink);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out),
+              transform var(--duration-base) var(--ease-out);
+}
+.front__sub-button:hover:not(:disabled) {
+  background: var(--f-accent-hi);
+  border-color: var(--f-accent-edge);
+  transform: translateY(-2px);
+}
+.front__sub-button:disabled { opacity: 0.5; cursor: default; }
+
+.front__sub-note {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  font-style: italic;
+  line-height: 1.55;
+  max-width: 58ch;
+  color: var(--f-dim);
+}
+.front__sub-note--ok  { margin-top: 0; }
+.front__sub-note--bad { color: var(--f-accent); font-style: normal; }
+
+/* --- The CTA ------------------------------------------------
+
+   Chad's brief: "not part of the table visually, but is the
+   final cell so the viewport 100% always works."
+
+   So it is a flex sibling of the table and takes a fixed slice
+   of the same column, which keeps the height model closing at
+   100dvh, while looking like nothing else on the page. It is
+   built on .home-merch__view-all, the site's own primary
+   button: accent-tinted glass over an accent wash, a 1px accent
+   border, and a lift on hover. Not a solid fill; nothing on
+   this site is a solid fill.
+
+   No tick band down here. It only reads when the type sits on
+   an opaque patch punched through it, the way
+   .glyph-title-bar__heading sits on #000, and over an accent
+   wash that patch looks like a hole cut in the band rather than
+   a label on it. The masthead says the thing once.          */
+
+.front__cta {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  height: clamp(52px, 8vh, 76px);
+  /* A BUTTON, not a band. It is bordered on all four sides and rounded at 4px
+     like .home-merch__view-all, and it clears the bottom of the frame so it
+     reads as an object sitting in the page rather than as the last row of the
+     table. The gap is inside the 100dvh budget: a flex item's margin is part
+     of the column, so the page still closes at one screen. */
+  margin-block: clamp(10px, 1.6vh, 18px);
+  border: 1px solid var(--f-accent-line);
+  border-radius: 4px;
+  /* TWO LAYERS, not one. The accent wash is 8% and was the button's whole
+     background, which over the artwork left it barely there. The site ground
+     goes underneath at 75% so the button is a solid object, and the accent
+     stays a tint ON it rather than being replaced by it. Written as a gradient
+     because that is the only way to stack a flat colour above another in a
+     single background property. */
+  background-color: var(--f-cell-ground);
+  background-image: linear-gradient(var(--f-accent-wash), var(--f-accent-wash));
+  font-family: var(--font-ui);
+  font-size: clamp(0.78rem, 1.9vw, 1rem);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--f-ink);
+  text-decoration: none;
+  transition: background-image var(--duration-base) var(--ease-out),
+              background-color var(--duration-base) var(--ease-out),
+              border-color var(--duration-base) var(--ease-out);
+}
+.front__cta:hover,
+.front__cta:focus-visible {
+  /* The ground holds; only the tint above it brightens. */
+  background-image: linear-gradient(var(--f-accent-hi), var(--f-accent-hi));
+  border-color: var(--f-accent-edge);
+  outline: none;
+}
+.front__cta-chev {
+  font-family: var(--font-mono, var(--font-ui));
+  color: var(--f-accent);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+.front__cta:hover .front__cta-chev { transform: translateX(6px); }
+
+/* --- The exit -----------------------------------------------
+
+   Played by FrontExit before it changes the location. The panels wipe left one
+   after another, first row to last, while the chrome and the artwork behind it
+   fade, and a brand-black veil closes over the end of it.
+
+   The stagger is written out per row rather than generated, because there are
+   six of them and a list of six delays is easier to read and to retune than
+   any expression that would produce it. 70ms apart, so the last row starts at
+   350ms and finishes at 740ms; FrontExit navigates at 980ms, which leaves the
+   veil 240ms to seal.
+
+   translateX(-100%) is a real wipe rather than a fade-with-drift: each row
+   leaves the way it would leave a slide. .front is overflow: hidden, so they
+   go out of the box rather than over the page.
+
+   NO TRANSITION ON THE CELLS' OWN PROPERTIES HERE. They already carry one for
+   flex-basis (the fold) and background-color; adding transform and opacity to
+   the same declaration would replace it, and a cell caught mid-fold would snap
+   shut as it left. These are additive, on their own properties. */
+
+.front--exiting .front__cell {
+  transform: translateX(-100%);
+  opacity: 0;
+  transition:
+    transform 390ms cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 300ms linear;
+}
+.front--exiting .front__table > *:nth-child(1) { transition-delay: 0ms; }
+.front--exiting .front__table > *:nth-child(2) { transition-delay: 70ms; }
+.front--exiting .front__table > *:nth-child(3) { transition-delay: 140ms; }
+.front--exiting .front__table > *:nth-child(4) { transition-delay: 210ms; }
+.front--exiting .front__table > *:nth-child(5) { transition-delay: 280ms; }
+.front--exiting .front__table > *:nth-child(6) { transition-delay: 350ms; }
+
+/* The chrome does not wipe, it recedes: the masthead and the standfirst frame
+   the table rather than belonging to it, and sliding them would read as the
+   page falling apart instead of clearing. */
+.front--exiting .front__head,
+.front--exiting .front__standfirst {
+  opacity: 0;
+  transition: opacity 420ms linear;
+}
+
+/* The button goes last and goes quickly. It was just pressed, so it is the one
+   element a reader is looking straight at; holding it on screen while
+   everything else leaves makes it read as the thing that stayed behind. */
+.front--exiting .front__cta {
+  opacity: 0;
+  transition: opacity 260ms linear 420ms;
+}
+
+/* The artwork goes with them, so what is left underneath is the ground colour
+   and nothing else. */
+.front--exiting::before {
+  opacity: 0;
+  transition: opacity 620ms linear;
+}
+
+/* THE SEAL. Brand black, over everything, arriving in the last 240ms.
+
+   Its real job is the gap. A hard navigation has an unavoidable pause between
+   this document going away and the next one painting, and the destination's
+   animatic opens on black. Ending here on the same black means the handover
+   has nothing in it to see -- and it is the only part of this that light mode
+   needs, where the page would otherwise cut from cream straight to a dark
+   hero. */
+.front::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: #07070d;
+  opacity: 0;
+}
+.front--exiting::after {
+  opacity: 1;
+  transition: opacity 240ms linear 700ms;
+}
+
+/* THE BALL STAYS, and rises above the seal to do it.
+
+   Everything else on the page is clearing so the handover can land on a
+   matching frame, and the ball IS the matching frame: the next document opens
+   on the same geometry at the same size in the same place. Sealing black over
+   it would throw away the only thing the two pages have in common.
+
+   z-index 2 puts it over the seal (1) for the length of the exit only. It has
+   none at rest, which is what keeps it under the table the rest of the time. */
+.front--exiting .front__core {
+  z-index: 2;
+}
+
+/* Reduced motion never reaches any of this: FrontExit navigates immediately
+   rather than adding the class. The rule below is the belt to that braces, for
+   a preference that changes between the click and the timer. */
+@media (prefers-reduced-motion: reduce) {
+  .front--exiting .front__cell,
+  .front--exiting .front__head,
+  .front--exiting .front__standfirst,
+  .front--exiting .front__cta,
+  .front--exiting .front__core,
+  .front--exiting::before,
+  .front--exiting::after {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
+/* --- Short viewports ---------------------------------------
+
+   There is a floor under "fits any viewport", and it is honest
+   to name it. Below about 560px of height (a phone in
+   landscape, a half-height desktop window) six cells, a
+   masthead, a standfirst and a CTA cannot all hold a tappable
+   44px. The standfirst goes first, because it is the one
+   element here that is description rather than navigation, and
+   the sentence it carries is still published in the page's meta
+   description and in the JSON-LD, so nothing is lost to a
+   crawler when it is dropped for a reader.                  */
+
+@media (max-height: 560px) {
+  .front__standfirst { display: none; }
+  .front { --f-bar: 40px; }
+}
+
+/* THE CONSENT BANNER.
+
+   .cl-consent is position: fixed against the bottom of the viewport, and on a
+   page that cannot scroll it does not merely overlap the CTA, it puts it
+   permanently out of reach. Measured at 1600x1000: the banner covered the
+   whole 84px of the CTA, and there was no scroll available to get past it.
+
+   That matters more here than on any other route, because this page exists to
+   be a first impression and the banner only ever shows on a first visit.
+
+   The fix is the escape hatch this design already has: when the frame cannot
+   honestly hold everything, it stops pretending and lets the document scroll,
+   exactly as the short-viewport rule below does. The banner is dismissed once,
+   for good, and every load after it is locked back to one screen.
+
+   The margin under the CTA is what keeps it clear of the banner once scrolled
+   to; it is generous because the banner's text wraps to three lines on a
+   narrow screen and its height is not something CSS can read. */
+body:has(.cl-consent) .front {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+body:has(.cl-consent) .front__cell[open]::details-content { max-block-size: none; }
+body:has(.cl-consent) .front__cta { margin-bottom: clamp(110px, 22vh, 210px); }
+body:has(.cl-consent) .front { padding-bottom: 0; }
+
+/* Under 420px of height the table cannot be honest about it.
+   Rather than crush the cells below a thumb's target size, the
+   frame gives up its no-scroll promise and lets the document
+   scroll normally. A page you can reach is worth more than a
+   rule you kept. */
+@media (max-height: 420px) {
+  .front { height: auto; min-height: 100dvh; overflow: visible; }
+  .front__cell[open]::details-content { max-block-size: none; }
+}
+
+/* The cart drawer parks at translateX(100%) but keeps a 32px box-shadow, and a
+   shadow does not travel with the transform's clipping: it reaches back onto
+   the page from off-screen. Everywhere else on this site that lands as black on
+   near-black and nobody has ever seen it. In light mode it is a grey smudge
+   down the right edge of an otherwise cream page.
+
+   Scoped to this page and to the CLOSED state only, so the drawer still casts
+   its shadow when it is actually open and no other route changes. */
+:root:has(.front) .cl-cart-drawer:not(.open) {
+  box-shadow: none;
+}
+
+/* --- Motion ------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .front *,
+  .front *::before,
+  .front *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}
