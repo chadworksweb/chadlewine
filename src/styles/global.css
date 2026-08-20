@@ -31940,15 +31940,29 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    There is a floor under "fits any viewport", and it is honest
    to name it. Below about 560px of height (a phone in
    landscape, a half-height desktop window) six cells, a
-   masthead, a standfirst and a CTA cannot all hold a tappable
-   44px. The standfirst goes first, because it is the one
-   element here that is description rather than navigation, and
-   the sentence it carries is still published in the page's meta
-   description and in the JSON-LD, so nothing is lost to a
-   crawler when it is dropped for a reader.                  */
+   masthead and a CTA cannot all hold a tappable 44px inside one
+   screen.
+
+   IT USED TO GIVE UP THE 44px, dropping the bar to 40 so the
+   table still fitted. That was the right trade when the frame
+   was a hard 100dvh and something had to give. It is the wrong
+   one now: the frame is a floor, the page is allowed to scroll,
+   and the thing being protected was a no-scroll promise that
+   this viewport had already broken. Measured at 844x390: six
+   40px rows, a masthead and a CTA came to 464px against a 390px
+   screen, so it scrolled anyway AND every row was 4px under the
+   minimum. Now it scrolls by 24px more and every row is
+   tappable.
+
+   44px is the floor named in this project's own standards and
+   the one Apple and Google both publish. A row you have to aim
+   at is worse than a row you have to scroll to.
+
+   (The standfirst used to be dropped here too. It no longer
+   exists: the sentence moved into the About panel.)         */
 
 @media (max-height: 560px) {
-  .front { --f-bar: 40px; }
+  .front { --f-bar: 44px; }
 }
 
 /* THE CONSENT BANNER.
