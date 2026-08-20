@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { mergeMetadata } from "@/lib/page-meta";
-import { getFrontRelease, getFrontVideo, getFrontPost } from "@/lib/front-data";
+import {
+  getFrontRelease,
+  getFrontVideo,
+  getFrontPost,
+  getFrontDiscography,
+} from "@/lib/front-data";
 import { FrontPanelCell, FrontLinkCell } from "@/components/front/FrontCell";
-import { FrontThemeToggle } from "@/components/front/FrontThemeToggle";
 import { FrontSubscribe } from "@/components/front/FrontSubscribe";
 import { FrontVideoPlayer } from "@/components/front/FrontVideoPlayer";
 import { FrontJsonLd } from "@/components/front/FrontJsonLd";
@@ -15,10 +19,11 @@ export const revalidate = 60;
 
 // Where VIEW FULL SITE goes.
 //
-// It points at the existing homepage, which is still at / while the front page
-// lives at /front. AT CUTOVER this becomes "/home" and nothing else here moves:
-// see FRONT-CUTOVER in plans/ for the four-step swap.
-const FULL_SITE_HREF = "/";
+// The animatic homepage, moved to /home at cutover so the front page could take
+// the root. FrontExit hard-navigates to it: the hero's boot script stamps
+// ha-anim on <html> before first paint and a client-side navigation never runs
+// it.
+const FULL_SITE_HREF = "/home";
 
 // The canonical self-description, reused rather than rewritten.
 //
@@ -36,9 +41,7 @@ const DEFAULT_METADATA: Metadata = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  // Reads the "/" row, not "/front". This IS the homepage in every sense
-  // that matters to this table, and pointing it at its temporary path would
-  // strand whatever Chad has already tuned in page_meta for the front page.
+  // Reads the "/" row. This IS the homepage; the full site reads "/home".
   return mergeMetadata("/", DEFAULT_METADATA);
 }
 
@@ -55,10 +58,11 @@ function cssUrl(path: string | null | undefined): string | null {
 }
 
 export default async function FrontPage() {
-  const [release, video, post] = await Promise.all([
+  const [release, video, post, discography] = await Promise.all([
     getFrontRelease(),
     getFrontVideo(),
     getFrontPost(),
+    getFrontDiscography(),
   ]);
 
   const releaseDate = frontDate(release?.releaseDate);
@@ -111,15 +115,12 @@ export default async function FrontPage() {
             </span>
           </span>
         </h1>
-        <FrontThemeToggle />
       </header>
-
-      <p className="front__standfirst">{STANDFIRST}</p>
 
       <div className="front__table">
         <FrontPanelCell label="Latest Release" hint={release?.title ?? null}>
           {release ? (
-            <div className="front__media">
+            <div className="front__media front__media--stacks">
               {release.coverPath ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -152,7 +153,7 @@ export default async function FrontPage() {
 
         <FrontPanelCell label="Latest Video" hint={video?.title ?? null}>
           {video ? (
-            <div className="front__media">
+            <div className="front__media front__media--stacks">
               <div className="front__stage">
                 <FrontVideoPlayer
                   src={video.embedSrc}
@@ -199,8 +200,62 @@ export default async function FrontPage() {
           )}
         </FrontPanelCell>
 
-        <FrontLinkCell label="Discography" hint="Every release" href="/discography" />
-        <FrontLinkCell label="About" hint="Who is doing this" href="/chad-lewine" />
+        {/* A panel now rather than a link, because it has something to show.
+            The covers are PICTURES ONLY, with no link of their own: three
+            competing routes into three records is not what this cell is for,
+            and the one link it does carry says how many records are not on
+            screen, which is the reason to press it. */}
+        <FrontPanelCell label="Discography" hint="Every release">
+          {discography.covers.length > 0 ? (
+            <>
+              <div className="front__covers">
+                {discography.covers.map((cover) => (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    key={cover.slug}
+                    className="front__cover"
+                    src={cover.coverPath}
+                    alt={cover.coverAlt || `${cover.title} cover art`}
+                  />
+                ))}
+              </div>
+              <div className="front__more">
+                {discography.more > 0 ? (
+                  <p className="front__more-count">+ {discography.more} more</p>
+                ) : null}
+                <Link className="front__go" href="/discography">
+                  View all
+                </Link>
+              </div>
+            </>
+          ) : (
+            <Link className="front__go" href="/discography">
+              See the discography
+            </Link>
+          )}
+        </FrontPanelCell>
+        {/* The sentence used to sit under the masthead as a standfirst. It is
+            the site's canonical self-description -- the same wording as the
+            root meta description, llms.txt and the WebSite node -- and it
+            answers "who is doing this", so it belongs behind the cell that
+            asks. A crawler still reads it either way: the panel's contents
+            ship in the server HTML whether or not it is opened. */}
+        <FrontPanelCell label="About" hint="Who is doing this">
+          <div className="front__media">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="front__portrait"
+              src="/images/super-individual/chad-lewine_the-deprogrammer_blue-glow.webp"
+              alt="Chad Lewine, the Deprogrammer"
+            />
+            <div className="front__body">
+              <p className="front__text">{STANDFIRST}</p>
+              <Link className="front__go" href="/chad-lewine">
+                More about Chad Lewine
+              </Link>
+            </div>
+          </div>
+        </FrontPanelCell>
 
         <FrontPanelCell label="Subscribe" hint="Where I am headed">
           <FrontSubscribe />

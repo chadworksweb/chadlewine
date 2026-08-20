@@ -110,6 +110,53 @@ export async function getFrontRelease(): Promise<FrontRelease | null> {
   };
 }
 
+export interface FrontDiscography {
+  covers: { slug: string; title: string; coverPath: string; coverAlt: string | null }[];
+  more: number;
+}
+
+// The three newest records, as pictures, plus how many are not shown.
+//
+// Same filter as getFrontRelease and as /discography itself: published, and no
+// singles. Since the singles-to-releases migration every single carries a
+// release row, so counting them would both crowd the newest albums out of the
+// three and inflate the "+ n more" against the page it links to.
+//
+// The count is a separate head query rather than data.length, because the rows
+// are limited to three and a limited query cannot tell you what it did not
+// return.
+export async function getFrontDiscography(): Promise<FrontDiscography> {
+  const supabase = createPublicClient();
+
+  const { data } = await supabase
+    .from("releases")
+    .select("title, slug, cover_art_path, cover_art_alt")
+    .eq("status", "published")
+    .neq("release_type", "single")
+    .order("release_date", { ascending: false })
+    .limit(3);
+
+  const { count } = await supabase
+    .from("releases")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "published")
+    .neq("release_type", "single");
+
+  // A release with no cover would render as an empty bordered box, which reads
+  // as a broken image rather than as a record. It is dropped from the strip and
+  // stays counted in the total, so the arithmetic below still adds up.
+  const covers = (data ?? [])
+    .filter((r) => Boolean(r.cover_art_path))
+    .map((r) => ({
+      slug: r.slug as string,
+      title: r.title as string,
+      coverPath: r.cover_art_path as string,
+      coverAlt: (r.cover_art_alt as string | null) ?? null,
+    }));
+
+  return { covers, more: Math.max((count ?? covers.length) - covers.length, 0) };
+}
+
 export async function getFrontVideo(): Promise<FrontVideo | null> {
   const supabase = createPublicClient();
 

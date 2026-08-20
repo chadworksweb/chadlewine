@@ -53,11 +53,18 @@ export function FrontExit({ href, children }: { href: string; children: React.Re
 
       const root = document.querySelector(".front");
 
-      // Reduced motion gets the navigation and none of the theatre. Waiting a
-      // second for an animation they asked not to see is worse than no
-      // transition at all.
-      const wantsMotion = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (!root || !wantsMotion) {
+      // NO REDUCED-MOTION GATE. This used to read
+      // prefers-reduced-motion and navigate straight through, skipping the
+      // wipe, which is the ordinary right answer and is what the rest of the
+      // site still does. The front page deliberately does not honour the
+      // preference (Chad, 2026-08-20; see the Motion section in global.css for
+      // the reasoning and the cost), and a wipe that played for everyone
+      // except the person who asked for less motion would leave this button
+      // behaving differently from every other moving part on the page.
+      //
+      // The `root` check stays: with no .front element there is nothing to add
+      // the class to and nothing to animate, so the navigation is all there is.
+      if (!root) {
         window.location.href = href;
         return;
       }

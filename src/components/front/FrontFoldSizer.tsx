@@ -27,6 +27,24 @@ import { useEffect } from "react";
 // var(--f-fold, auto): opening still folds, closing cuts. Nothing is lost and
 // no content is hidden, so this is an enhancement rather than a dependency.
 
+// It also holds a closing panel's CONTENTS on screen for the length of the fold.
+//
+// A <details> hides its contents by flipping ::details-content's
+// content-visibility, which is a DISCRETE property: it has no in-between value
+// and normally changes on frame one. `transition-behavior: allow-discrete` in
+// the stylesheet is what is supposed to defer that flip to the END of the
+// close, and in Chromium it does. On iOS Safari it does not: the contents
+// vanish instantly and the empty box then folds shut correctly underneath
+// them, which reads as the panel blinking out and the row collapsing after it.
+//
+// So the flip is taken out of the browser's hands. On a close, the cell wears
+// .front__cell--closing for exactly one glide, and the stylesheet keeps
+// content-visibility visible while it does. The contents ride the fold down and
+// are gone by the time the box reaches zero.
+//
+// The duration is READ FROM --f-glide rather than repeated here, so the hold
+// and the fold cannot drift apart in a later edit.
+
 export function FrontFoldSizer() {
   useEffect(() => {
     const cells = Array.from(
@@ -56,13 +74,54 @@ export function FrontFoldSizer() {
     //
     // Guarded because ResizeObserver is the one API here old enough to be worth
     // checking for; without it the first measurement simply stands.
-    if (typeof ResizeObserver === "undefined") return;
+    // The closing hold. `toggle` fires for the accordion's own auto-close too
+    // (opening one cell shuts its sibling), so both routes are covered.
+    const CLOSING = "front__cell--closing";
+    const timers = new Map<HTMLElement, number>();
+    const glideMs = (el: HTMLElement) => {
+      const raw = getComputedStyle(el).getPropertyValue("--f-glide").trim();
+      const n = parseFloat(raw);
+      if (!Number.isFinite(n)) return 560;
+      return raw.endsWith("ms") ? n : n * 1000;
+    };
+    const onToggle = (event: Event) => {
+      const cell = event.currentTarget as HTMLElement;
+      const pending = timers.get(cell);
+      if (pending) {
+        window.clearTimeout(pending);
+        timers.delete(cell);
+      }
+      if ((cell as HTMLDetailsElement).open) {
+        cell.classList.remove(CLOSING);
+        return;
+      }
+      cell.classList.add(CLOSING);
+      timers.set(
+        cell,
+        window.setTimeout(() => {
+          cell.classList.remove(CLOSING);
+          timers.delete(cell);
+        }, glideMs(cell))
+      );
+    };
+    for (const cell of cells) cell.addEventListener("toggle", onToggle);
+
+    const cleanupToggles = () => {
+      for (const cell of cells) cell.removeEventListener("toggle", onToggle);
+      for (const id of timers.values()) window.clearTimeout(id);
+      timers.clear();
+    };
+
+    if (typeof ResizeObserver === "undefined") return cleanupToggles;
     const ro = new ResizeObserver(() => measure());
     for (const cell of cells) {
       const panel = cell.querySelector(".front__panel");
       if (panel) ro.observe(panel);
     }
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      cleanupToggles();
+    };
   }, []);
 
   return null;

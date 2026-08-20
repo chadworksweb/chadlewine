@@ -15,10 +15,17 @@ import { getPreorderHeroSlide } from "@/lib/preorder-hero";
 
 export const revalidate = 60;
 
-const DEFAULT_METADATA: Metadata = {};
+// This page used to BE "/" and read the "/" page_meta row. At cutover the front
+// page took "/" over, including that row, so the full site reads its own
+// "/home" row instead. Canonical is declared here because the root layout's
+// default canonical is the bare origin, which would point every crawl of
+// /home back at the front page.
+const DEFAULT_METADATA: Metadata = {
+  alternates: { canonical: "https://chadlewine.com/home" },
+};
 
 export async function generateMetadata(): Promise<Metadata> {
-  return mergeMetadata("/", DEFAULT_METADATA);
+  return mergeMetadata("/home", DEFAULT_METADATA);
 }
 
 // The album whose tracklist IS the homepage "Latest Songs" feed. Scoping the

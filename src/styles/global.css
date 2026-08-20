@@ -363,7 +363,9 @@ main > .page-music-hub__banner {
 a {
   color: var(--text-accent);
   text-decoration: none;
-  transition: color var(--duration-fast) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 a:hover {
   color: var(--text-primary);
@@ -398,7 +400,9 @@ h2, h3, h4, h5, h6 {
   right: 0;
   z-index: 100;
   background: var(--bg-deep);
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .site-header--hidden {
@@ -634,7 +638,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  transition: all var(--duration-base) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .nav-links__item:hover {
@@ -768,10 +774,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   overflow: hidden;
   opacity: 0;
   transform: translateY(-8px);
-  transition: max-height var(--duration-base) var(--ease-out),
-              opacity var(--duration-base) var(--ease-out),
-              transform var(--duration-base) var(--ease-out),
-              padding-bottom var(--duration-base) var(--ease-out);
+  transition-property: max-height, opacity, transform, padding-bottom;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .nav-mobile-menu--open {
@@ -813,7 +818,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   text-decoration: none;
-  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+  transition-property: background, border-color, color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .nav-mobile-menu__item--parent {
@@ -847,7 +854,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border-radius: 4px;
   cursor: pointer;
   padding: 0;
-  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+  transition-property: background, border-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .nav-mobile-menu__chevron:hover {
@@ -859,7 +868,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   display: block;
   width: 22px;
   height: 22px;
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .nav-mobile-menu__chevron--open svg {
@@ -1049,7 +1060,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .subscribe-section__input::placeholder {
@@ -1071,7 +1084,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   white-space: nowrap;
 }
 
@@ -2190,7 +2205,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   background: none;
   cursor: pointer;
   font-size: 14px;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   opacity: 0.5;
 }
 
@@ -2241,7 +2258,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   background: rgba(255,255,255,0.08);
   color: var(--text-tertiary);
   text-decoration: none;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   backdrop-filter: blur(8px);
 }
 
@@ -2361,7 +2380,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   gap: var(--space-lg);
   padding: var(--space-lg);
   border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--duration-fast) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   text-decoration: none;
   color: inherit;
 }
@@ -2382,7 +2403,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .feed-entry__content {
@@ -2494,7 +2517,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   height: 96px;
   border-radius: 6px;
   overflow: hidden;
-  transition: opacity 0.2s var(--ease-out);
+  transition-property: opacity;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .featured-track__art-link:hover {
@@ -2524,7 +2549,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color 0.2s var(--ease-out);
+  transition-property: color;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .featured-track__title:hover {
@@ -2536,7 +2563,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   text-decoration: none;
-  transition: color 0.2s var(--ease-out);
+  transition-property: color;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .featured-track__album:hover {
@@ -2570,7 +2599,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border-radius: 6px;
   text-decoration: none;
   box-shadow: 0 0 16px rgba(0, 212, 170, 0.35);
-  transition: background 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
+  transition-property: background, box-shadow;
+  transition-duration: 0.18s, 0.18s;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .featured-track__cta:hover {
@@ -3030,7 +3061,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   padding: var(--space-lg) var(--space-xl);
   text-decoration: none;
   color: inherit;
-  transition: background var(--duration-fast) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .page-foundations__item-number {
@@ -3047,7 +3080,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
 .page-foundations__item-arrow {
   margin-left: auto;
   color: var(--text-tertiary);
-  transition: transform var(--duration-fast) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 /* ============================================================
@@ -3172,7 +3207,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
     border: 1px solid var(--border-medium);
     border-radius: 10px;
     cursor: pointer;
-    transition: color var(--duration-base) var(--ease-out);
+    transition-property: color;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
   }
 
   .legal__toc-toggle:hover {
@@ -3187,7 +3224,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
     border-right: 1.5px solid currentColor;
     border-bottom: 1.5px solid currentColor;
     transform: rotate(45deg);
-    transition: transform var(--duration-base) var(--ease-out);
+    transition-property: transform;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
   }
 
   .legal__toc-toggle[aria-expanded="true"] .legal__toc-caret {
@@ -3236,7 +3275,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   line-height: 1.3;
   color: var(--text-secondary);
   text-decoration: none;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .legal__toc-link:hover {
@@ -3250,10 +3291,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border-radius: 50%;
   border: 1px solid currentColor;
   background: transparent;
-  transition:
-    background var(--duration-base) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out);
+  transition-property: background, box-shadow, border-color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .legal__toc-item.is-active .legal__toc-link {
@@ -3349,9 +3389,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-color: rgba(139, 156, 247, 0.4);
-  transition:
-    color var(--duration-base) var(--ease-out),
-    text-decoration-color var(--duration-base) var(--ease-out);
+  transition-property: color, text-decoration-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .legal__body a:hover {
@@ -3469,7 +3509,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   cursor: pointer;
   z-index: 4;
   padding: 0;
-  transition: background var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+  transition-property: background, box-shadow, color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .album-hero__nav-tab--prev {
@@ -3573,7 +3615,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .album-hero__cover-link:hover .album-hero__cover {
@@ -3709,7 +3753,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   letter-spacing: 0.06em;
   text-decoration: none;
   text-transform: uppercase;
-  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .album-hero__cta:hover {
@@ -3736,7 +3782,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   cursor: pointer;
   overflow: hidden;
   opacity: 0.45;
-  transition: opacity var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+  transition-property: opacity, border-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
   position: relative;
 }
 
@@ -3885,7 +3933,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   letter-spacing: 0.1em;
   color: var(--text-tertiary);
   text-decoration: none;
-  transition: color 0.2s var(--ease-out);
+  transition-property: color;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .rc-badge__source:hover {
@@ -4234,8 +4284,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   overflow: hidden;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  transition: border-color var(--duration-fast) var(--ease-out),
-              transform var(--duration-fast) var(--ease-out);
+  transition-property: border-color, transform;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .curation-card:hover {
@@ -4370,7 +4421,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   text-decoration: none;
-  transition: background var(--duration-fast) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .curation-entry__platform-btn:hover {
@@ -4540,7 +4593,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   color: var(--reading-text-secondary);
   padding: 4px 0;
   cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   background: none;
   border: none;
   width: 100%;
@@ -4576,7 +4631,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border: 1px solid rgba(0,0,0,0.1);
   border-radius: 3px;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   background: none;
 }
 
@@ -5282,7 +5339,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .login-form__input:focus {
@@ -5299,7 +5358,9 @@ html {
   font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   margin-top: var(--space-sm);
 }
 
@@ -5403,8 +5464,9 @@ html {
   color: var(--text-secondary);
   text-decoration: none;
   border-radius: 6px;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .admin-sidebar__link:hover {
@@ -5456,8 +5518,9 @@ html {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   text-decoration: none;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .admin-sidebar__flyout-item:hover {
@@ -5486,7 +5549,9 @@ html {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .admin-sidebar__logout:hover {
@@ -5526,7 +5591,9 @@ html {
   border-radius: 6px;
   cursor: pointer;
   text-decoration: none;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .admin-btn:hover { opacity: 0.9; }
@@ -5715,8 +5782,9 @@ html {
   padding-bottom: var(--space-sm);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: color var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out);
+  transition-property: color, border-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .admin-tabs__tab:hover {
@@ -5801,7 +5869,9 @@ html {
 
 .admin-table__row {
   border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--duration-fast) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .admin-table__row:hover {
@@ -6202,7 +6272,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .obsv-editor__input:focus {
@@ -6276,7 +6348,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .campaign-editor__input:focus { border-color: var(--text-accent); }
 .campaign-editor__input:disabled {
@@ -6491,7 +6565,9 @@ html {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color var(--duration-fast), color var(--duration-fast), background var(--duration-fast);
+  transition-property: border-color, color, background;
+  transition-duration: var(--duration-fast), var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease, ease;
 }
 .campaign-editor__chip:hover { color: var(--text-primary); }
 .campaign-editor__chip--on {
@@ -6691,7 +6767,9 @@ html {
   font-weight: 600;
   cursor: help;
   flex-shrink: 0;
-  transition: border-color var(--duration-fast), color var(--duration-fast);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .audience-detail__info-icon:hover,
 .audience-detail__info-icon:focus {
@@ -6842,8 +6920,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out),
-              background-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color, background-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .account-auth__input:hover { border-color: rgba(255, 255, 255, 0.32); }
 .account-auth__input:focus {
@@ -6881,7 +6960,9 @@ html {
   color: var(--text-tertiary);
   cursor: pointer;
   border-radius: 4px;
-  transition: color var(--duration-fast);
+  transition-property: color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .account-auth__reveal:hover { color: var(--text-primary); }
 .account-auth__err {
@@ -7104,8 +7185,9 @@ html {
   font-family: var(--font-ui);
   font-size: 0.9375rem;
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out),
-              background-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color, background-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .account-dashboard__input:hover { border-color: rgba(255, 255, 255, 0.32); }
 .account-dashboard__input:focus {
@@ -7218,8 +7300,9 @@ html {
   background: #2a2a3a;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
-  transition: background var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out);
+  transition-property: background, border-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .account-dashboard__toggle-slider::before {
   content: "";
@@ -7231,8 +7314,9 @@ html {
   transform: translateY(-50%);
   background: #c8c8d4;
   border-radius: 50%;
-  transition: transform var(--duration-fast) var(--ease-out),
-              background var(--duration-fast) var(--ease-out);
+  transition-property: transform, background;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .account-dashboard__toggle input:checked + .account-dashboard__toggle-slider {
   background: var(--text-accent);
@@ -7419,7 +7503,9 @@ html {
   border-radius: 999px;
   padding: 10px 20px;
   cursor: pointer;
-  transition: filter var(--duration-fast) var(--ease-out);
+  transition-property: filter;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .unsubscribe-page__resub-btn:hover:not(:disabled) {
   filter: brightness(1.1);
@@ -7446,7 +7532,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .unsubscribe-page__input:focus,
 .unsubscribe-page__textarea:focus { border-color: var(--text-accent); }
@@ -7461,7 +7549,9 @@ html {
   padding: 10px 20px;
   cursor: pointer;
   align-self: flex-start;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .unsubscribe-page__submit:disabled { opacity: 0.5; cursor: not-allowed; }
 .unsubscribe-page__err {
@@ -7483,7 +7573,9 @@ html {
   line-height: 1.6;
   outline: none;
   resize: vertical;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .obsv-editor__textarea:focus {
@@ -7546,7 +7638,9 @@ html {
   border: 1px solid var(--border-medium);
   border-radius: 4px;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .obsv-editor__chip:hover {
@@ -7644,7 +7738,9 @@ html {
   font-size: var(--text-sm);
   cursor: pointer;
   color: var(--text-secondary);
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .med-composer__toolbar-btn:hover {
@@ -7739,7 +7835,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   text-align: center;
 }
 
@@ -8441,7 +8539,9 @@ html {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .rte__tab:hover {
@@ -8479,7 +8579,9 @@ html {
   border: 1px solid transparent;
   border-radius: 3px;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   min-width: 26px;
   text-align: center;
 }
@@ -8758,7 +8860,9 @@ html {
   text-decoration: none;
   color: inherit;
   background: #1a1a2e;
-  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  transition-property: border-color, box-shadow;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
@@ -8860,7 +8964,9 @@ html {
   display: block;
   text-decoration: none;
   color: inherit;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .synapse-jumper__card:hover {
@@ -8944,7 +9050,9 @@ html {
   display: block;
   text-decoration: none;
   color: inherit;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .related-observations__card:hover {
@@ -9068,7 +9176,9 @@ html {
   border-radius: 8px;
   text-align: center;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .media-modal__dropzone:hover,
@@ -9134,7 +9244,9 @@ html {
      separate cells instead of bleeding into one continuous wall. */
   background: var(--bg-elevated, #1a1a1a);
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.10));
-  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  transition-property: border-color, box-shadow;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
   cursor: pointer;
 }
 
@@ -9375,7 +9487,9 @@ html {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
   margin-bottom: var(--space-xl);
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .media-page__dropzone:hover,
@@ -9414,7 +9528,9 @@ html {
   background: var(--bg-elevated, #1a1a1a);
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .media-page__item:hover {
@@ -11654,7 +11770,9 @@ html {
   gap: var(--space-xs);
   flex-shrink: 0;
   width: 180px;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .sap__album-btn--active { border-color: var(--text-accent); }
 .sap__album-btn:hover { border-color: var(--border-medium); }
@@ -11739,7 +11857,9 @@ html {
   cursor: pointer;
   font-weight: 700;
   letter-spacing: 0.03em;
-  transition: opacity var(--duration-fast);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .sap__btn:hover { opacity: 0.85; }
 .sap__btn:disabled { opacity: 0.3; cursor: default; }
@@ -11772,7 +11892,9 @@ html {
   font-size: var(--text-body);
   text-align: left;
   border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .sap__track:hover { background: var(--bg-glass-hover); }
 .sap__track--active { color: var(--text-accent); }
@@ -11874,7 +11996,9 @@ html {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   cursor: pointer;
-  transition: background var(--duration-fast), border-color var(--duration-fast);
+  transition-property: background, border-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
   text-align: left;
   gap: 8px;
 }
@@ -11910,7 +12034,9 @@ html {
   display: inline-block;
   font-size: 0.75rem;
   color: var(--text-tertiary);
-  transition: transform var(--duration-fast);
+  transition-property: transform;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .lb__album-header[aria-expanded="true"] .lb__chevron {
   transform: rotate(90deg);
@@ -11938,7 +12064,9 @@ html {
   font-size: 0.82rem;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color var(--duration-fast), background var(--duration-fast);
+  transition-property: color, background;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
   text-align: left;
   line-height: 1.5;
 }
@@ -12105,7 +12233,9 @@ html {
     background: var(--bg-elevated);
     overflow: hidden; /* inner list scrolls, not the panel shell */
     transform: translateY(0); /* menu mode + open drawer both sit full */
-    transition: transform 0.42s var(--ease-in-out);
+    transition-property: transform;
+    transition-duration: 0.42s;
+    transition-timing-function: var(--ease-in-out);
     will-change: transform; /* own compositor layer -> slide isn't stuttered by reflow */
   }
   /* Reading: the release list is a shorter sheet (20% lyric gap at top) that
@@ -12162,7 +12292,9 @@ html {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     cursor: pointer;
-    transition: background var(--duration-base) var(--ease-out);
+    transition-property: background;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
   }
   /* Same tab, slightly lighter background while the list is open. */
   .lb--reading.lb--drawer-open .lb__pull {
@@ -12226,7 +12358,9 @@ html {
   color: inherit;
   display: flex;
   flex-direction: column;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .art-grid__item:hover { border-color: var(--border-medium); }
 
@@ -12318,7 +12452,9 @@ html {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  transition: border-color var(--duration-fast);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .art-modal__close:hover { border-color: var(--text-accent); }
 
@@ -12472,7 +12608,9 @@ html {
   border: 1px solid rgba(139, 156, 247, 0.45);
   border-radius: 4px;
   background: rgba(139, 156, 247, 0.08);
-  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+  transition-property: background, border-color, transform;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .home-merch__view-all:hover {
@@ -12635,7 +12773,9 @@ html {
   border-radius: 4px;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .format-buy__opt:hover { color: var(--text-primary); }
 .format-buy__opt--active {
@@ -12828,7 +12968,9 @@ html {
   border-radius: 6px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .patronage__toggle-opt:hover { color: var(--text-primary); }
 .patronage__toggle-opt--active {
@@ -12859,7 +13001,9 @@ html {
   cursor: pointer;
   display: inline-grid;
   place-content: center;
-  transition: border-color var(--duration-fast), background var(--duration-fast);
+  transition-property: border-color, background;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .patronage__checkbox:hover { border-color: var(--text-accent); }
 .patronage__checkbox:checked {
@@ -12920,7 +13064,9 @@ html {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--duration-fast), visibility var(--duration-fast);
+  transition-property: opacity, visibility;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
   z-index: 10;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
@@ -12955,7 +13101,9 @@ html {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   color: var(--text-secondary); cursor: pointer;
-  transition: border-color var(--duration-fast), color var(--duration-fast);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .patronage__preset:hover { border-color: rgba(255, 255, 255, 0.25); color: var(--text-primary); }
 .patronage__preset--active { border-color: var(--text-accent); color: var(--text-accent); }
@@ -12988,7 +13136,9 @@ html {
   padding: 0;
   font-size: 9px;
   line-height: 1;
-  transition: border-color var(--duration-fast), color var(--duration-fast);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .patronage__step:first-child { border-radius: 3px 3px 0 0; }
 .patronage__step:last-child { border-radius: 0 0 3px 3px; border-top: none; }
@@ -13003,7 +13153,9 @@ html {
   border-radius: 6px;
   color: var(--text-primary); width: 92px;
   outline: none;
-  transition: border-color var(--duration-fast);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
   -moz-appearance: textfield;
 }
 .patronage__input::-webkit-outer-spin-button,
@@ -13021,7 +13173,9 @@ html {
   background: #2f3bb0; color: #fff; border: none; border-radius: 6px;
   cursor: pointer; width: auto;
   letter-spacing: 0.03em;
-  transition: opacity var(--duration-fast);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .patronage__submit:hover { opacity: 0.85; }
 .patronage__submit:disabled { opacity: 0.5; cursor: default; }
@@ -13544,7 +13698,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   flex-shrink: 0;
   display: block;
   line-height: 0;
-  transition: opacity 0.2s var(--ease-out);
+  transition-property: opacity;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .track-detail__rc-compass-link:hover,
@@ -14873,7 +15029,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 
 .rtg__shot {
   object-fit: cover;
-  transition: transform var(--duration-slow) var(--ease-out), filter var(--duration-slow) var(--ease-out);
+  transition-property: transform, filter;
+  transition-duration: var(--duration-slow), var(--duration-slow);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .rtg__stage:hover .rtg__shot {
   transform: scale(1.045);
@@ -14904,7 +15062,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   pointer-events: none;
   background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.10) 3px);
   opacity: 0.22;
-  transition: opacity var(--duration-base) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
   mix-blend-mode: multiply;
 }
 .rtg__stage:hover .rtg__scan { opacity: 0.55; }
@@ -14925,7 +15085,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 .rtg__name-link {
   color: inherit;
   text-decoration: none;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .rtg__name-link:hover { color: var(--text-accent); }
 
@@ -14970,7 +15132,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   flex-shrink: 0;
   display: block;
   line-height: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .rtg__gauge:hover { opacity: 0.82; }
 .rtg__gauge .rc-compass-icon { width: 60px; height: 60px; }
@@ -15060,11 +15224,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   border-radius: 4px;
   overflow: hidden;
   background: linear-gradient(180deg, #9fb0fb, var(--text-accent));
-  transition:
-    border-color var(--duration-base) var(--ease-out),
-    background var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out);
+  transition-property: border-color, background, color, box-shadow;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
 }
 /* Scanline texture so the button matches the spec panel. */
 .rtg__cta::after {
@@ -15093,7 +15255,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 }
 .rtg__cta:hover .rtg__cta-text::before { color: #0ff; opacity: 0.85; animation: rtg-cta-cyan 0.4s steps(3) 1; }
 .rtg__cta:hover .rtg__cta-text::after { color: #f0f; opacity: 0.85; animation: rtg-cta-magenta 0.4s steps(3) 1; }
-.rtg__cta-arrow { position: relative; z-index: 1; transition: transform var(--duration-base) var(--ease-out); }
+.rtg__cta-arrow { position: relative; z-index: 1; transition-property: transform;
+ transition-duration: var(--duration-base);
+ transition-timing-function: var(--ease-out); }
 .rtg__cta:hover .rtg__cta-arrow { transform: translateX(5px); }
 
 @keyframes rtg-cta-cyan { 0%, 100% { transform: none; } 50% { transform: translate(-2px, -1px); } }
@@ -15198,7 +15362,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   border-radius: 6px;
   background: rgba(139, 156, 247, 0.04);
   overflow: hidden;
-  transition: border-color var(--duration-base) var(--ease-out), background var(--duration-base) var(--ease-out);
+  transition-property: border-color, background;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .album-section__lyrics-card:hover {
@@ -15412,7 +15578,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   overflow: hidden;
   background: rgba(139, 156, 247, 0.06);
   margin-bottom: var(--space-xs);
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .album-section__ymal-card:hover .album-section__ymal-thumb {
@@ -15459,7 +15627,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   overflow: hidden;
   background: rgba(139, 156, 247, 0.06);
   margin-bottom: var(--space-xs);
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .album-section__obs-card:hover .album-section__obs-thumb {
@@ -17140,7 +17310,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s var(--ease-out, ease);
+  transition-property: opacity;
+  transition-duration: 0.15s;
+  transition-timing-function: var(--ease-out, ease);
 }
 
 .psyche-aura__tip.is-visible {
@@ -22771,8 +22943,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-shadow: 0 0 18px rgba(64, 96, 255, 0.45);
   text-decoration: none;
   padding: 0.15rem 1rem;
-  transition: color var(--duration-base) var(--ease-out),
-              text-shadow var(--duration-base) var(--ease-out);
+  transition-property: color, text-shadow;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-hero__nav-link:hover {
   color: #ffffff;
@@ -23877,7 +24050,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   color: inherit;
   text-decoration: none;
   border-bottom: 1px solid transparent;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .rc-song-list__title-link:hover { border-color: #00d4aa; }
 .rc-song-list__sep {
@@ -23965,7 +24140,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: 1px solid var(--border-medium);
   border-radius: 4px;
   text-decoration: none;
-  transition: all var(--duration-base) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-door__cta:hover {
   background: var(--text-primary);
@@ -24059,8 +24236,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .si-merch-carousel__slide {
   position: absolute;
   inset: 0;
-  transition: transform 1000ms var(--ease-out),
-              opacity 1000ms var(--ease-out);
+  transition-property: transform, opacity;
+  transition-duration: 1000ms, 1000ms;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-merch-carousel__slide--current { z-index: 2; opacity: 1; }
 .si-merch-carousel__slide--prev,
@@ -24104,9 +24282,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   line-height: 1;
   cursor: pointer;
   padding: 0;
-  transition: background var(--duration-base) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out);
+  transition-property: background, box-shadow, color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 /* Hover styles only on devices with real hover — iOS makes :hover sticky
    on tap, which leaves the paddle "lit" until you tap somewhere else. */
@@ -24227,7 +24405,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-decoration: none;
   border-bottom: 1px solid var(--text-tertiary);
   padding-bottom: 2px;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-merch-carousel__cta:hover { border-color: var(--text-primary); }
 .si-merch-carousel__indicator {
@@ -24244,7 +24424,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: none;
   padding: 0;
   cursor: pointer;
-  transition: background var(--duration-base) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-merch-carousel__dot--active { background: var(--text-primary); }
 .si-merch-carousel__counter {
@@ -24272,7 +24454,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-transform: uppercase;
   color: var(--text-tertiary);
   text-decoration: none;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .event-page__breadcrumb-link:hover {
   color: var(--text-primary);
@@ -24469,7 +24653,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   padding: 0;
   cursor: pointer;
   white-space: nowrap;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .event-rsvp-form__share-btn:hover { color: var(--text-primary); }
 
@@ -24569,8 +24755,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-radius: 8px;
   color: var(--text-primary);
   text-decoration: none;
-  transition: transform var(--duration-base) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out);
+  transition-property: transform, box-shadow;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .irl-event-card:hover {
   transform: translateY(-2px);
@@ -24629,7 +24816,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-accent);
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .irl-event-card:hover .irl-event-card__cta { color: var(--text-primary); }
 
@@ -24653,7 +24842,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   /* Pre-visible resting position: bottom-center, nudged 20px below the
      final spot so the entrance reads as a rise. */
   transform: translate(calc(50vw - 50%), calc(100vh - 100% - var(--si-bottom) + 20px));
-  transition: transform 750ms var(--ease-out), opacity 600ms var(--ease-out);
+  transition-property: transform, opacity;
+  transition-duration: 750ms, 600ms;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-floating-tag--visible {
   opacity: 1;
@@ -24691,7 +24882,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
     0 0 36px rgba(64, 96, 255, 0.35),
     0 8px 24px rgba(0, 0, 0, 0.35);
   white-space: nowrap;
-  transition: padding 600ms var(--ease-out), border-radius 600ms var(--ease-out);
+  transition-property: padding, border-radius;
+  transition-duration: 600ms, 600ms;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 /* Snoozed pill collapses to a small right-edge paddle. */
 .si-floating-tag--snoozed .si-floating-tag__inner {
@@ -24746,7 +24939,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   line-height: 1;
   border-radius: 999px;
   opacity: 0.55;
-  transition: opacity 200ms var(--ease-out), background 200ms var(--ease-out);
+  transition-property: opacity, background;
+  transition-duration: 200ms, 200ms;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-floating-tag__close:hover {
   opacity: 1;
@@ -24797,7 +24992,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   position: absolute;
   width: 240px;
   height: 240px;
-  transition: all var(--duration-slow) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-slow);
+  transition-timing-function: var(--ease-out);
   cursor: pointer;
   border-radius: 4px;
   overflow: hidden;
@@ -24864,7 +25061,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background var(--duration-base) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-coverflow__nav:hover:not(:disabled) { background: rgba(0, 0, 0, 0.85); }
 .si-coverflow__nav:disabled { opacity: 0.3; cursor: default; }
@@ -25013,8 +25212,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-bottom: 1px solid rgba(0, 212, 170, 0.4);
   padding-bottom: 2px;
   align-self: flex-start;
-  transition: color var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out);
+  transition-property: color, border-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .rc-now-tile__cta:hover { color: #2effc4; border-color: #2effc4; }
 .rc-now-tile__placeholder {
@@ -25059,8 +25259,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.9rem;
   color: #eeeef4;
-  transition: border-color var(--duration-base) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out);
+  transition-property: border-color, box-shadow;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .mini-charger__textarea {
   font-family: var(--font-body);
@@ -25120,10 +25321,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-decoration: none;
   display: inline-block;
   box-shadow: 0 0 18px rgba(110, 143, 255, 0.45);
-  transition: background var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out);
+  transition-property: background, color, border-color, box-shadow;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .mini-charger__btn-primary:hover {
   background: #ffffff;
@@ -25146,8 +25346,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-size: 0.82rem;
   letter-spacing: 0.04em;
   cursor: pointer;
-  transition: border-color var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .mini-charger__btn-secondary:hover {
   border-color: #00d4aa;
@@ -25159,7 +25360,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   color: #00d4aa;
   text-decoration: underline;
   letter-spacing: 0.03em;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .mini-charger__btn-link:hover { color: #2effc4; }
 .mini-charger--result,
@@ -25362,7 +25565,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-radius: 6px;
   text-align: center;
   text-decoration: none;
-  transition: all var(--duration-base) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-popup__cta:hover {
   background: var(--text-primary);
@@ -25412,7 +25617,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   height: 100%;
   min-height: 64px;
   padding: 18px 22px;
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-slow);
+  transition-timing-function: var(--ease-out);
 }
 .si-popup__cta-split-options {
   position: absolute;
@@ -25421,8 +25628,10 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   grid-template-columns: repeat(3, 1fr);
   opacity: 0;
   visibility: hidden;
-  transition: opacity var(--duration-slow) var(--ease-out),
-              visibility 0s linear var(--duration-slow);
+  transition-property: opacity, visibility;
+  transition-duration: var(--duration-slow), 0s;
+  transition-timing-function: var(--ease-out), linear;
+  transition-delay: 0s, var(--duration-slow);
 }
 .si-popup__cta-split-option {
   display: flex;
@@ -25441,8 +25650,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   background: color-mix(in oklab, var(--bg-elevated), white 8%);
   border: none;
   border-right: 1px solid var(--border-subtle);
-  transition: background var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out);
+  transition-property: background, color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-popup__cta-split-icon {
   display: inline-flex;
@@ -28812,8 +29022,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   text-decoration: none;
-  transition: border-color var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
+  transition-property: border-color, transform;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .bk-links__item:hover { border-color: var(--text-accent); transform: translateY(-2px); }
 .bk-links__item--soon { opacity: 0.5; cursor: default; }
@@ -28908,8 +29119,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   padding: var(--space-md) var(--space-2xl);
   border: 1px solid var(--text-accent);
   border-radius: 6px;
-  transition: filter var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
+  transition-property: filter, transform;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .bk-cta__btn:hover { filter: brightness(1.12); transform: translateY(-2px); }
 /* Hollow variant -- transparent fill, accent outline. */
@@ -29188,9 +29400,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
+  transition-property: border-color, color, background;
+  transition-duration: var(--duration-fast), var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .setlist__chip:hover { color: var(--text-primary); border-color: var(--border-medium); }
 .setlist__chip--active {
@@ -29218,7 +29430,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: var(--space-md);
-  transition: opacity var(--duration-base) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .setlist__grid--muted { opacity: 0.4; }
 .setlist__grid--muted .setlist__card { pointer-events: none; }
@@ -29244,8 +29458,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-radius: 8px;
   overflow: hidden;
   border: 2px solid var(--border-subtle);
-  transition: border-color var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+  transition-property: border-color, transform;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .setlist__card:hover .setlist__thumb { border-color: var(--border-medium); transform: translateY(-2px); }
 .setlist__thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -29264,9 +29479,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: 1px solid var(--border-medium);
   opacity: 0;
   transform: scale(0.8);
-  transition: opacity var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
+  transition-property: opacity, transform, background;
+  transition-duration: var(--duration-fast), var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .setlist__card--selected .setlist__thumb { border-color: var(--text-accent); }
 .setlist__card--selected .setlist__check {
@@ -29336,8 +29551,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   padding: var(--space-sm) var(--space-xl);
   border: 1px solid var(--text-accent);
   border-radius: 6px;
-  transition: filter var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
+  transition-property: filter, transform;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .setlist__cta:hover { filter: brightness(1.12); transform: translateY(-2px); }
 
@@ -29529,7 +29745,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   height: 4px;
   border-radius: 999px;
   background: var(--border-medium);
-  transition: background var(--duration-base) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .bkf__chapter--done { background: var(--text-accent); }
 
@@ -29816,9 +30034,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-family: var(--font-ui);
   font-size: 1.05rem;
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out),
-    transform 90ms var(--ease-out);
+  transition-property: border-color, background, transform;
+  transition-duration: var(--duration-fast), var(--duration-fast), 90ms;
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .bkf__choice:hover {
   border-color: var(--text-accent);
@@ -30070,7 +30288,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-size: 1.02rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--ease-out), opacity var(--duration-fast);
+  transition-property: transform, opacity;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), ease;
 }
 .bkf__cta:hover { transform: translateY(-1px); }
 .bkf__cta:disabled { opacity: 0.4; cursor: default; transform: none; }
@@ -30084,8 +30304,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-size: 1.02rem;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .bkf__back:hover { color: var(--text-primary); border-color: var(--text-accent); }
 .bkf__back:disabled { opacity: 0.4; cursor: default; }
@@ -30127,7 +30348,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   display: block;
   height: 100%;
   border-radius: 2px;
-  transition: width var(--duration-fast) var(--ease-out);
+  transition-property: width;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .seo-fields__hint {
   font-size: 0.625rem;
@@ -30435,12 +30658,10 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    chadlewine.com | THE FRONT
    The simple front page: one table, one screen, no scroll.
 
-   Everything here is scoped under .front or under the
-   [data-front-theme] stamp. global.css is 30,000 lines of a
-   dark-only site and this file must not reach into it, or out
-   of it: this is the ONLY route on chadlewine.com with a light
-   mode at all, and a token redefined loosely here would repaint
-   40 pages that never asked for it.
+   Everything here is scoped under .front. global.css is 30,000
+   lines of a dark-only site and this file must not reach into
+   it, or out of it: a token redefined loosely here would
+   repaint 40 pages that never asked for it.
 
    NAMING. This is "the front", not "the door", even though a
    door is what it behaves like. door_pages is already taken:
@@ -30479,54 +30700,27 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 
 /* --- Palette ------------------------------------------------
 
-   TWO states, and dark is not one of two equals: it is the
-   site. chadlewine.com is dark everywhere, so the front page
-   opens dark for everyone, including a reader whose OS asks for
-   light. Light here is an OPT-IN a reader has to reach for, not
-   a preference the page infers.
+   ONE state, and it is the site's. chadlewine.com is dark
+   everywhere and the front door is the last place the brand
+   should look like somewhere else, so there is no
+   prefers-color-scheme block and nothing here infers anything
+   from the reader's OS.
 
-   That is why there is no prefers-color-scheme block. Honouring
-   it would hand a light-OS visitor a cream page as their first
-   impression of a dark site, which is the one thing this page
-   must not do: it is the front door, and the brand should look
-   the same walking in as it does everywhere inside.
+   THERE WAS A LIGHT MODE, opt-in, on a switch in the masthead,
+   and it was removed 2026-08-20: a theme that exists on one
+   route out of forty is a promise the rest of the site does not
+   keep. Its palette mapped every token below onto the site's
+   existing reading surface (--reading-bg / --reading-text /
+   --reading-accent), which is the same surface every long-form
+   page already switches to, and that mapping is the starting
+   point if a site-wide theme is ever built. It is recoverable
+   from git rather than kept here as dead weight.
 
-   So: bare .front carries the full DARK palette, and the
-   [data-front-theme="light"] stamp is the only thing that
-   redefines it. NO TOKEN IS EVER DEFINED ONLY INSIDE THE STAMP
-   BLOCK; a colour that exists only under an attribute selector
-   is a colour that vanishes for everyone who never pressed the
-   switch.
+   The values are the site's own, written out as literals rather
+   than read through var(). Where a literal came from a token,
+   the token is named beside it.                              */
 
-   The dark values are the site's own, written out as literals
-   rather than read through var(). The page has to be able to go
-   LIGHT, and inheriting a variable whose whole purpose is to be
-   dark would make that a fight. Where a literal came from a
-   token, the token is named beside it.
-
-   The light values are the site's existing reading surface
-   (--reading-bg, --reading-text, --reading-accent), which is
-   what every long-form page already switches to. Light mode
-   here is not a new palette; it is the one the site already
-   uses when it wants to be read.                             */
-
-/* --f-theme lives on :root, NOT on .front, and that distinction is the whole
-   reason the theme switch used to change the page in two stages.
-
-   html and body are ANCESTORS of .front. Custom properties inherit downward
-   only, so a token defined on .front is invisible to them. The ground rules
-   below say `transition: background-color var(--f-theme) ease`, that var()
-   could not resolve, and an unresolvable var() makes the whole declaration
-   invalid at computed-value time: `transition` fell back to its initial value,
-   which is no transition. So html and body cut instantly while .front and
-   everything inside it crossfaded over 300ms.
-
-   Nothing about it looked wrong in the stylesheet. The rule was there, the
-   duration was right, and it was dead. Scoped with :has() so the token only
-   exists on pages that carry this component. */
 :root:has(.front) {
-  --f-theme: 300ms;
-
   /* Lets `block-size: 0 -> auto` actually interpolate, which is what makes the
      fold below a fold rather than a cut. It is opt-in precisely because
      animating to an intrinsic size used to be impossible and some layouts
@@ -30546,7 +30740,13 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 
   --f-ink:          #e4e4ec;                     /* --text-primary */
   --f-dim:          rgba(228, 228, 236, 0.6);    /* --text-secondary */
-  --f-faint:        rgba(228, 228, 236, 0.35);   /* --text-tertiary */
+  /* Raised well above --text-tertiary's 0.35, which this started as. Tertiary
+     type on the rest of the site sits on a flat ground; here it sits on the
+     post artwork under a 25% veil, and 0.35 of near-white simply stopped
+     showing. Everything on this page that reads as "supporting" runs through
+     this one value: the hint, the chevron, the panel meta lines and the
+     subscribe placeholder. */
+  --f-faint:        rgba(228, 228, 236, 0.62);
 
   --f-accent:       #8b9cf7;                     /* --text-accent */
   --f-accent-line:  rgba(139, 156, 247, 0.45);
@@ -30600,53 +30800,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   /* The open/close glide. Slow on purpose. */
   --f-glide: 560ms;
 
-  /* --f-theme is NOT here. It is on :root, and it has to be: see the block
-     immediately above .front for why putting it on this element broke the
-     ground crossfade silently. */
-}
-
-:root[data-front-theme="light"] .front {
-  --f-bg:           #f5f3ef;                     /* --reading-bg */
-  --f-elevated:     #eceae4;
-  --f-surface:      rgba(0, 0, 0, 0.025);
-  --f-surface-hi:   rgba(0, 0, 0, 0.055);
-  --f-line:         rgba(0, 0, 0, 0.08);         /* --reading-border */
-  --f-line-hi:      rgba(0, 0, 0, 0.14);
-  --f-tick:         rgba(0, 0, 0, 0.12);
-
-  --f-ink:          #1a1a1a;                     /* --reading-text */
-  --f-dim:          #4a4a4a;                     /* --reading-text-secondary */
-  --f-faint:        #7a7a7a;                     /* --reading-text-tertiary */
-
-  --f-accent:       #3a4ed0;                     /* --reading-accent */
-  --f-accent-line:  rgba(58, 78, 208, 0.4);
-  --f-accent-edge:  rgba(58, 78, 208, 0.7);
-  --f-accent-wash:  rgba(58, 78, 208, 0.06);
-  --f-accent-hi:    rgba(58, 78, 208, 0.14);
-  --f-accent-glow:  rgba(58, 78, 208, 0.2);
-  --f-scrim:        rgba(245, 243, 239, 0.62);
-  /* Light mode veils with the LIGHT ground rather than brand black. A black
-     wash under near-black type is the one combination that cannot be read, and
-     the point of the veil is to keep the page legible over a photograph. Same
-     25%. Same reasoning for the two grounds below, at the same alphas. */
-  --f-veil:         rgba(245, 243, 239, 0.25);
-  --f-cell-ground:  rgba(245, 243, 239, 0.75);
-  --f-panel-ground: rgba(245, 243, 239, 0.85);
-
-  /* THE LOGO'S OWN TOKENS, repointed for this page only.
-
-     The masthead runs Nav.tsx's logo markup verbatim, which means it is styled
-     by .site-nav__logo out of global.css, which reads --text-primary and
-     --text-accent. Those are :root values and :root is dark-only, so in light
-     mode the name would render near-white on cream and disappear, and the
-     hover shimmer would flash back to the same near-white because its
-     keyframes read the same two variables.
-
-     Redefining them HERE, on .front under the light stamp, fixes the logo and
-     the shimmer in one move and cannot escape this page: every other route
-     resolves them from :root exactly as before. */
-  --text-primary: #1a1a1a;
-  --text-accent:  #3a4ed0;
 }
 
 /* The page ground, not just the front page's.
@@ -30675,40 +30828,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 :root:has(.front),
 :root:has(.front) body {
   background-color: #07070d;
-  transition: background-color var(--f-theme) ease;
-}
-:root[data-front-theme="light"]:has(.front),
-:root[data-front-theme="light"]:has(.front) body {
-  background-color: #f5f3ef;
-}
-
-/* EVERYTHING ELSE crossfades too, but ONLY during the switch.
-
-   Offplat puts the transition on the ground alone and says why: a colour
-   transition on every element collides with the row and UI transitions that
-   already run at their own durations. That reasoning holds here and the
-   problem is worse, because this page has far more elements carrying their own
-   background and border than Offplat's rows do, and a switch that eases the
-   ground while every border, button and panel cuts underneath it reads as
-   broken rather than as fast.
-
-   So the broad rule is not standing. FrontThemeToggle stamps .front-theming on
-   <html> for the length of the switch and takes it off again, which means the
-   sweeping selector below is live for 300ms during a deliberate press and at
-   no other moment. Hover, focus and the open/close animation keep their own
-   timings the whole rest of the time, and nothing has to be merged by hand
-   into a dozen existing transition lists.
-
-   Colour properties only. transform and opacity are left alone so the
-   chevron's rotate and the accent edge's scaleY are not dragged into it. */
-:root.front-theming,
-:root.front-theming .front,
-:root.front-theming .front *,
-:root.front-theming body {
-  transition: background-color var(--f-theme) ease,
-              border-color var(--f-theme) ease,
-              color var(--f-theme) ease,
-              box-shadow var(--f-theme) ease !important;
 }
 
 /* The tick band and the fading dividers are gradients, and background-image
@@ -30726,21 +30845,43 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    by exactly the height of the browser chrome. dvh tracks the
    live value.
 
-   overflow: hidden on the frame is the enforcement. Nothing
-   inside can push the page taller, because there is nowhere for
-   it to push to; a panel that overruns scrolls WITHIN itself
-   instead (see .front__panel).                              */
+   THE VIEWPORT IS A FLOOR, NOT A CEILING. The frame is
+   min-height, so the CLOSED table is exactly one screen with
+   nothing to scroll, which is the whole promise and the only
+   moment it has to hold: first paint. Open a panel and the
+   fold is allowed to push the document past the viewport and
+   the page scrolls to meet it.
+
+   It was height + overflow: hidden, which enforced one screen
+   in both states. That is right on a wide screen, where a cell
+   can grow into the room the other five give up, and wrong on a
+   phone, where the same panel is two or three times taller (the
+   prose rewraps into a narrow column beside the thumbnail) and
+   the table has no such room to give. The panel then opened
+   into a box smaller than itself and scrolled internally, which
+   is the "collapse/expand does not work" on mobile.
+
+   The artwork layer below is position: fixed, so it stays put
+   under a scrolling page and needs nothing else.            */
 
 /* THE GROUND CROSSFADES on a theme switch instead of cutting, which is what
    stops the change reading as a page reload. Offplat's rule, verbatim in
    intent: background-color and color, 300ms, ease, on the ground alone. */
 .front {
-  transition: background-color var(--f-theme) ease, color var(--f-theme) ease;
+  /* NO TAP FLASH. iOS paints its own translucent black over whatever finger
+     lands on a tappable element, instantly, and it owes nothing to any
+     transition. On a row whose ground fades in over 560ms that arrives as a
+     blink followed by the fade -- two grounds, one of them not ours. The
+     property INHERITS, so declaring it once here covers every row, button and
+     link on the page. The site already does this in five other places; this
+     page was simply missed. Focus rings are unaffected: they are drawn by
+     :focus-visible, which is what a keyboard gets and a finger does not. */
+  -webkit-tap-highlight-color: transparent;
   /* A stacking context, so ::before can sit at z-index -1: behind everything in
      the page but still in front of the ground that html and body paint. */
   position: relative;
   z-index: 0;
-  height: 100dvh;
+  min-height: 100dvh;
   /* The site box, on the .site-contain pattern. A max-width on a
      page wrapper is against this project's standing layout rule
      and it is here because Chad asked for it directly: the
@@ -30751,7 +30892,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   margin-inline: auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   /* NO GROUND OF ITS OWN. html and body are both painted (see the ground rules
      above) and both carry the theme crossfade, so this element being
      transparent costs nothing and is what lets the artwork layer below show
@@ -30798,7 +30938,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  transition: background-image var(--f-theme) ease;
 }
 /* No artwork, no layer. --f-post-bg is only set when the post has one. */
 .front:not([style*="--f-post-bg"])::before {
@@ -30874,93 +31013,21 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   display: flex;
   align-items: center;
   margin: 0;
-  padding-right: var(--space-md);
+  /* NO PADDING. The ground is opaque and it is here to keep the tick band from
+     running under the wordmark, so it should stop where the wordmark stops. A
+     padding-right left it overhanging the mark on one side only, which read as
+     a black tab hanging off the logo rather than as the logo's own ground. It
+     now ends flush on the right exactly as it begins flush on the left. */
   background-color: var(--f-bg);
   line-height: 1;
   /* h1 carries -0.02em globally; the logo sets its own, but the wrapper must
      not add tracking to the space between the frames and the name. */
   letter-spacing: normal;
-  transition: background-color var(--f-theme) ease;
 }
 
-/* A square icon button on .nav-links__item's construction: glass, 3px radius,
-   a light 1px border, and a hover that brightens rather than inverts.
-
-   The SVGs draw on currentColor, so the accent below is the only place either
-   mark gets a colour and light mode inherits the swap for free. */
-.front__theme {
-  position: relative;
-  flex: 0 0 auto;
-  display: inline-grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 1px solid var(--f-line-hi);
-  border-radius: 3px;
-  background: var(--f-surface);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: var(--f-accent);
-  line-height: 0;
-  cursor: pointer;
-  transition: background var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out);
-}
-.front__theme:hover,
-.front__theme:focus-visible {
-  background: var(--f-accent-wash);
-  border-color: var(--f-accent-edge);
-  color: var(--f-ink);
-  outline: none;
-}
-.front__theme:focus-visible {
-  box-shadow: 0 0 0 2px var(--f-accent-glow);
-}
-
-/* Both marks ship in the HTML and CSS shows exactly one, keyed
-   off the same two states as the palette. Each mark names where
-   pressing it GOES, not where you are.
-
-   See the comment in FrontThemeToggle.tsx for why this is not
-   decided in JS. */
-.front__theme-mark { display: block; }
-.front__theme-mark--dark { display: none; }
-:root[data-front-theme="light"] .front__theme-mark--light { display: none; }
-:root[data-front-theme="light"] .front__theme-mark--dark  { display: block; }
 
 /* --- Standfirst --------------------------------------------- */
 
-.front__standfirst {
-  flex: 0 0 auto;
-  margin: 0;
-  padding-block: clamp(9px, 1.5vh, 15px);
-  padding-inline: var(--f-inset);
-  /* Same fading rule the cells use, so the head of the table is divided the
-     same way its rows are. */
-  border-bottom: 0;
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--f-line-hi) 14%,
-    var(--f-line-hi) 86%,
-    transparent 100%
-  );
-  background-size: 100% 1px;
-  background-position: 0 100%;
-  background-repeat: no-repeat;
-  /* Serif and italic, which is how this site sets a secondary
-     line under a title (.feed-entry__hook). */
-  font-style: italic;
-  font-size: clamp(0.8rem, 1.6vw, 0.95rem);
-  line-height: 1.5;
-  color: var(--f-dim);
-  /* No max-width. The site box is the measure now, and a second
-     cap inside it would end this line short of where every row
-     below it ends, which is the one alignment on the page a
-     reader actually sees. */
-}
 
 /* --- The table ---------------------------------------------
 
@@ -31025,22 +31092,65 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    WITHOUT JS --f-fold is unset and this falls back to 0px: the open cell takes
    an equal share like the others and the panel scrolls inside it. Cramped, but
    nothing is lost or unreachable. */
+/* NOTHING ANIMATES ON THE CELL. THE PANEL MOVES AND THE CELL FOLLOWS.
+
+   flex-basis: auto means a row's base size IS its content: the bar, plus
+   whatever height ::details-content currently has. That box is the one thing
+   on this page already animating, from 0 to the measured fold, so the row
+   grows downward at exactly its rate with no second transition to keep in
+   step. The bar is left alone, and the panel's bottom edge is the only edge
+   that travels.
+
+   THE TWO VERSIONS BEFORE THIS ONE both animated the cell as well as the
+   panel, first through a min-height floor and then through flex-basis. Both
+   are correct in Chromium and both SNAPPED on iOS Safari: the cell took its
+   whole open height in one frame while the panel still unfolded, so the bar
+   ballooned and shrank back, and the panel -- pinned to the bottom of a box
+   that had already finished moving -- appeared to climb upward. Chasing which
+   value Safari will or will not interpolate is a bad trade when the layout can
+   simply follow the one box that is already moving. There is now no transition
+   on the cell at all, so there is nothing left to disagree about.
+
+   flex-shrink: 0 is what lets the page grow: with shrink on, the rows just
+   re-divided whatever the frame gave them and an open cell was squeezed under
+   its own content. With it off, a table that cannot fit its rows makes the
+   document taller instead.
+
+   The rows still divide a screen exactly when they can. Closed, every row's
+   content is one bar, flex-grow shares the surplus six ways, and the table
+   fills the viewport to the pixel. Opening spends that surplus first and only
+   pushes the page taller once it is gone, which on a wide screen is often
+   never. */
 .front__cell {
   position: relative;
   flex-grow: 1;
-  flex-shrink: 1;
-  flex-basis: 0;
+  flex-shrink: 0;
+  flex-basis: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   color: inherit;
   text-decoration: none;
-  transition: flex-basis var(--f-glide) var(--ease-in-out),
-              background-color var(--duration-base) var(--ease-out);
+  /* THE GROUND RUNS ON THE FOLD'S CLOCK, not the UI clock. It was
+     --duration-base (250ms) against a 560ms fold, so the cell's ground arrived
+     while the panel was still less than half open and left before it was
+     shut -- fading, technically, but over less than half the move, which reads
+     as the row flashing on and off around an animation it is supposed to be
+     part of. Same duration and same curve as the fold means the ground and the
+     panel are one event. */
+  /* LONGHANDS, NOT THE SHORTHAND, and this is not a style preference.
+     iOS Safari drops a `transition:` shorthand whose value contains a var().
+     Every transition on this page was written that way and NONE of them ran on
+     a phone -- the cell snapped instead of gliding, the ground blinked on and
+     off around a fold that took 560ms. The one that always worked there,
+     ::details-content, is the one that happened to be written in longhands.
+     Same values, three properties, and it survives the parse. */
+  transition-property: background-color;
+  transition-duration: var(--f-glide);
+  transition-timing-function: var(--ease-in-out);
 }
 
 .front__cell[open] {
-  flex-basis: var(--f-fold, 0px);
   background-color: var(--f-cell-ground);
 }
 
@@ -31136,8 +31246,13 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   width: 2px;
   background: var(--f-accent);
   transform: scaleY(0);
-  transform-origin: 50% 0;
-  transition: transform var(--duration-base) var(--ease-out);
+  /* Centre origin: the edge opens from the middle of the bar and travels to
+     both ends at once. A top origin drops it down the row like a progress
+     bar, which reads as loading rather than as arriving. */
+  transform-origin: 50% 50%;
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 /* GATED ON (hover: hover). On a touch screen :hover latches on
@@ -31199,13 +31314,23 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 /* The hint is the first thing to go when width runs out. The
    label and the affordance are load-bearing; this is a
    courtesy. */
 @media (max-width: 520px) {
   .front__hint { display: none; }
+  /* With the hint gone, so is the bar's only flexible box: the label does not
+     grow and the mark has nothing pushing it, so the + sat against the label
+     in the middle of the row instead of at the edge where the eye looks for
+     an affordance. The auto margin takes the free space here and ONLY here,
+     because above this width the hint is still the grower and giving the mark
+     a margin as well would split the surplus between them and pull the hint
+     away from the mark it belongs beside. */
+  .front__chev { margin-inline-start: auto; }
 }
 
 .front__chev {
@@ -31217,8 +31342,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   /* Turns on the row's clock, not the UI clock. A mark that finished its
      rotation a third of the way into the glide reads as a separate event from
      the panel it is describing. */
-  transition: transform var(--f-glide) var(--ease-in-out),
-              color var(--duration-base) var(--ease-out);
+  transition-property: transform, color;
+  transition-duration: var(--f-glide), var(--duration-base);
+  transition-timing-function: var(--ease-in-out), var(--ease-out);
 }
 .front__cell[open] > .front__summary .front__chev {
   transform: rotate(45deg);
@@ -31289,13 +31415,33 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
      never arrives: opening still folds, closing cuts, nothing is lost. See the
      component for why auto alone cannot carry the closing direction. */
   block-size: var(--f-fold, auto);
-  /* The cell has a definite height (flex gives it one), so this bounds a long
-     panel to the cell instead of letting it push past and be clipped by
-     .front's overflow, where it would be unreachable. */
-  max-block-size: 100%;
+  /* NOT bounded to the cell any more. This was max-block-size: 100% back when
+     the frame was a hard 100dvh and anything taller would have been clipped by
+     it and unreachable. The frame is a floor now, so a panel taller than the
+     room the table has simply makes the page taller and the document scrolls.
+     A panel that shows all of itself and moves the page beats one that fits
+     the screen and hides its own second half behind an invisible scrollbar. */
+  max-block-size: none;
   overflow-y: auto;
   scrollbar-width: none;
 }
+/* THE CLOSING HOLD, and it is the other half of FrontFoldSizer.
+
+   content-visibility is a discrete property: it has no midpoint, so it flips
+   in one frame unless something defers it. transition-behavior: allow-discrete
+   above is supposed to defer it to the end of the close and does so in
+   Chromium; on iOS Safari the contents vanish on frame one and the empty box
+   folds shut behind them. Measured on a phone: the panel blinked out, then the
+   row collapsed with the right motion, which is the same fault described twice.
+
+   While the cell wears this class -- exactly one glide, set by JS on close --
+   the contents are simply told to stay. They ride the fold down and the class
+   comes off once the box is already at zero, so nothing is ever visible in a
+   box that has finished closing. */
+.front__cell--closing::details-content {
+  content-visibility: visible;
+}
+
 /* The WebKit half of the same thing, on the panel only. It CANNOT be written
    as ::details-content::-webkit-scrollbar: chaining pseudo-elements is a parse
    error, and Turbopack rejects the whole stylesheet over it rather than
@@ -31330,6 +31476,27 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 }
 @media (max-width: 640px) {
   .front__media { gap: 14px; }
+
+  /* ONE COLUMN for the two panels that carry a picture beside their prose.
+     Side by side, a phone gives the text roughly 200px next to the artwork,
+     which wraps a title onto three lines and a summary into a ribbon. Stacked,
+     the prose gets the full panel and the artwork gets a size worth looking
+     at. The panel is taller for it, which costs nothing now that the frame is
+     a floor and the page is allowed to scroll.
+
+     The About panel is deliberately NOT in here: its portrait is 69px wide at
+     this size, which is a margin ornament rather than a column, and stacking
+     it would push the sentence below the fold for no gain. */
+  .front__media--stacks {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  /* The video reads best full width: it is 16:9, so the full column costs
+     about 200px of height and gains a stage you can actually aim a finger at.
+     The cover is square, and a full-width square is 358px of one image on a
+     390px screen, which pushes everything else off. Capped. */
+  .front__media--stacks > .front__stage { width: 100%; }
+  .front__media--stacks > .front__art { width: min(100%, 200px); }
 }
 
 /* 6px radius and an elevated ground behind the image, matching
@@ -31343,6 +31510,64 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-radius: 6px;
   border: 1px solid var(--f-line);
   background: var(--f-elevated);
+}
+
+/* THE ABOUT PORTRAIT, and it is not .front__art.
+
+   That class is a square, cropped, bordered thumbnail on an elevated ground,
+   which is right for cover art and wrong for this: the source is 806x1865 with
+   an alpha channel and a glow that reaches the edges of its own box. A border
+   would cut the glow off in a straight line and a background would put a grey
+   card behind a transparent image. So it keeps its own proportions, sizes off
+   its height rather than its width, and carries no box at all. */
+.front__portrait {
+  flex: 0 0 auto;
+  block-size: clamp(104px, 19vh, 190px);
+  inline-size: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* THE COVER STRIP. Three records as pictures, side by side.
+
+   Each cover both grows and shrinks (`1 1 0` with min-width: 0) and is capped
+   at the same clamp .front__art uses, so the strip stays one row at every
+   width: three ~100px covers on a phone, three 150px covers on a desktop, and
+   never a wrap onto a second line, which would change the panel's height and
+   the fold's arithmetic with it. */
+.front__covers {
+  display: flex;
+  gap: clamp(8px, 1.6vw, 16px);
+  margin-bottom: 16px;
+}
+.front__cover {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: clamp(72px, 14vh, 150px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  border: 1px solid var(--f-line);
+  background: var(--f-elevated);
+}
+
+/* The count and the way through, on one line. The count is TEXT: it reports
+   what the strip above is not showing, and there is nothing to press it for.
+   The button beside it is the only control here. */
+.front__more {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 18px);
+}
+.front__more-count {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--f-faint);
+  white-space: nowrap;
 }
 
 .front__stage {
@@ -31412,9 +31637,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-transform: uppercase;
   color: var(--f-ink);
   text-decoration: none;
-  transition: background var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out),
-              transform var(--duration-base) var(--ease-out);
+  transition-property: background, border-color, transform;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .front__go:hover,
 .front__go:focus-visible {
@@ -31463,8 +31688,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
      triangle reads as left of centre without this. */
   padding-left: 3px;
   box-shadow: 0 0 20px var(--f-accent-glow);
-  transition: transform var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out);
+  transition-property: transform, border-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .front__video-facade:hover .front__video-play {
   transform: scale(1.08);
@@ -31506,8 +31732,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   color: var(--f-ink);
   font-family: var(--font-ui);
   font-size: 0.9rem;
-  transition: border-color var(--duration-base) var(--ease-out),
-              background var(--duration-base) var(--ease-out);
+  transition-property: border-color, background;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 /* iOS zooms the viewport on focus for any input under 16px, and
    a zoomed viewport is a scrolling page. This is the one place
@@ -31536,9 +31763,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out),
-              transform var(--duration-base) var(--ease-out);
+  transition-property: background, border-color, transform;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .front__sub-button:hover:not(:disabled) {
   background: var(--f-accent-hi);
@@ -31608,9 +31835,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-transform: uppercase;
   color: var(--f-ink);
   text-decoration: none;
-  transition: background-image var(--duration-base) var(--ease-out),
-              background-color var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out);
+  transition-property: background-image, background-color, border-color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .front__cta:hover,
 .front__cta:focus-visible {
@@ -31622,7 +31849,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .front__cta-chev {
   font-family: var(--font-mono, var(--font-ui));
   color: var(--f-accent);
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .front__cta:hover .front__cta-chev { transform: translateX(6px); }
 
@@ -31661,11 +31890,10 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .front--exiting .front__table > *:nth-child(5) { transition-delay: 280ms; }
 .front--exiting .front__table > *:nth-child(6) { transition-delay: 350ms; }
 
-/* The chrome does not wipe, it recedes: the masthead and the standfirst frame
-   the table rather than belonging to it, and sliding them would read as the
-   page falling apart instead of clearing. */
-.front--exiting .front__head,
-.front--exiting .front__standfirst {
+/* The chrome does not wipe, it recedes: the masthead frames the table rather
+   than belonging to it, and sliding it would read as the page falling apart
+   instead of clearing. */
+.front--exiting .front__head {
   opacity: 0;
   transition: opacity 420ms linear;
 }
@@ -31707,21 +31935,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   transition: opacity 240ms linear 700ms;
 }
 
-/* Reduced motion never reaches any of this: FrontExit navigates immediately
-   rather than adding the class. The rule below is the belt to that braces, for
-   a preference that changes between the click and the timer. */
-@media (prefers-reduced-motion: reduce) {
-  .front--exiting .front__cell,
-  .front--exiting .front__head,
-  .front--exiting .front__standfirst,
-  .front--exiting .front__cta,
-  .front--exiting::before,
-  .front--exiting::after {
-    transition-duration: 1ms !important;
-    transition-delay: 0ms !important;
-  }
-}
-
 /* --- Short viewports ---------------------------------------
 
    There is a floor under "fits any viewport", and it is honest
@@ -31735,7 +31948,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    crawler when it is dropped for a reader.                  */
 
 @media (max-height: 560px) {
-  .front__standfirst { display: none; }
   .front { --f-bar: 40px; }
 }
 
@@ -31749,32 +31961,16 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
    That matters more here than on any other route, because this page exists to
    be a first impression and the banner only ever shows on a first visit.
 
-   The fix is the escape hatch this design already has: when the frame cannot
-   honestly hold everything, it stops pretending and lets the document scroll,
-   exactly as the short-viewport rule below does. The banner is dismissed once,
-   for good, and every load after it is locked back to one screen.
-
-   The margin under the CTA is what keeps it clear of the banner once scrolled
-   to; it is generous because the banner's text wraps to three lines on a
-   narrow screen and its height is not something CSS can read. */
-body:has(.cl-consent) .front {
-  height: auto;
-  min-height: 100dvh;
-  overflow: visible;
-}
-body:has(.cl-consent) .front__cell[open]::details-content { max-block-size: none; }
+   The frame scrolls on its own now, so all this rule still has to do is put
+   room under the CTA to scroll TO. It is generous because the banner's text
+   wraps to three lines on a narrow screen and its height is not something CSS
+   can read. */
 body:has(.cl-consent) .front__cta { margin-bottom: clamp(110px, 22vh, 210px); }
-body:has(.cl-consent) .front { padding-bottom: 0; }
 
-/* Under 420px of height the table cannot be honest about it.
-   Rather than crush the cells below a thumb's target size, the
-   frame gives up its no-scroll promise and lets the document
-   scroll normally. A page you can reach is worth more than a
-   rule you kept. */
-@media (max-height: 420px) {
-  .front { height: auto; min-height: 100dvh; overflow: visible; }
-  .front__cell[open]::details-content { max-block-size: none; }
-}
+/* The under-420px-of-height escape hatch used to live here: below that the
+   table could not divide the screen without crushing cells under a thumb's
+   target size, so the frame gave up its no-scroll promise. It is gone because
+   it is now the frame's ordinary behaviour at every height. */
 
 /* The cart drawer parks at translateX(100%) but keeps a 32px box-shadow, and a
    shadow does not travel with the transform's clipping: it reaches back onto
@@ -31788,13 +31984,24 @@ body:has(.cl-consent) .front { padding-bottom: 0; }
   box-shadow: none;
 }
 
-/* --- Motion ------------------------------------------------- */
+/* --- Motion -------------------------------------------------
 
-@media (prefers-reduced-motion: reduce) {
-  .front *,
-  .front *::before,
-  .front *::after {
-    transition-duration: 1ms !important;
-    animation-duration: 1ms !important;
-  }
-}
+   THIS PAGE DOES NOT HONOUR prefers-reduced-motion, and that is a decision,
+   not an oversight. Chad's call, 2026-08-20, made with the preference on and
+   the still version in front of him on two devices.
+
+   What used to be here was the opposite: a blanket rule holding every
+   transition in the page at 1ms whenever the OS asked for reduced motion. It
+   is gone. The fold, the ground, the accent edge, the chevron and the exit
+   wipe now run for everyone.
+
+   WHAT THAT COSTS, recorded so nobody has to rediscover it: a visitor who
+   turns on Reduce Motion has asked every site to stop moving, and this one no
+   longer listens. The rest of chadlewine.com still does -- 31 other
+   reduced-motion blocks are untouched, and the homepage still freezes the
+   animatic and offers MotionInvite. This override is scoped to .front and to
+   FrontExit, and it must not be copied outward.
+
+   The motion here is small and none of it is parallax, spin or flashing: a
+   560ms fold, a colour fade on the same clock, a 2px edge and a rotating
+   plus. If that ever stops being true, this decision should be revisited. */

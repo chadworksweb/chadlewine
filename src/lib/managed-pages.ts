@@ -4,7 +4,8 @@ export interface ManagedPage {
 }
 
 export const MANAGED_PAGES: ManagedPage[] = [
-  { route: "/", label: "Home" },
+  { route: "/", label: "Front Page (/)" },
+  { route: "/home", label: "Home (full site)" },
   { route: "/chad-lewine", label: "About (Chad Lewine)" },
   { route: "/radiant-arc", label: "Radiant Arc" },
   { route: "/foundations", label: "Foundations (index)" },
@@ -25,12 +26,14 @@ export const MANAGED_PAGES: ManagedPage[] = [
   { route: "/meditations", label: "Meditations (index)" },
 ];
 
+// "/" slugs to "front", not "home": /home is a real route now (the full site),
+// and mapping both to "home" would round-trip /home back to /.
 export function routeToSlug(route: string): string {
-  if (route === "/") return "home";
+  if (route === "/") return "front";
   return route.replace(/^\//, "").replace(/\//g, "--");
 }
 
 export function slugToRoute(slug: string): string {
-  if (slug === "home") return "/";
+  if (slug === "front") return "/";
   return "/" + slug.replace(/--/g, "/");
 }

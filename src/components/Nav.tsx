@@ -241,11 +241,12 @@ export function Nav({
         <BookingProbe onChange={setBooking} />
       </Suspense>
       <nav className="site-nav">
-        {/* /#home-enter, not /. The hash is what the hero's boot script reads as
-            "put me at the feed": it skips the scroll lock and lands on the
-            entered state. Bare / replays the animatic intro, which is the wrong
-            answer for someone clicking the logo to get home. */}
-        <Link href="/#home-enter" className="site-nav__logo">
+        {/* /home#home-enter, not /. / is the front page now; the animatic and
+            the feed live at /home. The hash is what the hero's boot script
+            reads as "put me at the feed": it skips the scroll lock and lands on
+            the entered state. Bare /home replays the animatic intro, which is
+            the wrong answer for someone clicking the logo to get home. */}
+        <Link href="/home#home-enter" className="site-nav__logo">
           <span className="site-nav__logo-frame site-nav__logo-frame--left" aria-hidden="true">
             <span className="logo-shape">░</span><span className="logo-shape">▒</span><span className="logo-shape">▓</span><span className="logo-shape">█</span>
           </span>
