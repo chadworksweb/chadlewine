@@ -9,7 +9,6 @@ import { FrontVideoPlayer } from "@/components/front/FrontVideoPlayer";
 import { FrontJsonLd } from "@/components/front/FrontJsonLd";
 import { FrontFoldSizer } from "@/components/front/FrontFoldSizer";
 import { FrontExit } from "@/components/front/FrontExit";
-import { FrontCore } from "@/components/front/FrontCore";
 import { frontDate, frontDuration } from "@/components/front/format";
 
 export const revalidate = 60;
@@ -78,9 +77,6 @@ export default async function FrontPage() {
     >
       <FrontJsonLd release={release} video={video} post={post} />
       <FrontFoldSizer />
-      {/* First in the DOM on purpose: it has no z-index of its own, so source
-          order is what keeps it under the table. See global.css. */}
-      <FrontCore />
 
       <header className="front__head">
         {/* The wordmark carries the h1. On a brand front door that is the

@@ -30805,66 +30805,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   display: none;
 }
 
-/* THE WARP CORE, HELD STILL.
-
-   The animatic's opening frame, sitting under the page. See FrontCore.tsx for
-   how the geometry is derived; this is only where it is put and how big.
-
-   SIZED IN vh, because that is what the hero's own camera is sized in, so it
-   tracks the destination at every window size instead of matching at one.
-
-   The number, worked rather than guessed. The camera is FOV 55 at a 47.4 eye
-   distance, so half the frame is tan(27.5deg) * 47.4 = 24.68 world units. The
-   outer shell has radius 2.0, so its DIAMETER is 4.0 / 24.68 = 16.2% of the
-   half-height, which is 8.1% of the viewport height. The shell fills 98.4% of
-   the generated viewBox (the rest is stroke padding), so the svg is
-   8.1 / 0.984 = 8.24vh.
-
-   This was 16.2vh first, which put it at exactly double: 16.2% is the fraction
-   of the HALF-height, and it got written as if it were the whole. Measured
-   against the real first frame the static ball came out 135px across where the
-   live one is 73px.
-
-   NO z-index. It is first in the DOM and everything else in .front comes after
-   it, so source order alone puts it underneath, and there is no stacking
-   context to unpick when the exit needs to lift it.
-
-   The strokes are the hero's colours at the hero's opacities: the shell is 0.4
-   and the core sits between 0.55 and 0.9 as it breathes, so 0.7 is where it
-   spends most of its time. Additive blending is what makes them glow against
-   black in WebGL; screen is the closest thing CSS has and it behaves the same
-   over a dark ground. */
-.front__core {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  transition: opacity var(--f-theme) ease;
-}
-.front__core-svg {
-  width: 8.24vh;
-  height: 8.24vh;
-  overflow: visible;
-}
-.front__core-shell,
-.front__core-inner {
-  fill: none;
-  vector-effect: non-scaling-stroke;
-  stroke-width: 1;
-}
-.front__core-shell { stroke: #3dff9e; opacity: 0.4; }
-.front__core-inner { stroke: #00e0ff; opacity: 0.7; }
-
-/* Light mode has no black for the glow to sit on, and a screen blend over cream
-   is invisible. The ball is a dark-scene object; on the light page it steps
-   down rather than pretending. */
-:root[data-front-theme="light"] .front__core {
-  mix-blend-mode: multiply;
-  opacity: 0.35;
-}
-
 /* --- Masthead ----------------------------------------------
 
    The one band on the page that quotes .glyph-title-bar
@@ -31767,19 +31707,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   transition: opacity 240ms linear 700ms;
 }
 
-/* THE BALL STAYS, and rises above the seal to do it.
-
-   Everything else on the page is clearing so the handover can land on a
-   matching frame, and the ball IS the matching frame: the next document opens
-   on the same geometry at the same size in the same place. Sealing black over
-   it would throw away the only thing the two pages have in common.
-
-   z-index 2 puts it over the seal (1) for the length of the exit only. It has
-   none at rest, which is what keeps it under the table the rest of the time. */
-.front--exiting .front__core {
-  z-index: 2;
-}
-
 /* Reduced motion never reaches any of this: FrontExit navigates immediately
    rather than adding the class. The rule below is the belt to that braces, for
    a preference that changes between the click and the timer. */
@@ -31788,7 +31715,6 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   .front--exiting .front__head,
   .front--exiting .front__standfirst,
   .front--exiting .front__cta,
-  .front--exiting .front__core,
   .front--exiting::before,
   .front--exiting::after {
     transition-duration: 1ms !important;
