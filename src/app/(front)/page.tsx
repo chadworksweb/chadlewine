@@ -13,6 +13,8 @@ import { FrontVideoPlayer } from "@/components/front/FrontVideoPlayer";
 import { FrontJsonLd } from "@/components/front/FrontJsonLd";
 import { FrontFoldSizer } from "@/components/front/FrontFoldSizer";
 import { FrontExit } from "@/components/front/FrontExit";
+import { FrontNavMenu } from "@/components/front/FrontNavMenu";
+import { getVisibleNavItems } from "@/lib/nav-visibility";
 import { frontDate, frontDuration } from "@/components/front/format";
 
 export const revalidate = 60;
@@ -58,11 +60,15 @@ function cssUrl(path: string | null | undefined): string | null {
 }
 
 export default async function FrontPage() {
-  const [release, video, post, discography] = await Promise.all([
+  const [release, video, post, discography, navItems] = await Promise.all([
     getFrontRelease(),
     getFrontVideo(),
     getFrontPost(),
     getFrontDiscography(),
+    // The same source the site nav reads, not a copy: a second list would drift
+    // the moment a menu item is hidden in admin, and the door would keep
+    // advertising a page the rest of the site had stopped linking to.
+    getVisibleNavItems(),
   ]);
 
   const releaseDate = frontDate(release?.releaseDate);
@@ -115,6 +121,10 @@ export default async function FrontPage() {
             </span>
           </span>
         </h1>
+        {/* The site's own menu, not a second one. See FrontNavMenu for why the
+            door carries it at all: the cutover cost this URL about thirty
+            internal links and this is where they come back. */}
+        <FrontNavMenu items={navItems} />
       </header>
 
       <div className="front__table">

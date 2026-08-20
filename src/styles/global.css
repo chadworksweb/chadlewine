@@ -31119,6 +31119,81 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 /* --- Standfirst --------------------------------------------- */
 
 
+/* --- The menu -----------------------------------------------
+
+   The SITE's menu, hung off the masthead. The list, the chevrons, the stagger
+   and the open/close motion are .nav-mobile-menu's own and are not restated
+   here; all this does is show the button (which the site hides above 900px)
+   and take the panel out of normal flow.
+
+   OUT OF FLOW IS THE WHOLE POINT. .nav-mobile-menu is a normal-flow box that
+   animates its max-height, which is right under a full-width header and wrong
+   here: the table divides the viewport six ways and closes at exactly one
+   screen, so a menu that pushed it would break that promise every time
+   somebody looked for another page. */
+
+.front__menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* The site hides .nav-hamburger by default and shows it under 900px. On the
+   door it is the only way to the rest of the site, so it shows at every width.
+   Sized to the 34px box the theme switch used to occupy, so the masthead's
+   right-hand end did not move when one replaced the other. */
+.front .nav-hamburger.front__menu-button {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  border: 1px solid var(--f-line-hi);
+  border-radius: 3px;
+  background: var(--f-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--f-ink);
+  transition-property: background, border-color, color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
+}
+.front .nav-hamburger.front__menu-button:hover,
+.front .nav-hamburger.front__menu-button:focus-visible {
+  background: var(--f-accent-wash);
+  border-color: var(--f-accent-edge);
+  color: var(--f-accent);
+  outline: none;
+}
+.front .nav-hamburger.front__menu-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--f-accent-glow);
+}
+
+.front__menu-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 8;
+  width: min(340px, calc(100vw - var(--f-inset) * 2));
+  /* NEARLY OPAQUE. The panels inside the table sit at 85% because they want
+     the artwork behind them; this one floats OVER the table, and at that alpha
+     the row labels read straight through it -- two lists of words in one
+     space. A menu has to be a surface. */
+  background-color: color-mix(in srgb, var(--f-bg) 97%, transparent);
+  border: 1px solid var(--f-line-hi);
+  border-radius: 4px;
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--shade) 45%, transparent);
+  padding-inline: 12px;
+}
+.front__menu-panel.nav-mobile-menu--open {
+  /* The site's rule caps this at the viewport minus a header that is not here.
+     Cap it against the masthead instead, and let it scroll if the menu ever
+     outgrows the screen. */
+  max-height: min(70vh, calc(100dvh - 120px));
+  padding-block: 12px;
+}
+
 /* --- The table ---------------------------------------------
 
    THE HEIGHT MODEL, which is the whole trick of this page.

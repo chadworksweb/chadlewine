@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import { DEFAULT_NAV_ITEMS, type NavItem } from "@/lib/nav-items";
+import { SiteMenuGroups } from "@/components/SiteMenuGroups";
 
 // How far the page has to travel in one direction before the header changes
 // state. Deliberately larger than the settling slop of a smooth scroll and
@@ -44,7 +45,6 @@ export function Nav({
   const onArtRef = useRef(onArt);
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   // Seed from a server-side cookie check so the Account/Login link is in the
   // initial HTML — otherwise the /api/auth/me fetch below adds it ~1s after
   // first paint and pushes the rest of the menu around.
@@ -199,7 +199,6 @@ export function Nav({
     setLastPathname(pathname);
     setMenuOpen(false);
     setExpanded(null);
-    setMobileExpanded(null);
   }
 
   // Exact-match active state: only the page you are actually on lights up. No
@@ -353,65 +352,12 @@ export function Nav({
         className={`nav-mobile-menu${menuOpen ? " nav-mobile-menu--open" : ""}`}
         aria-hidden={!menuOpen}
       >
-          {navItems.map((item) =>
-            item.children ? (
-              <div key={item.label} className="nav-mobile-menu__group">
-                <div className="nav-mobile-menu__row">
-                  <Link
-                    href={item.href}
-                    className={`nav-mobile-menu__item nav-mobile-menu__item--parent${isParentActive(item) ? " nav-mobile-menu__item--active" : ""}`}
-                  >
-                    {item.label}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setMobileExpanded(mobileExpanded === item.label ? null : item.label);
-                    }}
-                    className={`nav-mobile-menu__chevron${mobileExpanded === item.label ? " nav-mobile-menu__chevron--open" : ""}`}
-                    aria-label={`Toggle ${item.label} submenu`}
-                    aria-expanded={mobileExpanded === item.label}
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <path d="M5 9l7 7 7-7" />
-                    </svg>
-                  </button>
-                </div>
-                <div
-                  className={`nav-mobile-menu__dropdown${mobileExpanded === item.label ? " nav-mobile-menu__dropdown--open" : " nav-mobile-menu__dropdown--closed"}`}
-                >
-                  {item.children.map((child, i) => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      className={`nav-mobile-menu__item nav-mobile-menu__item--sub${isActive(child.href) ? " nav-mobile-menu__item--active" : ""}`}
-                      style={{ "--nav-index": i, "--nav-index-rev": item.children!.length - 1 - i } as React.CSSProperties}
-                    >
-                      {child.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`nav-mobile-menu__item${isActive(item.href) ? " nav-mobile-menu__item--active" : ""}`}
-              >
-                {item.label}
-              </Link>
-            )
-          )}
+          <SiteMenuGroups
+            items={navItems}
+            isActive={isActive}
+            isParentActive={isParentActive}
+            onNavigate={() => setMenuOpen(false)}
+          />
       </div>
     </header>
   );
