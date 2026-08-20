@@ -42,7 +42,38 @@ export function FrontNavMenu({ items }: { items: NavItem[] }) {
         aria-label="Toggle menu"
         aria-expanded={open}
       >
-        {open ? "✕" : "☰"}
+        {/* DRAWN, NOT TYPED. The site nav uses the characters and gets away
+            with it because they sit in a tall header where a pixel of drift is
+            invisible. In a 34px square it is not, and it cannot be fixed with
+            padding: both glyphs are drawn entirely above the baseline, and how
+            far above depends on which font the machine falls back to, so the
+            nudge that centres it on Windows leaves it high on a phone. An SVG
+            has no baseline, so its box IS its ink and centring is exact
+            everywhere. Same stroke weight as the account icon beside it. */}
+        <svg
+          viewBox="0 0 24 24"
+          width="17"
+          height="17"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          {open ? (
+            <>
+              <path d="M6 6l12 12" />
+              <path d="M18 6L6 18" />
+            </>
+          ) : (
+            <>
+              <path d="M4 7h16" />
+              <path d="M4 12h16" />
+              <path d="M4 17h16" />
+            </>
+          )}
+        </svg>
       </button>
 
       <div

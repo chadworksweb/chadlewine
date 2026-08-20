@@ -31147,8 +31147,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   width: 34px;
   height: 34px;
   padding: 0;
-  font-size: 1.15rem;
-  line-height: 1;
+  /* The mark is an SVG, so there is no baseline and no font fallback in play:
+     place-items centres a box whose bounds are the drawing itself. */
+  line-height: 0;
   border: 1px solid var(--f-line-hi);
   border-radius: 3px;
   background: var(--f-surface);
