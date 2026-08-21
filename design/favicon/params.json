@@ -1,0 +1,23 @@
+{
+  "_": "The chadlewine.com shade-ramp favicon. Edit these numbers and run build.mjs; every asset in out/ and every installed copy is derived, none of it is drawn. Units are on the 32x32 icon grid, so 1 unit = 1px at 32 and half a pixel at 16.",
+  "mode": "mirror",
+  "cells": 7,
+  "falloff": 0.75,
+  "steps": 4,
+  "barW": 4,
+  "gap": 0,
+  "barH": 20,
+  "heightRamp": 0.6,
+  "cap": "butt",
+  "radius": 0,
+  "tone": "accent",
+  "brackets": 0,
+  "brW": 4,
+  "brH": 26,
+  "brStroke": 1,
+  "tile": "none",
+  "tileRadius": 4,
+  "pad": 2,
+  "snap": "16",
+  "dither": 0
+}
