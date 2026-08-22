@@ -204,6 +204,7 @@ export function SongDetail({
   songSkus = [],
   releaseSkus = [],
   merchSlot = null,
+  similarSlot = null,
   renderConfig = null,
   labelMeta = null,
 }: {
@@ -222,6 +223,9 @@ export function SongDetail({
   pairedArt?: PairedArtProps[];
   connectionsSongs?: ConnectionsSongProps[];
   merchSlot?: React.ReactNode;
+  /** Similar Songs, computed over the catalogue. Server-rendered upstream and
+   *  slotted in, same as merchSlot, so this client component gains no JS. */
+  similarSlot?: React.ReactNode;
   /** Effective render-lever config for the cube (see librosa-levers.ts). */
   renderConfig?: Record<string, number> | null;
   /** Authored "prescription" layer for the Psyche Facts label. */
@@ -1070,6 +1074,12 @@ export function SongDetail({
           </div>
         );
       })()}
+
+      {/* Sits after the narrative: the reader has the whole song by here, so
+          the catalogue is a next step rather than a detour out of it. */}
+      {similarSlot && (
+        <div className="song-landing__container">{similarSlot}</div>
+      )}
 
       {/* Bare minimum CTA when no content exists */}
       {visibilitySections.length === 0 && !geoFields && (

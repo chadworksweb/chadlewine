@@ -80,6 +80,58 @@
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-medium: rgba(255, 255, 255, 0.1);
 
+  /* --- THE THEME SWAP SURFACE ---------------------------------
+     Added 2026-08-20, phase 2 of the token refactor. Nothing reads these yet;
+     the rules move onto them one component family at a time. Full reasoning,
+     counts and phase order in CHADLEWINE-TOKEN-REFACTOR.md.
+
+     THE POINT: a theme should change these few hues and nothing else. Today the
+     stylesheet writes pure black at 31 different alphas and pure white at 32,
+     by hand, in 933 places, so there is no "these few hues" to change.
+
+     THE RULE FOR CONVERTING: color-mix with the literal's OWN alpha, never the
+     nearest step below. The steps here are for new code and for the values that
+     already carry weight; they are not a grid to round existing colours onto.
+     Rounding changes pixels, hides inside a mechanical diff, and destroys the
+     one property that makes this refactor reviewable. */
+
+  /* The base hues. A light mode changes these and little else. */
+  --ink-pure:      #ffffff;   /* glass, hairlines, lifts: 93 uses, 32 alphas */
+  --shade:         #000000;   /* scrims and shadows: 156 uses, 31 alphas */
+  --accent-strong: #4060ff;   /* the saturated accent: 81 uses, no token today */
+  --accent-lift:   #6e8fff;   /* 19 uses, no token today */
+
+  /* Surfaces, from --ink-pure. --bg-glass (0.03) and --border-subtle (0.06)
+     are the two steps that already existed and they stay where they are. */
+  --surface-1: color-mix(in srgb, var(--ink-pure) 5%, transparent);
+  --surface-2: color-mix(in srgb, var(--ink-pure) 8%, transparent);
+  --surface-3: color-mix(in srgb, var(--ink-pure) 12%, transparent);
+  --surface-4: color-mix(in srgb, var(--ink-pure) 18%, transparent);
+  --surface-5: color-mix(in srgb, var(--ink-pure) 25%, transparent);
+
+  /* Scrims, from --shade. 0.40 and 0.30 carry most of the weight; 0.55 is the
+     media modal's ground. */
+  --scrim-1: color-mix(in srgb, var(--shade) 30%, transparent);
+  --scrim-2: color-mix(in srgb, var(--shade) 40%, transparent);
+  --scrim-3: color-mix(in srgb, var(--shade) 55%, transparent);
+  --scrim-4: color-mix(in srgb, var(--shade) 70%, transparent);
+
+  /* Accent washes. Three steps of --accent-strong cover a third of every
+     accent use in the sheet. */
+  --accent-wash: color-mix(in srgb, var(--accent-strong) 8%, transparent);
+  --accent-hi:   color-mix(in srgb, var(--accent-strong) 18%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent-strong) 45%, transparent);
+
+  /* The soft accent is --text-accent (#8b9cf7), which already exists. */
+  --accent-soft-wash: color-mix(in srgb, var(--text-accent) 12%, transparent);
+  --accent-soft-line: color-mix(in srgb, var(--text-accent) 40%, transparent);
+  --accent-soft-edge: color-mix(in srgb, var(--text-accent) 55%, transparent);
+
+  /* State. Not brand, not surface: these mean something. */
+  --state-danger:      #dc2626;
+  --state-danger-soft: #f87171;
+  --state-warn:        #ff9500;
+
   /* --- Typography --- */
   --font-body: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -363,7 +415,9 @@ main > .page-music-hub__banner {
 a {
   color: var(--text-accent);
   text-decoration: none;
-  transition: color var(--duration-fast) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 a:hover {
   color: var(--text-primary);
@@ -398,7 +452,9 @@ h2, h3, h4, h5, h6 {
   right: 0;
   z-index: 100;
   background: var(--bg-deep);
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .site-header--hidden {
@@ -634,7 +690,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  transition: all var(--duration-base) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .nav-links__item:hover {
@@ -768,10 +826,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   overflow: hidden;
   opacity: 0;
   transform: translateY(-8px);
-  transition: max-height var(--duration-base) var(--ease-out),
-              opacity var(--duration-base) var(--ease-out),
-              transform var(--duration-base) var(--ease-out),
-              padding-bottom var(--duration-base) var(--ease-out);
+  transition-property: max-height, opacity, transform, padding-bottom;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .nav-mobile-menu--open {
@@ -813,7 +870,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   text-decoration: none;
-  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+  transition-property: background, border-color, color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .nav-mobile-menu__item--parent {
@@ -847,7 +906,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border-radius: 4px;
   cursor: pointer;
   padding: 0;
-  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+  transition-property: background, border-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .nav-mobile-menu__chevron:hover {
@@ -859,7 +920,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   display: block;
   width: 22px;
   height: 22px;
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .nav-mobile-menu__chevron--open svg {
@@ -1049,7 +1112,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .subscribe-section__input::placeholder {
@@ -1071,7 +1136,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   white-space: nowrap;
 }
 
@@ -2190,7 +2257,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   background: none;
   cursor: pointer;
   font-size: 14px;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   opacity: 0.5;
 }
 
@@ -2241,7 +2310,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   background: rgba(255,255,255,0.08);
   color: var(--text-tertiary);
   text-decoration: none;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   backdrop-filter: blur(8px);
 }
 
@@ -2361,7 +2432,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   gap: var(--space-lg);
   padding: var(--space-lg);
   border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--duration-fast) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   text-decoration: none;
   color: inherit;
 }
@@ -2382,7 +2455,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .feed-entry__content {
@@ -2494,7 +2569,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   height: 96px;
   border-radius: 6px;
   overflow: hidden;
-  transition: opacity 0.2s var(--ease-out);
+  transition-property: opacity;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .featured-track__art-link:hover {
@@ -2524,7 +2601,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color 0.2s var(--ease-out);
+  transition-property: color;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .featured-track__title:hover {
@@ -2536,7 +2615,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   text-decoration: none;
-  transition: color 0.2s var(--ease-out);
+  transition-property: color;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .featured-track__album:hover {
@@ -2570,7 +2651,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border-radius: 6px;
   text-decoration: none;
   box-shadow: 0 0 16px rgba(0, 212, 170, 0.35);
-  transition: background 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
+  transition-property: background, box-shadow;
+  transition-duration: 0.18s, 0.18s;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .featured-track__cta:hover {
@@ -3030,7 +3113,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   padding: var(--space-lg) var(--space-xl);
   text-decoration: none;
   color: inherit;
-  transition: background var(--duration-fast) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .page-foundations__item-number {
@@ -3047,7 +3132,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
 .page-foundations__item-arrow {
   margin-left: auto;
   color: var(--text-tertiary);
-  transition: transform var(--duration-fast) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 /* ============================================================
@@ -3172,7 +3259,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
     border: 1px solid var(--border-medium);
     border-radius: 10px;
     cursor: pointer;
-    transition: color var(--duration-base) var(--ease-out);
+    transition-property: color;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
   }
 
   .legal__toc-toggle:hover {
@@ -3187,7 +3276,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
     border-right: 1.5px solid currentColor;
     border-bottom: 1.5px solid currentColor;
     transform: rotate(45deg);
-    transition: transform var(--duration-base) var(--ease-out);
+    transition-property: transform;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
   }
 
   .legal__toc-toggle[aria-expanded="true"] .legal__toc-caret {
@@ -3236,7 +3327,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   line-height: 1.3;
   color: var(--text-secondary);
   text-decoration: none;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .legal__toc-link:hover {
@@ -3250,10 +3343,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border-radius: 50%;
   border: 1px solid currentColor;
   background: transparent;
-  transition:
-    background var(--duration-base) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out);
+  transition-property: background, box-shadow, border-color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .legal__toc-item.is-active .legal__toc-link {
@@ -3349,9 +3441,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-color: rgba(139, 156, 247, 0.4);
-  transition:
-    color var(--duration-base) var(--ease-out),
-    text-decoration-color var(--duration-base) var(--ease-out);
+  transition-property: color, text-decoration-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .legal__body a:hover {
@@ -3469,7 +3561,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   cursor: pointer;
   z-index: 4;
   padding: 0;
-  transition: background var(--duration-base) var(--ease-out), box-shadow var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
+  transition-property: background, box-shadow, color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .album-hero__nav-tab--prev {
@@ -3573,7 +3667,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .album-hero__cover-link:hover .album-hero__cover {
@@ -3709,7 +3805,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   letter-spacing: 0.06em;
   text-decoration: none;
   text-transform: uppercase;
-  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .album-hero__cta:hover {
@@ -3736,7 +3834,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   cursor: pointer;
   overflow: hidden;
   opacity: 0.45;
-  transition: opacity var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out);
+  transition-property: opacity, border-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
   position: relative;
 }
 
@@ -3885,7 +3985,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   letter-spacing: 0.1em;
   color: var(--text-tertiary);
   text-decoration: none;
-  transition: color 0.2s var(--ease-out);
+  transition-property: color;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .rc-badge__source:hover {
@@ -4234,8 +4336,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   overflow: hidden;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  transition: border-color var(--duration-fast) var(--ease-out),
-              transform var(--duration-fast) var(--ease-out);
+  transition-property: border-color, transform;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .curation-card:hover {
@@ -4370,7 +4473,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   text-decoration: none;
-  transition: background var(--duration-fast) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .curation-entry__platform-btn:hover {
@@ -4540,7 +4645,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   color: var(--reading-text-secondary);
   padding: 4px 0;
   cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   background: none;
   border: none;
   width: 100%;
@@ -4576,7 +4683,9 @@ body.art-immersive main ~ *:not(.cl-sticky-player) {
   border: 1px solid rgba(0,0,0,0.1);
   border-radius: 3px;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   background: none;
 }
 
@@ -5282,7 +5391,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .login-form__input:focus {
@@ -5299,7 +5410,9 @@ html {
   font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   margin-top: var(--space-sm);
 }
 
@@ -5403,8 +5516,9 @@ html {
   color: var(--text-secondary);
   text-decoration: none;
   border-radius: 6px;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .admin-sidebar__link:hover {
@@ -5456,8 +5570,9 @@ html {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   text-decoration: none;
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .admin-sidebar__flyout-item:hover {
@@ -5486,7 +5601,9 @@ html {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .admin-sidebar__logout:hover {
@@ -5526,7 +5643,9 @@ html {
   border-radius: 6px;
   cursor: pointer;
   text-decoration: none;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .admin-btn:hover { opacity: 0.9; }
@@ -5715,8 +5834,9 @@ html {
   padding-bottom: var(--space-sm);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: color var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out);
+  transition-property: color, border-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .admin-tabs__tab:hover {
@@ -5801,7 +5921,9 @@ html {
 
 .admin-table__row {
   border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--duration-fast) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .admin-table__row:hover {
@@ -6202,7 +6324,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .obsv-editor__input:focus {
@@ -6276,7 +6400,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .campaign-editor__input:focus { border-color: var(--text-accent); }
 .campaign-editor__input:disabled {
@@ -6491,7 +6617,9 @@ html {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color var(--duration-fast), color var(--duration-fast), background var(--duration-fast);
+  transition-property: border-color, color, background;
+  transition-duration: var(--duration-fast), var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease, ease;
 }
 .campaign-editor__chip:hover { color: var(--text-primary); }
 .campaign-editor__chip--on {
@@ -6691,7 +6819,9 @@ html {
   font-weight: 600;
   cursor: help;
   flex-shrink: 0;
-  transition: border-color var(--duration-fast), color var(--duration-fast);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .audience-detail__info-icon:hover,
 .audience-detail__info-icon:focus {
@@ -6842,8 +6972,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out),
-              background-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color, background-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .account-auth__input:hover { border-color: rgba(255, 255, 255, 0.32); }
 .account-auth__input:focus {
@@ -6881,7 +7012,9 @@ html {
   color: var(--text-tertiary);
   cursor: pointer;
   border-radius: 4px;
-  transition: color var(--duration-fast);
+  transition-property: color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .account-auth__reveal:hover { color: var(--text-primary); }
 .account-auth__err {
@@ -7104,8 +7237,9 @@ html {
   font-family: var(--font-ui);
   font-size: 0.9375rem;
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out),
-              background-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color, background-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .account-dashboard__input:hover { border-color: rgba(255, 255, 255, 0.32); }
 .account-dashboard__input:focus {
@@ -7218,8 +7352,9 @@ html {
   background: #2a2a3a;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
-  transition: background var(--duration-fast) var(--ease-out),
-              border-color var(--duration-fast) var(--ease-out);
+  transition-property: background, border-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .account-dashboard__toggle-slider::before {
   content: "";
@@ -7231,8 +7366,9 @@ html {
   transform: translateY(-50%);
   background: #c8c8d4;
   border-radius: 50%;
-  transition: transform var(--duration-fast) var(--ease-out),
-              background var(--duration-fast) var(--ease-out);
+  transition-property: transform, background;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .account-dashboard__toggle input:checked + .account-dashboard__toggle-slider {
   background: var(--text-accent);
@@ -7419,7 +7555,9 @@ html {
   border-radius: 999px;
   padding: 10px 20px;
   cursor: pointer;
-  transition: filter var(--duration-fast) var(--ease-out);
+  transition-property: filter;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .unsubscribe-page__resub-btn:hover:not(:disabled) {
   filter: brightness(1.1);
@@ -7446,7 +7584,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .unsubscribe-page__input:focus,
 .unsubscribe-page__textarea:focus { border-color: var(--text-accent); }
@@ -7461,7 +7601,9 @@ html {
   padding: 10px 20px;
   cursor: pointer;
   align-self: flex-start;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .unsubscribe-page__submit:disabled { opacity: 0.5; cursor: not-allowed; }
 .unsubscribe-page__err {
@@ -7483,7 +7625,9 @@ html {
   line-height: 1.6;
   outline: none;
   resize: vertical;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .obsv-editor__textarea:focus {
@@ -7546,7 +7690,9 @@ html {
   border: 1px solid var(--border-medium);
   border-radius: 4px;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .obsv-editor__chip:hover {
@@ -7644,7 +7790,9 @@ html {
   font-size: var(--text-sm);
   cursor: pointer;
   color: var(--text-secondary);
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .med-composer__toolbar-btn:hover {
@@ -7739,7 +7887,9 @@ html {
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   text-align: center;
 }
 
@@ -8441,7 +8591,9 @@ html {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .rte__tab:hover {
@@ -8479,7 +8631,9 @@ html {
   border: 1px solid transparent;
   border-radius: 3px;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
   min-width: 26px;
   text-align: center;
 }
@@ -8758,7 +8912,9 @@ html {
   text-decoration: none;
   color: inherit;
   background: #1a1a2e;
-  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  transition-property: border-color, box-shadow;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
@@ -8860,7 +9016,9 @@ html {
   display: block;
   text-decoration: none;
   color: inherit;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .synapse-jumper__card:hover {
@@ -8944,7 +9102,9 @@ html {
   display: block;
   text-decoration: none;
   color: inherit;
-  transition: opacity var(--duration-fast) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .related-observations__card:hover {
@@ -9068,7 +9228,9 @@ html {
   border-radius: 8px;
   text-align: center;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .media-modal__dropzone:hover,
@@ -9134,7 +9296,9 @@ html {
      separate cells instead of bleeding into one continuous wall. */
   background: var(--bg-elevated, #1a1a1a);
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.10));
-  transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  transition-property: border-color, box-shadow;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
   cursor: pointer;
 }
 
@@ -9375,7 +9539,9 @@ html {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
   margin-bottom: var(--space-xl);
-  transition: all var(--duration-fast) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .media-page__dropzone:hover,
@@ -9414,7 +9580,9 @@ html {
   background: var(--bg-elevated, #1a1a1a);
   border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .media-page__item:hover {
@@ -11654,7 +11822,9 @@ html {
   gap: var(--space-xs);
   flex-shrink: 0;
   width: 180px;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .sap__album-btn--active { border-color: var(--text-accent); }
 .sap__album-btn:hover { border-color: var(--border-medium); }
@@ -11739,7 +11909,9 @@ html {
   cursor: pointer;
   font-weight: 700;
   letter-spacing: 0.03em;
-  transition: opacity var(--duration-fast);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .sap__btn:hover { opacity: 0.85; }
 .sap__btn:disabled { opacity: 0.3; cursor: default; }
@@ -11772,7 +11944,9 @@ html {
   font-size: var(--text-body);
   text-align: left;
   border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .sap__track:hover { background: var(--bg-glass-hover); }
 .sap__track--active { color: var(--text-accent); }
@@ -11874,7 +12048,9 @@ html {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   cursor: pointer;
-  transition: background var(--duration-fast), border-color var(--duration-fast);
+  transition-property: background, border-color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
   text-align: left;
   gap: 8px;
 }
@@ -11910,7 +12086,9 @@ html {
   display: inline-block;
   font-size: 0.75rem;
   color: var(--text-tertiary);
-  transition: transform var(--duration-fast);
+  transition-property: transform;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .lb__album-header[aria-expanded="true"] .lb__chevron {
   transform: rotate(90deg);
@@ -11938,7 +12116,9 @@ html {
   font-size: 0.82rem;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color var(--duration-fast), background var(--duration-fast);
+  transition-property: color, background;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
   text-align: left;
   line-height: 1.5;
 }
@@ -12105,7 +12285,9 @@ html {
     background: var(--bg-elevated);
     overflow: hidden; /* inner list scrolls, not the panel shell */
     transform: translateY(0); /* menu mode + open drawer both sit full */
-    transition: transform 0.42s var(--ease-in-out);
+    transition-property: transform;
+    transition-duration: 0.42s;
+    transition-timing-function: var(--ease-in-out);
     will-change: transform; /* own compositor layer -> slide isn't stuttered by reflow */
   }
   /* Reading: the release list is a shorter sheet (20% lyric gap at top) that
@@ -12162,7 +12344,9 @@ html {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     cursor: pointer;
-    transition: background var(--duration-base) var(--ease-out);
+    transition-property: background;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
   }
   /* Same tab, slightly lighter background while the list is open. */
   .lb--reading.lb--drawer-open .lb__pull {
@@ -12226,7 +12410,9 @@ html {
   color: inherit;
   display: flex;
   flex-direction: column;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .art-grid__item:hover { border-color: var(--border-medium); }
 
@@ -12318,7 +12504,9 @@ html {
   align-items: center;
   justify-content: center;
   line-height: 1;
-  transition: border-color var(--duration-fast);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .art-modal__close:hover { border-color: var(--text-accent); }
 
@@ -12472,7 +12660,9 @@ html {
   border: 1px solid rgba(139, 156, 247, 0.45);
   border-radius: 4px;
   background: rgba(139, 156, 247, 0.08);
-  transition: background var(--duration-base) var(--ease-out), border-color var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+  transition-property: background, border-color, transform;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 
 .home-merch__view-all:hover {
@@ -12635,7 +12825,9 @@ html {
   border-radius: 4px;
   color: var(--text-tertiary);
   cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .format-buy__opt:hover { color: var(--text-primary); }
 .format-buy__opt--active {
@@ -12828,7 +13020,9 @@ html {
   border-radius: 6px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition-property: background, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .patronage__toggle-opt:hover { color: var(--text-primary); }
 .patronage__toggle-opt--active {
@@ -12859,7 +13053,9 @@ html {
   cursor: pointer;
   display: inline-grid;
   place-content: center;
-  transition: border-color var(--duration-fast), background var(--duration-fast);
+  transition-property: border-color, background;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .patronage__checkbox:hover { border-color: var(--text-accent); }
 .patronage__checkbox:checked {
@@ -12920,7 +13116,9 @@ html {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity var(--duration-fast), visibility var(--duration-fast);
+  transition-property: opacity, visibility;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
   z-index: 10;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
@@ -12955,7 +13153,9 @@ html {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   color: var(--text-secondary); cursor: pointer;
-  transition: border-color var(--duration-fast), color var(--duration-fast);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .patronage__preset:hover { border-color: rgba(255, 255, 255, 0.25); color: var(--text-primary); }
 .patronage__preset--active { border-color: var(--text-accent); color: var(--text-accent); }
@@ -12988,7 +13188,9 @@ html {
   padding: 0;
   font-size: 9px;
   line-height: 1;
-  transition: border-color var(--duration-fast), color var(--duration-fast);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: ease, ease;
 }
 .patronage__step:first-child { border-radius: 3px 3px 0 0; }
 .patronage__step:last-child { border-radius: 0 0 3px 3px; border-top: none; }
@@ -13003,7 +13205,9 @@ html {
   border-radius: 6px;
   color: var(--text-primary); width: 92px;
   outline: none;
-  transition: border-color var(--duration-fast);
+  transition-property: border-color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
   -moz-appearance: textfield;
 }
 .patronage__input::-webkit-outer-spin-button,
@@ -13021,7 +13225,9 @@ html {
   background: #2f3bb0; color: #fff; border: none; border-radius: 6px;
   cursor: pointer; width: auto;
   letter-spacing: 0.03em;
-  transition: opacity var(--duration-fast);
+  transition-property: opacity;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: ease;
 }
 .patronage__submit:hover { opacity: 0.85; }
 .patronage__submit:disabled { opacity: 0.5; cursor: default; }
@@ -13544,7 +13750,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   flex-shrink: 0;
   display: block;
   line-height: 0;
-  transition: opacity 0.2s var(--ease-out);
+  transition-property: opacity;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--ease-out);
 }
 
 .track-detail__rc-compass-link:hover,
@@ -14873,7 +15081,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 
 .rtg__shot {
   object-fit: cover;
-  transition: transform var(--duration-slow) var(--ease-out), filter var(--duration-slow) var(--ease-out);
+  transition-property: transform, filter;
+  transition-duration: var(--duration-slow), var(--duration-slow);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .rtg__stage:hover .rtg__shot {
   transform: scale(1.045);
@@ -14904,7 +15114,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   pointer-events: none;
   background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.10) 3px);
   opacity: 0.22;
-  transition: opacity var(--duration-base) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
   mix-blend-mode: multiply;
 }
 .rtg__stage:hover .rtg__scan { opacity: 0.55; }
@@ -14925,7 +15137,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 .rtg__name-link {
   color: inherit;
   text-decoration: none;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .rtg__name-link:hover { color: var(--text-accent); }
 
@@ -14970,7 +15184,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   flex-shrink: 0;
   display: block;
   line-height: 0;
-  transition: opacity var(--duration-base) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .rtg__gauge:hover { opacity: 0.82; }
 .rtg__gauge .rc-compass-icon { width: 60px; height: 60px; }
@@ -15060,11 +15276,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   border-radius: 4px;
   overflow: hidden;
   background: linear-gradient(180deg, #9fb0fb, var(--text-accent));
-  transition:
-    border-color var(--duration-base) var(--ease-out),
-    background var(--duration-base) var(--ease-out),
-    color var(--duration-base) var(--ease-out),
-    box-shadow var(--duration-base) var(--ease-out);
+  transition-property: border-color, background, color, box-shadow;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
 }
 /* Scanline texture so the button matches the spec panel. */
 .rtg__cta::after {
@@ -15093,7 +15307,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
 }
 .rtg__cta:hover .rtg__cta-text::before { color: #0ff; opacity: 0.85; animation: rtg-cta-cyan 0.4s steps(3) 1; }
 .rtg__cta:hover .rtg__cta-text::after { color: #f0f; opacity: 0.85; animation: rtg-cta-magenta 0.4s steps(3) 1; }
-.rtg__cta-arrow { position: relative; z-index: 1; transition: transform var(--duration-base) var(--ease-out); }
+.rtg__cta-arrow { position: relative; z-index: 1; transition-property: transform;
+ transition-duration: var(--duration-base);
+ transition-timing-function: var(--ease-out); }
 .rtg__cta:hover .rtg__cta-arrow { transform: translateX(5px); }
 
 @keyframes rtg-cta-cyan { 0%, 100% { transform: none; } 50% { transform: translate(-2px, -1px); } }
@@ -15198,7 +15414,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   border-radius: 6px;
   background: rgba(139, 156, 247, 0.04);
   overflow: hidden;
-  transition: border-color var(--duration-base) var(--ease-out), background var(--duration-base) var(--ease-out);
+  transition-property: border-color, background;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 
 .album-section__lyrics-card:hover {
@@ -15412,7 +15630,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   overflow: hidden;
   background: rgba(139, 156, 247, 0.06);
   margin-bottom: var(--space-xs);
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .album-section__ymal-card:hover .album-section__ymal-thumb {
@@ -15459,7 +15679,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   overflow: hidden;
   background: rgba(139, 156, 247, 0.06);
   margin-bottom: var(--space-xs);
-  transition: transform var(--duration-base) var(--ease-out);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 
 .album-section__obs-card:hover .album-section__obs-thumb {
@@ -17140,7 +17362,9 @@ body:has(.page-patronage) main ~ .site-patronage { display: none; }
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s var(--ease-out, ease);
+  transition-property: opacity;
+  transition-duration: 0.15s;
+  transition-timing-function: var(--ease-out, ease);
 }
 
 .psyche-aura__tip.is-visible {
@@ -22771,8 +22995,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-shadow: 0 0 18px rgba(64, 96, 255, 0.45);
   text-decoration: none;
   padding: 0.15rem 1rem;
-  transition: color var(--duration-base) var(--ease-out),
-              text-shadow var(--duration-base) var(--ease-out);
+  transition-property: color, text-shadow;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-hero__nav-link:hover {
   color: #ffffff;
@@ -23877,7 +24102,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   color: inherit;
   text-decoration: none;
   border-bottom: 1px solid transparent;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .rc-song-list__title-link:hover { border-color: #00d4aa; }
 .rc-song-list__sep {
@@ -23965,7 +24192,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: 1px solid var(--border-medium);
   border-radius: 4px;
   text-decoration: none;
-  transition: all var(--duration-base) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-door__cta:hover {
   background: var(--text-primary);
@@ -24059,8 +24288,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 .si-merch-carousel__slide {
   position: absolute;
   inset: 0;
-  transition: transform 1000ms var(--ease-out),
-              opacity 1000ms var(--ease-out);
+  transition-property: transform, opacity;
+  transition-duration: 1000ms, 1000ms;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-merch-carousel__slide--current { z-index: 2; opacity: 1; }
 .si-merch-carousel__slide--prev,
@@ -24104,9 +24334,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   line-height: 1;
   cursor: pointer;
   padding: 0;
-  transition: background var(--duration-base) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out);
+  transition-property: background, box-shadow, color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 /* Hover styles only on devices with real hover — iOS makes :hover sticky
    on tap, which leaves the paddle "lit" until you tap somewhere else. */
@@ -24227,7 +24457,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-decoration: none;
   border-bottom: 1px solid var(--text-tertiary);
   padding-bottom: 2px;
-  transition: border-color var(--duration-base) var(--ease-out);
+  transition-property: border-color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-merch-carousel__cta:hover { border-color: var(--text-primary); }
 .si-merch-carousel__indicator {
@@ -24244,7 +24476,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: none;
   padding: 0;
   cursor: pointer;
-  transition: background var(--duration-base) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-merch-carousel__dot--active { background: var(--text-primary); }
 .si-merch-carousel__counter {
@@ -24272,7 +24506,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-transform: uppercase;
   color: var(--text-tertiary);
   text-decoration: none;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .event-page__breadcrumb-link:hover {
   color: var(--text-primary);
@@ -24469,7 +24705,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   padding: 0;
   cursor: pointer;
   white-space: nowrap;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .event-rsvp-form__share-btn:hover { color: var(--text-primary); }
 
@@ -24569,8 +24807,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-radius: 8px;
   color: var(--text-primary);
   text-decoration: none;
-  transition: transform var(--duration-base) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out);
+  transition-property: transform, box-shadow;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .irl-event-card:hover {
   transform: translateY(-2px);
@@ -24629,7 +24868,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-accent);
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .irl-event-card:hover .irl-event-card__cta { color: var(--text-primary); }
 
@@ -24653,7 +24894,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   /* Pre-visible resting position: bottom-center, nudged 20px below the
      final spot so the entrance reads as a rise. */
   transform: translate(calc(50vw - 50%), calc(100vh - 100% - var(--si-bottom) + 20px));
-  transition: transform 750ms var(--ease-out), opacity 600ms var(--ease-out);
+  transition-property: transform, opacity;
+  transition-duration: 750ms, 600ms;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-floating-tag--visible {
   opacity: 1;
@@ -24691,7 +24934,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
     0 0 36px rgba(64, 96, 255, 0.35),
     0 8px 24px rgba(0, 0, 0, 0.35);
   white-space: nowrap;
-  transition: padding 600ms var(--ease-out), border-radius 600ms var(--ease-out);
+  transition-property: padding, border-radius;
+  transition-duration: 600ms, 600ms;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 /* Snoozed pill collapses to a small right-edge paddle. */
 .si-floating-tag--snoozed .si-floating-tag__inner {
@@ -24746,7 +24991,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   line-height: 1;
   border-radius: 999px;
   opacity: 0.55;
-  transition: opacity 200ms var(--ease-out), background 200ms var(--ease-out);
+  transition-property: opacity, background;
+  transition-duration: 200ms, 200ms;
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-floating-tag__close:hover {
   opacity: 1;
@@ -24797,7 +25044,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   position: absolute;
   width: 240px;
   height: 240px;
-  transition: all var(--duration-slow) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-slow);
+  transition-timing-function: var(--ease-out);
   cursor: pointer;
   border-radius: 4px;
   overflow: hidden;
@@ -24864,7 +25113,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background var(--duration-base) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-coverflow__nav:hover:not(:disabled) { background: rgba(0, 0, 0, 0.85); }
 .si-coverflow__nav:disabled { opacity: 0.3; cursor: default; }
@@ -25013,8 +25264,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-bottom: 1px solid rgba(0, 212, 170, 0.4);
   padding-bottom: 2px;
   align-self: flex-start;
-  transition: color var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out);
+  transition-property: color, border-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .rc-now-tile__cta:hover { color: #2effc4; border-color: #2effc4; }
 .rc-now-tile__placeholder {
@@ -25059,8 +25311,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.9rem;
   color: #eeeef4;
-  transition: border-color var(--duration-base) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out);
+  transition-property: border-color, box-shadow;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .mini-charger__textarea {
   font-family: var(--font-body);
@@ -25120,10 +25373,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   text-decoration: none;
   display: inline-block;
   box-shadow: 0 0 18px rgba(110, 143, 255, 0.45);
-  transition: background var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out),
-              border-color var(--duration-base) var(--ease-out),
-              box-shadow var(--duration-base) var(--ease-out);
+  transition-property: background, color, border-color, box-shadow;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .mini-charger__btn-primary:hover {
   background: #ffffff;
@@ -25146,8 +25398,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-size: 0.82rem;
   letter-spacing: 0.04em;
   cursor: pointer;
-  transition: border-color var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .mini-charger__btn-secondary:hover {
   border-color: #00d4aa;
@@ -25159,7 +25412,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   color: #00d4aa;
   text-decoration: underline;
   letter-spacing: 0.03em;
-  transition: color var(--duration-base) var(--ease-out);
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .mini-charger__btn-link:hover { color: #2effc4; }
 .mini-charger--result,
@@ -25362,7 +25617,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-radius: 6px;
   text-align: center;
   text-decoration: none;
-  transition: all var(--duration-base) var(--ease-out);
+  transition-property: all;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .si-popup__cta:hover {
   background: var(--text-primary);
@@ -25412,7 +25669,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   height: 100%;
   min-height: 64px;
   padding: 18px 22px;
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-slow);
+  transition-timing-function: var(--ease-out);
 }
 .si-popup__cta-split-options {
   position: absolute;
@@ -25421,8 +25680,10 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   grid-template-columns: repeat(3, 1fr);
   opacity: 0;
   visibility: hidden;
-  transition: opacity var(--duration-slow) var(--ease-out),
-              visibility 0s linear var(--duration-slow);
+  transition-property: opacity, visibility;
+  transition-duration: var(--duration-slow), 0s;
+  transition-timing-function: var(--ease-out), linear;
+  transition-delay: 0s, var(--duration-slow);
 }
 .si-popup__cta-split-option {
   display: flex;
@@ -25441,8 +25702,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   background: color-mix(in oklab, var(--bg-elevated), white 8%);
   border: none;
   border-right: 1px solid var(--border-subtle);
-  transition: background var(--duration-base) var(--ease-out),
-              color var(--duration-base) var(--ease-out);
+  transition-property: background, color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .si-popup__cta-split-icon {
   display: inline-flex;
@@ -28812,8 +29074,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   text-decoration: none;
-  transition: border-color var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
+  transition-property: border-color, transform;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .bk-links__item:hover { border-color: var(--text-accent); transform: translateY(-2px); }
 .bk-links__item--soon { opacity: 0.5; cursor: default; }
@@ -28908,8 +29171,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   padding: var(--space-md) var(--space-2xl);
   border: 1px solid var(--text-accent);
   border-radius: 6px;
-  transition: filter var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
+  transition-property: filter, transform;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .bk-cta__btn:hover { filter: brightness(1.12); transform: translateY(-2px); }
 /* Hollow variant -- transparent fill, accent outline. */
@@ -29188,9 +29452,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
+  transition-property: border-color, color, background;
+  transition-duration: var(--duration-fast), var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .setlist__chip:hover { color: var(--text-primary); border-color: var(--border-medium); }
 .setlist__chip--active {
@@ -29218,7 +29482,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: var(--space-md);
-  transition: opacity var(--duration-base) var(--ease-out);
+  transition-property: opacity;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .setlist__grid--muted { opacity: 0.4; }
 .setlist__grid--muted .setlist__card { pointer-events: none; }
@@ -29244,8 +29510,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border-radius: 8px;
   overflow: hidden;
   border: 2px solid var(--border-subtle);
-  transition: border-color var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+  transition-property: border-color, transform;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .setlist__card:hover .setlist__thumb { border-color: var(--border-medium); transform: translateY(-2px); }
 .setlist__thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -29264,9 +29531,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   border: 1px solid var(--border-medium);
   opacity: 0;
   transform: scale(0.8);
-  transition: opacity var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
+  transition-property: opacity, transform, background;
+  transition-duration: var(--duration-fast), var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .setlist__card--selected .setlist__thumb { border-color: var(--text-accent); }
 .setlist__card--selected .setlist__check {
@@ -29336,8 +29603,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   padding: var(--space-sm) var(--space-xl);
   border: 1px solid var(--text-accent);
   border-radius: 6px;
-  transition: filter var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out);
+  transition-property: filter, transform;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .setlist__cta:hover { filter: brightness(1.12); transform: translateY(-2px); }
 
@@ -29529,7 +29797,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   height: 4px;
   border-radius: 999px;
   background: var(--border-medium);
-  transition: background var(--duration-base) var(--ease-out);
+  transition-property: background;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
 }
 .bkf__chapter--done { background: var(--text-accent); }
 
@@ -29816,9 +30086,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-family: var(--font-ui);
   font-size: 1.05rem;
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out),
-    transform 90ms var(--ease-out);
+  transition-property: border-color, background, transform;
+  transition-duration: var(--duration-fast), var(--duration-fast), 90ms;
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
 }
 .bkf__choice:hover {
   border-color: var(--text-accent);
@@ -30070,7 +30340,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-size: 1.02rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--ease-out), opacity var(--duration-fast);
+  transition-property: transform, opacity;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), ease;
 }
 .bkf__cta:hover { transform: translateY(-1px); }
 .bkf__cta:disabled { opacity: 0.4; cursor: default; transform: none; }
@@ -30084,8 +30356,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   font-size: 1.02rem;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition-property: border-color, color;
+  transition-duration: var(--duration-fast), var(--duration-fast);
+  transition-timing-function: var(--ease-out), var(--ease-out);
 }
 .bkf__back:hover { color: var(--text-primary); border-color: var(--text-accent); }
 .bkf__back:disabled { opacity: 0.4; cursor: default; }
@@ -30127,7 +30400,9 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   display: block;
   height: 100%;
   border-radius: 2px;
-  transition: width var(--duration-fast) var(--ease-out);
+  transition-property: width;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
 }
 .seo-fields__hint {
   font-size: 0.625rem;
@@ -30405,3 +30680,1508 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
   .tripwire__check-head { flex-wrap: wrap; }
   .tripwire__check-status { align-items: flex-start; text-align: left; width: 100%; }
 }
+
+
+/* ############################################################
+   THE FRONT PAGE  (/front, and / after the cutover)
+   ############################################################
+
+   WHY THIS LIVES IN global.css AND NOT ITS OWN FILE.
+
+   It was its own file, src/styles/front.css, imported by the
+   (front) route group's layout. That is a perfectly ordinary
+   Next.js thing to do and on this project it silently did not
+   work: Turbopack emitted the stylesheet as
+   13cm..zwh2f82.css and wrote the <link> pointing at
+   15k3ihe35m6qp.css, so the page loaded five stylesheets, none
+   of them this one, and rendered as unstyled HTML with native
+   <details> triangles. Six JS chunks in the same build carry
+   the same doubled-dot naming, and the emitted CSS name never
+   appeared in any HTML.
+
+   Rather than fight the bundler for one route: this project has
+   no per-page stylesheets anywhere. global.css is the pattern,
+   it is already imported by the root layout, and every rule
+   below is scoped under .front, so nothing here can reach a
+   page that does not opt in.
+   ############################################################ */
+
+/* ============================================================
+   chadlewine.com | THE FRONT
+   The simple front page: one table, one screen, no scroll.
+
+   Everything here is scoped under .front. global.css is 30,000
+   lines of a dark-only site and this file must not reach into
+   it, or out of it: a token redefined loosely here would
+   repaint 40 pages that never asked for it.
+
+   NAMING. This is "the front", not "the door", even though a
+   door is what it behaves like. door_pages is already taken:
+   it is a DB table, an admin section at /admin/door-pages, and
+   a family of landing pages published at /{slug}. Two unrelated
+   concepts sharing a word in one codebase is how someone edits
+   the wrong file at 1am.
+
+   THE VISUAL LANGUAGE IS THIS SITE'S, NOT OFFPLAT'S. The layout
+   idea is borrowed (one table, one screen, big blocks) and the
+   surface treatment is not. Offplat is flat brutalism: 2px
+   full-contrast rules, hard corners, whole rows inverting on
+   hover. chadlewine is frosted glass and steel, and it says so
+   in measurable ways that were read off global.css rather than
+   guessed at:
+
+     rules      1px rgba(255,255,255,0.06), never a hard edge
+     radii      3 / 4 / 6 / 8px, never 0
+     row hover  background lifts to --bg-glass-hover; nothing
+                inverts anywhere on this site
+     CTA        accent-tinted glass, 1px accent border at 0.45,
+                radius 4px, translateY(-2px) on hover
+                (.home-merch__view-all is the canonical one)
+     headings   --font-ui at weight 500
+     prose      --font-body, which is a SERIF, with secondary
+                lines in italic (.feed-entry__hook)
+     meta       --font-ui, uppercase, +0.05em, --text-tertiary
+     motion     --duration-base with --ease-out, not linear
+
+   Two signature details are quoted directly from
+   .glyph-title-bar, because they are the most chadlewine thing
+   on the site: the tick-mark band (a repeating-linear-gradient
+   of 1px marks every 12px) and the accent corner brackets that
+   cap a band left and right.
+   ============================================================ */
+
+/* --- Palette ------------------------------------------------
+
+   ONE state, and it is the site's. chadlewine.com is dark
+   everywhere and the front door is the last place the brand
+   should look like somewhere else, so there is no
+   prefers-color-scheme block and nothing here infers anything
+   from the reader's OS.
+
+   THERE WAS A LIGHT MODE, opt-in, on a switch in the masthead,
+   and it was removed 2026-08-20: a theme that exists on one
+   route out of forty is a promise the rest of the site does not
+   keep. Its palette mapped every token below onto the site's
+   existing reading surface (--reading-bg / --reading-text /
+   --reading-accent), which is the same surface every long-form
+   page already switches to, and that mapping is the starting
+   point if a site-wide theme is ever built. It is recoverable
+   from git rather than kept here as dead weight.
+
+   The values are the site's own, written out as literals rather
+   than read through var(). Where a literal came from a token,
+   the token is named beside it.                              */
+
+:root:has(.front) {
+  /* Lets `block-size: 0 -> auto` actually interpolate, which is what makes the
+     fold below a fold rather than a cut. It is opt-in precisely because
+     animating to an intrinsic size used to be impossible and some layouts
+     would start moving unexpectedly if it were on by default; scoped with
+     :has() so it only applies on pages carrying this component. */
+  interpolate-size: allow-keywords;
+}
+
+.front {
+  --f-bg:           #07070d;                     /* --bg-deep */
+  --f-elevated:     #13131c;                     /* --bg-elevated */
+  --f-surface:      rgba(255, 255, 255, 0.03);   /* --bg-glass */
+  --f-surface-hi:   rgba(255, 255, 255, 0.06);   /* --bg-glass-hover */
+  --f-line:         rgba(255, 255, 255, 0.06);   /* --border-subtle */
+  --f-line-hi:      rgba(255, 255, 255, 0.1);    /* --border-medium */
+  --f-tick:         rgba(255, 255, 255, 0.1);    /* .glyph-title-bar ticks */
+
+  --f-ink:          #e4e4ec;                     /* --text-primary */
+  --f-dim:          rgba(228, 228, 236, 0.6);    /* --text-secondary */
+  /* Raised well above --text-tertiary's 0.35, which this started as. Tertiary
+     type on the rest of the site sits on a flat ground; here it sits on the
+     post artwork under a 25% veil, and 0.35 of near-white simply stopped
+     showing. Everything on this page that reads as "supporting" runs through
+     this one value: the hint, the chevron, the panel meta lines and the
+     subscribe placeholder. */
+  --f-faint:        rgba(228, 228, 236, 0.62);
+
+  --f-accent:       #8b9cf7;                     /* --text-accent */
+  --f-accent-line:  rgba(139, 156, 247, 0.45);
+  --f-accent-edge:  rgba(139, 156, 247, 0.75);
+  --f-accent-wash:  rgba(139, 156, 247, 0.08);
+  --f-accent-hi:    rgba(139, 156, 247, 0.18);
+  --f-accent-glow:  rgba(139, 156, 247, 0.22);
+  /* The scrim behind the play glyph: the page ground at part
+     opacity, so the poster still reads through it. */
+  --f-scrim:        rgba(7, 7, 13, 0.55);
+
+  /* The veil over the post artwork when it is acting as the page ground.
+     It was a flat 25% brand black. The trouble with a flat veil is that it
+     spends the same darkness everywhere, including the middle of the frame
+     where nothing is written and the picture is the whole point, while the
+     type that actually needs help sits at the edges: the wordmark top left,
+     the hints down the right of the bars, the button at the bottom.
+
+     So the veil is graded rather than flattened: it ADDS at the edges and takes
+     nothing away from the middle.
+
+     THE FIRST ATTEMPT DID TAKE IT AWAY, dropping the core to 0.10 to let more
+     picture through, and a phone screenshot killed it immediately: on a narrow
+     screen the six rows spread across the whole height, so four of the labels
+     sit in that middle band and all four got worse. The dim type is at the
+     edges, but the LOUD type is everywhere, and the flat 25 was carrying it.
+
+     So the core is the 25 that was already chosen, near enough, and the edges
+     are roughly double it. Nothing on the page is less legible than it was
+     yesterday and the corners, where the wordmark and the button sit, are
+     protected. Three numbers rather than one, so each can move alone. */
+  --f-veil-edge:    rgba(7, 7, 13, 0.50);
+  --f-veil-side:    rgba(7, 7, 13, 0.20);
+  --f-veil-core:    rgba(7, 7, 13, 0.26);
+
+  /* The two grounds an OPEN cell puts between the artwork and its own content.
+     Both are the site's main background at part opacity, so the photograph
+     still reads through them and the type on top stays legible.
+
+     The content panel is the denser of the two on purpose: it carries prose and
+     a date at --f-dim and --f-faint, which are the first things a busy image
+     takes out. The title bar keeps the lighter one, so the row a reader is
+     looking at does not turn into a solid block. */
+  --f-cell-ground:  rgba(7, 7, 13, 0.75);
+  --f-panel-ground: rgba(7, 7, 13, 0.85);
+
+  /* THE SITE WIDTH LIMIT.
+
+     EVERYTHING is inside the box now, rules and masthead and
+     footer button included, so the frame itself carries the
+     width (see .front below) and this token is only the padding
+     inside it. Read in four places, so the whole column moves
+     together from one edit. */
+  /* Was 0 while the accent edge did not exist yet. The edge is a 2px bar at
+     the very left of a row, and at zero inset the label started exactly where
+     the bar ended and touched it on every hover. This is the bar's gutter, and
+     it is applied to the masthead, the standfirst, the rows and the panels
+     alike so the whole page stays one aligned column rather than the table
+     stepping in from its own header. */
+  --f-inset: clamp(16px, 1.8vw, 28px);
+
+  /* The summary bar's height, and the cells' flex-basis. ONE token because the
+     two must agree exactly: basis is what a closed row collapses to, and if it
+     disagreed with the bar's own min-height the row would either clip the
+     label or leave a sliver of panel showing under it. */
+  --f-bar: clamp(44px, 7.4vh, 88px);
+
+  /* The panel's vertical padding. */
+  --f-panel-pad: clamp(14px, 2.2vh, 24px);
+
+  /* The open/close glide. Slow on purpose. */
+  --f-glide: 560ms;
+
+}
+
+/* The page ground, not just the front page's.
+
+   body already carries the site's near-black from global.css,
+   which is now the same answer this page wants, so the default
+   needs no override at all. Only the light stamp does: without
+   it, light mode paints a cream page onto a black body and
+   every rounding gap between the two shows as a dark seam, most
+   visibly during overscroll on iOS, where the body colour is
+   what rubber-bands into view. */
+/* PAINTED ON <html> AS WELL AS <body>, and that is the fix for the stagger.
+
+   global.css sets a background on body and none on html. When html has no
+   background of its own the body's is PROPAGATED to the canvas, which is the
+   surface behind everything and the one filling the margins either side of the
+   1260px box. A propagated background is drawn by the canvas rather than by
+   the element, and the canvas does not run the element's transition with it:
+   the box crossfaded over 300ms while the page behind it changed on its own
+   schedule, which is the split Chad saw.
+
+   Painting html explicitly stops the propagation, because propagation only
+   happens when the root element has no background. Now html, body and .front
+   all carry the same colour, the same duration and the same easing, and there
+   is nothing left to fall out of step. */
+:root:has(.front),
+:root:has(.front) body {
+  background-color: #07070d;
+}
+
+/* The tick band and the fading dividers are gradients, and background-image
+   is not an interpolable property, so those two cut rather than fade. Both are
+   drawn at 0.06 to 0.12 alpha against the ground they sit on, so the cut is
+   below the threshold anyone notices next to the ground moving underneath it.
+   Naming it here so nobody spends an afternoon on it later. */
+
+/* --- The frame ---------------------------------------------
+
+   100dvh, not 100vh. On mobile Safari and Chrome the visual
+   viewport shrinks as the URL bar collapses; vh is frozen at
+   the LARGEST of those, so a 100vh page is always a little
+   taller than the screen and the promise of "no scroll" breaks
+   by exactly the height of the browser chrome. dvh tracks the
+   live value.
+
+   THE VIEWPORT IS A FLOOR, NOT A CEILING. The frame is
+   min-height, so the CLOSED table is exactly one screen with
+   nothing to scroll, which is the whole promise and the only
+   moment it has to hold: first paint. Open a panel and the
+   fold is allowed to push the document past the viewport and
+   the page scrolls to meet it.
+
+   It was height + overflow: hidden, which enforced one screen
+   in both states. That is right on a wide screen, where a cell
+   can grow into the room the other five give up, and wrong on a
+   phone, where the same panel is two or three times taller (the
+   prose rewraps into a narrow column beside the thumbnail) and
+   the table has no such room to give. The panel then opened
+   into a box smaller than itself and scrolled internally, which
+   is the "collapse/expand does not work" on mobile.
+
+   The artwork layer below is position: fixed, so it stays put
+   under a scrolling page and needs nothing else.            */
+
+/* THE GROUND CROSSFADES on a theme switch instead of cutting, which is what
+   stops the change reading as a page reload. Offplat's rule, verbatim in
+   intent: background-color and color, 300ms, ease, on the ground alone. */
+.front {
+  /* NO TAP FLASH. iOS paints its own translucent black over whatever finger
+     lands on a tappable element, instantly, and it owes nothing to any
+     transition. On a row whose ground fades in over 560ms that arrives as a
+     blink followed by the fade -- two grounds, one of them not ours. The
+     property INHERITS, so declaring it once here covers every row, button and
+     link on the page. The site already does this in five other places; this
+     page was simply missed. Focus rings are unaffected: they are drawn by
+     :focus-visible, which is what a keyboard gets and a finger does not. */
+  -webkit-tap-highlight-color: transparent;
+  /* A stacking context, so ::before can sit at z-index -1: behind everything in
+     the page but still in front of the ground that html and body paint. */
+  position: relative;
+  z-index: 0;
+  min-height: 100dvh;
+  /* The site box, on the .site-contain pattern. A max-width on a
+     page wrapper is against this project's standing layout rule
+     and it is here because Chad asked for it directly: the
+     header band, the dividers and the footer button all stop at
+     --site-width so they line up with every other page. This is
+     the site's own container measure, not a narrow column. */
+  max-width: var(--site-width);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  /* NO GROUND OF ITS OWN. html and body are both painted (see the ground rules
+     above) and both carry the theme crossfade, so this element being
+     transparent costs nothing and is what lets the artwork layer below show
+     through the whole width of the page rather than only in the margins
+     outside the 1260px box. */
+  background: transparent;
+  color: var(--f-ink);
+  /* Serif, because the site is set in one. Labels and meta opt
+     back out to --font-ui individually; prose does not, and
+     that inheritance is the point. */
+  font-family: var(--font-body);
+  /* The site sets smooth scrolling globally, which would
+     animate a panel's internal scroll on open. Nothing here
+     travels far enough to need easing. */
+  scroll-behavior: auto;
+}
+
+/* THE POST ARTWORK AS THE PAGE GROUND.
+
+   A fixed, full-viewport layer carrying the latest post's featured image with a
+   25% brand-black veil over it. Two background layers in one declaration: the
+   gradient is a flat colour written as a gradient because that is the only way
+   to stack a solid fill above an image in a single background property.
+
+   FIXED, not absolute, so it covers the whole viewport including the margins
+   either side of the 1260px box. .front is the box; the artwork is the page.
+
+   z-index -1 puts it behind every child of .front while keeping it inside the
+   stacking context .front establishes, so it stays in front of the ground that
+   html and body paint and the theme colour still shows through the veil.
+
+   It renders nothing when --f-post-bg is unset: the `none` fallback leaves the
+   gradient painting a 25% veil over nothing at all, so the guard below drops
+   the layer entirely rather than dimming the page for no reason. */
+.front::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* THREE LAYERS, painted top to bottom in this order: the vertical grade, the
+     side wash, then the picture. The two veils compound where they meet, so a
+     corner lands near 0.59 rather than either number alone -- which is correct,
+     because the corners are exactly where the masthead and the CTA put their
+     dimmest type. */
+  background-image:
+    linear-gradient(
+      180deg,
+      var(--f-veil-edge) 0%,
+      var(--f-veil-core) 30%,
+      var(--f-veil-core) 68%,
+      var(--f-veil-edge) 100%
+    ),
+    linear-gradient(
+      90deg,
+      var(--f-veil-side) 0%,
+      transparent 24%,
+      transparent 76%,
+      var(--f-veil-side) 100%
+    ),
+    var(--f-post-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* No artwork, no layer. --f-post-bg is only set when the post has one. */
+.front:not([style*="--f-post-bg"])::before {
+  display: none;
+}
+
+/* --- Masthead ----------------------------------------------
+
+   The one band on the page that quotes .glyph-title-bar
+   outright: tick marks across the full width, accent brackets
+   capping both ends. It is the site's most recognisable piece
+   of furniture and it belongs at the top of its front door. */
+
+.front__head {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-inline: var(--f-inset);
+  height: clamp(52px, 7.5vh, 68px);
+  border-bottom: 1px solid var(--f-line);
+  background-repeat: no-repeat;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--f-tick) 0px,
+    var(--f-tick) 1px,
+    transparent 1px,
+    transparent 12px
+  );
+}
+
+/* The corner brackets. Same 40x12 geometry and same three-sided
+   construction as .glyph-title-bar::before / ::after, anchored
+   to the SITE BOX rather than the viewport so they cap the
+   content measure and not the screen. */
+/* NO CORNER BRACKETS.
+
+   They were quoted from .glyph-title-bar and they cannot work here. On that
+   component the heading is CENTRED, so brackets capping the band never meet
+   it. This masthead puts the wordmark hard left and the switch hard right,
+   both against the box edge now that everything sits inside --site-width, and
+   both carry an opaque ground to punch through the tick marks. There is no
+   position left for a bracket that is not either under the type or outside the
+   box. The tick band alone carries the quote. */
+
+/* The wordmark and the switch sit ON the ticked ground, so both
+   carry the ground colour behind them the way
+   .glyph-title-bar__heading does. Without it the tick marks run
+   straight through the lettering. */
+/* The h1 is only a wrapper now. Everything visible about the logo comes from
+   .site-nav__logo and friends, which the markup opts into by class, so the
+   name is the same size, tracking and weight as the header on every other
+   page and keeps the hover shimmer for free.
+
+   What stays here is the opaque ground: without it the masthead's tick marks
+   run straight through the lettering. .glyph-title-bar__heading does the same
+   thing with #000. */
+.front__wordmark {
+  position: relative;
+  /* FLEX, and that is what closes the gap above the logo.
+
+     .site-nav__logo is display: inline-flex, so inside a block h1 it is an
+     inline-level box sitting on the text baseline: the line box reserves room
+     for ascenders and descenders of a font nobody is rendering, and all of it
+     lands as space above the mark. In the real nav this never shows, because
+     .site-nav is a flex row and the logo is a flex ITEM, where baseline
+     alignment does not apply.
+
+     Making the wrapper a flex row reproduces that exactly, and the opaque
+     ground then hugs the logo instead of a phantom line box. */
+  display: flex;
+  align-items: center;
+  margin: 0;
+  /* NO PADDING. The ground is opaque and it is here to keep the tick band from
+     running under the wordmark, so it should stop where the wordmark stops. A
+     padding-right left it overhanging the mark on one side only, which read as
+     a black tab hanging off the logo rather than as the logo's own ground. It
+     now ends flush on the right exactly as it begins flush on the left. */
+  background-color: var(--f-bg);
+  line-height: 1;
+  /* h1 carries -0.02em globally; the logo sets its own, but the wrapper must
+     not add tracking to the space between the frames and the name. */
+  letter-spacing: normal;
+}
+
+
+/* --- Standfirst --------------------------------------------- */
+
+
+/* --- The menu -----------------------------------------------
+
+   The SITE's menu, hung off the masthead. The list, the chevrons, the stagger
+   and the open/close motion are .nav-mobile-menu's own and are not restated
+   here; all this does is show the button (which the site hides above 900px)
+   and take the panel out of normal flow.
+
+   OUT OF FLOW IS THE WHOLE POINT. .nav-mobile-menu is a normal-flow box that
+   animates its max-height, which is right under a full-width header and wrong
+   here: the table divides the viewport six ways and closes at exactly one
+   screen, so a menu that pushed it would break that promise every time
+   somebody looked for another page. */
+
+.front__menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* The site hides .nav-hamburger by default and shows it under 900px. On the
+   door it is the only way to the rest of the site, so it shows at every width.
+   Sized to the 34px box the theme switch used to occupy, so the masthead's
+   right-hand end did not move when one replaced the other. */
+.front .nav-hamburger.front__menu-button {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  /* The mark is an SVG, so there is no baseline and no font fallback in play:
+     place-items centres a box whose bounds are the drawing itself. */
+  line-height: 0;
+  border: 1px solid var(--f-line-hi);
+  border-radius: 3px;
+  background: var(--f-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--f-ink);
+  transition-property: background, border-color, color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
+}
+.front .nav-hamburger.front__menu-button:hover,
+.front .nav-hamburger.front__menu-button:focus-visible {
+  background: var(--f-accent-wash);
+  border-color: var(--f-accent-edge);
+  color: var(--f-accent);
+  outline: none;
+}
+.front .nav-hamburger.front__menu-button:focus-visible {
+  box-shadow: 0 0 0 2px var(--f-accent-glow);
+}
+
+.front__menu-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 8;
+  width: min(340px, calc(100vw - var(--f-inset) * 2));
+  /* NEARLY OPAQUE. The panels inside the table sit at 85% because they want
+     the artwork behind them; this one floats OVER the table, and at that alpha
+     the row labels read straight through it -- two lists of words in one
+     space. A menu has to be a surface. */
+  background-color: color-mix(in srgb, var(--f-bg) 97%, transparent);
+  border: 1px solid var(--f-line-hi);
+  border-radius: 4px;
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--shade) 45%, transparent);
+  padding-inline: 12px;
+}
+.front__menu-panel.nav-mobile-menu--open {
+  /* The site's rule caps this at the viewport minus a header that is not here.
+     Cap it against the masthead instead, and let it scroll if the menu ever
+     outgrows the screen. */
+  max-height: min(70vh, calc(100dvh - 120px));
+  padding-block: 12px;
+}
+
+/* --- The table ---------------------------------------------
+
+   THE HEIGHT MODEL, which is the whole trick of this page.
+
+   Closed, every cell is `flex: 1 1 0`: equal grow, equal
+   shrink, zero basis. Six identical cells divide whatever the
+   masthead, the standfirst and the CTA left behind, exactly,
+   with no arithmetic anywhere and no dependence on how tall any
+   label happens to render.
+
+   Open, :has() lets the TABLE know one of its children is
+   expanded, and the rule flips: the open cell takes the space
+   and its siblings collapse to their summary bar. The sum is
+   unchanged, so the page still closes at one screen.
+
+   :has() is doing something no other selector can here, which
+   is a parent reacting to a descendant's state. It has been in
+   every shipping browser since late 2023. In anything older the
+   fallback is graceful rather than broken: all six cells stay
+   equal, the open panel scrolls inside its own sixth of the
+   screen, and the page still does not scroll.
+
+   The <details name> attribute keeps at most one open, so the
+   two-open case this model does not size for cannot arise.  */
+
+.front__table {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* THE CELL GROWS BY EXACTLY THE FOLD, and nothing else moves on its own.
+
+   This replaces a flex-GROW animation (1 -> 12 on the open cell, 1 -> 0 on the
+   rest). That version worked and was still wrong: grow 12 pulled the open cell
+   to 401px when the panel inside it only needed 185, and the surplus 216px had
+   nowhere to go but the title bar above it. So the bar ballooned from 129px to
+   216px on open, which is the "title panel expands when it should stay the
+   same".
+
+   The cell now keeps `flex-grow: 1` in both states, always, and the ONLY thing
+   that changes is flex-BASIS: 0 when shut, the measured panel height when open.
+   The cell therefore grows by precisely the height the content needs, and the
+   bar, being the remainder, is left almost exactly where it was.
+
+   The arithmetic, with T for the table height and F for the fold, at progress
+   p (basis and fold run on the same clock, so both are p*F):
+
+     open cell   = p*F + (T - p*F)/6      129 -> 283
+     its bar     = cell - fold            129 ->  98
+     other cells = (T - p*F)/6            129 ->  98
+
+   Every bar in the table is the same height as every other at every instant,
+   open or shut, and they drift by 31px across the whole move instead of one of
+   them doubling. The panel does all the expanding, which is the point.
+
+   Basis is a length in both states, so it interpolates in both directions
+   without the `auto` problem documented on ::details-content below.
+
+   WITHOUT JS --f-fold is unset and this falls back to 0px: the open cell takes
+   an equal share like the others and the panel scrolls inside it. Cramped, but
+   nothing is lost or unreachable. */
+/* NOTHING ANIMATES ON THE CELL. THE PANEL MOVES AND THE CELL FOLLOWS.
+
+   flex-basis: auto means a row's base size IS its content: the bar, plus
+   whatever height ::details-content currently has. That box is the one thing
+   on this page already animating, from 0 to the measured fold, so the row
+   grows downward at exactly its rate with no second transition to keep in
+   step. The bar is left alone, and the panel's bottom edge is the only edge
+   that travels.
+
+   THE TWO VERSIONS BEFORE THIS ONE both animated the cell as well as the
+   panel, first through a min-height floor and then through flex-basis. Both
+   are correct in Chromium and both SNAPPED on iOS Safari: the cell took its
+   whole open height in one frame while the panel still unfolded, so the bar
+   ballooned and shrank back, and the panel -- pinned to the bottom of a box
+   that had already finished moving -- appeared to climb upward. Chasing which
+   value Safari will or will not interpolate is a bad trade when the layout can
+   simply follow the one box that is already moving. There is now no transition
+   on the cell at all, so there is nothing left to disagree about.
+
+   flex-shrink: 0 is what lets the page grow: with shrink on, the rows just
+   re-divided whatever the frame gave them and an open cell was squeezed under
+   its own content. With it off, a table that cannot fit its rows makes the
+   document taller instead.
+
+   The rows still divide a screen exactly when they can. Closed, every row's
+   content is one bar, flex-grow shares the surplus six ways, and the table
+   fills the viewport to the pixel. Opening spends that surplus first and only
+   pushes the page taller once it is gone, which on a wide screen is often
+   never. */
+.front__cell {
+  position: relative;
+  flex-grow: 1;
+  flex-shrink: 0;
+  flex-basis: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+  /* THE GROUND RUNS ON THE FOLD'S CLOCK, not the UI clock. It was
+     --duration-base (250ms) against a 560ms fold, so the cell's ground arrived
+     while the panel was still less than half open and left before it was
+     shut -- fading, technically, but over less than half the move, which reads
+     as the row flashing on and off around an animation it is supposed to be
+     part of. Same duration and same curve as the fold means the ground and the
+     panel are one event. */
+  /* LONGHANDS, NOT THE SHORTHAND, and this is not a style preference.
+     iOS Safari drops a `transition:` shorthand whose value contains a var().
+     Every transition on this page was written that way and NONE of them ran on
+     a phone -- the cell snapped instead of gliding, the ground blinked on and
+     off around a fold that took 560ms. The one that always worked there,
+     ::details-content, is the one that happened to be written in longhands.
+     Same values, three properties, and it survives the parse. */
+  transition-property: background-color;
+  transition-duration: var(--f-glide);
+  transition-timing-function: var(--ease-in-out);
+}
+
+.front__cell[open] {
+  background-color: var(--f-cell-ground);
+}
+
+/* THE DIVIDER, and it is a gradient rather than a border.
+
+   A flat 1px rule across the full box was reading as a hard edge, which is the
+   Offplat vocabulary this page was pulled off. This fades to nothing at both
+   ends, so the line is at full strength only through the middle where the eye
+   is and dissolves before it reaches the box edge. The table still reads as a
+   table; it just stops looking welded.
+
+   Absolute rather than a border because .front__cell is a flex column and a
+   pseudo-element in flow would become a flex item and take height from the
+   panel. The cell is already position: relative for the accent edge. */
+.front__cell::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--f-line-hi) 14%,
+    var(--f-line-hi) 86%,
+    transparent 100%
+  );
+}
+/* The last cell sits directly above the footer button, which brings its own
+   top edge. Two lines that close together read as a mistake. */
+.front__cell:last-of-type::after { display: none; }
+
+/* The summary bar. The same object whether the cell expands or
+   navigates, because they are the same row of the same table.
+
+   list-style plus ::-webkit-details-marker kill the native
+   disclosure triangle; the + in .front__chev replaces it. */
+/* THE BAR IS DERIVED, and animates nothing of its own.
+
+   Two earlier versions animated it directly and both were wrong, in ways only
+   a frame-by-frame trace showed:
+
+     v1  it swapped `flex: 1 1 auto` for `flex: 0 0 auto` on :not([open]).
+         The instant the cell gained the attribute the selector stopped
+         matching and the bar SNAPPED, while the panel took 560ms. That was
+         the "title moves in a blink".
+
+     v2  it transitioned flex-grow 1 -> 0 on its own clock. Measured, the bar
+         did not travel from 129px to 74px at all: it dropped to 74, climbed
+         back to 104, and settled at 74 on open, and on CLOSE it overshot to
+         201px against a 129px target. Three boxes (bar, content, cell) all
+         negotiating flex at once, two of them animating on different curves
+         and the third contributing an auto basis, do not add up to a monotonic
+         height.
+
+   So the bar now animates nothing. It is `flex: 1 1 auto` and takes whatever
+   the cell has left after the content block, which means its height is a
+   SUBTRACTION rather than a second animation. One value moves (the fold, see
+   ::details-content below), the bar follows it exactly, and there is nothing
+   left that can drift out of step or overshoot.
+
+   min-height is the floor that keeps the label legible once the content has
+   taken the rest. */
+.front__summary {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: var(--f-bar);
+  padding-inline: var(--f-inset);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.front__summary::-webkit-details-marker { display: none; }
+
+/* An accent edge that grows in from the left on hover, in place
+   of Offplat's whole-row inversion. Nothing on chadlewine.com
+   inverts, and the vocabulary this site does have for "this one
+   is live" is an accent line (see .glyph-title-bar's brackets).
+
+   scaleY from a 0 origin rather than a width or a border, so it
+   animates on the compositor and costs no layout. */
+.front__summary::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--f-accent);
+  transform: scaleY(0);
+  /* Centre origin: the edge opens from the middle of the bar and travels to
+     both ends at once. A top origin drops it down the row like a progress
+     bar, which reads as loading rather than as arriving. */
+  transform-origin: 50% 50%;
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
+}
+
+/* GATED ON (hover: hover). On a touch screen :hover latches on
+   the last thing a finger passed, so an ungated rule leaves a
+   cell lit after every tap. */
+@media (hover: hover) {
+  .front__cell:hover > .front__summary {
+    background: var(--f-surface-hi);
+  }
+  .front__cell:hover > .front__summary::before {
+    transform: scaleY(1);
+  }
+  .front__cell:hover > .front__summary .front__chev {
+    color: var(--f-accent);
+  }
+  .front__cell:hover > .front__summary .front__hint {
+    color: var(--f-dim);
+  }
+}
+.front__cell[open] > .front__summary::before {
+  transform: scaleY(1);
+}
+
+.front__cell:focus-visible,
+.front__summary:focus-visible {
+  outline: 1px solid var(--f-accent-line);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 0 3px var(--f-accent-glow);
+}
+
+/* Uppercase and OPEN-tracked, the way .glyph-title-bar__heading
+   is set. The tight negative tracking this had first was
+   Offplat's setting, and it is the single thing that made the
+   page read as someone else's. */
+.front__label {
+  flex: 0 0 auto;
+  font-family: var(--font-ui);
+  font-size: clamp(1rem, 3vw, 1.82rem);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: var(--f-ink);
+}
+
+/* The current item's name, riding along in the summary bar so
+   the table says what is behind each cell before it opens.
+   Truncated rather than wrapped: a two-line hint would change
+   the bar's height, and the equal-division model with it. */
+.front__hint {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  font-family: var(--font-ui);
+  font-size: clamp(0.65rem, 1.4vw, 0.8rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--f-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition-property: color;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
+}
+/* The hint is the first thing to go when width runs out. The
+   label and the affordance are load-bearing; this is a
+   courtesy. */
+@media (max-width: 520px) {
+  .front__hint { display: none; }
+  /* With the hint gone, so is the bar's only flexible box: the label does not
+     grow and the mark has nothing pushing it, so the + sat against the label
+     in the middle of the row instead of at the edge where the eye looks for
+     an affordance. The auto margin takes the free space here and ONLY here,
+     because above this width the hint is still the grower and giving the mark
+     a margin as well would split the surplus between them and pull the hint
+     away from the mark it belongs beside. */
+  .front__chev { margin-inline-start: auto; }
+}
+
+.front__chev {
+  flex: 0 0 auto;
+  font-family: var(--font-mono, var(--font-ui));
+  font-size: clamp(0.9rem, 2.2vw, 1.3rem);
+  line-height: 1;
+  color: var(--f-faint);
+  /* Turns on the row's clock, not the UI clock. A mark that finished its
+     rotation a third of the way into the glide reads as a separate event from
+     the panel it is describing. */
+  transition-property: transform, color;
+  transition-duration: var(--f-glide), var(--duration-base);
+  transition-timing-function: var(--ease-in-out), var(--ease-out);
+}
+.front__cell[open] > .front__summary .front__chev {
+  transform: rotate(45deg);
+  color: var(--f-accent);
+}
+
+/* --- Panels ------------------------------------------------- */
+
+/* THE FOLD, and it happens on ::details-content, NOT on .front__panel.
+
+   This is the thing that made "the content and the UI unfold separately" so
+   hard to see in the stylesheet: the panel element is not what the browser
+   hides. A <details> wraps everything after the <summary> in a
+   ::details-content pseudo-element and hides THAT. Measured on the closed
+   cell, .front__panel reports display: block, content-visibility: visible and
+   a full 185px box, while checkVisibility() says false. So every rule aimed at
+   .front__panel was styling a box that was already the right size and was
+   never the one being shown or hidden. The panel could not fold because
+   nothing was ever asking it to.
+
+   Animating the real wrapper takes three things, all of which this engine
+   reports support for:
+
+     ::details-content            addresses the wrapper at all
+     interpolate-size             lets block-size reach `auto`, i.e. the
+                                  content's own height, as an animatable value
+     transition-behavior: allow-discrete
+                                  keeps content-visibility on THROUGH the
+                                  closing fold. Without it the content is
+                                  hidden on frame one and the box folds shut
+                                  empty, which is the same complaint again in
+                                  the other direction.
+
+   WHERE IT DEGRADES: an engine without interpolate-size cuts open and shut
+   instead of folding. Everything still works, and no content is lost; it just
+   is not animated. That is the right failure for a visual nicety. */
+.front__cell::details-content {
+  block-size: 0;
+  overflow-y: clip;
+  overscroll-behavior: contain;
+  /* NO SCROLLBAR, EVER, and especially not in flight.
+
+     The open state below needs overflow-y: auto as a safety net for a panel
+     the table cannot give enough room to. But `auto` means a scrollbar appears
+     the moment the content is taller than the box, and DURING the fold that is
+     true by definition: the box starts at 0 and grows to meet the content. So
+     a scrollbar flashed on for the length of every open and every close and
+     vanished once settled.
+
+     Hiding the chrome rather than removing the overflow keeps the safety net:
+     an over-long panel can still be scrolled by wheel or touch, it just never
+     draws a bar. global.css styles ::-webkit-scrollbar at 12px site-wide,
+     which is what made this so loud. */
+  scrollbar-width: none;
+  /* transition-behavior as its OWN declaration rather than folded into the
+     shorthand. The shorthand form parses, but the closing direction needs the
+     discrete flip held back for the whole duration or the contents stop being
+     laid out on frame one, `auto` resolves to 0 immediately, and there is
+     nothing left to animate from. */
+  transition-property: block-size, content-visibility;
+  transition-duration: var(--f-glide);
+  transition-timing-function: var(--ease-in-out);
+  transition-behavior: allow-discrete;
+}
+.front__cell[open]::details-content {
+  /* The measured panel height, published by FrontFoldSizer. `auto` is the
+     fallback for the frame before that effect runs, and for a page where JS
+     never arrives: opening still folds, closing cuts, nothing is lost. See the
+     component for why auto alone cannot carry the closing direction. */
+  block-size: var(--f-fold, auto);
+  /* NOT bounded to the cell any more. This was max-block-size: 100% back when
+     the frame was a hard 100dvh and anything taller would have been clipped by
+     it and unreachable. The frame is a floor now, so a panel taller than the
+     room the table has simply makes the page taller and the document scrolls.
+     A panel that shows all of itself and moves the page beats one that fits
+     the screen and hides its own second half behind an invisible scrollbar. */
+  max-block-size: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+/* THE CLOSING HOLD, and it is the other half of FrontFoldSizer.
+
+   content-visibility is a discrete property: it has no midpoint, so it flips
+   in one frame unless something defers it. transition-behavior: allow-discrete
+   above is supposed to defer it to the end of the close and does so in
+   Chromium; on iOS Safari the contents vanish on frame one and the empty box
+   folds shut behind them. Measured on a phone: the panel blinked out, then the
+   row collapsed with the right motion, which is the same fault described twice.
+
+   While the cell wears this class -- exactly one glide, set by JS on close --
+   the contents are simply told to stay. They ride the fold down and the class
+   comes off once the box is already at zero, so nothing is ever visible in a
+   box that has finished closing. */
+.front__cell--closing::details-content {
+  content-visibility: visible;
+}
+
+/* The WebKit half of the same thing, on the panel only. It CANNOT be written
+   as ::details-content::-webkit-scrollbar: chaining pseudo-elements is a parse
+   error, and Turbopack rejects the whole stylesheet over it rather than
+   dropping the rule. scrollbar-width: none above is what covers the wrapper. */
+.front__panel::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.front__panel {
+  min-height: 0;
+  /* No overflow of its own any more. The scroll lives on ::details-content
+     above, which is the box with the bounded height; two nested scrollers
+     would fight over the same wheel event. */
+  border-top: 1px solid var(--f-line);
+  /* Denser than the cell's own ground, and only here: the title bar above
+     keeps the lighter one. This is the box carrying prose, a date and a kind
+     label, which are the parts a photograph behind them takes out first. */
+  background-color: var(--f-panel-ground);
+}
+
+.front__panel-inner {
+  padding-block: var(--f-panel-pad);
+  padding-inline: var(--f-inset);
+}
+
+.front__media {
+  display: flex;
+  gap: clamp(14px, 2.5vw, 28px);
+  align-items: flex-start;
+}
+@media (max-width: 640px) {
+  .front__media { gap: 14px; }
+
+  /* ONE COLUMN for the two panels that carry a picture beside their prose.
+     Side by side, a phone gives the text roughly 200px next to the artwork,
+     which wraps a title onto three lines and a summary into a ribbon. Stacked,
+     the prose gets the full panel and the artwork gets a size worth looking
+     at. The panel is taller for it, which costs nothing now that the frame is
+     a floor and the page is allowed to scroll.
+
+     The About panel is deliberately NOT in here: its portrait is 69px wide at
+     this size, which is a margin ornament rather than a column, and stacking
+     it would push the sentence below the fold for no gain. */
+  .front__media--stacks {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  /* The video reads best full width: it is 16:9, so the full column costs
+     about 200px of height and gains a stage you can actually aim a finger at.
+     The cover is square, and a full-width square is 358px of one image on a
+     390px screen, which pushes everything else off. Capped. */
+  .front__media--stacks > .front__stage { width: 100%; }
+  .front__media--stacks > .front__art { width: min(100%, 200px); }
+}
+
+/* 6px radius and an elevated ground behind the image, matching
+   .feed-entry__art-wrap. */
+.front__art {
+  flex: 0 0 auto;
+  width: clamp(72px, 14vh, 150px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  border: 1px solid var(--f-line);
+  background: var(--f-elevated);
+}
+
+/* THE ABOUT PORTRAIT, and it is not .front__art.
+
+   That class is a square, cropped, bordered thumbnail on an elevated ground,
+   which is right for cover art and wrong for this: the source is 806x1865 with
+   an alpha channel and a glow that reaches the edges of its own box. A border
+   would cut the glow off in a straight line and a background would put a grey
+   card behind a transparent image. So it keeps its own proportions, sizes off
+   its height rather than its width, and carries no box at all. */
+.front__portrait {
+  flex: 0 0 auto;
+  block-size: clamp(104px, 19vh, 190px);
+  inline-size: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* THE COVER STRIP. Three records as pictures, side by side.
+
+   Each cover both grows and shrinks (`1 1 0` with min-width: 0) and is capped
+   at the same clamp .front__art uses, so the strip stays one row at every
+   width: three ~100px covers on a phone, three 150px covers on a desktop, and
+   never a wrap onto a second line, which would change the panel's height and
+   the fold's arithmetic with it. */
+.front__covers {
+  display: flex;
+  gap: clamp(8px, 1.6vw, 16px);
+  margin-bottom: 16px;
+}
+.front__cover {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: clamp(72px, 14vh, 150px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  border-radius: 6px;
+  border: 1px solid var(--f-line);
+  background: var(--f-elevated);
+}
+
+/* The count and the way through, on one line. The count is TEXT: it reports
+   what the strip above is not showing, and there is nothing to press it for.
+   The button beside it is the only control here. */
+.front__more {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 18px);
+}
+.front__more-count {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--f-faint);
+  white-space: nowrap;
+}
+
+.front__stage {
+  flex: 0 0 auto;
+  width: clamp(140px, 27vh, 280px);
+  aspect-ratio: 16 / 9;
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--f-line);
+  background: var(--f-elevated);
+}
+
+.front__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.front__kind {
+  margin: 0 0 7px;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--f-accent);
+}
+
+/* Serif, like every title on the site. */
+.front__title {
+  margin: 0 0 6px;
+  font-size: clamp(1.05rem, 2.4vw, 1.5rem);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--f-ink);
+}
+
+.front__meta {
+  margin: 0 0 12px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--f-faint);
+}
+
+.front__text {
+  margin: 0 0 16px;
+  font-size: clamp(0.85rem, 1.7vw, 1rem);
+  line-height: 1.6;
+  color: var(--f-dim);
+  max-width: 68ch;
+}
+
+/* The site's canonical button, scaled down: see
+   .home-merch__view-all. Accent-tinted glass rather than a
+   solid fill, and it lifts on hover. */
+.front__go {
+  display: inline-block;
+  padding: 10px 22px;
+  border: 1px solid var(--f-accent-line);
+  border-radius: 4px;
+  background: var(--f-accent-wash);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--f-ink);
+  text-decoration: none;
+  transition-property: background, border-color, transform;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
+}
+.front__go:hover,
+.front__go:focus-visible {
+  background: var(--f-accent-hi);
+  border-color: var(--f-accent-edge);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+/* --- Video facade ------------------------------------------- */
+
+.front__video-facade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.front__video-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.front__video-play {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--f-accent-line);
+  background: var(--f-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--f-ink);
+  font-size: 0.95rem;
+  /* The glyph's side bearings are not symmetrical, so a centred
+     triangle reads as left of centre without this. */
+  padding-left: 3px;
+  box-shadow: 0 0 20px var(--f-accent-glow);
+  transition-property: transform, border-color;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
+}
+.front__video-facade:hover .front__video-play {
+  transform: scale(1.08);
+  border-color: var(--f-accent-edge);
+}
+.front__video-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* --- Subscribe ---------------------------------------------- */
+
+.front__sub { margin: 0; max-width: 520px; }
+
+.front__sub-label {
+  display: block;
+  margin-bottom: 9px;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--f-faint);
+}
+
+.front__sub-fields { display: flex; gap: 8px; }
+
+.front__sub-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--f-line-hi);
+  border-radius: 4px;
+  background: var(--f-surface);
+  color: var(--f-ink);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  transition-property: border-color, background;
+  transition-duration: var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out);
+}
+/* iOS zooms the viewport on focus for any input under 16px, and
+   a zoomed viewport is a scrolling page. This is the one place
+   on the front page where type size is a layout constraint
+   rather than a matter of taste. */
+@supports (-webkit-touch-callout: none) {
+  .front__sub-input { font-size: 16px; }
+}
+.front__sub-input::placeholder { color: var(--f-faint); }
+.front__sub-input:focus-visible {
+  outline: none;
+  border-color: var(--f-accent-line);
+  background: var(--f-surface-hi);
+  box-shadow: 0 0 0 3px var(--f-accent-glow);
+}
+
+.front__sub-button {
+  flex: 0 0 auto;
+  padding: 11px 24px;
+  border: 1px solid var(--f-accent-line);
+  border-radius: 4px;
+  background: var(--f-accent-wash);
+  color: var(--f-ink);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition-property: background, border-color, transform;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
+}
+.front__sub-button:hover:not(:disabled) {
+  background: var(--f-accent-hi);
+  border-color: var(--f-accent-edge);
+  transform: translateY(-2px);
+}
+.front__sub-button:disabled { opacity: 0.5; cursor: default; }
+
+.front__sub-note {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  font-style: italic;
+  line-height: 1.55;
+  max-width: 58ch;
+  color: var(--f-dim);
+}
+.front__sub-note--ok  { margin-top: 0; }
+.front__sub-note--bad { color: var(--f-accent); font-style: normal; }
+
+/* --- The CTA ------------------------------------------------
+
+   Chad's brief: "not part of the table visually, but is the
+   final cell so the viewport 100% always works."
+
+   So it is a flex sibling of the table and takes a fixed slice
+   of the same column, which keeps the height model closing at
+   100dvh, while looking like nothing else on the page. It is
+   built on .home-merch__view-all, the site's own primary
+   button: accent-tinted glass over an accent wash, a 1px accent
+   border, and a lift on hover. Not a solid fill; nothing on
+   this site is a solid fill.
+
+   No tick band down here. It only reads when the type sits on
+   an opaque patch punched through it, the way
+   .glyph-title-bar__heading sits on #000, and over an accent
+   wash that patch looks like a hole cut in the band rather than
+   a label on it. The masthead says the thing once.          */
+
+.front__cta {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  height: clamp(52px, 8vh, 76px);
+  /* A BUTTON, not a band. It is bordered on all four sides and rounded at 4px
+     like .home-merch__view-all, and it clears the bottom of the frame so it
+     reads as an object sitting in the page rather than as the last row of the
+     table. The gap is inside the 100dvh budget: a flex item's margin is part
+     of the column, so the page still closes at one screen. */
+  margin-block: clamp(10px, 1.6vh, 18px);
+  border: 1px solid var(--f-accent-line);
+  border-radius: 4px;
+  /* TWO LAYERS, not one. The accent wash is 8% and was the button's whole
+     background, which over the artwork left it barely there. The site ground
+     goes underneath at 75% so the button is a solid object, and the accent
+     stays a tint ON it rather than being replaced by it. Written as a gradient
+     because that is the only way to stack a flat colour above another in a
+     single background property. */
+  background-color: var(--f-cell-ground);
+  background-image: linear-gradient(var(--f-accent-wash), var(--f-accent-wash));
+  font-family: var(--font-ui);
+  font-size: clamp(0.78rem, 1.9vw, 1rem);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--f-ink);
+  text-decoration: none;
+  transition-property: background-image, background-color, border-color;
+  transition-duration: var(--duration-base), var(--duration-base), var(--duration-base);
+  transition-timing-function: var(--ease-out), var(--ease-out), var(--ease-out);
+}
+.front__cta:hover,
+.front__cta:focus-visible {
+  /* The ground holds; only the tint above it brightens. */
+  background-image: linear-gradient(var(--f-accent-hi), var(--f-accent-hi));
+  border-color: var(--f-accent-edge);
+  outline: none;
+}
+.front__cta-chev {
+  font-family: var(--font-mono, var(--font-ui));
+  color: var(--f-accent);
+  transition-property: transform;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out);
+}
+.front__cta:hover .front__cta-chev { transform: translateX(6px); }
+
+/* --- The exit -----------------------------------------------
+
+   Played by FrontExit before it changes the location. The panels wipe left one
+   after another, first row to last, while the chrome and the artwork behind it
+   fade, and a brand-black veil closes over the end of it.
+
+   The stagger is written out per row rather than generated, because there are
+   six of them and a list of six delays is easier to read and to retune than
+   any expression that would produce it. 70ms apart, so the last row starts at
+   350ms and finishes at 740ms; FrontExit navigates at 980ms, which leaves the
+   veil 240ms to seal.
+
+   translateX(-100%) is a real wipe rather than a fade-with-drift: each row
+   leaves the way it would leave a slide. .front is overflow: hidden, so they
+   go out of the box rather than over the page.
+
+   NO TRANSITION ON THE CELLS' OWN PROPERTIES HERE. They already carry one for
+   flex-basis (the fold) and background-color; adding transform and opacity to
+   the same declaration would replace it, and a cell caught mid-fold would snap
+   shut as it left. These are additive, on their own properties. */
+
+.front--exiting .front__cell {
+  transform: translateX(-100%);
+  opacity: 0;
+  transition:
+    transform 390ms cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 300ms linear;
+}
+.front--exiting .front__table > *:nth-child(1) { transition-delay: 0ms; }
+.front--exiting .front__table > *:nth-child(2) { transition-delay: 70ms; }
+.front--exiting .front__table > *:nth-child(3) { transition-delay: 140ms; }
+.front--exiting .front__table > *:nth-child(4) { transition-delay: 210ms; }
+.front--exiting .front__table > *:nth-child(5) { transition-delay: 280ms; }
+.front--exiting .front__table > *:nth-child(6) { transition-delay: 350ms; }
+
+/* The chrome does not wipe, it recedes: the masthead frames the table rather
+   than belonging to it, and sliding it would read as the page falling apart
+   instead of clearing. */
+.front--exiting .front__head {
+  opacity: 0;
+  transition: opacity 420ms linear;
+}
+
+/* The button goes last and goes quickly. It was just pressed, so it is the one
+   element a reader is looking straight at; holding it on screen while
+   everything else leaves makes it read as the thing that stayed behind. */
+.front--exiting .front__cta {
+  opacity: 0;
+  transition: opacity 260ms linear 420ms;
+}
+
+/* The artwork goes with them, so what is left underneath is the ground colour
+   and nothing else. */
+.front--exiting::before {
+  opacity: 0;
+  transition: opacity 620ms linear;
+}
+
+/* THE SEAL. Brand black, over everything, arriving in the last 240ms.
+
+   Its real job is the gap. A hard navigation has an unavoidable pause between
+   this document going away and the next one painting, and the destination's
+   animatic opens on black. Ending here on the same black means the handover
+   has nothing in it to see -- and it is the only part of this that light mode
+   needs, where the page would otherwise cut from cream straight to a dark
+   hero. */
+.front::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: #07070d;
+  opacity: 0;
+}
+.front--exiting::after {
+  opacity: 1;
+  transition: opacity 240ms linear 700ms;
+}
+
+/* --- Short viewports ---------------------------------------
+
+   There is a floor under "fits any viewport", and it is honest
+   to name it. Below about 560px of height (a phone in
+   landscape, a half-height desktop window) six cells, a
+   masthead and a CTA cannot all hold a tappable 44px inside one
+   screen.
+
+   IT USED TO GIVE UP THE 44px, dropping the bar to 40 so the
+   table still fitted. That was the right trade when the frame
+   was a hard 100dvh and something had to give. It is the wrong
+   one now: the frame is a floor, the page is allowed to scroll,
+   and the thing being protected was a no-scroll promise that
+   this viewport had already broken. Measured at 844x390: six
+   40px rows, a masthead and a CTA came to 464px against a 390px
+   screen, so it scrolled anyway AND every row was 4px under the
+   minimum. Now it scrolls by 24px more and every row is
+   tappable.
+
+   44px is the floor named in this project's own standards and
+   the one Apple and Google both publish. A row you have to aim
+   at is worse than a row you have to scroll to.
+
+   (The standfirst used to be dropped here too. It no longer
+   exists: the sentence moved into the About panel.)         */
+
+@media (max-height: 560px) {
+  .front { --f-bar: 44px; }
+}
+
+/* THE CONSENT BANNER.
+
+   .cl-consent is position: fixed against the bottom of the viewport, and on a
+   page that cannot scroll it does not merely overlap the CTA, it puts it
+   permanently out of reach. Measured at 1600x1000: the banner covered the
+   whole 84px of the CTA, and there was no scroll available to get past it.
+
+   That matters more here than on any other route, because this page exists to
+   be a first impression and the banner only ever shows on a first visit.
+
+   The frame scrolls on its own now, so all this rule still has to do is put
+   room under the CTA to scroll TO. It is generous because the banner's text
+   wraps to three lines on a narrow screen and its height is not something CSS
+   can read. */
+body:has(.cl-consent) .front__cta { margin-bottom: clamp(110px, 22vh, 210px); }
+
+/* The under-420px-of-height escape hatch used to live here: below that the
+   table could not divide the screen without crushing cells under a thumb's
+   target size, so the frame gave up its no-scroll promise. It is gone because
+   it is now the frame's ordinary behaviour at every height. */
+
+/* The cart drawer parks at translateX(100%) but keeps a 32px box-shadow, and a
+   shadow does not travel with the transform's clipping: it reaches back onto
+   the page from off-screen. Everywhere else on this site that lands as black on
+   near-black and nobody has ever seen it. In light mode it is a grey smudge
+   down the right edge of an otherwise cream page.
+
+   Scoped to this page and to the CLOSED state only, so the drawer still casts
+   its shadow when it is actually open and no other route changes. */
+:root:has(.front) .cl-cart-drawer:not(.open) {
+  box-shadow: none;
+}
+
+/* --- Motion -------------------------------------------------
+
+   THIS PAGE DOES NOT HONOUR prefers-reduced-motion, and that is a decision,
+   not an oversight. Chad's call, 2026-08-20, made with the preference on and
+   the still version in front of him on two devices.
+
+   What used to be here was the opposite: a blanket rule holding every
+   transition in the page at 1ms whenever the OS asked for reduced motion. It
+   is gone. The fold, the ground, the accent edge, the chevron and the exit
+   wipe now run for everyone.
+
+   WHAT THAT COSTS, recorded so nobody has to rediscover it: a visitor who
+   turns on Reduce Motion has asked every site to stop moving, and this one no
+   longer listens. The rest of chadlewine.com still does -- 31 other
+   reduced-motion blocks are untouched, and the homepage still freezes the
+   animatic and offers MotionInvite. This override is scoped to .front and to
+   FrontExit, and it must not be copied outward.
+
+   The motion here is small and none of it is parallax, spin or flashing: a
+   560ms fold, a colour fade on the same clock, a 2px edge and a rotating
+   plus. If that ever stops being true, this decision should be revisited. */

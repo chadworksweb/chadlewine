@@ -5,6 +5,7 @@ import { SongDetail } from "@/components/SongDetail";
 import { SponsorDemoDetail } from "@/components/SponsorDemoDetail";
 import { SongChargeJsonLd } from "@/components/SongChargeJsonLd";
 import { YouMightAlsoLike } from "@/components/YouMightAlsoLike";
+import { SimilarSongs } from "@/components/SimilarSongs";
 import { ExploreStrip } from "@/components/ExploreStrip";
 import { AdminEditButton } from "@/components/AdminEditButton";
 import { fetchBadge } from "@/lib/rising-compass";
@@ -491,6 +492,7 @@ export default async function SongDetailPage({
         } : null}
         labelMeta={badge?.psyche_facts ?? null}
         merchSlot={<YouMightAlsoLike sourceType="song" sourceId={song.id} />}
+        similarSlot={<SimilarSongs songId={song.id} songTitle={song.title} />}
       />
       <ExploreStrip wrap />
       <SongChargeJsonLd

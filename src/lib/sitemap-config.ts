@@ -66,6 +66,10 @@ async function fetchPages(): Promise<SitemapEntry[]> {
 
   const staticEntries: SitemapEntry[] = [
     { url: BASE_URL, lastModified: now, changeFrequency: "daily", priority: 1 },
+    // The full site. / is the front page and carries six internal links, so
+    // /home is the hub every deep page is one crawlable click from. It is
+    // indexed on purpose: never noindex it, and never redirect it to /.
+    { url: `${BASE_URL}/home`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE_URL}/chad-lewine`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${BASE_URL}/radiant-arc`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/music`, changeFrequency: "monthly", priority: 0.6 },

@@ -1,0 +1,110 @@
+/* Rising Compass' Similar Songs layout, rebuilt on chadlewine tokens. The
+   proportions are theirs: a mono kicker stating the reading, the title, where
+   it lives, then the why line under its own rule. */
+
+.similar-songs {
+  margin: var(--space-2xl, 3rem) 0;
+}
+
+/* The heading is the Explore title bar (.explore-strip__frame in global.css),
+   which carries its own type and bottom margin. Nothing to add here. */
+
+.similar-songs__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+/* The anchor carries the padding rather than the card, so the whole tile is
+   the click target instead of just the title. */
+.similar-songs__card {
+  display: flex;
+  min-width: 0;
+  background: var(--bg-elevated, #1a1a22);
+  border: 1px solid var(--border-subtle, #2a2a35);
+  border-radius: 12px;
+  transition: border-color 0.2s ease;
+}
+
+.similar-songs__card:hover {
+  border-color: var(--text-accent, #8b9cf7);
+}
+
+.similar-songs__link {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 1.25rem 1.35rem;
+  border-radius: inherit;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Tier + charge first, the way the rest of the page states a reading. */
+.similar-songs__kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.6rem;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.similar-songs__dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.similar-songs__name {
+  font-family: var(--font-ui);
+  font-size: 1.26rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+  transition: color 0.15s ease;
+}
+
+.similar-songs__link:hover .similar-songs__name {
+  color: var(--text-accent, #8b9cf7);
+}
+
+.similar-songs__sub {
+  font-family: var(--font-ui);
+  font-size: 1.02rem;
+  color: var(--text-secondary);
+}
+
+/* The why line is the point of the card, so it gets its own space under a
+   rule rather than trailing the title as an aside. */
+.similar-songs__why {
+  display: block;
+  margin: 0.9rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border-subtle, #2a2a35);
+  font-family: var(--font-ui);
+  font-size: 0.94rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1024px) {
+  .similar-songs__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .similar-songs__grid {
+    grid-template-columns: 1fr;
+  }
+}
