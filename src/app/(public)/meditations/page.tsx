@@ -69,11 +69,10 @@ async function getMeditations() {
 }
 
 async function getHeroImage() {
-  const supabase = createPublicClient();
-  const { data } = await supabase.storage
-    .from("observation-images")
-    .getPublicUrl("page-heroes/meditations.webp");
-  return data?.publicUrl || "";
+  // The observation-images bucket never existed, so this hero has always
+  // resolved to a 404. Storage left with the 2026-08-21 Supabase exit; when
+  // the page gets a real hero it should come from the Bunny site-images zone.
+  return "";
 }
 
 export default async function MeditationsPage() {
@@ -84,7 +83,7 @@ export default async function MeditationsPage() {
 
   return (
     <div className="page-meditations">
-      {/* Cover Hero — static art, swappable via Supabase Storage */}
+      {/* Cover Hero — static art; hero source TBD since the Supabase exit */}
       <section className="cover-hero">
         {heroImage && (
           <div className="cover-hero__art-wrap">

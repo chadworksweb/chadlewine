@@ -2,10 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase-server";
 import { inquiryInterestLabel } from "@/lib/inquiry-interests";
+import { signInquiryFileUrl } from "@/lib/inquiry-files";
 
 export const dynamic = "force-dynamic";
-
-const BUCKET = "inquiry-files";
 
 interface InquiryFile {
   name: string;
@@ -50,12 +49,7 @@ export default async function AdminInquiryDetailPage({
   const inq = data as Inquiry;
 
   const files = inq.files || [];
-  const signed = await Promise.all(
-    files.map(async (f) => {
-      const { data: s } = await supabase.storage.from(BUCKET).createSignedUrl(f.path, 60 * 60);
-      return { ...f, url: s?.signedUrl || null };
-    }),
-  );
+  const signed = files.map((f) => ({ ...f, url: signInquiryFileUrl(f.path, 60 * 60) }));
 
   const meta: Array<[string, React.ReactNode]> = [
     ["Received", fmtDate(inq.created_at)],

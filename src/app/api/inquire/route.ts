@@ -5,10 +5,10 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { sendEmail } from "@/lib/email";
 import { isInquiryInterest, inquiryInterestLabel } from "@/lib/inquiry-interests";
 import { grantStoreCoupon } from "@/lib/grant-coupon";
+import { saveInquiryFile, signInquiryFileUrl } from "@/lib/inquiry-files";
 
 export const runtime = "nodejs";
 
-const BUCKET = "inquiry-files";
 const SIGNED_URL_TTL = 60 * 60 * 24 * 30; // 30 days
 
 function esc(s: string): string {
@@ -134,11 +134,9 @@ export async function POST(req: Request) {
     const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80) || "file";
     const path = `${id}/${i + 1}-${safe}`;
     const buf = Buffer.from(await f.arrayBuffer());
-    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, buf, {
-      contentType: f.type || "application/octet-stream",
-      upsert: false,
-    });
-    if (upErr) {
+    try {
+      await saveInquiryFile(path, buf);
+    } catch (upErr) {
       console.error("[inquire] upload failed", upErr);
       return NextResponse.json(
         { error: "Could not upload your files. Please try again." },
@@ -172,8 +170,8 @@ export async function POST(req: Request) {
   // Signed links for the notification email.
   const links: { name: string; url: string }[] = [];
   for (const s of stored) {
-    const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrl(s.path, SIGNED_URL_TTL);
-    if (signed?.signedUrl) links.push({ name: s.name, url: signed.signedUrl });
+    const url = signInquiryFileUrl(s.path, SIGNED_URL_TTL);
+    if (url) links.push({ name: s.name, url });
   }
 
   // Notify portal@. reply_to is the inquirer so Chad can answer directly.

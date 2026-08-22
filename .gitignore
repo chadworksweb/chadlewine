@@ -54,3 +54,6 @@ scripts/bg-remove-work/
 # logs + python cache (never commit)
 *.log
 __pycache__/
+
+# Inquiry attachments (instance data, never committed)
+/data/

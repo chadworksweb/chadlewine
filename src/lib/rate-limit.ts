@@ -33,6 +33,10 @@ const POLICY: Record<AuthAction, Window[]> = {
   password_reset: [
     { minutes: 2, byEmail: 1 },
   ],
+  // Reset completion: token gates it already; cap brute-force posting.
+  password_reset_complete: [
+    { minutes: 15, byIp: 10 },
+  ],
 };
 
 export async function checkRateLimit(opts: {

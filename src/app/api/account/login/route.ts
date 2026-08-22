@@ -1,6 +1,13 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase-server";
+import { authenticate } from "@/lib/clerk-backend";
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  ACCESS_TTL_SEC,
+  REFRESH_TTL_SEC,
+  createSession,
+} from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { checkLockout, recordFailure, clearLockout } from "@/lib/lockout";
 import { recordAttempt, clientIp, clientUA } from "@/lib/auth-attempt";
@@ -53,15 +60,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "Bot check failed. Refresh and try again." }, { status: 400 });
   }
 
-  // 4. Authenticate via Supabase. The browser SDK normally does this; we
-  //    proxy it server-side so we can wrap with our gates + audit log.
-  const anon = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const { data, error } = await anon.auth.signInWithPassword({ email, password });
+  // 4. Authenticate via Clerk's backend API (the user directory + password
+  //    verifier since the Supabase exit). Server-side so our gates +
+  //    audit log wrap it, exactly as before.
+  const auth = await authenticate(email, password);
 
-  if (error || !data.session || !data.user) {
+  if (!auth.ok && auth.reason === "unverified") {
+    await recordAttempt({ email, ip, user_agent: ua, action: "login", success: false, reason: "email_unverified" });
+    return Response.json(
+      { error: "Confirm your email first — check your inbox for the confirmation link." },
+      { status: 403 }
+    );
+  }
+  if (!auth.ok) {
     const { lockedNow } = await recordFailure(email);
     await recordAttempt({
       email,
@@ -79,7 +90,7 @@ export async function POST(request: Request) {
   const { data: adminRow } = await admin
     .from("admins")
     .select("user_id")
-    .eq("user_id", data.user.id)
+    .eq("user_id", auth.localId)
     .maybeSingle();
   if (adminRow) {
     await recordAttempt({ email, ip, user_agent: ua, action: "login", success: false, reason: "admin_blocked_on_public_login" });
@@ -89,28 +100,33 @@ export async function POST(request: Request) {
     );
   }
 
-  // 6. Success — clear lockout, set cookies, return user.
+  // 6. Success — clear lockout, mint our session, set cookies, return user.
   await clearLockout(email);
   await recordAttempt({ email, ip, user_agent: ua, action: "login", success: true });
 
+  const session = await createSession(
+    { id: auth.localId, clerkId: auth.clerkId, email: auth.email },
+    { userAgent: ua, ip },
+  );
+
   const cookieStore = await cookies();
   const isProduction = process.env.NODE_ENV === "production";
-  cookieStore.set("sb-access-token", data.session.access_token, {
+  cookieStore.set(ACCESS_COOKIE, session.accessToken, {
     httpOnly: true,
     secure: isProduction,
     sameSite: "strict",
     path: "/",
-    maxAge: 60 * 60,
+    maxAge: ACCESS_TTL_SEC,
   });
-  cookieStore.set("sb-refresh-token", data.session.refresh_token, {
+  cookieStore.set(REFRESH_COOKIE, session.refreshToken, {
     httpOnly: true,
     secure: isProduction,
     sameSite: "strict",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: REFRESH_TTL_SEC,
   });
 
   return Response.json({
-    user: { id: data.user.id, email: data.user.email },
+    user: { id: auth.localId, email: auth.email },
   });
 }

@@ -1,38 +1,21 @@
 import { cookies } from "next/headers";
+import { ACCESS_COOKIE, REFRESH_COOKIE, revokeSession } from "@/lib/session";
 
-export async function POST(request: Request) {
-  const body = await request.json();
-  const { access_token, refresh_token } = body;
-
-  if (!access_token || !refresh_token) {
-    return Response.json({ error: "Missing tokens" }, { status: 400 });
-  }
-
-  const cookieStore = await cookies();
-  const isProduction = process.env.NODE_ENV === "production";
-
-  cookieStore.set("sb-access-token", access_token, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60, // 1 hour
-  });
-
-  cookieStore.set("sb-refresh-token", refresh_token, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30 days
-  });
-
-  return Response.json({ ok: true });
-}
+/* Logout. The POST half of the old Supabase version (storing tokens the
+   browser SDK minted) went away with the 2026-08-22 Clerk migration --
+   sessions are minted server-side now, so nothing legitimate posts here. */
 
 export async function DELETE() {
   const cookieStore = await cookies();
-  cookieStore.delete("sb-access-token");
-  cookieStore.delete("sb-refresh-token");
+  const refresh = cookieStore.get(REFRESH_COOKIE)?.value;
+  if (refresh) {
+    try {
+      await revokeSession(refresh);
+    } catch {
+      // Cookie cleanup still proceeds.
+    }
+  }
+  cookieStore.delete(ACCESS_COOKIE);
+  cookieStore.delete(REFRESH_COOKIE);
   return Response.json({ ok: true });
 }

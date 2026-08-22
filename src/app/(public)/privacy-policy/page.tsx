@@ -54,7 +54,7 @@ const sections: LegalSection[] = [
         </p>
         <p>
           <strong>Device and log data.</strong> Our infrastructure
-          providers (DigitalOcean, Cloudflare, Supabase, Bunny.net) automatically
+          providers (DigitalOcean, Cloudflare, Bunny.net) automatically
           receive standard server-log information when you access the
           Site, including IP address, user agent, request path, response
           status, and timestamp. We use this only for operating, securing,
@@ -76,9 +76,9 @@ const sections: LegalSection[] = [
         </p>
         <p>
           <strong>Cookies and similar technologies.</strong> The Site sets
-          authentication cookies (managed by Supabase, named
-          sb-access-token and sb-refresh-token) when you sign in, so that
-          subsequent requests can be identified as yours. Cloudflare
+          its own authentication cookies (named sb-access-token and
+          sb-refresh-token) when you sign in, so that subsequent requests
+          can be identified as yours. Cloudflare
           Turnstile may set its own short-lived tokens to verify that form
           submissions are from a human. We do not use third-party
           advertising cookies, cross-site tracking pixels, or
@@ -165,9 +165,9 @@ const sections: LegalSection[] = [
           order.
         </p>
         <p>
-          <strong>Supabase</strong> &mdash; database, authentication, and
-          file storage. Supabase hosts the authentication records and
-          application data that make the Site work.
+          <strong>Clerk</strong> &mdash; account credentials. Clerk stores
+          the email address and password hash for your account and checks
+          your password when you sign in.
         </p>
         <p>
           <strong>Bunny.net</strong> &mdash; content delivery and media
@@ -180,8 +180,10 @@ const sections: LegalSection[] = [
           provides bot protection through Cloudflare Turnstile on forms.
         </p>
         <p>
-          <strong>DigitalOcean</strong> &mdash; web hosting and application
-          runtime (the server the Site runs on).
+          <strong>DigitalOcean</strong> &mdash; web hosting, application
+          runtime, and database hosting. The server the Site runs on and
+          the managed database holding its application data both live
+          here, along with any files you attach to an inquiry.
         </p>
         <p>
           <strong>PostHog</strong> &mdash; product analytics and session

@@ -1,4 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { findUserByEmail } from "@/lib/clerk-backend";
+import { createActionToken } from "@/lib/session";
+import { sendEmail, buildPasswordResetEmailHtml } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { recordAttempt, clientIp, clientUA } from "@/lib/auth-attempt";
 
@@ -39,23 +41,38 @@ export async function POST(request: Request) {
     );
   }
 
-  const anon = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
   const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "https://chadlewine.com";
 
-  const { error } = await anon.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/account/reset-password`,
-  });
+  // Our own token flow since the Supabase exit: only send when the account
+  // actually exists, but answer identically either way so nothing leaks.
+  let sent = false;
+  let reason: string | undefined;
+  try {
+    const user = await findUserByEmail(email);
+    if (user?.external_id) {
+      const token = await createActionToken("password_reset", email, user.external_id, 60 * 30);
+      sent = await sendEmail({
+        to: email,
+        subject: "Reset your chadlewine.com password",
+        html: buildPasswordResetEmailHtml({
+          resetUrl: `${origin}/account/reset-password?token=${token}`,
+        }),
+      });
+      if (!sent) reason = "send_failed";
+    } else {
+      reason = "no_account";
+    }
+  } catch (e) {
+    reason = e instanceof Error ? e.message : "error";
+  }
 
   await recordAttempt({
     email,
     ip,
     user_agent: ua,
     action: "password_reset",
-    success: !error,
-    reason: error?.message,
+    success: sent,
+    reason,
   });
 
   return Response.json(GENERIC_OK);

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { createPublicClient, createAdminClient } from "@/lib/supabase-server";
+import { verifyAccessToken } from "@/lib/session";
 import { createCartCheckoutSession } from "@/lib/stripe";
 import type { DownloadFormat } from "@/lib/audio-formats";
 
@@ -489,12 +489,8 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     const token = cookieStore.get("sb-access-token")?.value;
     if (token) {
-      const anon = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      );
-      const { data: userResp } = await anon.auth.getUser(token);
-      const user = userResp?.user;
+      const claims = await verifyAccessToken(token);
+      const user = claims ? { id: claims.sub, email: claims.email } : null;
       if (user) {
         const admin = createAdminClient();
         const { data: audienceRow } = await admin

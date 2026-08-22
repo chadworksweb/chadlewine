@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase-server";
+import { ACCESS_COOKIE, verifyAccessToken } from "@/lib/session";
 import { sendEmail, buildMemberCouponEmailHtml } from "@/lib/email";
 
 const SOURCE = "cart_thankyou_offer";
@@ -27,18 +27,13 @@ export async function POST(request: Request) {
   }
 
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("sb-access-token")?.value;
+  const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
   if (!accessToken) {
     return Response.json({ error: "Sign in required to claim." }, { status: 401 });
   }
 
-  const userClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } },
-  );
-  const { data: userResp } = await userClient.auth.getUser(accessToken);
-  const userId = userResp?.user?.id;
+  const claims = await verifyAccessToken(accessToken);
+  const userId = claims?.sub;
   if (!userId) {
     return Response.json({ error: "Sign in required to claim." }, { status: 401 });
   }

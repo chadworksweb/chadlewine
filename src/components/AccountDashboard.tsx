@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@/lib/supabase-browser";
 import { useConsent } from "@/components/ConsentProvider";
 import {
   NOTIFICATION_CATEGORIES,
@@ -101,7 +100,7 @@ function fmtDate(iso: string): string {
 
 export function AccountDashboard({ initial }: { initial: AccountData }) {
   const router = useRouter();
-  const supabase = createBrowserClient();
+
   const [a, setA] = useState(initial.audience);
 
   const [draft, setDraft] = useState({
@@ -286,7 +285,8 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Server-side session revoke + cookie clear; there is no client-side
+    // auth state to tear down since the Clerk migration.
     await fetch("/api/auth/session", { method: "DELETE" });
     router.push("/");
   };

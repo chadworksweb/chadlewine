@@ -15,6 +15,25 @@ const nextConfig: NextConfig = {
   // Local Sites, OneDrive, AppData -- grinding dev to a halt. Pin the root to
   // this project so only the app tree is watched.
   outputFileTracingRoot: path.join(__dirname),
+  // inquiry-files.ts does runtime fs reads/writes on dynamic paths (the
+  // inquiry-attachment store). The tracer can't resolve those paths, roots
+  // the trace at the project dir, and copies the whole repo (scripts/ alone
+  // is 85M) into .next/standalone. Keep the non-runtime trees out of it.
+  outputFileTracingExcludes: {
+    "*": [
+      "./scripts/**",
+      "./design/**",
+      "./deploy/**",
+      "./plans/**",
+      "./prose/**",
+      "./supabase/**",
+      "./src/**",
+      "./*.log",
+      "./*.md",
+      "./tsconfig.tsbuildinfo",
+      "./package-lock.json",
+    ],
+  },
   allowedDevOrigins: ["10.0.0.181", "192.168.1.153"],
   experimental: {
     // proxy.ts buffers request bodies in memory; default 10MB cap cuts off

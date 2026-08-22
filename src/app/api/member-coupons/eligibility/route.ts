@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase-server";
+import { ACCESS_COOKIE, REFRESH_COOKIE, verifyAccessToken } from "@/lib/session";
 
 /* Decides whether the caller can claim the cart-thank-you coupon on the
    order identified by Stripe session_id. Returns one of:
@@ -55,19 +55,14 @@ export async function GET(request: Request) {
 
   // Account-attached order — caller must be that user to claim.
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("sb-access-token")?.value;
-  const refreshToken = cookieStore.get("sb-refresh-token")?.value;
+  const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
+  const refreshToken = cookieStore.get(REFRESH_COOKIE)?.value;
   if (!accessToken || !refreshToken) {
     return Response.json({ status: "must_sign_in" });
   }
 
-  const userClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } },
-  );
-  const { data: userResp } = await userClient.auth.getUser(accessToken);
-  const callerId = userResp?.user?.id;
+  const claims = await verifyAccessToken(accessToken);
+  const callerId = claims?.sub;
   if (!callerId || callerId !== audience.user_id) {
     return Response.json({ status: "must_sign_in" });
   }

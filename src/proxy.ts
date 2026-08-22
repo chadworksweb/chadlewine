@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { lookupRedirectEdge, recordRedirectHit } from "@/lib/redirects";
 import { CONSENT_COOKIE, isOptInGeo } from "@/lib/consent";
+import { rotateSession, verifyAccessToken } from "@/lib/session";
 
 type AuthResult = {
   ok: boolean;
@@ -23,7 +24,8 @@ async function checkAdmin(userId: string): Promise<boolean> {
   return !!row;
 }
 
-// Cookie presence != auth. Validate the JWT against Supabase AND confirm
+// Cookie presence != auth. Verify the app's own access token (local HMAC
+// check since the 2026-08-22 Clerk migration -- no network call) AND confirm
 // the user is in the `admins` table.
 //
 // When the access token is stale, attempt a refresh-token exchange (in every
@@ -35,15 +37,10 @@ async function authAdmin(
   refreshToken: string | undefined,
   allowRefresh: boolean,
 ): Promise<AuthResult> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-
   if (accessToken) {
     try {
-      const { data, error } = await supabase.auth.getUser(accessToken);
-      if (!error && data?.user && (await checkAdmin(data.user.id))) {
+      const claims = await verifyAccessToken(accessToken);
+      if (claims && (await checkAdmin(claims.sub))) {
         return { ok: true };
       }
     } catch {
@@ -53,15 +50,16 @@ async function authAdmin(
 
   if (allowRefresh && refreshToken) {
     try {
-      const { data, error } = await supabase.auth.refreshSession({
-        refresh_token: refreshToken,
-      });
-      if (!error && data.session && data.user && (await checkAdmin(data.user.id))) {
-        return {
-          ok: true,
-          newAccess: data.session.access_token,
-          newRefresh: data.session.refresh_token,
-        };
+      const rotated = await rotateSession(refreshToken);
+      if (rotated) {
+        const claims = await verifyAccessToken(rotated.accessToken);
+        if (claims && (await checkAdmin(claims.sub))) {
+          return {
+            ok: true,
+            newAccess: rotated.accessToken,
+            newRefresh: rotated.refreshToken,
+          };
+        }
       }
     } catch {
       return { ok: false };

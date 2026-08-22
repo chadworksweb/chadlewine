@@ -1,5 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
 import { createAdminClient } from "@/lib/supabase-server";
+import { createUser } from "@/lib/clerk-backend";
+import { createActionToken } from "@/lib/session";
+import { sendEmail, buildConfirmAccountEmailHtml } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { recordAttempt, clientIp, clientUA } from "@/lib/auth-attempt";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -66,38 +69,86 @@ export async function POST(request: Request) {
     return Response.json({ error: "Bot check failed. Refresh and try again." }, { status: 400 });
   }
 
-  const anon = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
   // Determine the public origin for the email confirmation link. Trust
-  // the request's Origin header (Vercel sets it correctly per env).
+  // the request's Origin header (set per env by the browser).
   const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "https://chadlewine.com";
 
-  const { data, error } = await anon.auth.signUp({
-    email,
-    password,
-    // Land confirmed users on the login form with a flag so we can surface
-    // a "Thanks for confirming" banner there.
-    options: { emailRedirectTo: `${origin}/account/login?confirmed=1` },
-  });
+  // Create the user in Clerk (the user directory + password verifier since
+  // the Supabase exit). The local uuid the app keys on is minted here and
+  // stored in Clerk as external_id.
+  const localId = randomUUID();
+  const created = await createUser(email, password, localId);
 
-  if (error) {
-    // Log but DON'T reveal — return the generic success response so the
-    // attacker can't tell whether the email already existed.
-    await recordAttempt({ email, ip, user_agent: ua, action: "register", success: false, reason: error.message });
+  if (!created.user) {
+    // If the email exists but was never confirmed, this is almost always
+    // the same person whose first link expired: send a fresh confirmation.
+    // Either way the response stays generic so nothing about the email's
+    // existence leaks.
+    if (created.emailTaken) {
+      try {
+        const { findUserByEmail } = await import("@/lib/clerk-backend");
+        const existing = await findUserByEmail(email);
+        if (existing && !existing.emailVerified && existing.external_id) {
+          const token = await createActionToken("email_verify", email, existing.external_id, 60 * 60 * 24);
+          await sendEmail({
+            to: email,
+            subject: "Confirm your chadlewine.com account",
+            html: buildConfirmAccountEmailHtml({
+              confirmUrl: `${origin}/api/account/verify-email?token=${token}`,
+            }),
+          });
+        }
+      } catch (e) {
+        console.error("[register] reconfirm email failed:", e);
+      }
+    }
+    await recordAttempt({
+      email, ip, user_agent: ua, action: "register", success: false,
+      reason: created.emailTaken ? "email_exists" : created.error || "clerk_error",
+    });
     return Response.json(GENERIC_OK_RESPONSE);
   }
 
+  const admin = createAdminClient();
+
+  // The identity row (was the Supabase signup trigger's job).
+  const { error: authRowErr } = await admin.rpc("auth_user_insert", { p_id: localId, p_email: email });
+  if (authRowErr) console.error("[register] auth_user_insert failed:", authRowErr.message);
+
+  // Attach or create the audience row: a guest buyer with this email claims
+  // their history; a brand-new email gets a fresh row.
+  const { data: existingAud } = await admin
+    .from("audience")
+    .select("id, user_id")
+    .eq("email", email)
+    .maybeSingle();
+  if (existingAud && !existingAud.user_id) {
+    await admin.from("audience").update({ user_id: localId }).eq("id", existingAud.id);
+  } else if (!existingAud) {
+    await admin.from("audience").insert({ email, user_id: localId, marketing_opt_in_source: "account" });
+  }
+
+  // Confirmation email — our own token flow now (Resend), landing on the
+  // login form with a flag so it can show the "Thanks for confirming" banner.
+  try {
+    const token = await createActionToken("email_verify", email, localId, 60 * 60 * 24);
+    await sendEmail({
+      to: email,
+      subject: "Confirm your chadlewine.com account",
+      html: buildConfirmAccountEmailHtml({
+        confirmUrl: `${origin}/api/account/verify-email?token=${token}`,
+      }),
+    });
+  } catch (e) {
+    console.error("[register] confirmation email failed:", e);
+  }
+
   // Auto-subscribe to marketing campaigns + record TOS acceptance on the
-  // audience row. The handle_new_auth_user trigger already created the
-  // audience row; this update flips subscriber_status and timestamps the
-  // consent moments. Disclosure copy on the register form is the
-  // consent record. Notify admin so we know about every new signup.
-  if (data.user) {
+  // audience row: flips subscriber_status and timestamps the consent
+  // moments. Disclosure copy on the register form is the consent record.
+  // Notify admin so we know about every new signup.
+  {
     try {
-      const admin = createAdminClient();
       const now = new Date().toISOString();
       const { data: updated } = await admin
         .from("audience")
@@ -108,7 +159,7 @@ export async function POST(request: Request) {
           tos_accepted_at: now,
           updated_at: now,
         })
-        .eq("user_id", data.user.id)
+        .eq("user_id", localId)
         .select("id, email, display_name, lifetime_orders, lifetime_spend")
         .single();
 

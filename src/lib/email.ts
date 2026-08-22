@@ -488,6 +488,51 @@ export function buildRecoveryEmailHtml(params: { verifyUrl: string }): string {
   return shell(inner, "You received this because someone requested download recovery at chadlewine.com");
 }
 
+export function buildConfirmAccountEmailHtml(params: { confirmUrl: string }): string {
+  const inner = `
+    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b9cf7; margin-bottom: 8px;">Your account</p>
+    <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #e0e0e8;">Confirm your email</h1>
+    <p style="font-size: 16px; color: #a0a0b0; line-height: 1.5; margin: 0 0 24px;">
+      You created an account at chadlewine.com. One click below finishes it. The link works for 24 hours.
+    </p>
+    <a href="${params.confirmUrl}" style="display: inline-block; padding: 12px 28px; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;">Confirm my email</a>
+    <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.5;">
+      If this wasn't you, ignore the email and no account gets activated.
+    </p>
+  `;
+  return shell(inner, "You received this because an account was created with this email at chadlewine.com");
+}
+
+export function buildPasswordResetEmailHtml(params: { resetUrl: string }): string {
+  const inner = `
+    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b9cf7; margin-bottom: 8px;">Your account</p>
+    <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #e0e0e8;">Reset your password</h1>
+    <p style="font-size: 16px; color: #a0a0b0; line-height: 1.5; margin: 0 0 24px;">
+      Click below to choose a new password for your chadlewine.com account. The link works for 30 minutes.
+    </p>
+    <a href="${params.resetUrl}" style="display: inline-block; padding: 12px 28px; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;">Choose a new password</a>
+    <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.5;">
+      If you didn't request this, ignore the email and your password stays as it is.
+    </p>
+  `;
+  return shell(inner, "You received this because a password reset was requested at chadlewine.com");
+}
+
+export function buildEmailChangeEmailHtml(params: { confirmUrl: string; newEmail: string }): string {
+  const inner = `
+    <p style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b9cf7; margin-bottom: 8px;">Your account</p>
+    <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 16px; color: #e0e0e8;">Confirm your new email</h1>
+    <p style="font-size: 16px; color: #a0a0b0; line-height: 1.5; margin: 0 0 24px;">
+      You asked to move your chadlewine.com account to ${escapeHtml(params.newEmail)}. Confirm below to make the switch. The link works for 30 minutes.
+    </p>
+    <a href="${params.confirmUrl}" style="display: inline-block; padding: 12px 28px; background: #8b9cf7; color: #0a0a14; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 14px;">Confirm new email</a>
+    <p style="font-size: 13px; color: #808090; margin-top: 32px; line-height: 1.5;">
+      If you didn't request this, ignore the email and your address stays as it is.
+    </p>
+  `;
+  return shell(inner, "You received this because an email change was requested at chadlewine.com");
+}
+
 /* Generic coupon email. Renders the eyebrow / headline / intro copy supplied
    by the caller, the code block, an expiry line, a "Shop now" CTA, and an
    optional how-to-redeem footer. Reused by every coupon funnel (member

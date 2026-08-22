@@ -1,8 +1,15 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase-server";
+import { findUserByEmail } from "@/lib/clerk-backend";
+import { ACCESS_COOKIE, createActionToken, verifyAccessToken } from "@/lib/session";
+import { sendEmail, buildEmailChangeEmailHtml } from "@/lib/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/* Secure email change, our own flow since the Supabase exit: a single-use
+   token goes to the NEW address, and nothing changes until it's clicked
+   (see confirm-email-change). The signed-in session identifies the account;
+   the click proves control of the new inbox. */
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -13,17 +20,14 @@ export async function POST(request: Request) {
   }
 
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("sb-access-token")?.value;
-  const refreshToken = cookieStore.get("sb-refresh-token")?.value;
-  if (!accessToken || !refreshToken) {
+  const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
+  const claims = accessToken ? await verifyAccessToken(accessToken) : null;
+  if (!claims) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  // Block if the new email already belongs to another auth user. Supabase's
-  // updateUser would reject this anyway, but we want a clean error first.
-  const admin = createAdminClient();
-  const { data: usersList } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-  const collision = usersList?.users.find((u) => u.email?.toLowerCase() === newEmail);
+  // Block if the new email already belongs to another account.
+  const collision = await findUserByEmail(newEmail);
   if (collision) {
     return Response.json(
       { error: "That email is already associated with another account." },
@@ -31,33 +35,28 @@ export async function POST(request: Request) {
     );
   }
 
-  // Use the caller's session to trigger Supabase's secure-email-change flow.
-  // Supabase sends a confirmation to the NEW address (and, when "Secure email
-  // change" is enabled in project settings, to the old one too). Only after
-  // the user clicks the link does auth.users.email actually update — which
-  // fires the on_auth_user_email_changed trigger to sync public.audience.
-  const userClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } },
-  );
-  const { error: sessionErr } = await userClient.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-  if (sessionErr) {
-    return Response.json({ error: "Session expired. Sign in again." }, { status: 401 });
-  }
-
   const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "https://chadlewine.com";
-  const { error } = await userClient.auth.updateUser(
-    { email: newEmail },
-    { emailRedirectTo: `${origin}/account?email_changed=1` },
-  );
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 400 });
+  const token = await createActionToken("email_change", claims.email, claims.sub, 60 * 30, {
+    new_email: newEmail,
+  });
+  const sent = await sendEmail({
+    to: newEmail,
+    subject: "Confirm your new email for chadlewine.com",
+    html: buildEmailChangeEmailHtml({
+      confirmUrl: `${origin}/api/account/confirm-email-change?token=${token}`,
+      newEmail,
+    }),
+  });
+  if (!sent) {
+    return Response.json({ error: "Could not send the confirmation email. Try again." }, { status: 500 });
   }
+
+  // Touch the audience row so the request is visible in admin history.
+  const admin = createAdminClient();
+  await admin
+    .from("audience")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("user_id", claims.sub);
 
   return Response.json({
     ok: true,

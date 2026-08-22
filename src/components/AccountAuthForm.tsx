@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
-import { createBrowserClient } from "@/lib/supabase-browser";
 
 type Mode = "login" | "register" | "forgot" | "reset" | "claim";
 
@@ -23,7 +22,6 @@ const HEADINGS: Record<Mode, { title: string; sub: string }> = {
 
 export function AccountAuthForm({ mode, initialEmail }: Props) {
   const router = useRouter();
-  const supabase = createBrowserClient();
   const turnstileRef = useRef<TurnstileInstance | null>(null);
   const turnstileKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const useTurnstile = !!turnstileKey && (mode === "login" || mode === "register" || mode === "claim");
@@ -57,6 +55,8 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
 
   const searchParams = useSearchParams();
   const justConfirmed = mode === "login" && searchParams.get("confirmed") === "1";
+  const resetToken = mode === "reset" ? searchParams.get("token") || "" : "";
+  const confirmExpired = mode === "login" && searchParams.get("confirm_expired") === "1";
 
   const resetTurnstile = () => {
     setTurnstileToken(null);
@@ -136,13 +136,18 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
       }
 
       if (mode === "reset") {
-        // Reset still uses Supabase browser SDK — the magic link sets a
-        // session in the URL hash which only the SDK can finalize. Once
-        // we have a session we update the password.
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) {
+        // Our own token flow since the Supabase exit: the emailed link
+        // carries ?token=..., the server verifies it, updates the password
+        // in Clerk, and signs the user in.
+        const res = await fetch("/api/account/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: resetToken, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
           setStatus("err");
-          setMessage(error.message);
+          setMessage(data.error || "Could not update the password.");
           return;
         }
         setStatus("ok");
@@ -190,6 +195,11 @@ export function AccountAuthForm({ mode, initialEmail }: Props) {
         {justConfirmed && (
           <div className="account-auth__banner">
             Thanks for confirming. You&rsquo;re now able to log in.
+          </div>
+        )}
+        {confirmExpired && (
+          <div className="account-auth__banner">
+            That confirmation link has expired. Sign up again and a fresh one is on the way.
           </div>
         )}
 

@@ -30,8 +30,14 @@ services:
       - "127.0.0.1:${CL_PORT}:${CL_PORT}"
     env_file:
       - .env
+    volumes:
+      # Inquiry attachments live on the instance disk since the 2026-08-21
+      # Supabase exit (there is no storage service any more). The host dir
+      # must be owned by UID 1000 (the runner's `node` user) or writes EACCES.
+      - ./data/inquiry-files:/data/inquiry-files
     environment:
       - PORT=${CL_PORT}
+      - INQUIRY_FILES_DIR=/data/inquiry-files
       - NODE_ENV=production
       # NOTE: VERCEL is intentionally NOT set. The two process.env.VERCEL guards
       # relax off-platform (home-preview renders; scan route enables).

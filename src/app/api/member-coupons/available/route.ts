@@ -1,22 +1,17 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase-server";
+import { ACCESS_COOKIE, verifyAccessToken } from "@/lib/session";
 
 /* Returns the caller's currently applicable member coupon (unredeemed,
    unexpired) if any. Cart drawer hits this on open to decide whether
    to render the "Apply your 20% coupon" toggle. */
 export async function GET() {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("sb-access-token")?.value;
+  const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
   if (!accessToken) return Response.json({ coupon: null });
 
-  const userClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false } },
-  );
-  const { data: userResp } = await userClient.auth.getUser(accessToken);
-  const userId = userResp?.user?.id;
+  const claims = await verifyAccessToken(accessToken);
+  const userId = claims?.sub;
   if (!userId) return Response.json({ coupon: null });
 
   const admin = createAdminClient();

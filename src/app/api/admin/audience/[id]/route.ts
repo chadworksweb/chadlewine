@@ -102,14 +102,22 @@ export async function DELETE(
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  // Kill the linked auth user too if present. Without this, the email
-  // would be stuck — re-registration would fail with "email taken" even
-  // though we have no member record for them anymore.
+  // Kill the linked account too if present (Clerk user + auth.users row +
+  // sessions). Without this, the email would be stuck — re-registration
+  // would fail with "email taken" even though we have no member record for
+  // them anymore.
   if (row?.user_id) {
-    const { error: authErr } = await supabase.auth.admin.deleteUser(row.user_id);
-    if (authErr) {
+    try {
+      const { findUserByExternalId, deleteUser } = await import("@/lib/clerk-backend");
+      const { revokeAllSessions } = await import("@/lib/session");
+      const clerkUser = await findUserByExternalId(row.user_id);
+      if (clerkUser) await deleteUser(clerkUser.id);
+      await revokeAllSessions(row.user_id);
+      const { error: authErr } = await supabase.rpc("auth_user_delete", { p_id: row.user_id });
+      if (authErr) console.error("[audience DELETE] auth user cleanup failed:", authErr.message);
+    } catch (e) {
       // Audience row is already gone; log but don't fail the request.
-      console.error("[audience DELETE] auth user cleanup failed:", authErr.message);
+      console.error("[audience DELETE] account cleanup failed:", e);
     }
   }
 

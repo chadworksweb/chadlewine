@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase-server";
 
-export type AuthAction = "login" | "register" | "password_reset" | "admin_login";
+export type AuthAction = "login" | "register" | "password_reset" | "password_reset_complete" | "admin_login";
 
 /** Extract the client's IP from a Next request. Behind Cloudflare, le-nginx
    restores the real client via real_ip (CF-Connecting-IP) and passes it as the

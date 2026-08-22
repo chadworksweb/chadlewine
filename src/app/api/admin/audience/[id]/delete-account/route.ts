@@ -1,15 +1,16 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { deleteUser, findUserByExternalId } from "@/lib/clerk-backend";
+import { revokeAllSessions } from "@/lib/session";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // DELETE /api/admin/audience/[id]/delete-account
 //
-// Removes the auth.users row linked to this audience contact. The audience
-// row itself stays — only its account link is severed (ON DELETE SET NULL).
-// After this, the customer can register again with the same email and the
-// trigger will re-link them. Useful for test cleanup and for force-removing
-// problem accounts. Cascades through Supabase Auth so all their sessions
-// are invalidated.
+// Removes the account (Clerk user + auth.users row) linked to this audience
+// contact. The audience row itself stays — only its account link is severed
+// (ON DELETE SET NULL). After this, the customer can register again with the
+// same email and reclaim the row. Useful for test cleanup and for
+// force-removing problem accounts. Every session dies with the account.
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -36,14 +37,21 @@ export async function DELETE(
     );
   }
 
-  const { error } = await supabase.auth.admin.deleteUser(row.user_id);
+  const clerkUser = await findUserByExternalId(row.user_id);
+  if (clerkUser) {
+    const ok = await deleteUser(clerkUser.id);
+    if (!ok) {
+      return Response.json({ error: "Clerk user delete failed" }, { status: 500 });
+    }
+  }
+  await revokeAllSessions(row.user_id);
+  const { error } = await supabase.rpc("auth_user_delete", { p_id: row.user_id });
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
   // Belt-and-suspenders: clear the user_id on the audience row in case the
-  // ON DELETE SET NULL didn't fire (it should, but Supabase Auth manages
-  // auth.users separately and triggers may not propagate identically).
+  // ON DELETE SET NULL didn't fire.
   await supabase
     .from("audience")
     .update({ user_id: null, updated_at: new Date().toISOString() })

@@ -1,6 +1,13 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase-server";
+import { authenticate } from "@/lib/clerk-backend";
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  ACCESS_TTL_SEC,
+  REFRESH_TTL_SEC,
+  createSession,
+} from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { checkLockout, recordFailure, clearLockout } from "@/lib/lockout";
 import { recordAttempt, clientIp, clientUA } from "@/lib/auth-attempt";
@@ -41,13 +48,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const anon = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const { data, error } = await anon.auth.signInWithPassword({ email, password });
-
-  if (error || !data.session || !data.user) {
+  // Authenticate via Clerk's backend API (user directory + password
+  // verifier since the Supabase exit). Unverified email reads as a plain
+  // failure here — the admin URL never explains itself.
+  const auth = await authenticate(email, password);
+  if (!auth.ok) {
     await recordFailure(email);
     await recordAttempt({ email, ip, user_agent: ua, action: "admin_login", success: false, reason: "wrong_password" });
     return Response.json({ error: GENERIC_ERR }, { status: 401 });
@@ -59,7 +64,7 @@ export async function POST(request: Request) {
   const { data: adminRow } = await admin
     .from("admins")
     .select("user_id")
-    .eq("user_id", data.user.id)
+    .eq("user_id", auth.localId)
     .maybeSingle();
   if (!adminRow) {
     await recordAttempt({ email, ip, user_agent: ua, action: "admin_login", success: false, reason: "not_admin" });
@@ -69,24 +74,29 @@ export async function POST(request: Request) {
   await clearLockout(email);
   await recordAttempt({ email, ip, user_agent: ua, action: "admin_login", success: true });
 
+  const session = await createSession(
+    { id: auth.localId, clerkId: auth.clerkId, email: auth.email },
+    { userAgent: ua, ip },
+  );
+
   const cookieStore = await cookies();
   const isProduction = process.env.NODE_ENV === "production";
   // Admin cookies stay SameSite=Lax (admin URL might be navigated to from
   // bookmarks/external — Strict would block top-level GET).
-  cookieStore.set("sb-access-token", data.session.access_token, {
+  cookieStore.set(ACCESS_COOKIE, session.accessToken, {
     httpOnly: true,
     secure: isProduction,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60,
+    maxAge: ACCESS_TTL_SEC,
   });
-  cookieStore.set("sb-refresh-token", data.session.refresh_token, {
+  cookieStore.set(REFRESH_COOKIE, session.refreshToken, {
     httpOnly: true,
     secure: isProduction,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: REFRESH_TTL_SEC,
   });
 
-  return Response.json({ user: { id: data.user.id, email: data.user.email } });
+  return Response.json({ user: { id: auth.localId, email: auth.email } });
 }
