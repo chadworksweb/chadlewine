@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useConsent } from "@/components/ConsentProvider";
 import {
   NOTIFICATION_CATEGORIES,
@@ -291,6 +291,85 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
     router.push("/");
   };
 
+  // The left nav is built from whatever actually rendered. Three panels are
+  // conditional, so deriving the list here is what keeps the nav from ever
+  // offering a link to a panel that isn't on the page.
+  const showFanTracks = !!fanTracks && fanTracks.length > 0;
+  const showCoupons = initial.coupons.length > 0;
+  const showPatronage = !!initial.patronage;
+
+  const panels = useMemo(
+    () => [
+      { id: "orders", label: "Order history" },
+      { id: "billing", label: "Payments & billing" },
+      { id: "name", label: "Your name" },
+      { id: "email", label: "Email address" },
+      { id: "address", label: "Shipping Address" },
+      ...(showFanTracks ? [{ id: "fan-tracks", label: "For my fans" }] : []),
+      ...(showCoupons ? [{ id: "coupons", label: "Your coupons" }] : []),
+      ...(showPatronage ? [{ id: "patronage", label: "Your patronage" }] : []),
+      { id: "preferences", label: "Email preferences" },
+      { id: "privacy", label: "Privacy and cookies" },
+    ],
+    [showFanTracks, showCoupons, showPatronage],
+  );
+
+  // Start on the first panel so the server and the first client render agree;
+  // the scroll listener below corrects it after mount.
+  const [activePanel, setActivePanel] = useState("orders");
+  // Narrow screens collapse the nav behind a tap target; desktop ignores this.
+  // "closing" keeps the menu mounted long enough to animate out before it goes.
+  const [menuState, setMenuState] = useState<"closed" | "open" | "closing">(
+    "closed",
+  );
+  const menuMounted = menuState !== "closed";
+  const closeMenu = () =>
+    setMenuState((s) => (s === "open" ? "closing" : s));
+
+  useEffect(() => {
+    if (menuState !== "closing") return;
+    // Matches MENU_EXIT_MS in global.css.
+    const t = setTimeout(() => setMenuState("closed"), 160);
+    return () => clearTimeout(t);
+  }, [menuState]);
+
+  useEffect(() => {
+    const ids = panels.map((p) => p.id);
+    let frame = 0;
+
+    const pick = () => {
+      frame = 0;
+      // A panel claims the nav once its top edge passes the upper third of
+      // the viewport, which reads as "the one you are looking at".
+      const line = window.innerHeight * 0.3;
+      let current = ids[0];
+      for (const id of ids) {
+        const el = document.getElementById("panel-" + id);
+        if (el && el.getBoundingClientRect().top <= line) current = id;
+      }
+      // A short last panel can never cross that line, so at the bottom of the
+      // page it takes the highlight outright.
+      const atBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2;
+      if (atBottom) current = ids[ids.length - 1];
+      setActivePanel(current);
+    };
+
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(pick);
+    };
+
+    pick();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [panels]);
+
   return (
     <div className="page-static account-dashboard">
       <header className="account-dashboard__header">
@@ -303,384 +382,61 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
         </button>
       </header>
 
-      <div className="account-dashboard__grid">
-        <div className="account-dashboard__column">
-        <section className="account-dashboard__card">
-          <h2 className="account-dashboard__card-title">Your name</h2>
-          <p className="account-dashboard__hint">
-            Used on receipts and personal notes from Chad.
-          </p>
-          <div className="account-dashboard__row">
-            <div style={{ flex: 1 }}>
-              <label className="account-dashboard__label">First name</label>
-              <input
-                type="text"
-                className="account-dashboard__input"
-                value={draft.first_name}
-                onChange={(e) => setDraft({ ...draft, first_name: e.target.value })}
-                autoComplete="given-name"
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="account-dashboard__label">Last name</label>
-              <input
-                type="text"
-                className="account-dashboard__input"
-                value={draft.last_name}
-                onChange={(e) => setDraft({ ...draft, last_name: e.target.value })}
-                autoComplete="family-name"
-              />
-            </div>
-          </div>
-          <button
-            type="button"
-            className="account-dashboard__btn"
-            onClick={saveName}
-            disabled={savingName}
-          >
-            {savingName ? "Saving..." : "Save name"}
-          </button>
-          {nameMsg && <p className="account-dashboard__msg">{nameMsg}</p>}
-        </section>
-
-        <section className="account-dashboard__card">
-          <h2 className="account-dashboard__card-title">Email address</h2>
-          <p className="account-dashboard__hint">
-            Current: <strong>{a.email}</strong>. Changing it will send a confirmation link to the new address; the change only takes effect after you click that link.
-          </p>
-          <label className="account-dashboard__label">New email</label>
-          <input
-            type="email"
-            className="account-dashboard__input"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            placeholder="new@example.com"
-            autoComplete="email"
-            inputMode="email"
+      <div className="account-dashboard__layout">
+        {/* Fixed, so it stays out of the grid's flow rather than claiming a
+            cell. Sits under the nav's z-index, over everything else. */}
+        {menuMounted && (
+          <div
+            className={
+              "account-dashboard__toc-scrim" +
+              (menuState === "closing" ? " is-closing" : "")
+            }
+            onClick={closeMenu}
+            aria-hidden="true"
           />
+        )}
+
+        <nav className="account-dashboard__toc" aria-label="Account sections">
           <button
             type="button"
-            className="account-dashboard__btn"
-            onClick={requestEmailChange}
-            disabled={emailBusy || !newEmail.trim()}
-          >
-            {emailBusy ? "Sending..." : "Send confirmation"}
-          </button>
-          {emailMsg && (
-            <p
-              className="account-dashboard__msg"
-              style={emailMsg.kind === "err" ? { color: "#f87171" } : undefined}
-            >
-              {emailMsg.text}
-            </p>
-          )}
-        </section>
-
-        <section className="account-dashboard__card">
-          <h2 className="account-dashboard__card-title">Shipping/Mailing address</h2>
-          <p className="account-dashboard__hint">
-            Used at checkout as your default shipping address, and for any
-            physical mailers or giveaways.
-          </p>
-          <label className="account-dashboard__label">Line 1</label>
-          <input
-            type="text"
-            className="account-dashboard__input"
-            value={draft.line1}
-            onChange={(e) => setDraft({ ...draft, line1: e.target.value })}
-          />
-          <label className="account-dashboard__label">Line 2</label>
-          <input
-            type="text"
-            className="account-dashboard__input"
-            value={draft.line2}
-            onChange={(e) => setDraft({ ...draft, line2: e.target.value })}
-          />
-          <div className="account-dashboard__row">
-            <div style={{ flex: 2 }}>
-              <label className="account-dashboard__label">City</label>
-              <input
-                type="text"
-                className="account-dashboard__input"
-                value={draft.city}
-                onChange={(e) => setDraft({ ...draft, city: e.target.value })}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="account-dashboard__label">State</label>
-              <input
-                type="text"
-                className="account-dashboard__input"
-                value={draft.state}
-                onChange={(e) => setDraft({ ...draft, state: e.target.value })}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="account-dashboard__label">Postal</label>
-              <input
-                type="text"
-                className="account-dashboard__input"
-                value={draft.postal_code}
-                onChange={(e) => setDraft({ ...draft, postal_code: e.target.value })}
-              />
-            </div>
-          </div>
-          <label className="account-dashboard__label">Country</label>
-          <input
-            type="text"
-            className="account-dashboard__input"
-            value={draft.country}
-            onChange={(e) => setDraft({ ...draft, country: e.target.value })}
-          />
-          <button
-            type="button"
-            className="account-dashboard__btn"
-            onClick={saveAddress}
-            disabled={savingAddress}
-          >
-            {savingAddress ? "Saving..." : "Save address"}
-          </button>
-          {addressMsg && <p className="account-dashboard__msg">{addressMsg}</p>}
-        </section>
-
-        <section className="account-dashboard__card">
-          <h2 className="account-dashboard__card-title">Email preferences</h2>
-          <p className="account-dashboard__hint">
-            Status:{" "}
-            <strong>
-              {a.subscriber_status === "active"
-                ? "Subscribed"
-                : a.subscriber_status === "unsubscribed"
-                  ? "Unsubscribed"
-                  : "Not subscribed yet"}
-            </strong>
-          </p>
-          <button
-            type="button"
-            className="account-dashboard__btn"
-            onClick={togglePref}
-            disabled={prefBusy}
-          >
-            {prefBusy
-              ? "..."
-              : a.subscriber_status === "active"
-                ? "Unsubscribe from everything"
-                : "Subscribe to updates"}
-          </button>
-
-          <p className="account-dashboard__hint">
-            {a.subscriber_status === "active"
-              ? "Pick what you hear about. Order, account, and legal emails always come through."
-              : "Subscribe to choose which emails you get. Order and account emails always come through regardless."}
-          </p>
-
-          <ul className="account-dashboard__prefs">
-            {NOTIFICATION_CATEGORIES.map((cat) => {
-              const isGeneral = cat.required;
-              const checked = isGeneral ? true : !!prefs[cat.key];
-              const disabled =
-                isGeneral ||
-                a.subscriber_status !== "active" ||
-                catBusyKey === cat.key;
-              return (
-                <li key={cat.key} className="account-dashboard__pref">
-                  <span className="account-dashboard__pref-info">
-                    <span className="account-dashboard__pref-label">
-                      {cat.label}
-                      {isGeneral && (
-                        <span className="account-dashboard__pref-badge">Always on</span>
-                      )}
-                    </span>
-                    <span className="account-dashboard__pref-desc">{cat.description}</span>
-                  </span>
-                  <label className="account-dashboard__toggle">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={disabled}
-                      onChange={(e) => toggleCategory(cat.key, e.target.checked)}
-                    />
-                    <span className="account-dashboard__toggle-slider" />
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-
-        <section className="account-dashboard__card">
-          <h2 className="account-dashboard__card-title">Privacy and cookies</h2>
-          <p className="account-dashboard__hint">
-            Analytics (PostHog, Google Analytics, and first-party metrics,
-            including masked session replay):{" "}
-            <strong>{consent.analytics ? "On" : "Off"}</strong>
-          </p>
-          <button
-            type="button"
-            className="account-dashboard__btn"
+            className="account-dashboard__toc-toggle"
             onClick={() =>
-              updateConsent({
-                essential: 1,
-                functional: consent.analytics ? 0 : 1,
-                analytics: consent.analytics ? 0 : 1,
-                marketing: 0,
-              })
+              setMenuState((s) => (s === "open" ? "closing" : "open"))
+            }
+            aria-expanded={menuState === "open"}
+            aria-controls="account-toc-list"
+          >
+            {panels.find((p) => p.id === activePanel)?.label ?? panels[0].label}
+            <span className="account-dashboard__toc-caret" aria-hidden="true" />
+          </button>
+          <ul
+            id="account-toc-list"
+            className={
+              "account-dashboard__toc-list" +
+              (menuMounted ? " is-open" : "") +
+              (menuState === "closing" ? " is-closing" : "")
             }
           >
-            {consent.analytics ? "Turn analytics off" : "Turn analytics on"}
-          </button>
-          <button
-            type="button"
-            className="account-dashboard__btn"
-            onClick={openManager}
-          >
-            Manage cookie preferences
-          </button>
-          <p className="account-dashboard__hint">
-            Saved to your account and applied on every device you sign in on.
-            Toggling reloads the page so trackers start or stop cleanly.
-          </p>
-        </section>
-        </div>
+            {panels.map((p) => (
+              <li key={p.id}>
+                <a
+                  href={"#panel-" + p.id}
+                  onClick={closeMenu}
+                  className={
+                    "account-dashboard__toc-link" +
+                    (activePanel === p.id ? " is-active" : "")
+                  }
+                  aria-current={activePanel === p.id ? "true" : undefined}
+                >
+                  {p.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
-        <div className="account-dashboard__column">
-        {fanTracks && fanTracks.length > 0 && (
-          <section className="account-dashboard__card account-dashboard__card--fan-tracks">
-            <h2 className="account-dashboard__card-title">For my fans</h2>
-            <p className="account-dashboard__hint">
-              Unreleased tracks &mdash; yours because you bought something
-              real. Earned, not shared.
-            </p>
-            <ul className="account-dashboard__fan-tracks">
-              {fanTracks.map((ft) => {
-                const monogram = (ft.title.trim()[0] || "C").toUpperCase();
-                return (
-                  <li key={ft.grant_id} className="account-dashboard__fan-track">
-                    <div className="account-dashboard__fan-track-art" aria-hidden="true">
-                      {ft.cover_art_path ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={ft.cover_art_path} alt="" />
-                      ) : (
-                        <span>{monogram}</span>
-                      )}
-                    </div>
-                    <div className="account-dashboard__fan-track-body">
-                      <div className="account-dashboard__fan-track-title">{ft.title}</div>
-                      <div className="account-dashboard__fan-track-artist">{ft.artist_credit}</div>
-                    </div>
-                    <Link
-                      href={ft.url}
-                      className="account-dashboard__fan-track-btn"
-                    >
-                      Listen
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
-
-        {initial.coupons.length > 0 && (
-          <section className="account-dashboard__card">
-            <h2 className="account-dashboard__card-title">Your coupons</h2>
-            <ul className="account-dashboard__coupons">
-              {initial.coupons.map((c) => {
-                const isUsed = !!c.redeemed_at;
-                // eslint-disable-next-line react-hooks/purity -- "expired now" is a UI-time read; one snapshot per render is correct
-                const isExpired = !isUsed && new Date(c.expires_at).getTime() < Date.now();
-                const state = isUsed ? "used" : isExpired ? "expired" : "active";
-                const isCopyable = !isUsed && !isExpired;
-                const wasCopied = copiedCode === c.code;
-                return (
-                  <li key={c.code} className={`account-dashboard__coupon account-dashboard__coupon--${state}`}>
-                    {isCopyable ? (
-                      <button
-                        type="button"
-                        className="account-dashboard__coupon-code account-dashboard__coupon-code--copyable"
-                        onClick={() => copyCode(c.code)}
-                        aria-label={`Copy coupon code ${c.code}`}
-                      >
-                        <span>{c.code}</span>
-                        <span className="account-dashboard__coupon-copy" aria-hidden="true">
-                          {wasCopied ? "Copied" : "Copy"}
-                        </span>
-                      </button>
-                    ) : (
-                      <div className="account-dashboard__coupon-code">{c.code}</div>
-                    )}
-                    <div className="account-dashboard__coupon-meta">
-                      <span className="account-dashboard__coupon-pct">{c.percent_off}% off</span>
-                      <span className="account-dashboard__coupon-status">
-                        {isUsed
-                          ? `Used ${fmtDate(c.redeemed_at!)}`
-                          : isExpired
-                            ? `Expired ${fmtDate(c.expires_at)}`
-                            : `Expires ${fmtDate(c.expires_at)}`}
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="account-dashboard__hint">
-              Toggle on at checkout from your cart. Applies to all music
-              in your cart, or one merch item &mdash; whichever saves more.
-            </p>
-          </section>
-        )}
-
-        {initial.patronage && (
-          <section className="account-dashboard__card">
-            <h2 className="account-dashboard__card-title">Your patronage</h2>
-            <p className="account-dashboard__hint">
-              Monthly patron &mdash; {fmtMoney(initial.patronage.amount)}/
-              {initial.patronage.interval}
-            </p>
-            {initial.patronage.currentPeriodEnd && (
-              <p className="account-dashboard__hint">
-                {initial.patronage.cancelAtPeriodEnd
-                  ? `Ends ${fmtDate(initial.patronage.currentPeriodEnd)} - won't renew`
-                  : `Renews ${fmtDate(initial.patronage.currentPeriodEnd)}`}
-              </p>
-            )}
-            <button
-              type="button"
-              className="account-dashboard__btn"
-              onClick={openBillingPortal}
-              disabled={portalBusy}
-            >
-              {portalBusy ? "Opening..." : "Manage or cancel patronage"}
-            </button>
-          </section>
-        )}
-
-        <section className="account-dashboard__card">
-          <h2 className="account-dashboard__card-title">Payments &amp; billing</h2>
-          {initial.hasStripeCustomer ? (
-            <>
-              <p className="account-dashboard__hint">
-                Manage saved payment methods, billing address, and view
-                invoices on Stripe&rsquo;s secure portal.
-              </p>
-              <button
-                type="button"
-                className="account-dashboard__btn"
-                onClick={openBillingPortal}
-                disabled={portalBusy}
-              >
-                {portalBusy ? "Opening..." : "Manage payment & billing"}
-              </button>
-            </>
-          ) : (
-            <p className="account-dashboard__hint">
-              Once you make your first purchase, payment methods and billing
-              details will show up here.
-            </p>
-          )}
-        </section>
-
-        <section className="account-dashboard__card">
+        <div className="account-dashboard__panels">
+        <section id="panel-orders" className="account-dashboard__card">
           <h2 className="account-dashboard__card-title">Order history</h2>
           {initial.orders.length === 0 ? (
             <p className="account-dashboard__hint">No orders yet.</p>
@@ -754,6 +510,411 @@ export function AccountDashboard({ initial }: { initial: AccountData }) {
           <p className="account-dashboard__hint">
             Lost a download? You can also{" "}
             <Link href="/music/recover">recover by email</Link>.
+          </p>
+        </section>
+
+        <section id="panel-billing" className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Payments &amp; billing</h2>
+          {initial.hasStripeCustomer ? (
+            <>
+              <p className="account-dashboard__hint">
+                Manage saved payment methods, billing address, and view
+                invoices on Stripe&rsquo;s secure portal.
+              </p>
+              <button
+                type="button"
+                className="account-dashboard__btn"
+                onClick={openBillingPortal}
+                disabled={portalBusy}
+              >
+                {portalBusy ? "Opening..." : "Manage payment & billing"}
+              </button>
+            </>
+          ) : (
+            <p className="account-dashboard__hint">
+              Once you make your first purchase, payment methods and billing
+              details will show up here.
+            </p>
+          )}
+        </section>
+
+        <section id="panel-name" className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Your name</h2>
+          <p className="account-dashboard__hint">
+            Used on receipts and personal notes from Chad.
+          </p>
+          <div className="account-dashboard__row">
+            <div style={{ flex: 1 }}>
+              <label className="account-dashboard__label">First name</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.first_name}
+                onChange={(e) => setDraft({ ...draft, first_name: e.target.value })}
+                autoComplete="given-name"
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="account-dashboard__label">Last name</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.last_name}
+                onChange={(e) => setDraft({ ...draft, last_name: e.target.value })}
+                autoComplete="family-name"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={saveName}
+            disabled={savingName}
+          >
+            {savingName ? "Saving..." : "Save name"}
+          </button>
+          {nameMsg && <p className="account-dashboard__msg">{nameMsg}</p>}
+        </section>
+
+        <section id="panel-email" className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Email address</h2>
+          <p className="account-dashboard__hint">
+            Current: <strong>{a.email}</strong>. Changing it will send a confirmation link to the new address; the change only takes effect after you click that link.
+          </p>
+          <label className="account-dashboard__label">New email</label>
+          <input
+            type="email"
+            className="account-dashboard__input"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="new@example.com"
+            autoComplete="email"
+            inputMode="email"
+          />
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={requestEmailChange}
+            disabled={emailBusy || !newEmail.trim()}
+          >
+            {emailBusy ? "Sending..." : "Send confirmation"}
+          </button>
+          {emailMsg && (
+            <p
+              className="account-dashboard__msg"
+              style={emailMsg.kind === "err" ? { color: "#f87171" } : undefined}
+            >
+              {emailMsg.text}
+            </p>
+          )}
+        </section>
+
+        <section id="panel-address" className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Shipping/Mailing address</h2>
+          <p className="account-dashboard__hint">
+            Used at checkout as your default shipping address, and for any
+            physical mailers or giveaways.
+          </p>
+          <label className="account-dashboard__label">Line 1</label>
+          <input
+            type="text"
+            className="account-dashboard__input"
+            value={draft.line1}
+            onChange={(e) => setDraft({ ...draft, line1: e.target.value })}
+          />
+          <label className="account-dashboard__label">Line 2</label>
+          <input
+            type="text"
+            className="account-dashboard__input"
+            value={draft.line2}
+            onChange={(e) => setDraft({ ...draft, line2: e.target.value })}
+          />
+          <div className="account-dashboard__row">
+            <div style={{ flex: 2 }}>
+              <label className="account-dashboard__label">City</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.city}
+                onChange={(e) => setDraft({ ...draft, city: e.target.value })}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="account-dashboard__label">State</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.state}
+                onChange={(e) => setDraft({ ...draft, state: e.target.value })}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="account-dashboard__label">Postal</label>
+              <input
+                type="text"
+                className="account-dashboard__input"
+                value={draft.postal_code}
+                onChange={(e) => setDraft({ ...draft, postal_code: e.target.value })}
+              />
+            </div>
+          </div>
+          <label className="account-dashboard__label">Country</label>
+          <input
+            type="text"
+            className="account-dashboard__input"
+            value={draft.country}
+            onChange={(e) => setDraft({ ...draft, country: e.target.value })}
+          />
+          <button
+            type="button"
+            className="account-dashboard__btn"
+            onClick={saveAddress}
+            disabled={savingAddress}
+          >
+            {savingAddress ? "Saving..." : "Save address"}
+          </button>
+          {addressMsg && <p className="account-dashboard__msg">{addressMsg}</p>}
+        </section>
+
+        {fanTracks && fanTracks.length > 0 && (
+          <section id="panel-fan-tracks" className="account-dashboard__card account-dashboard__card--fan-tracks">
+            <h2 className="account-dashboard__card-title">For my fans</h2>
+            <p className="account-dashboard__hint">
+              Special songs for fans only.
+            </p>
+            <ul className="account-dashboard__fan-tracks">
+              {fanTracks.map((ft) => {
+                const monogram = (ft.title.trim()[0] || "C").toUpperCase();
+                return (
+                  <li key={ft.grant_id} className="account-dashboard__fan-track">
+                    <div className="account-dashboard__fan-track-art" aria-hidden="true">
+                      {ft.cover_art_path ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={ft.cover_art_path} alt="" />
+                      ) : (
+                        <span>{monogram}</span>
+                      )}
+                    </div>
+                    <div className="account-dashboard__fan-track-body">
+                      <div className="account-dashboard__fan-track-title">{ft.title}</div>
+                      <div className="account-dashboard__fan-track-artist">{ft.artist_credit}</div>
+                    </div>
+                    <Link
+                      href={ft.url}
+                      className="account-dashboard__fan-track-btn"
+                    >
+                      Listen
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        {initial.coupons.length > 0 && (
+          <section id="panel-coupons" className="account-dashboard__card">
+            <h2 className="account-dashboard__card-title">Your coupons</h2>
+            <ul className="account-dashboard__coupons">
+              {initial.coupons.map((c) => {
+                const isUsed = !!c.redeemed_at;
+                // eslint-disable-next-line react-hooks/purity -- "expired now" is a UI-time read; one snapshot per render is correct
+                const isExpired = !isUsed && new Date(c.expires_at).getTime() < Date.now();
+                const state = isUsed ? "used" : isExpired ? "expired" : "active";
+                const isCopyable = !isUsed && !isExpired;
+                const wasCopied = copiedCode === c.code;
+                return (
+                  <li key={c.code} className={`account-dashboard__coupon account-dashboard__coupon--${state}`}>
+                    {isCopyable ? (
+                      <button
+                        type="button"
+                        className="account-dashboard__coupon-code account-dashboard__coupon-code--copyable"
+                        onClick={() => copyCode(c.code)}
+                        aria-label={`Copy coupon code ${c.code}`}
+                      >
+                        <span>{c.code}</span>
+                        <span className="account-dashboard__coupon-copy" aria-hidden="true">
+                          {wasCopied ? "Copied" : "Copy"}
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="account-dashboard__coupon-code">{c.code}</div>
+                    )}
+                    <div className="account-dashboard__coupon-meta">
+                      <span className="account-dashboard__coupon-pct">{c.percent_off}% off</span>
+                      <span className="account-dashboard__coupon-status">
+                        {isUsed
+                          ? `Used ${fmtDate(c.redeemed_at!)}`
+                          : isExpired
+                            ? `Expired ${fmtDate(c.expires_at)}`
+                            : `Expires ${fmtDate(c.expires_at)}`}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="account-dashboard__hint">
+              Toggle on at checkout from your cart. Applies to all music
+              in your cart, or one merch item &mdash; whichever saves more.
+            </p>
+          </section>
+        )}
+
+        {initial.patronage && (
+          <section id="panel-patronage" className="account-dashboard__card">
+            <h2 className="account-dashboard__card-title">Your patronage</h2>
+            <p className="account-dashboard__hint">
+              Monthly patron &mdash; {fmtMoney(initial.patronage.amount)}/
+              {initial.patronage.interval}
+            </p>
+            {initial.patronage.currentPeriodEnd && (
+              <p className="account-dashboard__hint">
+                {initial.patronage.cancelAtPeriodEnd
+                  ? `Ends ${fmtDate(initial.patronage.currentPeriodEnd)} - won't renew`
+                  : `Renews ${fmtDate(initial.patronage.currentPeriodEnd)}`}
+              </p>
+            )}
+            <button
+              type="button"
+              className="account-dashboard__btn"
+              onClick={openBillingPortal}
+              disabled={portalBusy}
+            >
+              {portalBusy ? "Opening..." : "Manage or cancel patronage"}
+            </button>
+          </section>
+        )}
+
+        <section id="panel-preferences" className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Email preferences</h2>
+          <div className="account-dashboard__status-bar">
+            <p className="account-dashboard__status">
+              <span className="account-dashboard__status-label">Status</span>
+              <strong
+                className={
+                  "account-dashboard__status-value" +
+                  (a.subscriber_status === "active"
+                    ? " account-dashboard__status-value--on"
+                    : a.subscriber_status === "unsubscribed"
+                      ? " account-dashboard__status-value--off"
+                      : "")
+                }
+              >
+                {a.subscriber_status === "active"
+                  ? "Subscribed"
+                  : a.subscriber_status === "unsubscribed"
+                    ? "Unsubscribed"
+                    : "Not subscribed yet"}
+              </strong>
+            </p>
+            <button
+              type="button"
+              className="account-dashboard__btn"
+              onClick={togglePref}
+              disabled={prefBusy}
+            >
+              {prefBusy
+                ? "..."
+                : a.subscriber_status === "active"
+                  ? "Unsubscribe from everything"
+                  : "Subscribe to updates"}
+            </button>
+          </div>
+
+          <p className="account-dashboard__hint">
+            {a.subscriber_status === "active"
+              ? "Pick what you hear about. Order, account, and legal emails always come through."
+              : "Subscribe to choose which emails you get. Order and account emails always come through regardless."}
+          </p>
+
+          <ul className="account-dashboard__prefs">
+            {NOTIFICATION_CATEGORIES.map((cat) => {
+              const isGeneral = cat.required;
+              const checked = isGeneral ? true : !!prefs[cat.key];
+              const disabled =
+                isGeneral ||
+                a.subscriber_status !== "active" ||
+                catBusyKey === cat.key;
+              return (
+                <li key={cat.key} className="account-dashboard__pref">
+                  <span className="account-dashboard__pref-info">
+                    <span className="account-dashboard__pref-label">
+                      {cat.label}
+                      {isGeneral && (
+                        <span className="account-dashboard__pref-badge">Always on</span>
+                      )}
+                    </span>
+                    <span className="account-dashboard__pref-desc">{cat.description}</span>
+                  </span>
+                  <label className="account-dashboard__toggle">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={disabled}
+                      onChange={(e) => toggleCategory(cat.key, e.target.checked)}
+                    />
+                    <span className="account-dashboard__toggle-slider" />
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        <section id="panel-privacy" className="account-dashboard__card">
+          <h2 className="account-dashboard__card-title">Privacy and cookies</h2>
+          <div className="account-dashboard__status-row">
+            <div className="account-dashboard__status-bar">
+              <p className="account-dashboard__status">
+                <span className="account-dashboard__status-label">Analytics</span>
+                <strong
+                  className={
+                    "account-dashboard__status-value" +
+                    (consent.analytics
+                      ? " account-dashboard__status-value--on"
+                      : " account-dashboard__status-value--off")
+                  }
+                >
+                  {consent.analytics ? "On" : "Off"}
+                </strong>
+              </p>
+              <button
+                type="button"
+                className="account-dashboard__btn"
+                onClick={() =>
+                  updateConsent({
+                    essential: 1,
+                    functional: consent.analytics ? 0 : 1,
+                    analytics: consent.analytics ? 0 : 1,
+                    marketing: 0,
+                  })
+                }
+              >
+                {consent.analytics ? "Turn analytics off" : "Turn analytics on"}
+              </button>
+            </div>
+            <div className="account-dashboard__status-bar">
+              <p className="account-dashboard__status">
+                <span className="account-dashboard__status-label">Cookies</span>
+                <strong className="account-dashboard__status-value">
+                  {consent.marketing || consent.functional
+                    ? "Customized"
+                    : "Essential only"}
+                </strong>
+              </p>
+              <button
+                type="button"
+                className="account-dashboard__btn"
+                onClick={openManager}
+              >
+                Manage cookie preferences
+              </button>
+            </div>
+          </div>
+          <p className="account-dashboard__hint">
+            Saved to your account and applied on every device you sign in on.
+            Toggling reloads the page so trackers start or stop cleanly.
           </p>
         </section>
         </div>

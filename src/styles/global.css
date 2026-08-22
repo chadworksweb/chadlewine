@@ -131,6 +131,9 @@
   --state-danger:      #dc2626;
   --state-danger-soft: #f87171;
   --state-warn:        #ff9500;
+  /* Paired with --state-danger-soft: both are the lifted variants, readable
+     on the dark surfaces rather than the raw hue. */
+  --state-success-soft: #4ade80;
 
   /* --- Typography --- */
   --font-body: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
@@ -7182,8 +7185,17 @@ html {
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
-.account-dashboard__signout:hover { color: var(--text-primary); }
+.account-dashboard__signout:hover {
+  color: var(--text-primary);
+  border-color: var(--text-accent);
+  background: rgba(255, 255, 255, 0.05);
+}
+.account-dashboard__signout:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
 .account-dashboard__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -7198,6 +7210,197 @@ html {
 @media (max-width: 860px) {
   .account-dashboard__grid { grid-template-columns: 1fr; }
 }
+
+/* --- Account dashboard: 1/3 nav + 2/3 panels ---------------------------
+   A separate shell from __grid on purpose: __grid is the even two-column
+   layout the preferences page still uses, and repointing it would drag that
+   page along. */
+.account-dashboard__layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-lg);
+  align-items: start;
+}
+.account-dashboard__toc {
+  position: sticky;
+  top: var(--sticky-top);
+  /* Matches the panel surface so the nav reads as a peer of the cards. */
+  background: #181823;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: var(--space-sm);
+  /* A nav taller than the viewport would clip under position:sticky. */
+  max-height: calc(100vh - var(--sticky-top) - var(--space-lg));
+  overflow-y: auto;
+}
+.account-dashboard__toc-toggle {
+  display: none;
+}
+/* Both the scrim and its motion are mobile-only; desktop never opens a menu. */
+.account-dashboard__toc-scrim {
+  display: none;
+}
+@keyframes account-toc-menu-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes account-toc-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* MENU_EXIT_MS: 160ms, matched by the unmount timer in AccountDashboard. */
+@keyframes account-toc-menu-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes account-toc-scrim-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.account-dashboard__toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.account-dashboard__toc-link {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+}
+.account-dashboard__toc-link:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+.account-dashboard__toc-link.is-active {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-left-color: var(--text-accent);
+}
+.account-dashboard__panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  /* Without this a wide table inside a card can push the grid column open. */
+  min-width: 0;
+}
+/* Anchor jumps land below the fixed nav instead of under it. */
+.account-dashboard__panels .account-dashboard__card {
+  scroll-margin-top: var(--sticky-top);
+}
+@media (max-width: 860px) {
+  .account-dashboard__layout { grid-template-columns: 1fr; }
+  /* Ten links laid out flat ate the top of the screen. On narrow widths the
+     nav collapses to a single tap target that names where you are. */
+  .account-dashboard__toc {
+    position: sticky;
+    /* Rides under the site header: parked at nav height while the header is
+       showing, riding up to the top when it slides away. Sticky only applies
+       an offset once the bar would scroll past, so at rest this costs nothing.
+       Matched to the header's own transform transition so the two read as one
+       movement rather than a bar chasing a bar. */
+    top: calc(var(--nav-height) + var(--space-xs));
+    transition: top var(--duration-base) var(--ease-out);
+    z-index: 5;
+    max-height: none;
+    overflow: visible;
+    padding: var(--space-xs);
+    /* Against the page it needs an edge, and against the cards it needs to not
+       be another card: deeper fill than a panel, accent-lit border, and a fall
+       so content reads as passing beneath it. */
+    background: var(--bg-deep);
+    border-color: var(--text-accent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--text-accent) 60%, transparent),
+      0 0 24px -2px color-mix(in srgb, var(--text-accent) 65%, transparent),
+      0 12px 28px -10px rgba(0, 0, 0, 0.9);
+  }
+  body:has(.site-header--hidden) .account-dashboard__toc {
+    top: var(--space-xs);
+  }
+  .account-dashboard__toc-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    width: 100%;
+    padding: 10px 12px;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+  }
+  .account-dashboard__toc-caret {
+    flex-shrink: 0;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--text-secondary);
+    transition: transform 120ms ease;
+  }
+  .account-dashboard__toc-toggle[aria-expanded="true"]
+    .account-dashboard__toc-caret {
+    transform: rotate(180deg);
+  }
+  /* Closed by default; open drops over the panels rather than shoving them
+     down, so picking an item does not move the page under your thumb. */
+  .account-dashboard__toc-list { display: none; }
+  .account-dashboard__toc-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    background: rgba(7, 7, 13, 0.62);
+    animation: account-toc-scrim-in 160ms ease-out;
+  }
+  /* Three classes, so these beat the entry animation whatever the order. */
+  .account-dashboard__toc-scrim.is-closing {
+    animation: account-toc-scrim-out 160ms ease-in forwards;
+  }
+  .account-dashboard__toc-list.is-open.is-closing {
+    animation: account-toc-menu-out 160ms ease-in forwards;
+  }
+  .account-dashboard__toc-list.is-open {
+    display: flex;
+    animation: account-toc-menu-in 160ms ease-out;
+    position: absolute;
+    top: 100%;
+    left: var(--space-xs);
+    right: var(--space-xs);
+    z-index: 6;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: var(--space-xs);
+    background: #181823;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+  }
+  /* Anchor jumps have to clear the site nav and the collapsed bar both. */
+  .account-dashboard__panels .account-dashboard__card {
+    scroll-margin-top: calc(var(--nav-height) + 64px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .account-dashboard__toc { transition: none; }
+  .account-dashboard__toc-scrim,
+  .account-dashboard__toc-scrim.is-closing,
+  .account-dashboard__toc-list.is-open,
+  .account-dashboard__toc-list.is-open.is-closing { animation: none; }
+  .account-dashboard__toc-caret { transition: none; }
+}
 .account-dashboard__card {
   /* ~25% brighter than --bg-elevated (#13131c -> #181823) to lift panels
      off the page background without changing the global token. */
@@ -7208,7 +7411,8 @@ html {
 }
 .account-dashboard__card-title {
   font-family: var(--font-ui);
-  font-size: 1.275rem;
+  /* 1.275rem + 20% */
+  font-size: 1.53rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 var(--space-md) 0;
@@ -7261,8 +7465,81 @@ html {
   font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
+  transition: background 120ms ease;
+}
+/* A run of these (the privacy panel has two) had only the inline whitespace
+   between them to work with. */
+.account-dashboard__btn + .account-dashboard__btn {
+  margin-left: var(--space-sm);
+}
+.account-dashboard__btn:hover:not(:disabled) { background: #a3b1f7; }
+.account-dashboard__btn:active:not(:disabled) { background: #7c8ef0; }
+.account-dashboard__btn:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
 }
 .account-dashboard__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Two status boxes sharing a row, as on the privacy panel. */
+.account-dashboard__status-row {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+.account-dashboard__status-row .account-dashboard__status-bar {
+  margin-bottom: 0;
+  /* In a narrow column the label would otherwise push the button onto its own
+     line; here the label shrinks and the pair stays on one row. */
+  flex-wrap: nowrap;
+}
+.account-dashboard__status-row .account-dashboard__status {
+  flex: 1 1 auto;
+}
+@media (max-width: 720px) {
+  .account-dashboard__status-row { grid-template-columns: 1fr; }
+}
+/* Subscription state, lifted out of the run of hint text into its own inset
+   row so it reads at a glance, with its action sitting on the right. */
+.account-dashboard__status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+.account-dashboard__status {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  /* Let a long label (the analytics one runs to a full sentence) shrink and
+     wrap inside the row instead of shoving the button onto its own line. */
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.account-dashboard__status-value {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.account-dashboard__status-value--on { color: var(--state-success-soft); }
+.account-dashboard__status-value--off { color: var(--state-danger-soft); }
+/* The button already carries a top margin for the stacked layout it normally
+   sits in; inside the row it would knock the two halves out of alignment. */
+.account-dashboard__status-bar .account-dashboard__btn {
+  margin-top: 0;
+  flex-shrink: 0;
+  /* Holds the right edge even when the label is long enough to wrap the
+     button down to a line of its own. */
+  margin-left: auto;
+}
 .account-dashboard__hint {
   font-family: var(--font-ui);
   font-size: 0.875rem;
@@ -7483,8 +7760,13 @@ html {
   letter-spacing: 0.05em;
   text-decoration: none;
   border-radius: 4px;
+  transition: background 120ms ease;
 }
-.account-dashboard__download-btn:hover { opacity: 0.85; }
+.account-dashboard__download-btn:hover { background: #a3b1f7; }
+.account-dashboard__download-btn:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
 
 /* Qualifier under a download format chip. AAC is the pack that imports into
    iTunes cleanly and nothing about the file name says so. */
@@ -26810,6 +27092,11 @@ body.arc-radiant-fullscreen-active .cl-sticky-player {
 }
 .account-dashboard__fan-track-btn:hover {
   background: #a3b1f7;
+}
+.account-dashboard__fan-track-btn:active { background: #7c8ef0; }
+.account-dashboard__fan-track-btn:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
 }
 
 /* Account-dashboard coupons list */
